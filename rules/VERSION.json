@@ -1,0 +1,10 @@
+{
+  "project": "Sea Trader",
+  "documentationVersion": "0.1.0",
+  "architectureVersion": "0.1.0",
+  "gameVersion": "0.0.1",
+  "status": "architecture",
+  "lastUpdated": "2026-08-23",
+  "godotVersion": "4.x",
+  "saveFormatVersion": 1
+}
