@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "achievements": [
+    {
+      "id": "ach_first_delivery",
+      "display_name": "First Delivery",
+      "description": "Complete your first contract",
+      "trigger_event": "contract_completed",
+      "condition": { "total_deliveries": 1 },
+      "reward_xp": 50
+    }
+  ]
+}

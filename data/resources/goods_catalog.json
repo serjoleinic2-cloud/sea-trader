@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "resources": [
+    {
+      "id": "resource_timber",
+      "display_name": "Timber",
+      "category": "raw_material",
+      "base_price": 10,
+      "weight_per_unit": 2,
+      "regions": ["starting_region"]
+    },
+    {
+      "id": "resource_fish",
+      "display_name": "Fish",
+      "category": "raw_material",
+      "base_price": 8,
+      "weight_per_unit": 1,
+      "regions": ["starting_region"]
+    }
+  ]
+}

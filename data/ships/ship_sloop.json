@@ -1,0 +1,14 @@
+{
+  "id": "ship_sloop",
+  "version": 1,
+  "display_name": "Sloop",
+  "base_speed": 120.0,
+  "base_maneuverability": 0.85,
+  "cargo_capacity": 50,
+  "hull_max": 100,
+  "engine_max": 100,
+  "steering_max": 100,
+  "cargo_hold_max": 100,
+  "unlock_level": 1,
+  "cost": 500
+}

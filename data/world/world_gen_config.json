@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "world_size": [4096, 4096],
+  "island_density": 0.15,
+  "port_per_island_chance": 0.6,
+  "regions": [
+    {
+      "id": "starting_region",
+      "bounds": [0, 0, 1024, 1024],
+      "resources": ["resource_timber", "resource_fish"],
+      "hazard_density": 0.05
+    }
+  ],
+  "noise_scale": 0.003,
+  "sea_threshold": 0.45
+}

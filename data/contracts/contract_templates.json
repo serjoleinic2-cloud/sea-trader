@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "templates": [
+    {
+      "id": "contract_urgent_delivery",
+      "type": "urgent",
+      "base_reward_multiplier": 1.5,
+      "time_bonus_per_minute_early": 5.0,
+      "penalty_per_damage_point": 0.5,
+      "min_level": 1
+    }
+  ]
+}

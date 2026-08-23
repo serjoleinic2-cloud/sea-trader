@@ -1,0 +1,8 @@
+{
+  "id": "port_coastal_small",
+  "display_name": "Small Coastal Port",
+  "buildings": ["dock", "warehouse", "workshop"],
+  "available_resources": [],
+  "base_contract_count": 3,
+  "unlock_level": 1
+}

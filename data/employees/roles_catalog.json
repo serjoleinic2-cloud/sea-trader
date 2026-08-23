@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "roles": [
+    {
+      "id": "role_captain",
+      "display_name": "Captain",
+      "base_salary": 50,
+      "bonus_type": "fleet_route_efficiency",
+      "bonus_value": 0.1,
+      "unlock_level": 5
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "upgrades": [
+    {
+      "id": "upgrade_engine_mk2",
+      "display_name": "Engine Mk.II",
+      "target": "ship",
+      "component": "engine",
+      "stat": "speed",
+      "value": 20.0,
+      "cost": 800,
+      "unlock_level": 3,
+      "requires": []
+    }
+  ]
+}
