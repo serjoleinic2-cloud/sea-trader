@@ -1,7 +1,7 @@
 # DATA SCHEMA
 
 > Data models for runtime state and static game data. These are schemas, not implementations.
-> Last Updated: 2026-08-23 | Version: 0.1.0
+> Last Updated: 2026-08-24 | Version: 0.2.0
 
 ---
 
@@ -14,7 +14,7 @@ All runtime state lives in `GameState` autoload. Sub-states are inner classes or
 money: float              # current gold/currency
 xp: int                   # total XP earned
 level: int                # player level (derived from xp)
-reputation: float         # 0.0–100.0
+reputation: float         # 0.0--100.0
 discovered_port_ids: []   # list of port_id strings
 achievements: []          # list of achievement_id strings
 stats:
@@ -38,27 +38,57 @@ last_session_timestamp: int  # Unix timestamp
 ship_id: String           # references ShipData
 position: Vector2         # redundant with WorldState? TBD
 velocity: Vector2
-hull: float               # 0.0–100.0
-engine: float             # 0.0–100.0
-steering: float           # 0.0–100.0
-cargo_hold: float         # 0.0–100.0
+hull: float               # 0.0--100.0
+engine: float             # 0.0--100.0
+steering: float           # 0.0--100.0
+cargo_hold: float         # 0.0--100.0
 cargo: []                 # list of CargoItem { resource_id, quantity }
-fuel: float               # TBD if fuel exists
+fuel: float               # 0.0--100.0 (Fuel / Supplies)
+fuel_max: float           # capacity, upgradeable
 ```
 
 ### PortState
 ```
-# Dictionary: port_id → PortInstanceState
+# Dictionary: port_id -- PortInstanceState
 port_id:
   discovered: bool
   level: int
-  buildings: {}           # building_id → { level, damage_hp }
+  buildings: {}           # building_id -- { level, damage_hp }
   relationship: float     # TBD
+```
+
+### KnownRoutesState
+```
+# Dictionary: "from_port_id--to_port_id" -- KnownRoute
+route_key:
+  from_port_id: String
+  to_port_id: String
+  distance: float
+  risk_level: String      # "low" | "medium" | "high"
+  discovered_timestamp: int
+  times_traveled: int
+```
+
+### VoyageState
+```
+# Active when player is on a manual voyage
+active: bool
+route: []                 # list of port_ids in planned order
+current_leg: int          # index in route
+start_port_id: String
+destination_port_id: String
+elapsed_time_seconds: float
+total_distance: float
+cargo: []                 # snapshot of ShipState.cargo at voyage start
+fuel_at_start: float
+hull_at_start: float
+contract_id: String | null
+status: String            # "planning" | "sailing" | "intermediary_stop" | "completed" | "failed"
 ```
 
 ### EconomyState
 ```
-market: {}                # port_id → { resource_id → price }
+market: {}                # port_id -- { resource_id -- price }
 last_market_update: int   # timestamp
 active_contracts: []      # list of ContractInstance
 completed_contract_ids: []
@@ -115,7 +145,7 @@ condition: {}             # same as ShipState components
 ```
 player_level: int
 player_xp: int
-port_levels: {}           # port_id → level
+port_levels: {}           # port_id -- level
 company_level: int
 unlocked_ship_ids: []
 unlocked_upgrade_ids: []
@@ -125,7 +155,7 @@ unlocked_region_ids: []
 ### AchievementState
 ```
 unlocked: []              # list of achievement_id
-progress: {}              # achievement_id → current_value
+progress: {}              # achievement_id -- current_value
 ```
 
 ### SettingsState
@@ -152,6 +182,7 @@ Static data is read-only at runtime. Never modified by gameplay.
   "base_speed": 120.0,
   "base_maneuverability": 0.85,
   "cargo_capacity": 50,
+  "fuel_capacity": 100,
   "hull_max": 100,
   "engine_max": 100,
   "steering_max": 100,

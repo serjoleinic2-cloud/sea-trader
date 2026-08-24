@@ -1,13 +1,15 @@
 # TRUTH
 
-> Read this before any task. Short by design — keep it short.
-> Last Updated: 2026-08-23
+> Read this before any task. Short by design -- keep it short.
+> Last Updated: 2026-08-24
 
 ---
 
 ## What This Is
 
-**Sea Trader** — offline-first mobile game. Top-down 2D. Player manually controls a cargo ship on a procedurally generated sea, trades between ports, builds a company, expands a fleet.
+**Sea Trader** -- offline-first mobile game. Top-down 2D. Player manually controls a cargo ship on a procedurally generated sea, trades between ports, builds a company, expands a fleet.
+
+**Core loop:** Explore -- Discover -- Trade -- Expand. Manual voyage is primary. Known Routes enable automation and fleet.
 
 ---
 
@@ -19,6 +21,8 @@
 4. **Deterministic world.** Same seed = same world, always. Never random at runtime.
 5. **Data-driven.** Game balance lives in `data/*.json`. Not in code.
 6. **Single source of truth.** All runtime state in `GameState`. One place, always.
+7. **No punishment for closing the app.** Save preserves voyage state. Ship does not sink on exit.
+8. **Known Routes only for automation.** First passage is always manual. Fleet operates on known routes only.
 
 ---
 
@@ -45,8 +49,8 @@
 ## AI Rule
 
 Read `docs/AI_DEVELOPMENT_RULES.md` before writing code.
-If a request conflicts with this file — surface the conflict, do not silently resolve it.
+If a request conflicts with this file -- surface the conflict, do not silently resolve it.
 
 ---
 
-*Full design: `docs/GAME_BIBLE.md` · Architecture: `docs/ARCHITECTURE.md` · Rules: `docs/GAME_RULES.md`*
+*Full design: `docs/GAME_BIBLE.md` -- Architecture: `docs/ARCHITECTURE.md` -- Rules: `docs/GAME_RULES.md`*

@@ -23,15 +23,18 @@
 Игрок -- капитан грузового корабля на процедурно генерируемом море.
 Ручное управление кораблем (tilt телефона).
 Доставка грузов между портами, развитие торговой компании, расширение флота.
-Каждый рейс -- лично, руками. Нет автопилота.
+Каждый рейс -- лично, руками. Нет автопилота на новых маршрутах.
 
 Коротко:
 - Процедурный мир из seed (детерминированный).
-- Ручное управление кораблем.
+- Ручное управление кораблем -- основной gameplay.
+- Первое прохождение маршрута -- всегда вручную.
+- Известные маршруты -- можно автоматизировать (флот, будущие рейсы).
 - Торговля и контракты между портами.
+- Fuel / Supplies ограничивает дальность.
 - Повреждения корабля от скорости/стихий/пиратов.
 - Развитие компании: сотрудники, флот, офлайн-доход.
-- Прогрессия: XP, уровни, репутация, ачивки.
+- Прогрессия: XP, уровни, репутация, ачивки, открытие маршрутов.
 - Монетизация: косметика, отключение рекламы. Без pay-to-win.
 
 ---
@@ -91,66 +94,43 @@ GitHub (push)
 
 **Phase 02 -- World Generation**
 
-Phase 01 (Foundation) завершена и проверена в runtime:
-- Godot 4.x проект открывается без ошибок.
-- GameState, EventBus, SaveSystem -- autoloads работают.
-- Сохранение/загрузка, миграция, backup -- функциональны.
+Phase 01 (Foundation) завершена и проверена в runtime.
+Phase 02 реализована и визуально проверена (острова, порты, камера).
 
-Phase 02 реализована:
-- Детерминированная генерация мира из seed.
-- Острова, порты, зоны опасностей (inactive).
-- Placeholder визуализация (океан, острова, порты, зоны).
-- Камера с WASD + zoom для отладки.
-- 10 unit-тестов на генерацию.
-
-**Ожидает runtime-проверки:** seed persistence, визуальная проверка, камера.
+**Ожидает:** seed persistence check для финального sign-off.
 
 ---
 
 ## COMPLETED
 
 ### Phase 01 -- Foundation
-- Godot 4.x проект (`project.godot`)
-- `autoloads/game_state.gd` -- 12 state-классов, `reset_to_defaults()`
-- `autoloads/event_bus.gd` -- 24 сигнала
-- `autoloads/save_system.gd` -- save/load/backup/migration, Vector2 сериализация
-- Структура папок по `ARCHITECTURE.md`
-- Placeholder JSON в `data/`
-- GUT-совместимые unit-тесты
+- Godot 4.x проект, autoloads (GameState, EventBus, SaveSystem)
+- Структура папок, placeholder JSON, GUT-тесты
+- Runtime verified
 
 ### Phase 02 -- World Generation
-- `data/world/world_gen_config.json` -- параметры генерации
-- `systems/world/world_generator.gd` -- детерминированная генерация
-- `systems/world/world_renderer.gd` -- placeholder визуализация
-- `scenes/game/world.tscn` -- сцена мира
-- `scenes/game/main.tscn` -- обновлена с World + Camera2D
-- `scripts/main.gd` -- инициализация мира, seed, камера
-- `tests/unit/test_world_generation.gd` -- 10 тестов
+- Детерминированная генерация мира из seed
+- Острова, порты, зоны опасностей (inactive)
+- Placeholder визуализация, камера WASD + zoom
+- 10 unit-тестов
+- Runtime verified (визуально)
+
+### Documentation (2026-08-24)
+- Утверждены новые решения: Two Travel Modes, Route Discovery, Fuel/Supplies, Save During Voyage, Risk Levels, Intermediary Ports
+- Все rules-файлы синхронизированы
 
 ---
 
 ## CURRENT TASK
 
-Runtime-проверка Phase 02:
-1. Закрыть проект, открыть снова -- мир тот же (seed persistence).
-2. Output консоль Godot -- нет красных ошибок.
-3. WASD и +/- -- камера двигается, зум работает.
-4. Одинаковый seed -> одинаковый мир.
-
-После проверки -- обновить `PROJECT_STATE.md` и подписать Phase 02.
+Runtime-проверка Phase 02: seed persistence (закрыть/открыть проект -- мир тот же).
 
 ---
 
 ## NEXT TASK
 
 **Phase 03 -- Ship Physics**
-
-Системы:
-- `ShipPhysics` -- импульс, инерция, радиус поворота, визуальный наклон
-- `ShipControl` -- прием нормализованных команд (-1..1)
-- Клавиатурный ввод WASD для тестирования (tilt -- Phase 04)
-- Сцена корабля с tilt-анимацией
-- Обновление `ShipState.position/velocity`
+- ShipPhysics, ShipControl, клавиатурный ввод, сцена корабля
 
 ---
 
@@ -169,6 +149,11 @@ Runtime-проверка Phase 02:
 | GUT для тестов | Стандарт Godot, не кастомная система | Владельца |
 | No ship autopilot | Ручное управление -- core fantasy | Владельца |
 | No pay-to-win | Монетизация только косметика/удобство | Владельца |
+| **Manual Voyage = primary** | Личное управление -- основа игры | Владельца |
+| **Known Routes for automation** | Исследование первое, автоматизация -- награда | Владельца |
+| **Save during voyage** | Уважение к времени игрока | Владельца |
+| **No punishment for exit** | Корабль не тонет при закрытии приложения | Владельца |
+| **Fuel / Supplies limits range** | Ресурс дальности, пополняется в портах | Владельца |
 
 ---
 
@@ -176,19 +161,29 @@ Runtime-проверка Phase 02:
 
 **НЕ РЕШАТЬ САМОСТОЯТЕЛЬНО.** Ожидают решения владельца:
 
-- Fuel mechanic (ресурс vs абстрактная стоимость)
+- Exact Fuel / Supplies consumption formula
 - Exact damage formulas
-- Contract reward formula
+- Contract reward formula (time-bonus)
 - Maximum offline progress cap
 - Port fee specifics
 - Full resource/goods catalog
-- Pirate encounter mechanics (combat? только уклонение?)
+- Pirate encounter mechanics (frequency, behavior, combat or avoidance?)
+- Protection mechanic
 - Storm mechanics detail
-- Employee bonus values
+- Exact employee bonus values per role
+- Port level progression path
+- Company level milestones
+- Reputation system specifics
+- Achievement list
 - Starter Pack contents
-- Premium vs No Ads (один продукт или разные?)
-- Custom company logo mechanic
-- Maximum fleet size
+- Premium vs No Ads (same or separate?)
+- Custom Company Logo mechanic
+- Maximum fleet size cap
+- Exact automated route risk formula
+- Exact automated route duration formula
+- Exact speed bonus formula for urgent contracts
+- Fleet auto-route income formula
+- Multiplayer (out of scope)
 
 ---
 
@@ -203,8 +198,8 @@ Runtime-проверка Phase 02:
 - **Phase gate.** Не переходить к следующей Phase без проверки текущей.
 - **Update PROJECT_STATE.md.** После каждого значимого изменения.
 - **Read rules/.** Перед изменением -- прочитать relevant документы.
-- **No game logic in UI.** UI читает state, отправляет действия. Не считает цены/XP/урон.
-- **SaveSystem = единая точка I/O.** Не писать файлы напрямую из других систем.
+- **No game logic in UI.** UI читает state, отправляет действия.
+- **SaveSystem = единая точка I/O.** Не писать файлы напрямую.
 - **SensorInput only.** Android accelerometer только в `systems/input/sensor_input.gd`.
 
 ---
@@ -220,4 +215,4 @@ Runtime-проверка Phase 02:
 
 ---
 
-*Last Updated: 2026-08-24 | Phase 02 -- World Generation (pending runtime sign-off)*
+*Last Updated: 2026-08-24 | Phase 02 -- World Generation (pending seed persistence sign-off)*
