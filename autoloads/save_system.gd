@@ -19,7 +19,7 @@ func has_save() -> bool:
 
 
 func save_game() -> bool:
-	var dir := DirAccess.open("user://")
+	var dir: DirAccess = DirAccess.open("user://")
 	if dir == null:
 		push_error("SaveSystem: Cannot access user://")
 		return false
@@ -28,8 +28,8 @@ func save_game() -> bool:
 		dir.make_dir("saves")
 
 	# Build save data
-	var save_data := _serialize_game_state()
-	var meta := {
+	var save_data: Dictionary = _serialize_game_state()
+	var meta: Dictionary = {
 		"version": CURRENT_SAVE_VERSION,
 		"timestamp": Time.get_unix_time_from_system(),
 		"checksum": ""  # TODO: implement checksum when gameplay requires integrity
@@ -41,7 +41,7 @@ func save_game() -> bool:
 		_copy_file(SAVE_DIR + SAVE_META, SAVE_DIR + SAVE_META + ".bak")
 
 	# Write new save
-	var main_file := FileAccess.open(SAVE_DIR + SAVE_MAIN, FileAccess.WRITE)
+	var main_file: FileAccess = FileAccess.open(SAVE_DIR + SAVE_MAIN, FileAccess.WRITE)
 	if main_file == null:
 		push_error("SaveSystem: Cannot write save_main.json")
 		return false
@@ -49,7 +49,7 @@ func save_game() -> bool:
 	main_file.close()
 
 	# Write meta
-	var meta_file := FileAccess.open(SAVE_DIR + SAVE_META, FileAccess.WRITE)
+	var meta_file: FileAccess = FileAccess.open(SAVE_DIR + SAVE_META, FileAccess.WRITE)
 	if meta_file == null:
 		push_error("SaveSystem: Cannot write save_meta.json")
 		return false
@@ -69,7 +69,7 @@ func load_game() -> bool:
 		return false
 
 	# Try main save
-	var main_data := _read_json(SAVE_DIR + SAVE_MAIN)
+	var main_data: Dictionary = _read_json(SAVE_DIR + SAVE_MAIN)
 	if main_data.is_empty():
 		push_warning("SaveSystem: Main save corrupt. Trying backup.")
 		main_data = _read_json(SAVE_DIR + SAVE_BACKUP)
@@ -78,8 +78,8 @@ func load_game() -> bool:
 			return false
 
 	# Read meta
-	var meta := _read_json(SAVE_DIR + SAVE_META)
-	var save_version := meta.get("version", "0.0.0") as String
+	var meta: Dictionary = _read_json(SAVE_DIR + SAVE_META)
+	var save_version: String = meta.get("version", "0.0.0") as String
 
 	# Migrate if needed
 	if save_version != CURRENT_SAVE_VERSION:
@@ -92,8 +92,8 @@ func load_game() -> bool:
 
 	# Offline progress stub
 	var last_ts: int = int(GameState.world_state.get("last_session_timestamp", 0))
-	var now := int(Time.get_unix_time_from_system())
-	var delta := now - last_ts
+	var now: int = int(Time.get_unix_time_from_system())
+	var delta: int = now - last_ts
 	if delta > 0:
 		EventBus.offline_progress_applied.emit(delta)
 
@@ -102,7 +102,7 @@ func load_game() -> bool:
 
 
 func delete_save() -> void:
-	var dir := DirAccess.open(SAVE_DIR)
+	var dir: DirAccess = DirAccess.open(SAVE_DIR)
 	if dir:
 		dir.remove(SAVE_MAIN)
 		dir.remove(SAVE_BACKUP)
@@ -149,7 +149,7 @@ func _deserialize_game_state(data: Dictionary) -> void:
 
 # Vector2 helpers — JSON does not natively support Vector2
 func _serialize_vector_dict(dict: Dictionary) -> Dictionary:
-	var result := dict.duplicate(true)
+	var result: Dictionary = dict.duplicate(true)
 	for key in result.keys():
 		var value = result[key]
 		if value is Vector2:
@@ -162,7 +162,7 @@ func _serialize_vector_dict(dict: Dictionary) -> Dictionary:
 
 
 func _serialize_vector_array(arr: Array) -> Array:
-	var result := arr.duplicate(true)
+	var result: Array = arr.duplicate(true)
 	for i in range(result.size()):
 		var value = result[i]
 		if value is Vector2:
@@ -175,7 +175,7 @@ func _serialize_vector_array(arr: Array) -> Array:
 
 
 func _deserialize_vector_dict(dict: Dictionary) -> Dictionary:
-	var result := dict.duplicate(true)
+	var result: Dictionary = dict.duplicate(true)
 	for key in result.keys():
 		var value = result[key]
 		if value is Dictionary and value.get("__type") == "Vector2":
@@ -188,7 +188,7 @@ func _deserialize_vector_dict(dict: Dictionary) -> Dictionary:
 
 
 func _deserialize_vector_array(arr: Array) -> Array:
-	var result := arr.duplicate(true)
+	var result: Array = arr.duplicate(true)
 	for i in range(result.size()):
 		var value = result[i]
 		if value is Dictionary and value.get("__type") == "Vector2":
@@ -207,12 +207,12 @@ func _deserialize_vector_array(arr: Array) -> Array:
 func _read_json(path: String) -> Dictionary:
 	if not FileAccess.file_exists(path):
 		return {}
-	var file := FileAccess.open(path, FileAccess.READ)
+	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
 	if file == null:
 		return {}
-	var text := file.get_as_text()
+	var text: String = file.get_as_text()
 	file.close()
-	var parsed := JSON.parse_string(text)
+	var parsed: Variant = JSON.parse_string(text)
 	if parsed is Dictionary:
 		return parsed
 	return {}
@@ -221,10 +221,10 @@ func _read_json(path: String) -> Dictionary:
 func _copy_file(from: String, to: String) -> void:
 	if not FileAccess.file_exists(from):
 		return
-	var src := FileAccess.open(from, FileAccess.READ)
+	var src: FileAccess = FileAccess.open(from, FileAccess.READ)
 	if src == null:
 		return
-	var dst := FileAccess.open(to, FileAccess.WRITE)
+	var dst: FileAccess = FileAccess.open(to, FileAccess.WRITE)
 	if dst == null:
 		src.close()
 		return
@@ -241,7 +241,7 @@ func _migrate(data: Dictionary, from_version: String, to_version: String) -> Dic
 	# TODO: Implement per-version migrations as phases progress.
 	# For Phase 01, fallback to defaults if versions differ.
 	push_warning("SaveSystem: Migration from %s to %s not implemented. Fallback to defaults." % [from_version, to_version])
-	var old_settings := data.get("settings_state", {})
+	var old_settings: Dictionary = data.get("settings_state", {})
 	GameState.reset_to_defaults()
 	if not old_settings.is_empty():
 		GameState.settings_state = old_settings.duplicate(true)

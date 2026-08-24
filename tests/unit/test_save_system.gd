@@ -19,7 +19,7 @@ func test_save_and_load():
 	GameState.world_state.current_position = Vector2(100, 200)
 
 	# Save
-	var result := SaveSystem.save_game()
+	var result: bool = SaveSystem.save_game()
 	assert_true(result, "Save should succeed")
 
 	# Reset
@@ -28,7 +28,7 @@ func test_save_and_load():
 	assert_eq(GameState.world_state.current_position, Vector2.ZERO, "Position should be reset")
 
 	# Load
-	var load_result := SaveSystem.load_game()
+	var load_result: bool = SaveSystem.load_game()
 	assert_true(load_result, "Load should succeed")
 	assert_eq(GameState.player_state.money, 123.45, "Money should persist")
 	assert_eq(GameState.player_state.level, 5, "Level should persist")
@@ -36,20 +36,20 @@ func test_save_and_load():
 
 func test_migration_fallback():
 	# Simulate old version save
-	var old_data := {
+	var old_data: Dictionary = {
 		"version": "0.0.0",
 		"player_state": {"money": 50.0, "level": 2},
 		"settings_state": {"language": "ru"}
 	}
-	var file := FileAccess.open("user://saves/save_main.json", FileAccess.WRITE)
+	var file: FileAccess = FileAccess.open("user://saves/save_main.json", FileAccess.WRITE)
 	file.store_string(JSON.stringify(old_data))
 	file.close()
 
-	var meta := {"version": "0.0.0", "timestamp": 0}
-	var mfile := FileAccess.open("user://saves/save_meta.json", FileAccess.WRITE)
+	var meta: Dictionary = {"version": "0.0.0", "timestamp": 0}
+	var mfile: FileAccess = FileAccess.open("user://saves/save_meta.json", FileAccess.WRITE)
 	mfile.store_string(JSON.stringify(meta))
 	mfile.close()
 
-	var load_result := SaveSystem.load_game()
+	var load_result: bool = SaveSystem.load_game()
 	assert_true(load_result, "Load with migration fallback should succeed")
 	assert_eq(GameState.settings_state.language, "ru", "Settings should be preserved during fallback")
