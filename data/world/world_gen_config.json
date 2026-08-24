@@ -1,16 +1,112 @@
 {
   "version": 1,
-  "world_size": [4096, 4096],
-  "island_density": 0.15,
+  "world_size": [
+    4096,
+    4096
+  ],
+  "island_count_min": 8,
+  "island_count_max": 15,
+  "island_min_radius": 80,
+  "island_max_radius": 250,
+  "island_min_distance": 300,
   "port_per_island_chance": 0.6,
+  "port_min_distance": 200,
+  "starting_region": {
+    "id": "starting_region",
+    "bounds": [
+      0,
+      0,
+      1024,
+      1024
+    ],
+    "center": [
+      512,
+      512
+    ],
+    "resources": [
+      "resource_timber",
+      "resource_fish"
+    ],
+    "hazard_density": 0.05
+  },
   "regions": [
     {
       "id": "starting_region",
-      "bounds": [0, 0, 1024, 1024],
-      "resources": ["resource_timber", "resource_fish"],
+      "bounds": [
+        0,
+        0,
+        1024,
+        1024
+      ],
+      "center": [
+        512,
+        512
+      ],
+      "resources": [
+        "resource_timber",
+        "resource_fish"
+      ],
       "hazard_density": 0.05
+    },
+    {
+      "id": "eastern_archipelago",
+      "bounds": [
+        1024,
+        0,
+        2048,
+        1024
+      ],
+      "center": [
+        1536,
+        512
+      ],
+      "resources": [
+        "resource_timber",
+        "resource_iron"
+      ],
+      "hazard_density": 0.1
+    },
+    {
+      "id": "southern_storm_sea",
+      "bounds": [
+        0,
+        1024,
+        2048,
+        2048
+      ],
+      "center": [
+        1024,
+        1536
+      ],
+      "resources": [
+        "resource_fish",
+        "resource_fuel"
+      ],
+      "hazard_density": 0.2
     }
   ],
   "noise_scale": 0.003,
-  "sea_threshold": 0.45
+  "sea_threshold": 0.45,
+  "hazard_zone_count_min": 3,
+  "hazard_zone_count_max": 8,
+  "hazard_zone_min_radius": 150,
+  "hazard_zone_max_radius": 400,
+  "port_names_pool": [
+    "Port Laguna",
+    "Windward Harbor",
+    "Coral Bay",
+    "Saltmarsh",
+    "Driftwood Cove",
+    "Anchor Point",
+    "Tidebreak",
+    "Seabreeze",
+    "Brinestone",
+    "Mariner's Rest",
+    "Sable Shore",
+    "Pelican Wharf",
+    "Starboard",
+    "Northreach",
+    "Dawnbreak",
+    "Ironclad Port"
+  ]
 }

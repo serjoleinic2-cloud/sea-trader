@@ -1,0 +1,8 @@
+[gd_scene format=3 uid="uid://ddp8fqf0hcoba"]
+
+[ext_resource type="Script" path="res://systems/world/world_renderer.gd" id="1_wr123"]
+
+[node name="World" type="Node2D"]
+
+[node name="WorldRenderer" type="Node2D" parent="."]
+script = ExtResource("1_wr123")

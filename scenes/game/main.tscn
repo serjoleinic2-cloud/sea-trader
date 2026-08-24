@@ -1,8 +1,13 @@
-[gd_scene load_steps=2 format=3 uid="uid://c8yvxg3ulq3a"]
+[gd_scene load_steps=3 format=3 uid="uid://c8yvxg3ulq3a"]
 
 [ext_resource type="Script" path="res://scripts/main.gd" id="1_abc123"]
+[ext_resource type="PackedScene" uid="uid://world01abc123" path="res://scenes/game/world.tscn" id="2_world01"]
 
 [node name="Main" type="Node2D"]
 script = ExtResource("1_abc123")
 
 [node name="Camera2D" type="Camera2D" parent="."]
+position = Vector2(2048, 2048)
+zoom = Vector2(0.3, 0.3)
+
+[node name="World" parent="." instance=ExtResource("2_world01")]
