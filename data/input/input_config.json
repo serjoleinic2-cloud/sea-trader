@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "comment": "All tilt/sensor values are placeholder (TBD). Tune after playtesting on real device.",
+
+  "tilt": {
+    "pitch_sensitivity": 1.8,
+    "roll_sensitivity":  1.6,
+    "dead_zone": 0.08,
+    "pitch_clamp_raw": 0.7,
+    "roll_clamp_raw":  0.7,
+    "smoothing_factor": 0.25,
+    "invert_steering": false
+  },
+
+  "calibration": {
+    "auto_calibrate_on_start": true,
+    "samples": 8,
+    "sample_interval_sec": 0.05
+  },
+
+  "debug_keyboard": {
+    "ramp_speed": 4.0
+  }
+}

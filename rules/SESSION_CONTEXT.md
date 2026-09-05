@@ -18,175 +18,88 @@
 
 ---
 
-## CORE CONCEPT
-
-Игрок — капитан грузового корабля на процедурно генерируемом море.
-Ручное управление кораблем (tilt телефона).
-Доставка грузов между портами, развитие торговой компании, расширение флота.
-Каждый рейс — лично, руками. Нет автопилота на новых маршрутах.
-
----
-
-## CURRENT DEVELOPMENT METHOD
-
-```
-User (задание)
-    |
-    v
-AI assistant (Claude / Kimi / другой)
-    |
-    v
-ZIP-архив с проектом
-    |
-    v
-Local project (Godot 4.x Editor)
-    |
-    v
-Godot verification (runtime check)
-    |
-    v
-GitHub Desktop (коммит)
-    |
-    v
-GitHub (push)
-```
-
----
-
 ## CURRENT PHASE
 
-**Phase 03 — Ship Physics**
-
-Phase 01 (Foundation) завершена и проверена.
-Phase 02 (World Generation) реализована и проверена.
-Phase 03 реализована, ожидает runtime sign-off.
+**Phase 04 — Android Tilt Input (DONE, pending device sign-off)**
 
 ---
 
 ## COMPLETED
 
-### Phase 01 — Foundation
-- Godot 4.x проект, autoloads (GameState, EventBus, SaveSystem)
-- Структура папок, placeholder JSON, GUT-тесты
-- Runtime verified
-
-### Phase 02 — World Generation
-- Детерминированная генерация мира из seed
-- Острова, порты, зоны опасностей (inactive)
-- Placeholder визуализация
-- 10 unit-тестов
-- Runtime verified
-
-### Phase 03 — Ship Physics
-- `systems/ship/ship_physics.gd` — движение, инерция, поворот, визуальный крен, расход топлива
-- `systems/ship/ship_control.gd` — нормализованный интерфейс команд
-- `systems/input/sensor_input.gd` — абстракция акселерометра (stub, Phase 04 активирует)
-- `systems/input/input_adapter.gd` — keyboard debug fallback + tilt path готов
-- `scenes/game/ship/ship.gd` — сцена корабля, HUD, основа collision
-- `scenes/game/ship/ship.tscn` — Polygon2D, Camera2D (следит за кораблём), Area2D, DebugHUD
-- `scripts/main.gd` — обновлён: спавн Ship, Camera2D перенесена в Ship
-- `autoloads/game_state.gd` — добавлены `fuel_max`, `cargo_capacity` в ship_state
-- `data/ships/ship_sloop.json` — version bump to 2
-- `tests/unit/test_ship_physics.gd` — 11 тестов
+- Phase 01: Foundation (verified)
+- Phase 02: World Generation (verified)
+- Phase 03: Ship Physics, keyboard debug, test_base/test_runner без GUT (verified in editor)
+- Phase 04: Android Tilt Input — SensorInput полностью реализован:
+  - Платформо-детекция, акселерометр, dead zone, clamp, sensitivity, smoothing, calibration
+  - input_config.json — все параметры вынесены, помечены TBD
+  - Keyboard fallback сохранён (editor/desktop)
+  - test_sensor_input.gd — 11 тестов, editor-runnable
 
 ---
 
-## CURRENT TASK
+## ARCHITECTURE: INPUT CHAIN
 
-Runtime sign-off Phase 03:
-1. Открыть проект в Godot
-2. Запустить игру
-3. Убедиться, что море/мир Phase 02 сохранился
-4. Убедиться, что корабль появился (Polygon2D треугольник)
-5. Проверить WASD управление (W — газ, S — тормоз, A/D — повороты)
-6. Проверить плавность движения и инерцию
-7. Проверить визуальный крен при повороте
-8. Проверить Camera2D follow за кораблём
-9. Проверить debug HUD (SPEED / FUEL / HULL / CARGO)
-10. Проверить отсутствие parser/runtime errors
-
-**После runtime sign-off → Phase 04.**
-
----
-
-## IMPORTANT NOTE FOR NEXT SESSION
-
-`CollisionShape2D` в `scenes/game/ship/ship.tscn` требует назначения shape resource в Godot Editor:
-- Открыть `ship.tscn` в редакторе
-- Выбрать узел `Area2D/CollisionShape2D`
-- В Inspector → Shape → New CircleShape2D, Radius: 14
+```
+Phone accelerometer
+     ↓
+SensorInput (единственный файл с Android API)
+  - платформо-детекция
+  - dead zone, clamp, sensitivity, smoothing
+  - calibration (instant + averaged)
+     ↓ signal: tilt_updated(pitch, roll)
+InputAdapter
+  - forward to ShipControl (tilt)
+  - keyboard fallback (editor only)
+     ↓
+ShipControl → ShipPhysics → GameState.ship_state
+```
 
 ---
 
-## NEXT TASK
+## IMPORTANT: SensorInput ONLY
 
-**Phase 04 — Sensors**
-- Активировать `SensorInput` (реальный акселерометр Android)
-- Калибровка нейтрального положения (базовый UI)
-- Sensitivity configurable через `SettingsState`
-- Keyboard fallback сохраняется
+`SensorInput` — единственный файл с `Input.get_accelerometer()`.
+Ни один другой файл не должен обращаться к Android Sensor API.
 
 ---
 
-## IMPORTANT DECISIONS
+## NOT VERIFIED (требует физического Android устройства)
 
-| Решение | Почему | Не менять без |
-|---------|--------|---------------|
-| Godot 4.x / GDScript | Легкий, бесплатный, нативный Android sensor API | Владельца |
-| Offline-first | Без интернета, без backend | Владельца |
-| Tilt = primary input | Телефон как физический контроллер | Владельца |
-| Deterministic world | Одинаковый seed = одинаковый мир | Владельца |
-| Data-driven | Баланс в JSON, не в коде | Владельца |
-| GameState = single source of truth | Все runtime state в одном месте | Владельца |
-| EventBus для декомпозиции | Сигналы вместо хаотичных зависимостей | Владельца |
-| GUT для тестов | Стандарт Godot | Владельца |
-| No ship autopilot | Ручное управление — core fantasy | Владельца |
-| No pay-to-win | Монетизация только косметика/удобство | Владельца |
-| Camera2D inside Ship scene | Следует за кораблём автоматически | Владельца |
-| SensorInput stub Phase 03 | Абстракция готова, активация в Phase 04 | Владельца |
+- Акселерометр даёт правильные значения при наклоне
+- Dead zone устраняет дрейф при неподвижном телефоне
+- Calibration обнуляет нейтральное положение
+- Наклон вперёд → ускорение; назад → торможение; лево/право → поворот
 
 ---
 
-## TBD
+## TUNABLE / TBD PARAMETERS
 
-**НЕ РЕШАТЬ САМОСТОЯТЕЛЬНО.** Ожидают решения владельца:
+В `data/input/input_config.json`, все помечены как placeholder:
+- pitch_sensitivity: 1.8
+- roll_sensitivity: 1.6
+- dead_zone: 0.08
+- pitch_clamp_raw: 0.7
+- roll_clamp_raw: 0.7
+- smoothing_factor: 0.25
+- calibration.samples: 8
 
-- Exact Fuel / Supplies consumption formula (сейчас placeholder: 0.5/s at full speed)
-- Exact damage formulas
-- Contract reward formula
-- Maximum offline progress cap
-- Port fee specifics
-- Full resource/goods catalog
-- Pirate encounter mechanics
-- Protection mechanic
-- Storm mechanics
-- Employee bonus values
-- Port level progression
-- Company level milestones
-- Reputation system
-- Achievement list
-- Starter Pack contents
-- Premium vs No Ads
-- Custom Company Logo
-- Maximum fleet size cap
-- Automated route formulas
-- Fleet auto-route income formula
+---
+
+## KNOWN ISSUES
+
+- CollisionShape2D в ship.tscn: назначить CircleShape2D radius ~14 в Godot Editor
+- World bounds clamping: хардкод 4096×4096 (Phase 05 cleanup)
+- SaveSystem checksum: TODO
 
 ---
 
 ## DEVELOPMENT RULES
 
-- **Offline-first.** Никаких сетевых вызовов.
-- **Deterministic world.** Фиксированный seed.
-- **Data-driven.** Статические данные только в `data/*.json`.
-- **Не менять концепцию.** Не добавлять фичи вне текущей Phase.
-- **Не решать TBD.** Фиксировать в KNOWN ISSUES.
-- **Не переписывать архитектуру.** Расширять существующие системы.
-- **Phase gate.** Не переходить к следующей Phase без runtime sign-off.
-- **SensorInput only.** Android accelerometer только в `systems/input/sensor_input.gd`.
-- **No game logic in UI.** UI читает state, отправляет действия.
-- **SaveSystem = единая точка I/O.**
+- Offline-first. Детерминированный мир. Data-driven.
+- SensorInput only: Android API только в systems/input/sensor_input.gd
+- Не решать TBD. Не добавлять фичи вне текущей Phase.
+- Не переходить к Phase 05 без sign-off.
 
 ---
 
-*Last Updated: 2026-09-05 | Phase 03 — Ship Physics (pending runtime sign-off)*
+*Last Updated: 2026-09-05 | Phase 04 — Android Tilt Input*
