@@ -1,20 +1,33 @@
-; Engine Configuration File.
-; Godot version: 4.x
-; Sea Trader — Phase 01 Foundation
+; Engine configuration file.
+; It's best edited using the editor UI and not directly,
+; since the parameters that go here are not all obvious.
+;
+; Format:
+;   [section] ; section goes between []
+;   param=value ; assign values to parameters
+
+config_version=5
+
+[animation]
+
+compatibility/default_parent_skeleton_in_mesh_instance_3d=true
 
 [application]
+
 config/name="Sea Trader"
 config/description="Offline top-down maritime trading game"
 run/main_scene="res://scenes/game/main.tscn"
-config/features=PackedStringArray("4.2", "Mobile")
+config/features=PackedStringArray("4.7", "Mobile")
 boot_splash/bg_color=Color(0.141176, 0.141176, 0.141176, 1)
 
 [autoload]
+
 GameState="*res://autoloads/game_state.gd"
 EventBus="*res://autoloads/event_bus.gd"
 SaveSystem="*res://autoloads/save_system.gd"
 
 [display]
+
 window/size/viewport_width=1080
 window/size/viewport_height=1920
 window/stretch/mode="canvas_items"
@@ -22,11 +35,13 @@ window/stretch/aspect="expand"
 window/handheld/orientation=1
 
 [layer_names]
+
 2d_physics/layer_1="ship"
 2d_physics/layer_2="island"
 2d_physics/layer_3="port"
 2d_physics/layer_4="hazard"
 
 [rendering]
+
 renderer/rendering_method="mobile"
 textures/vram_compression/import_etc2_astc=true

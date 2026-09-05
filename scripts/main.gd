@@ -1,37 +1,39 @@
 extends Node2D
 
 ## Main game scene root.
-## Phase 01: Verifies autoloads are present.
-## Phase 02: Initializes world generation and rendering.
+## Phase 01: Verifies autoloads.
+## Phase 02: World generation and rendering.
+## Phase 03: Ship spawn, Camera2D follows ship (Camera lives inside Ship scene).
 
-@onready var _camera: Camera2D = $Camera2D
 @onready var _world: Node2D = $World
 @onready var _world_renderer: Node2D = $World/WorldRenderer
 
 var _world_generator: Node
+var _ship: Node2D
 
 func _ready() -> void:
-	print("Sea Trader -- Phase 02 World Generation")
+	print("Sea Trader — Phase 03 Ship Physics")
 	assert(GameState != null, "GameState autoload missing")
 	assert(EventBus != null, "EventBus autoload missing")
 	assert(SaveSystem != null, "SaveSystem autoload missing")
 	print("All autoloads verified.")
 
-	# Initialize world
 	_initialize_world()
+	_spawn_ship()
 
+
+# ============================================================================
+# World init (unchanged from Phase 02)
+# ============================================================================
 
 func _initialize_world() -> void:
-	# Load or create world seed
 	var world_seed: int = _get_or_create_seed()
 	GameState.world_state.seed = world_seed
 	print("World seed: %d" % world_seed)
 
-	# Generate world
 	_world_generator = preload("res://systems/world/world_generator.gd").new()
 	var world_data: Dictionary = _world_generator.generate(world_seed)
 
-	# Store in GameState
 	GameState.world_state.current_position = Vector2(
 		world_data.world_size.x / 2.0,
 		world_data.world_size.y / 2.0
@@ -39,15 +41,8 @@ func _initialize_world() -> void:
 	GameState.world_state.current_region = "starting_region"
 	GameState.port_state = world_data.ports.duplicate(true)
 
-	# Setup camera
-	_camera.position = GameState.world_state.current_position
-	_camera.zoom = Vector2(0.25, 0.25)
-
-	# Setup world renderer
 	if _world_renderer.has_method("setup"):
 		_world_renderer.setup(world_data)
-	if _world_renderer.has_method("set_camera"):
-		_world_renderer.set_camera(_camera)
 
 	print("World generated: %d islands, %d ports, %d hazard zones" % [
 		world_data.islands.size(),
@@ -57,14 +52,12 @@ func _initialize_world() -> void:
 
 
 func _get_or_create_seed() -> int:
-	# If save exists and has seed, use it
 	if SaveSystem.has_save():
 		var loaded: bool = SaveSystem.load_game()
 		if loaded and GameState.world_state.seed != 0:
 			print("Loaded existing seed: %d" % GameState.world_state.seed)
 			return GameState.world_state.seed
 
-	# Generate new seed
 	var new_seed: int = int(Time.get_unix_time_from_system()) + randi()
 	GameState.reset_to_defaults()
 	GameState.world_state.seed = new_seed
@@ -72,24 +65,46 @@ func _get_or_create_seed() -> int:
 	return new_seed
 
 
-func _input(event: InputEvent) -> void:
-	# Debug camera controls (keyboard only, for Phase 02 testing)
-	var move_speed: float = 50.0
-	var zoom_speed: float = 0.05
+# ============================================================================
+# Ship spawn (Phase 03)
+# ============================================================================
 
-	if event is InputEventKey:
-		if event.pressed:
-			match event.keycode:
-				KEY_W:
-					_camera.position.y -= move_speed
-				KEY_S:
-					_camera.position.y += move_speed
-				KEY_A:
-					_camera.position.x -= move_speed
-				KEY_D:
-					_camera.position.x += move_speed
-				KEY_EQUAL:
-					_camera.zoom += Vector2(zoom_speed, zoom_speed)
-				KEY_MINUS:
-					_camera.zoom -= Vector2(zoom_speed, zoom_speed)
-					_camera.zoom = _camera.zoom.clamp(Vector2(0.05, 0.05), Vector2(2.0, 2.0))
+func _spawn_ship() -> void:
+	var ship_scene: PackedScene = preload("res://scenes/game/ship/ship.tscn")
+	_ship = ship_scene.instantiate()
+	add_child(_ship)
+
+	# Camera2D is now inside Ship — no separate top-level camera needed.
+	# Remove or disable the old debug Camera2D if it exists.
+	var old_cam: Node = get_node_or_null("Camera2D")
+	if old_cam != null:
+		old_cam.enabled = false
+
+	print("Ship spawned at: %s" % str(GameState.ship_state.get("position", Vector2.ZERO)))
+
+
+# ============================================================================
+# Input — Phase 02 debug camera kept for reference but disabled when ship active
+# ============================================================================
+
+func _input(event: InputEvent) -> void:
+	# Phase 02 camera controls removed — Camera2D is now inside Ship.
+	# Zoom shortcut kept for debug convenience.
+	if event is InputEventKey and event.pressed:
+		match event.keycode:
+			KEY_EQUAL:
+				var cam: Camera2D = _get_ship_camera()
+				if cam:
+					cam.zoom += Vector2(0.05, 0.05)
+			KEY_MINUS:
+				var cam: Camera2D = _get_ship_camera()
+				if cam:
+					cam.zoom = (cam.zoom - Vector2(0.05, 0.05)).clamp(
+						Vector2(0.05, 0.05), Vector2(2.0, 2.0)
+					)
+
+
+func _get_ship_camera() -> Camera2D:
+	if _ship == null:
+		return null
+	return _ship.get_node_or_null("Camera2D")

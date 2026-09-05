@@ -34,7 +34,7 @@ var world_state: Dictionary = {
 }
 
 # ============================================================================
-# Ship State
+# Ship State — Phase 03: added fuel_max, cargo_capacity
 # ============================================================================
 var ship_state: Dictionary = {
 	"ship_id": "",
@@ -45,7 +45,9 @@ var ship_state: Dictionary = {
 	"steering": 100.0,
 	"cargo_hold": 100.0,
 	"cargo": [],
-	"fuel": 100.0
+	"fuel": 100.0,
+	"fuel_max": 100.0,
+	"cargo_capacity": 50
 }
 
 # ============================================================================
@@ -161,7 +163,9 @@ func reset_to_defaults() -> void:
 		"steering": 100.0,
 		"cargo_hold": 100.0,
 		"cargo": [],
-		"fuel": 100.0
+		"fuel": 100.0,
+		"fuel_max": 100.0,
+		"cargo_capacity": 50
 	}
 	port_state = {}
 	economy_state = {
