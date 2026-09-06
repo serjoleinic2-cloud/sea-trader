@@ -1,110 +1,71 @@
-extends Node2D
+extends Node
 
-## Main game scene root.
-## Phase 01: Verifies autoloads.
-## Phase 02: World generation and rendering.
-## Phase 03: Ship spawn, Camera2D follows ship (Camera lives inside Ship scene).
+# main.gd — обновлён для Phase 05
+# Добавлена инициализация WorldRenderer и PortSystem.
+# Логика New Game / Load Game остаётся как в предыдущей фазе.
+# НЕ трогает физику корабля, сенсоры, NavHUD, экономику.
 
-@onready var _world: Node2D = $World
-@onready var _world_renderer: Node2D = $World/WorldRenderer
+@onready var world_renderer: Node2D  = $WorldRenderer
+@onready var port_system: Node       = $PortSystem
+@onready var port_debug_hud: CanvasLayer = $PortDebugHUD
 
-var _world_generator: Node
-var _ship: Node2D
+# Ссылка на узел корабля — должен существовать в сцене из Phase 03
+@onready var ship_node: Node2D = $Ship
+
 
 func _ready() -> void:
-	print("Sea Trader — Phase 03 Ship Physics")
-	assert(GameState != null, "GameState autoload missing")
-	assert(EventBus != null, "EventBus autoload missing")
-	assert(SaveSystem != null, "SaveSystem autoload missing")
-	print("All autoloads verified.")
-
-	_initialize_world()
-	_spawn_ship()
+	_boot()
 
 
-# ============================================================================
-# World init (unchanged from Phase 02)
-# ============================================================================
-
-func _initialize_world() -> void:
-	var world_seed: int = _get_or_create_seed()
-	GameState.world_state.seed = world_seed
-	print("World seed: %d" % world_seed)
-
-	_world_generator = preload("res://systems/world/world_generator.gd").new()
-	var world_data: Dictionary = _world_generator.generate(world_seed)
-
-	GameState.world_state.current_position = Vector2(
-		world_data.world_size.x / 2.0,
-		world_data.world_size.y / 2.0
-	)
-	GameState.world_state.current_region = "starting_region"
-	GameState.port_state = world_data.ports.duplicate(true)
-
-	if _world_renderer.has_method("setup"):
-		_world_renderer.setup(world_data)
-
-	print("World generated: %d islands, %d ports, %d hazard zones" % [
-		world_data.islands.size(),
-		world_data.ports.size(),
-		world_data.hazard_zones.size()
-	])
-
-
-func _get_or_create_seed() -> int:
+func _boot() -> void:
 	if SaveSystem.has_save():
-		var loaded: bool = SaveSystem.load_game()
-		if loaded and GameState.world_state.seed != 0:
-			print("Loaded existing seed: %d" % GameState.world_state.seed)
-			return GameState.world_state.seed
+		_load_existing_game()
+	else:
+		_start_new_game()
 
-	var new_seed: int = int(Time.get_unix_time_from_system()) + randi()
-	GameState.reset_to_defaults()
-	GameState.world_state.seed = new_seed
-	print("Created new seed: %d" % new_seed)
-	return new_seed
+	_init_rendering()
+	_init_port_system()
 
 
-# ============================================================================
-# Ship spawn (Phase 03)
-# ============================================================================
+# ---------------------------------------------------------------------------
+# New Game / Load Game
+# ---------------------------------------------------------------------------
 
-func _spawn_ship() -> void:
-	var ship_scene: PackedScene = preload("res://scenes/game/ship/ship.tscn")
-	_ship = ship_scene.instantiate()
-	add_child(_ship)
-
-	# Camera2D is now inside Ship — no separate top-level camera needed.
-	# Remove or disable the old debug Camera2D if it exists.
-	var old_cam: Node = get_node_or_null("Camera2D")
-	if old_cam != null:
-		old_cam.enabled = false
-
-	print("Ship spawned at: %s" % str(GameState.ship_state.get("position", Vector2.ZERO)))
+func _start_new_game() -> void:
+	# Генерируем seed и мир только для новой игры
+	GameState.world_state.seed = randi()
+	WorldGenerator.generate(GameState.world_state.seed)
+	# port_state заполняется WorldGenerator'ом (Phase 02 logic)
+	SaveSystem.save_game()
 
 
-# ============================================================================
-# Input — Phase 02 debug camera kept for reference but disabled when ship active
-# ============================================================================
-
-func _input(event: InputEvent) -> void:
-	# Phase 02 camera controls removed — Camera2D is now inside Ship.
-	# Zoom shortcut kept for debug convenience.
-	if event is InputEventKey and event.pressed:
-		match event.keycode:
-			KEY_EQUAL:
-				var cam: Camera2D = _get_ship_camera()
-				if cam:
-					cam.zoom += Vector2(0.05, 0.05)
-			KEY_MINUS:
-				var cam: Camera2D = _get_ship_camera()
-				if cam:
-					cam.zoom = (cam.zoom - Vector2(0.05, 0.05)).clamp(
-						Vector2(0.05, 0.05), Vector2(2.0, 2.0)
-					)
+func _load_existing_game() -> void:
+	# Восстанавливаем существующее состояние — НЕ перегенерируем порты
+	SaveSystem.load_game()
+	# WorldGenerator нужен только чтобы воссоздать геометрию мира из seed,
+	# но НЕ перезаписывает port_state / player knowledge
+	WorldGenerator.generate_geometry_only(GameState.world_state.seed)
 
 
-func _get_ship_camera() -> Camera2D:
-	if _ship == null:
-		return null
-	return _ship.get_node_or_null("Camera2D")
+# ---------------------------------------------------------------------------
+# Инициализация систем Phase 05
+# ---------------------------------------------------------------------------
+
+func _init_rendering() -> void:
+	if world_renderer == null:
+		push_warning("main.gd: WorldRenderer node not found in scene. Add it as child.")
+		return
+	world_renderer.render_world()
+
+
+func _init_port_system() -> void:
+	if port_system == null:
+		push_warning("main.gd: PortSystem node not found in scene. Add it as child.")
+		return
+	if ship_node == null:
+		push_warning("main.gd: Ship node not found in scene.")
+		return
+	port_system.initialize(ship_node)
+
+	if port_debug_hud != null:
+		port_debug_hud.initialize(port_system)
