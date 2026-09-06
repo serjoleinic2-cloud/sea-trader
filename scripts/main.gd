@@ -1,72 +1,87 @@
-extends Node
+extends Node2D
 
-# main.gd — Phase 05
-# Вызывает WorldGenerator, записывает результат в GameState,
-# затем инициализирует WorldRenderer и PortSystem.
+## Main game scene root.
+## Phase 01: Verifies autoloads.
+## Phase 02: World generation and rendering.
+## Phase 03: Ship spawn, Camera2D follows ship (Camera lives inside Ship scene).
+## Phase 05: PortSystem discovery + PortDebugHUD.
 
-var world_renderer: Node2D      = null
-var port_system: Node           = null
-var port_debug_hud: CanvasLayer = null
-var ship_node: Node2D           = null
+@onready var _world: Node2D = $World
+@onready var _world_renderer: Node2D = $World/WorldRenderer
 
-# WorldGenerator — ищем как дочерний узел или в autoloads
-var _world_gen = null
+var _world_generator: Node
+var _ship: Node2D
+
+# Phase 05
+var _port_system: Node = null
+var _port_debug_hud: CanvasLayer = null
 
 
 func _ready() -> void:
-	_find_world_generator()
-	_find_or_create_systems()
-	_boot()
+	print("Sea Trader — Phase 05 World Rendering + Ports")
+	assert(GameState != null, "GameState autoload missing")
+	assert(EventBus != null, "EventBus autoload missing")
+	assert(SaveSystem != null, "SaveSystem autoload missing")
+	print("All autoloads verified.")
+
+	_initialize_world()
+	_spawn_ship()
+	_initialize_port_systems()  # Phase 05
 
 
-func _boot() -> void:
+# ============================================================================
+# World init (Phase 02, preserved)
+# ============================================================================
+
+func _initialize_world() -> void:
+	var world_seed: int = _get_or_create_seed()
+	GameState.world_state.seed = world_seed
+	print("World seed: %d" % world_seed)
+
+	_world_generator = preload("res://systems/world/world_generator.gd").new()
+	var world_data: Dictionary = _world_generator.generate(world_seed)
+
+	GameState.world_state.current_position = Vector2(
+		world_data.world_size.x / 2.0,
+		world_data.world_size.y / 2.0
+	)
+	GameState.world_state.current_region = "starting_region"
+
+	# Phase 05: port_state заполняем только для новой игры
+	# При загрузке — уже восстановлен из SaveSystem.load_game()
+	if not SaveSystem.has_save() or GameState.port_state.is_empty():
+		_apply_port_state(world_data)
+
+	if _world_renderer.has_method("setup"):
+		_world_renderer.setup(world_data)
+	if _world_renderer.has_method("set_camera"):
+		_world_renderer.set_camera(null)
+
+	print("World generated: %d islands, %d ports, %d hazard zones" % [
+		world_data.islands.size(),
+		world_data.ports.size(),
+		world_data.hazard_zones.size()
+	])
+
+
+func _get_or_create_seed() -> int:
 	if SaveSystem.has_save():
-		SaveSystem.load_game()
-		# Мир восстанавливается из сохранения — не перегенерируем port_state
-		# Но геометрию (острова) можно перегенерировать из seed для рендеринга
-		if _world_gen != null and GameState.world_state.get("seed", 0) != 0:
-			var world_data: Dictionary = _world_gen.generate(GameState.world_state["seed"])
-			_apply_world_geometry(world_data)
-			# port_state НЕ перезаписываем — загружен из сохранения
-	else:
-		# Новая игра
-		var new_seed: int = randi()
-		GameState.world_state["seed"] = new_seed
+		var loaded: bool = SaveSystem.load_game()
+		if loaded and GameState.world_state.seed != 0:
+			print("Loaded existing seed: %d" % GameState.world_state.seed)
+			return GameState.world_state.seed
 
-		if _world_gen != null:
-			var world_data: Dictionary = _world_gen.generate(new_seed)
-			_apply_world_geometry(world_data)
-			_apply_port_state(world_data)  # только для новой игры
-		
-		SaveSystem.save_game()
-
-	if world_renderer != null:
-		world_renderer.render_world()
-
-	if port_system != null and ship_node != null:
-		port_system.initialize(ship_node)
-
-	if port_debug_hud != null and port_system != null:
-		port_debug_hud.initialize(port_system)
+	var new_seed: int = int(Time.get_unix_time_from_system()) + randi()
+	GameState.reset_to_defaults()
+	GameState.world_state.seed = new_seed
+	return new_seed
 
 
-# ---------------------------------------------------------------------------
-# Применить геометрию мира (острова) — для рендеринга
-# НЕ трогает port_state
-# ---------------------------------------------------------------------------
-func _apply_world_geometry(world_data: Dictionary) -> void:
-	# Сохраняем острова в world_state для рендерера
-	GameState.world_state["islands"] = world_data.get("islands", [])
-
-
-# ---------------------------------------------------------------------------
-# Применить порты в port_state — ТОЛЬКО для новой игры
-# ---------------------------------------------------------------------------
+# Phase 05: записываем port_state из world_data в формате x/y
 func _apply_port_state(world_data: Dictionary) -> void:
-	var ports: Dictionary = world_data.get("ports", {})
 	GameState.port_state.clear()
-	for port_id in ports:
-		var p = ports[port_id]
+	for port_id in world_data.ports:
+		var p: Dictionary = world_data.ports[port_id]
 		var pos = p.get("position", Vector2i.ZERO)
 		GameState.port_state[port_id] = {
 			"id": port_id,
@@ -78,73 +93,73 @@ func _apply_port_state(world_data: Dictionary) -> void:
 			"region": p.get("region", ""),
 			"level": p.get("level", 1)
 		}
+	print("Phase 05: port_state populated with %d ports" % GameState.port_state.size())
 
 
-# ---------------------------------------------------------------------------
-# Поиск WorldGenerator
-# ---------------------------------------------------------------------------
-func _find_world_generator() -> void:
-	# Сначала как autoload
-	if Engine.has_singleton("WorldGenerator"):
-		_world_gen = Engine.get_singleton("WorldGenerator")
-		return
-	# Потом как дочерний узел
-	_world_gen = get_node_or_null("WorldGenerator")
-	if _world_gen != null:
-		return
-	# Потом ищем среди детей по имени скрипта
-	for child in get_children():
-		if child.get_script() != null:
-			var path: String = child.get_script().resource_path
-			if "world_generator" in path.to_lower():
-				_world_gen = child
-				return
-	# Создаём динамически
-	var script = load("res://systems/world/world_generator.gd")
-	if script == null:
-		# Пробуем альтернативный путь
-		script = load("res://core/world_generator.gd")
-	if script != null:
-		_world_gen = script.new()
-		_world_gen.name = "WorldGenerator"
-		add_child(_world_gen)
+# ============================================================================
+# Ship spawn (Phase 03, preserved)
+# ============================================================================
+
+func _spawn_ship() -> void:
+	var ship_scene: PackedScene = preload("res://scenes/game/ship/ship.tscn")
+	_ship = ship_scene.instantiate()
+	add_child(_ship)
+
+	var old_cam: Node = get_node_or_null("Camera2D")
+	if old_cam != null:
+		old_cam.enabled = false
+
+	print("Ship spawned at: %s" % str(GameState.ship_state.get("position", Vector2.ZERO)))
+
+
+# ============================================================================
+# Phase 05: PortSystem + PortDebugHUD
+# ============================================================================
+
+func _initialize_port_systems() -> void:
+	# PortSystem
+	_port_system = get_node_or_null("PortSystem")
+	if _port_system == null:
+		_port_system = load("res://systems/ports/port_system.gd").new()
+		_port_system.name = "PortSystem"
+		add_child(_port_system)
+
+	if _ship != null:
+		_port_system.initialize(_ship)
 	else:
-		push_error("main.gd: WorldGenerator script not found. Ports and islands will be empty.")
+		push_warning("main.gd: _ship is null, PortSystem cannot track position")
+
+	# PortDebugHUD
+	_port_debug_hud = get_node_or_null("PortDebugHUD")
+	if _port_debug_hud == null:
+		_port_debug_hud = load("res://systems/ports/port_debug_hud.gd").new()
+		_port_debug_hud.name = "PortDebugHUD"
+		add_child(_port_debug_hud)
+
+	_port_debug_hud.initialize(_port_system)
+	print("Phase 05: PortSystem and PortDebugHUD initialized")
 
 
-# ---------------------------------------------------------------------------
-# Поиск и создание систем Phase 05
-# ---------------------------------------------------------------------------
-func _find_or_create_systems() -> void:
-	ship_node = _find_ship()
+# ============================================================================
+# Input (Phase 03, preserved)
+# ============================================================================
 
-	world_renderer = get_node_or_null("WorldRenderer")
-	if world_renderer == null:
-		world_renderer = load("res://systems/rendering/world_renderer.gd").new()
-		world_renderer.name = "WorldRenderer"
-		add_child(world_renderer)
-		move_child(world_renderer, 0)
-
-	port_system = get_node_or_null("PortSystem")
-	if port_system == null:
-		port_system = load("res://systems/ports/port_system.gd").new()
-		port_system.name = "PortSystem"
-		add_child(port_system)
-
-	port_debug_hud = get_node_or_null("PortDebugHUD")
-	if port_debug_hud == null:
-		port_debug_hud = load("res://systems/ports/port_debug_hud.gd").new()
-		port_debug_hud.name = "PortDebugHUD"
-		add_child(port_debug_hud)
+func _input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed:
+		match event.keycode:
+			KEY_EQUAL:
+				var cam: Camera2D = _get_ship_camera()
+				if cam:
+					cam.zoom += Vector2(0.05, 0.05)
+			KEY_MINUS:
+				var cam: Camera2D = _get_ship_camera()
+				if cam:
+					cam.zoom = (cam.zoom - Vector2(0.05, 0.05)).clamp(
+						Vector2(0.05, 0.05), Vector2(2.0, 2.0)
+					)
 
 
-func _find_ship() -> Node2D:
-	for ship_name in ["Ship", "ship", "ShipNode", "Player", "PlayerShip"]:
-		var n = get_node_or_null(ship_name)
-		if n != null and n is Node2D:
-			return n
-	for child in get_children():
-		if child is CharacterBody2D or child is RigidBody2D:
-			return child as Node2D
-	push_warning("main.gd Phase05: Ship node not found.")
-	return null
+func _get_ship_camera() -> Camera2D:
+	if _ship == null:
+		return null
+	return _ship.get_node_or_null("Camera2D")
