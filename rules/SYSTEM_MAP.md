@@ -1,7 +1,7 @@
 # SYSTEM MAP
 
 > How systems connect. Read this to understand data flow before touching any system.
-> Last Updated: 2026-08-24 | Version: 0.2.0
+> Last Updated: 2026-09-05 | Version: 0.3.0
 
 ---
 
@@ -32,10 +32,65 @@ NavigationHUD  (compass arrow updates)
 
 ---
 
+## World Load Flow (Permanent Seed)
+
+```
+App launch
+        |
+        v
+SaveSystem.load()
+        |-- WorldState.seed restored from save
+        |
+        v
+WorldGenerator.generate(WorldState.seed)
+        |-- same seed = same islands, ports, hazards
+        |-- DOES NOT overwrite PortState or KnownRoutesState
+        |
+        v
+PortSystem.restore_from_save(PortState)
+        |-- discovery state, levels, buildings restored
+        |
+        v
+KnownRoutesSystem.restore_from_save(KnownRoutesState)
+        |-- known routes restored
+        |
+        v
+World ready — player sees their persistent world + their persistent knowledge
+```
+
+> **Key invariant:** WorldGenerator is called with the saved seed. Never with a new random seed.
+> A new random seed is generated **only** on new game creation.
+
+---
+
+## New Game Flow
+
+```
+Player starts new game
+        |
+        v
+new_seed = timestamp + random()
+GameState.world_state.seed = new_seed
+GameState.world_state.world_gen_version = CURRENT_VERSION
+        |
+        v
+WorldGenerator.generate(new_seed)
+        |
+        v
+PortState = {} (empty — no ports discovered yet)
+KnownRoutesState = {} (empty — no routes known yet)
+PlayerState.discovered_port_ids = [] (empty)
+        |
+        v
+SaveSystem.save()
+```
+
+---
+
 ## Route Discovery Flow
 
 ```
-Player selects destination port (discovered or undiscovered)
+Player sails manually from Port A toward Port B
         |
         v
 NavigationHUD  (compass arrow, distance)
@@ -44,20 +99,76 @@ NavigationHUD  (compass arrow, distance)
 Manual Voyage  (ShipControl flow above)
         |
         v
-Player arrives at destination port
+Player arrives at Port B
         |
         v
-PortSystem.discover_port()  (if new)
+PortSystem.discover_port(port_b_id)    [if not already discovered]
+        |-- PortState[port_b_id].discovered = true
+        |-- PlayerState.discovered_port_ids.append(port_b_id)
         |
         v
-KnownRoutesSystem.add_route(origin, destination)
-        |   -- route becomes Known in BOTH directions
+KnownRoutesSystem.add_route(port_a_id, port_b_id)
+        |-- route_key = normalize(port_a_id, port_b_id)   [alphabetical]
+        |-- KnownRoutesState[route_key] = { ...route data }
+        |-- route is now known in BOTH directions
         |
         v
-EventBus.emit(route_discovered)
+EventBus.emit(route_discovered, port_a_id, port_b_id)
         |
         v
-ProgressionSystem  (XP for discovery)
+ProgressionSystem  (XP for route discovery)
+```
+
+---
+
+## Port Discovery vs Known Route: Distinction
+
+```
+Port B exists in world  ←── generated from seed
+        |
+        ├── Player sails near Port B
+        │       |
+        │       v
+        │   PortSystem.discover_port(B)
+        │       |
+        │       v
+        │   PlayerState.discovered_port_ids ← B added   [PLAYER KNOWLEDGE]
+        │   PortState[B].discovered = true               [PLAYER KNOWLEDGE]
+        │       |
+        │       v
+        │   Port B is now VISIBLE to player (on map, selectable as destination)
+        │       |
+        │       └── Player sets B as destination → NavigationHUD shows arrow
+        │
+        └── Player completes manual voyage to B (from any port A)
+                |
+                v
+            KnownRoutesSystem.add_route(A, B)            [PLAYER KNOWLEDGE]
+                |
+                v
+            Auto-travel A↔B now available
+            Fleet assignment A↔B now available
+```
+
+---
+
+## Intermediary Ports / Route Segments
+
+```
+Player sails: Home → B → C → D  (each segment manually)
+
+After Home→B:  KnownRoute(Home, B) established
+After B→C:     KnownRoute(B, C) established
+After C→D:     KnownRoute(C, D) established
+
+Player's known network:
+Home ↔ B ↔ C ↔ D
+
+Note:
+- KnownRoute(Home, C) does NOT exist automatically
+- KnownRoute(Home, D) does NOT exist automatically
+- A direct route Home→D requires manual passage Home→D
+- Rules for chained automation (Home→B→C→D as one auto-trip) are TBD
 ```
 
 ---
@@ -65,13 +176,13 @@ ProgressionSystem  (XP for discovery)
 ## Known Route Automation Flow
 
 ```
-Player selects Known Route  (A <--[known]--> B)
+Player selects Known Route  (A ↔ B, exists in KnownRoutesState)
         |
         v
-KnownRoutesSystem.validate(route)  (must be known)
+KnownRoutesSystem.validate(A, B)  → true
         |
         v
-VoyageSystem.start_automated_voyage(route)
+VoyageSystem.start_automated_voyage(A, B)
         |   -- consumes Fuel / Supplies
         |   -- takes time (simulated or real-time background)
         |   -- may have risk (damage, delay, extra cost)
@@ -94,7 +205,7 @@ FleetManager
         |
         v
 For each fleet ship with active route:
-        |   -- route MUST be Known Route
+        |   -- route MUST exist in KnownRoutesState
         |   -- captain employee required
         |   -- consumes Fuel / Supplies
         |   -- may have risk
@@ -118,7 +229,9 @@ App exit / background
 SaveSystem.save()
         |   -- ShipState (position, velocity, fuel, hull, cargo)
         |   -- VoyageState (route, leg, elapsed time, contract)
-        |   -- WorldState (current position, destination)
+        |   -- WorldState (seed, current position, destination)
+        |   -- PortState (Player Knowledge)
+        |   -- KnownRoutesState (Player Knowledge)
         |   -- last_session_timestamp
         |
         v
@@ -126,6 +239,9 @@ App relaunch
         |
         v
 SaveSystem.load()
+        |
+        v
+WorldGenerator.generate(WorldState.seed)   ← same seed, same world
         |
         v
 VoyageSystem.resume_voyage()
@@ -142,7 +258,7 @@ No punishment. Ship did not sink. Cargo not lost.
 ## Trade / Contract Flow
 
 ```
-WorldGenerator -- PortSystem -- ResourceSystem
+WorldGenerator ← PortSystem ← ResourceSystem
                      |
                      v
                ContractSystem  (generates contracts per port)
@@ -151,7 +267,7 @@ WorldGenerator -- PortSystem -- ResourceSystem
                Player accepts contract
                      |
                      v
-               NavigationHUD  (compass -- destination port)
+               NavigationHUD  (compass → destination port)
                      |
                      v
                Manual Voyage  (ShipControl flow above)
@@ -202,45 +318,24 @@ ShipState (component restored)
 
 ---
 
-## Company Flow
-
-```
-CompanySystem
-|-- EmployeeManager
-|     |-- hire/fire employees
-|     |-- apply role bonuses (EconomyEngine, ContractSystem, etc.)
-|     |-- calculate salaries -- EconomyEngine (daily expense)
-|
-|-- FleetManager
-|     |-- assign ship + captain to route
-|     |-- route MUST be Known Route
-|     |-- auto-route runs (offline or background)
-|     |-- income -- EconomyEngine
-|
-|-- Finances
-|     |-- salaries
-|     |-- fleet maintenance
-|     |-- taxes (TBD)
-|     |-- port infrastructure costs
-|
-|-- Contracts (large contracts unlocked by Company level)
-|
-|-- Port development (player's home port)
-```
-
----
-
-## Save / Load Flow
+## Save / Load Flow (Full)
 
 ```
 App launch
     |
     v
 SaveSystem.load()
-    |-- read save_meta.json -- check version
-    |-- if version mismatch -- migrate()
-    |-- if corrupt -- load save_backup.json
-    |-- deserialize -- GameState
+    |-- read save_meta.json → check version
+    |-- if version mismatch → migrate()
+    |-- if corrupt → load save_backup.json
+    |-- deserialize → GameState
+                |
+                v
+        WorldGenerator.generate(WorldState.seed)   ← PERMANENT SEED
+                |
+                v
+        PortSystem.restore_from_save(PortState)    ← PLAYER KNOWLEDGE
+        KnownRoutesSystem.restore(KnownRoutesState) ← PLAYER KNOWLEDGE
                 |
                 v
         calculate_offline_progress(delta since last_session_timestamp)
@@ -260,8 +355,11 @@ App background / quit
     v
 SaveSystem.save()
     |-- write last_session_timestamp
-    |-- copy save_main -- save_backup
-    |-- serialize GameState -- save_main.json
+    |-- copy save_main → save_backup
+    |-- serialize GameState → save_main.json
+    |   |-- includes WorldState.seed
+    |   |-- includes PortState (Player Knowledge)
+    |   |-- includes KnownRoutesState (Player Knowledge)
     |   |-- includes VoyageState if active
     |-- write checksum to save_meta.json
 ```
@@ -274,18 +372,21 @@ SaveSystem.save()
 WorldGenerationConfig (JSON)
         |
         v
-WorldGenerator.generate(seed)
-        |-- SeaNoise -- island shapes
-        |-- IslandPlacer -- island positions by region
-        |-- PortGenerator -- port per island (not all islands)
-        |-- ResourceDistributor -- resource types per region
-        |-- HazardPlacer -- pirate zones, storm areas
+WorldGenerator.generate(seed)   ← seed from WorldState, never from randi()
+        |-- SeaNoise → island shapes
+        |-- IslandPlacer → island positions by region
+        |-- PortGenerator → port per island (not all islands)
+        |-- ResourceDistributor → resource types per region
+        |-- HazardPlacer → pirate zones, storm areas
                 |
                 v
-        WorldState (written once on new game)
+        Returns world_data Dictionary (not written to GameState directly)
                 |
                 v
         Deterministic: same seed = same world, always
+
+Note: WorldGenerator NEVER writes to PortState or KnownRoutesState.
+Those are Player Knowledge and are managed by PortSystem and KnownRoutesSystem.
 ```
 
 ---
@@ -329,7 +430,7 @@ delta_seconds = min(delta_seconds, MAX_OFFLINE_SECONDS)  [cap TBD]
         v
 FleetManager
     for each fleet ship with active route:
-        |-- route MUST be Known Route
+        |-- route MUST exist in KnownRoutesState
         |-- simulate route completions in delta
         |-- calculate cargo income
         |-- apply route risk (damage, delay)

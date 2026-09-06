@@ -1,7 +1,7 @@
 # ARCHITECTURE
 
 > Approved system architecture. Do not restructure without owner decision.
-> Last Updated: 2026-08-23 | Version: 0.1.0
+> Last Updated: 2026-09-05 | Version: 0.2.0
 
 ---
 
@@ -37,13 +37,57 @@ Presentation / UI (read state, show to player)
 
 ---
 
+## World Identity and Player Knowledge
+
+### Principle: World Seed is Permanent
+
+The identity of the world is determined by the persistent **World Seed** stored in `WorldState`.
+
+- Same seed + same generation algorithm version = same world, always.
+- `WorldGenerator` is called with the saved seed on load, not with a new random value.
+- A new seed is created **only** when starting a new game.
+- World size and rendering strategy may evolve (e.g. sector-based streaming in the future), but the seed remains the source of world identity.
+
+### Principle: World ≠ Player Knowledge
+
+Two distinct concepts must never be conflated:
+
+**World Data** (generated from seed, exists independently of player):
+- Island positions and sizes
+- Port positions, IDs, and base characteristics
+- Resource distribution per region
+- Hazard zone positions
+
+**Player Knowledge** (what the player has discovered, stored in GameState):
+- Which ports have been discovered (`PlayerState.discovered_port_ids`)
+- Which ports have been visited (`PortState.discovered`)
+- Which routes have been manually sailed (`KnownRoutesState`)
+- Which regions have been explored
+
+On save/load:
+- World is **regenerated** from the permanent seed (no need to store world geometry).
+- Player Knowledge is **restored** from saved state.
+- Regeneration must never overwrite or invalidate Player Knowledge.
+
+### Discovered Port ≠ Known Route
+
+| State | Meaning |
+|-------|---------|
+| Port discovered | Player knows the port exists and its location |
+| Known Route A→B | Player has manually sailed from A to B at least once |
+
+A player may know a port exists without having a Known Route to it.
+Automation (autopilot, fleet) requires a Known Route — discovery alone is not sufficient.
+
+---
+
 ## Systems
 
 ### Core / Infrastructure
 
 #### GameState
 - **Responsibility:** Single source of truth for all runtime data.
-- **Knows:** All state sub-objects (PlayerState, WorldState, ShipState, etc.)
+- **Knows:** All state sub-objects (PlayerState, WorldState, ShipState, KnownRoutesState, etc.)
 - **Does not know:** Game rules, physics, rendering, UI
 - **Dependencies:** None (autoload)
 
@@ -52,6 +96,7 @@ Presentation / UI (read state, show to player)
 - **Knows:** GameState structure, file paths, save format version
 - **Does not know:** Game rules, UI, physics
 - **Dependencies:** GameState
+- **Critical rule:** Must save `WorldState.seed` and `KnownRoutesState` as separate concerns. Must save `PlayerState.discovered_port_ids` and `PortState` independently of world generation.
 
 #### EventBus
 - **Responsibility:** Global signal bus for decoupled communication.
@@ -104,14 +149,23 @@ Presentation / UI (read state, show to player)
 #### WorldGenerator
 - **Responsibility:** Generate deterministic world from seed. Islands, ports, resources, hazards.
 - **Knows:** WorldGenerationConfig, noise algorithms, seed
-- **Does not know:** Ship, economy, UI
-- **Dependencies:** `data/world/world_gen_config.json`, GameState.WorldState (writes on first run)
+- **Does not know:** Ship, economy, UI, player knowledge
+- **Dependencies:** `data/world/world_gen_config.json`, GameState.WorldState (reads seed)
+- **Critical rule:** Must never write to `PortState.discovered` or `KnownRoutesState`. Those belong to Player Knowledge, not world generation.
 
 #### PortSystem
 - **Responsibility:** Manage port discovery, port state, port development, dock interactions.
 - **Knows:** PortState, PortData (static), WorldState
 - **Does not know:** Ship physics, economy formulas
 - **Dependencies:** GameState.PortState, GameState.WorldState
+- **On discovery:** Writes `PortState[port_id].discovered = true`, adds to `PlayerState.discovered_port_ids`.
+
+#### KnownRoutesSystem *(to be implemented, Phase 05+)*
+- **Responsibility:** Record, validate, and query known routes.
+- **Knows:** KnownRoutesState, PortState
+- **Does not know:** Physics, economy
+- **On route completion:** Adds route key in both directions. Emits `route_discovered`.
+- **On automation request:** Validates route exists in KnownRoutesState before allowing.
 
 #### ResourceSystem
 - **Responsibility:** Manage resource availability, supply/demand, price fluctuation per port.
@@ -168,6 +222,7 @@ Presentation / UI (read state, show to player)
 - **Knows:** FleetState, RouteData, EmployeeState
 - **Does not know:** Player ship physics, active contracts
 - **Dependencies:** GameState.FleetState, CompanySystem, SaveSystem (offline progress)
+- **Critical rule:** May only assign routes that exist in `KnownRoutesState`.
 
 ---
 
@@ -197,6 +252,18 @@ Presentation / UI (read state, show to player)
 
 ---
 
+## Future: Social Trading (TBD, NOT IMPLEMENTED)
+
+A future optional social feature may allow player-to-player trading via offline mechanisms (QR codes, trade codes, port rendezvous). This must never require a backend server and must not affect:
+- Deterministic world generation
+- Player discovery state
+- Known Routes system
+- Offline-first architecture
+
+Design of this feature is deferred. Do not implement until explicitly decided.
+
+---
+
 ## Folder Structure
 
 ```
@@ -212,6 +279,7 @@ sea_trader/
 │   ├── upgrades/
 │   ├── employees/
 │   ├── achievements/
+│   ├── input/
 │   └── world/
 ├── systems/
 │   ├── input/

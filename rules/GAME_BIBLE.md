@@ -1,23 +1,23 @@
-# GAME BIBLE -- Sea Trader
+# GAME BIBLE — Sea Trader
 
 > Source of Truth for game design. Do not modify without explicit owner decision.
-> Last Updated: 2026-08-24 | Version: 0.2.0
+> Last Updated: 2026-09-05 | Version: 0.3.0
 
 ---
 
 ## Core Fantasy
 
-You are a lone captain of a small cargo ship on a procedurally generated sea. You start with nothing and build a trading empire -- from a single creaking sloop to a full fleet and your own company. Every voyage is manual, every delivery is personal, every coin earned is yours.
+You are a lone captain of a small cargo ship on a procedurally generated sea. You start with nothing and build a trading empire — from a single creaking sloop to a full fleet and your own company. Every voyage is manual, every delivery is personal, every coin earned is yours.
 
 ---
 
 ## Core Gameplay Loop
 
 ```
-Explore sea -- Discover port -- Accept contract -- Navigate manually -- Deliver cargo
+Explore sea → Discover port → Accept contract → Navigate manually → Deliver cargo
      ^                                                                      |
      |                                                                      v
-  Upgrade -- Repair -- Earn money + XP + Reputation -- Known Route automation
+  Upgrade → Repair → Earn money + XP + Reputation → Known Route automation
 ```
 
 **Urgency mechanic:** Nearby ports offer urgent deliveries. Earlier delivery = higher reward. But high speed increases damage risk.
@@ -28,26 +28,26 @@ Explore sea -- Discover port -- Accept contract -- Navigate manually -- Deliver 
 
 ```
 Single ship captain
-    -- Explore world -- Discover ports -- Learn routes
-    -- Upgrade ship
-    -- Discover new regions
-    -- Known routes enable automation
-    -- Build own port
-    -- Found trading company
-    -- Hire employees
-    -- Expand fleet
-    -- Take major contracts
-    -- Dominate trade routes
+    → Explore world → Discover ports → Learn routes
+    → Upgrade ship
+    → Discover new regions
+    → Known routes enable automation
+    → Build own port
+    → Found trading company
+    → Hire employees
+    → Expand fleet
+    → Take major contracts
+    → Dominate trade routes
 ```
 
-**Central progression loop:** Personal ship -- Exploration -- Known routes -- Automation -- Fleet -- Company -- Trading network.
+**Central progression loop:** Personal ship → Exploration → Known routes → Automation → Fleet → Company → Trading network.
 
 ---
 
 ## World
 
 - **View:** Top-down 2D
-- **Sea:** Procedurally generated, deterministic seed
+- **Sea:** Procedurally generated, **permanent deterministic seed**
 - **Islands:** Scattered across sea
 - **Ports:** Procedurally generated, attached to islands
 - **Regions:** Different areas with different resources and dangers
@@ -55,6 +55,32 @@ Single ship captain
 - **Discovery:** Ports are hidden until player physically reaches them
 - **Destination:** Discovered ports can be set as navigation destination
 - **Exploration:** World is not fully visible at start. Player gradually reveals ports, resources, routes, dangers.
+
+### World Seed is Permanent
+
+The world is generated from a single **World Seed** saved in `WorldState`. This seed:
+- Is created once on new game
+- Is saved and restored on every load
+- Always produces the same world — same islands, same ports, same hazard zones
+- Never changes unless the player explicitly starts a new game
+
+World size and rendering strategy may evolve in future (sector streaming, etc.), but the seed remains the identity of the world.
+
+### World ≠ Player Knowledge
+
+The world exists as a complete entity defined by the seed. The player starts without knowledge of it and builds their understanding through exploration.
+
+**World Data** (from seed — always the same):
+- Island positions and sizes
+- Port positions, IDs, names, regions
+- Resource distribution
+- Hazard zone positions
+
+**Player Knowledge** (earned through play — saved separately):
+- Which ports have been discovered
+- Which ports have been visited
+- Which routes have been manually traveled (Known Routes)
+- Which regions have been explored
 
 ---
 
@@ -65,10 +91,10 @@ Single ship captain
 Player personally controls their ship.
 
 **Controls:**
-- Tilt forward -- throttle / accelerate
-- Tilt backward -- brake / decelerate
-- Tilt left -- turn left
-- Tilt right -- turn right
+- Tilt forward → throttle / accelerate
+- Tilt backward → brake / decelerate
+- Tilt left → turn left
+- Tilt right → turn right
 
 **During manual voyage player can:**
 - Explore the world
@@ -118,27 +144,54 @@ HOME <--[known]--> B
 B --[manual]--> C
 B <--[known]--> C
 
-Network: HOME -- B -- C
+Network: HOME ↔ B ↔ C
 ```
 
-Alternative connections may appear later:
+### Discovered Port ≠ Known Route
+
 ```
-A --[manual]--> C
-B --[manual]--> D
-C --[manual]--> E
+Port B exists (generated from seed)
+    ↓
+Player sails near Port B
+    ↓
+Port B DISCOVERED (visible on map, selectable as destination)
+    ↓
+Player can set B as navigation target and sail there manually
+    ↓
+Player arrives at B for the first time from Port A
+    ↓
+KnownRoute(A, B) created — auto-travel A↔B now available
 ```
 
-Not all routes are known from the start. Discovery is part of progression.
+A port can be discovered without having a Known Route to it.
+A Known Route requires a completed manual passage.
+
+### Segment-based Knowledge (Intermediary Ports)
+
+Routes are established per segment:
+
+```
+A → B → C → D  (each sailed manually)
+
+Results in:
+KnownRoute(A, B): ✓
+KnownRoute(B, C): ✓
+KnownRoute(C, D): ✓
+KnownRoute(A, C): ✗ (not automatic)
+KnownRoute(A, D): ✗ (not automatic)
+```
+
+Rules for multi-hop automated navigation (A→B→C as one trip) are TBD.
 
 ---
 
 ## Navigation
 
 - **Control method:** Tilt phone to control ship
-  - Tilt forward -- throttle / accelerate
-  - Tilt backward -- brake / decelerate
-  - Tilt left -- turn left
-  - Tilt right -- turn right
+  - Tilt forward → throttle / accelerate
+  - Tilt backward → brake / decelerate
+  - Tilt left → turn left
+  - Tilt right → turn right
 - **Compass arrow:** On-screen helper arrow shows direction + distance to destination
 - **No autopilot** for player's main ship during active manual gameplay
 - **Camera:** Follows ship during voyage. Manual map pan is secondary.
@@ -167,7 +220,7 @@ Hull: 84/100
 
 **Upgrades** may increase Fuel / Supplies capacity.
 
-**Exact consumption formula:** TBD. Not decided yet.
+**Exact consumption formula:** TBD.
 
 ---
 
@@ -175,7 +228,7 @@ Hull: 84/100
 
 Long routes may pass through multiple ports.
 
-**Example:** A -- B -- C -- D
+**Example:** A → B → C → D
 
 **Intermediary ports allow:**
 - Refueling
@@ -193,7 +246,7 @@ This enables long expedition routes without requiring one continuous uninterrupt
 
 - Player starts with a small cargo ship
 - Ships have distinct components: hull, engine, steering, cargo hold
-- Ships have physical momentum and feel -- not instant response
+- Ships have physical momentum and feel — not instant response
 - Ships visually tilt/lean on turns
 - **Upgrades:** speed, maneuverability, cargo capacity, protection, hull strength, Fuel / Supplies capacity
 - Additional ships purchasable for fleet (managed by hired captains)
@@ -240,8 +293,8 @@ This enables long expedition routes without requiring one continuous uninterrupt
 - Types:
   - Urgent delivery (time bonus)
   - Standard cargo transport
-  - Large contracts (available via Company -- TBD)
-- Contract reward = base + time bonus -- damage penalty (TBD exact formula)
+  - Large contracts (available via Company — TBD)
+- Contract reward = base + time bonus − damage penalty (TBD exact formula)
 - Contracts visible at port before accepting
 
 ---
@@ -319,7 +372,7 @@ Routes and zones may have different risk levels:
 ## Fleet
 
 - Multiple ships purchasable
-- Hired captains run automated trade routes on **Known Routes** only
+- Hired captains run automated trade routes on **Known Routes only**
 - Fleet generates income while player is offline
 - Manual control of player's own ship remains the core gameplay
 - Fleet managed through Company screen
@@ -375,6 +428,24 @@ Routes and zones may have different risk levels:
   - Market prices drift
 - Maximum offline progress cap: TBD (suggested 24 hours)
 - Save system stores last session timestamp
+
+---
+
+## Future: Social / Player-to-Player Trading (TBD — NOT IMPLEMENTED)
+
+A future optional feature may allow periodic interaction between players through offline/social mechanisms:
+- Exchanging trade codes
+- QR code sharing
+- Meeting at a specific port
+- Passing trade offers
+
+**This feature is deferred and not implemented.** When designed, it must not affect:
+- Deterministic world generation (same seed = same world for every player)
+- Player discovery and Known Routes state
+- Offline-first architecture
+- No backend server required
+
+Design decisions for this feature require explicit owner decision before implementation.
 
 ---
 
