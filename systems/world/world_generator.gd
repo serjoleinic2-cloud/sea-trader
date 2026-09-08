@@ -9,6 +9,11 @@ const CONFIG_PATH: String = "res://data/world/world_gen_config.json"
 var _config: Dictionary = {}
 var _rng: RandomNumberGenerator
 
+
+func get_generation_version() -> String:
+	_load_config()
+	return str(int(_config.get("version", 0)))
+
 # ============================================================================
 # Public API
 # ============================================================================
@@ -175,7 +180,6 @@ func _generate_ports(islands: Array) -> Dictionary:
 			"region": island.region,
 			"level": 1,
 			"island_id": island.id,
-			"discovered": false,
 			"buildings": {
 				"dock": {"level": 1, "damage_hp": 100},
 				"warehouse": {"level": 1, "damage_hp": 100}

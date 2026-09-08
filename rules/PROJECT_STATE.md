@@ -1,7 +1,60 @@
 # PROJECT STATE
 
 > Update this file after every meaningful iteration.
-> Last Updated: 2026-09-05
+> Last Updated: 2026-09-08
+
+## Current iteration — Persistent state foundation (2026-09-08)
+
+**IMPLEMENTED, NOT RUNTIME-VERIFIED.** This audit supersedes the historical
+code-gap table below. The owner approved adapting the existing PortSystem to
+the world/knowledge split. Logic first; final graphics and design remain deferred.
+
+- Actual baseline already contained a Phase 05 PortSystem and conditional port
+  initialization, unlike the older handoff. Empty saved knowledge was still
+  repopulated, and world position/region were reset on launch.
+- Main now branches on successful load versus genuinely absent save, preserves
+  empty knowledge and zero seeds, and refuses failed loads/unknown world versions.
+- KnownRoutesState and schema-defined VoyageState are initialized, reset, saved
+  and loaded. No route automation or voyage gameplay was introduced.
+- Generator identity is config version 1 (geometry algorithm unchanged).
+- Save format 0.2.0 migrates 0.0.0/0.1.0 without resetting progress; legacy
+  generated port metadata is removed, saved progression retained, discovery IDs
+  repaired from existing discovered flags. Unknown formats are refused.
+- PortSystem receives generated geometry independently. New games start with
+  empty PortState; entries are created on actual discovery. Both discovery
+  representations update together. Existing radius 150 is moved to JSON,
+  unchanged and still provisional (not a final balance decision).
+- Ship setup no longer refills/repairs or clears velocity when restoring an
+  initialized ship. Saved position (including zero) is respected.
+- Initial-launch and pause/normal-close saves added; timestamp serialized before
+  writing. Backup-only recovery supported; corrupt primary cannot replace backup.
+- Missing port_entered/port_exited signals integrated. Active renderer uses
+  generated geometry and saved discovery; obsolete renderer path forwards to it.
+- Regression tests added to existing TestRunner, including real scene launch.
+  Test wrapper isolates Linux user data to protect player saves.
+
+### Verification and remaining risks
+
+- PASS: git diff --check; bash syntax check; 10 tracked JSON files parse;
+  38 tracked GDScript/scene resource references resolve (before documentation update).
+- BLOCKED: Godot parse/import/runtime and test execution. No Godot executable;
+  engine download did not receive network approval. Test wrapper exits 127.
+- No Android runtime, keyboard playtest, performance or long-session sign-off.
+- Stationary ship heading is still not represented in the approved ShipState
+  schema; this iteration restores moving heading from velocity only.
+- Abrupt process kill/power-loss atomic save guarantees and periodic autosave are
+  not implemented. Pause and normal-close handling are not a crash-proof promise.
+- Save validation checks envelope types, not every nested gameplay field.
+- Historical collision/world-bound issues and gameplay TBDs remain unresolved.
+- Test framework was actually present; old README was stale. Tests now include
+  the previously unregistered Phase 05 suite, with signal assertions corrected.
+
+**Next:** run the isolated suite and real launch on an approved Godot executable,
+resolve any parse/runtime failures, then obtain sign-off before KnownRoutesSystem.
+
+---
+
+## Historical status before this iteration
 
 ---
 

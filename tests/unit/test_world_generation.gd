@@ -62,9 +62,8 @@ func test_ports_have_required_fields() -> void:
 		assert_has(port, "region",     "port must have region")
 		assert_has(port, "level",      "port must have level")
 		assert_has(port, "island_id",  "port must have island_id")
-		assert_has(port, "discovered", "port must have discovered")
 		assert_has(port, "buildings",  "port must have buildings")
-		assert_eq(port.get("discovered", true), false, "new ports should be undiscovered")
+		assert_false(port.has("discovered"), "generator must not produce player discovery")
 
 func test_world_state_stores_seed() -> void:
 	GameState.world_state["seed"] = 777

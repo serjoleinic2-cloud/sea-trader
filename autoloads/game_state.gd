@@ -26,6 +26,7 @@ var player_state: Dictionary = {
 # ============================================================================
 var world_state: Dictionary = {
 	"seed": 0,
+	"world_gen_version": "",
 	"current_position": Vector2.ZERO,
 	"current_region": "",
 	"explored_region_ids": [],
@@ -54,6 +55,27 @@ var ship_state: Dictionary = {
 # Port State — Dictionary: port_id -> PortInstanceState
 # ============================================================================
 var port_state: Dictionary = {}
+
+var known_routes_state: Dictionary = {}
+
+var voyage_state: Dictionary = default_voyage_state()
+
+
+func default_voyage_state() -> Dictionary:
+	return {
+		"active": false,
+		"route": [],
+		"current_leg": 0,
+		"start_port_id": "",
+		"destination_port_id": "",
+		"elapsed_time_seconds": 0.0,
+		"total_distance": 0.0,
+		"cargo": [],
+		"fuel_at_start": 0.0,
+		"hull_at_start": 0.0,
+		"contract_id": null,
+		"status": "planning"
+	}
 
 # ============================================================================
 # Economy State
@@ -148,6 +170,7 @@ func reset_to_defaults() -> void:
 	}
 	world_state = {
 		"seed": 0,
+		"world_gen_version": "",
 		"current_position": Vector2.ZERO,
 		"current_region": "",
 		"explored_region_ids": [],
@@ -168,6 +191,8 @@ func reset_to_defaults() -> void:
 		"cargo_capacity": 50
 	}
 	port_state = {}
+	known_routes_state = {}
+	voyage_state = default_voyage_state()
 	economy_state = {
 		"market": {},
 		"last_market_update": 0,

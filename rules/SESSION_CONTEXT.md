@@ -2,7 +2,23 @@
 
 > Short handoff document for new AI sessions.
 > Read this first, then rules/*. Do not start coding before reading.
-> Last Updated: 2026-09-05
+> Last Updated: 2026-09-08
+
+## Latest handoff — takes precedence over historical sections below
+
+Persistent state foundation has been implemented but NOT verified in Godot.
+See rules/PROJECT_STATE.md (2026-09-08) and tests/README.md before continuing.
+The repository already had PortSystem; it now consumes generated geometry
+separately from saved knowledge. Save format 0.2.0 preserves legacy progress;
+unknown formats/world versions stop loading rather than resetting the game.
+KnownRoutesState, VoyageState and world_gen_version now exist. Ship spawn
+preserves loaded resources/velocity. No next-phase gameplay is signed off.
+Godot was unavailable; test execution is blocked, not passing.
+Owner priority: working schematic gameplay first, graphics/design at the end.
+
+---
+
+## Historical handoff (2026-09-05)
 
 ---
 

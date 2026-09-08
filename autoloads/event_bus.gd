@@ -15,6 +15,8 @@ signal ship_repaired(component: String, amount: float)
 # World events
 # ============================================================================
 signal port_discovered(port_id: String)
+signal port_entered(port_id: String)
+signal port_exited(port_id: String)
 signal region_entered(region_id: String)
 
 # ============================================================================

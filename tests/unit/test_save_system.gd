@@ -50,25 +50,19 @@ func test_load_after_save_restores_vector2() -> void:
 		"Vector2 position should persist"
 	)
 
-func test_migration_fallback_preserves_settings() -> void:
-	var dir: DirAccess = DirAccess.open("user://")
-	if dir and not dir.dir_exists("saves"):
-		dir.make_dir("saves")
+func test_migration_preserves_progress_and_settings() -> void:
+	SaveSystem.save_game()
 	var old_data: Dictionary = {
 		"version": "0.0.0",
+		"world_state": {"seed": 123},
 		"player_state": {"money": 50.0, "level": 2},
 		"settings_state": {"language": "ru"}
 	}
-	var f: FileAccess = FileAccess.open("user://saves/save_main.json", FileAccess.WRITE)
-	if f:
-		f.store_string(JSON.stringify(old_data))
-		f.close()
-	var mf: FileAccess = FileAccess.open("user://saves/save_meta.json", FileAccess.WRITE)
-	if mf:
-		mf.store_string(JSON.stringify({"version": "0.0.0", "timestamp": 0}))
-		mf.close()
+	SaveSystem._write_json("user://saves/save_main.json", old_data)
 	var ok: bool = SaveSystem.load_game()
 	assert_true(ok, "load with migration should succeed")
+	assert_eq(GameState.player_state.money, 50.0, "migration must preserve money")
+	assert_eq(GameState.world_state.seed, 123, "migration must preserve seed")
 	assert_eq(
 		str(GameState.settings_state.get("language", "")),
 		"ru",

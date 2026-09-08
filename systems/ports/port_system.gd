@@ -7,7 +7,8 @@ extends Node
 #   - если порт уже discovered → эмитирует port_entered
 # Не генерирует порты. Не открывает UI. Только управляет состоянием discovery.
 
-const DEFAULT_DISCOVERY_RADIUS := 150.0
+var _discovery_radius: float = 0.0
+var _world_ports: Dictionary = {}
 
 # Набор id портов, в радиусе которых корабль находится прямо сейчас
 var _ports_in_range: Dictionary = {}  # port_id → bool
@@ -19,8 +20,12 @@ func _ready() -> void:
 	set_process(true)
 
 
-func initialize(ship: Node2D) -> void:
+func initialize(ship: Node2D, world_ports: Dictionary) -> void:
 	_ship_node = ship
+	_world_ports = world_ports
+	_ports_in_range.clear()
+	var config: Dictionary = SaveSystem._read_json("res://data/ports/port_template.json")
+	_discovery_radius = float(config.get("discovery_radius", 0.0))
 
 
 func _process(_delta: float) -> void:
@@ -31,10 +36,10 @@ func _process(_delta: float) -> void:
 
 	var ship_pos: Vector2 = _ship_node.global_position
 
-	for port_id in GameState.port_state:
-		var port: Dictionary = GameState.port_state[port_id]
-		var port_pos := Vector2(port.get("x", 0.0), port.get("y", 0.0))
-		var radius: float = port.get("discovery_radius", DEFAULT_DISCOVERY_RADIUS)
+	for port_id in _world_ports:
+		var port: Dictionary = GameState.port_state.get(port_id, {})
+		var port_pos := Vector2(_world_ports[port_id].position)
+		var radius: float = _discovery_radius
 		var dist: float = ship_pos.distance_to(port_pos)
 		var in_range: bool = dist <= radius
 		var was_in_range: bool = _ports_in_range.get(port_id, false)
@@ -56,7 +61,16 @@ func _on_enter_port_range(port_id: String, port: Dictionary) -> void:
 
 	if not already_discovered:
 		# Первое обнаружение
+		if not GameState.port_state.has(port_id):
+			var generated: Dictionary = _world_ports[port_id]
+			GameState.port_state[port_id] = {
+				"discovered": false,
+				"level": generated.get("level", 1),
+				"buildings": generated.get("buildings", {}).duplicate(true)
+			}
 		GameState.port_state[port_id]["discovered"] = true
+		if not GameState.player_state.discovered_port_ids.has(port_id):
+			GameState.player_state.discovered_port_ids.append(port_id)
 		SaveSystem.save_game()
 		EventBus.emit_signal("port_discovered", port_id)
 	else:
@@ -78,14 +92,14 @@ func _update_nearest_port_debug(ship_pos: Vector2) -> void:
 	total_port_count = 0
 
 	var best_dist := INF
-	for port_id in GameState.port_state:
-		var port: Dictionary = GameState.port_state[port_id]
+	for port_id in _world_ports:
+		var port: Dictionary = GameState.port_state.get(port_id, {})
 		total_port_count += 1
 		if port.get("discovered", false):
 			discovered_count += 1
-		var port_pos := Vector2(port.get("x", 0.0), port.get("y", 0.0))
-		var radius: float = port.get("discovery_radius", DEFAULT_DISCOVERY_RADIUS)
+		var port_pos := Vector2(_world_ports[port_id].position)
+		var radius: float = _discovery_radius
 		var dist := ship_pos.distance_to(port_pos)
 		if dist <= radius and dist < best_dist:
 			best_dist = dist
-			nearest_port_name = port.get("name", port_id)
+			nearest_port_name = _world_ports[port_id].get("name", port_id)

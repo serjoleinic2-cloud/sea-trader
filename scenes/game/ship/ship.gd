@@ -68,7 +68,7 @@ func _init_systems() -> void:
 	# ShipPhysics
 	_physics = preload("res://systems/ship/ship_physics.gd").new()
 	add_child(_physics)
-	_physics.setup(_ship_data)
+	_physics.setup(_ship_data, GameState.ship_state.get("ship_id", "") == "")
 	_physics.ship_node = _sprite
 
 	# ShipControl
@@ -85,12 +85,6 @@ func _init_systems() -> void:
 func _position_ship() -> void:
 	# Place ship at a sea position (center of world, offset from islands)
 	var start_pos: Vector2 = GameState.ship_state.get("position", Vector2.ZERO)
-	if start_pos == Vector2.ZERO:
-		var world_w: float = 4096.0
-		var world_h: float = 4096.0
-		# Check WorldState for seed-based world size (fallback to 4096)
-		start_pos = Vector2(world_w * 0.25, world_h * 0.25)
-		GameState.ship_state["position"] = start_pos
 
 	global_position = start_pos
 	_physics.setup_world_bounds(4096.0, 4096.0)

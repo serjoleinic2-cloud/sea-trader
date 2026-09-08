@@ -16,6 +16,14 @@ extends Node2D
 var _world_data: Dictionary = {}
 var _camera: Camera2D
 
+
+func _ready() -> void:
+	EventBus.port_discovered.connect(_on_port_discovered)
+
+
+func _on_port_discovered(_port_id: String) -> void:
+	queue_redraw()
+
 # ============================================================================
 # Public API
 # ============================================================================
@@ -87,6 +95,9 @@ func _draw_island(island: Dictionary) -> void:
 
 
 func _draw_port(port: Dictionary) -> void:
+	# Geometry comes from the generator; visibility comes from saved knowledge.
+	if not GameState.port_state.get(port.id, {}).get("discovered", false):
+		return
 	var pos: Vector2 = Vector2(port.position)
 	var radius: float = 12.0
 	# Port circle

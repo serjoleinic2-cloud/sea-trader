@@ -10,18 +10,25 @@ const TEST_FILES: Array = [
 	"res://tests/unit/test_world_generation.gd",
 	"res://tests/unit/test_ship_physics.gd",
 	"res://tests/unit/test_sensor_input.gd",
+	"res://tests/unit/test_phase05_ports.gd",
+	"res://tests/unit/test_persistence.gd",
 ]
 
 var _total_pass: int = 0
 var _total_fail: int = 0
 
 func _ready() -> void:
+	if OS.get_environment("SEA_TRADER_ISOLATED_TESTS") != "1":
+		push_error("Run tests/run_tests.sh to protect player saves with an isolated user directory.")
+		get_tree().quit(2)
+		return
 	print("\n========== SEA TRADER TEST SUITE ==========")
 	for path in TEST_FILES:
 		_run_file(path)
 	print("-------------------------------------------")
 	print("TOTAL  pass=%d  fail=%d" % [_total_pass, _total_fail])
 	print("===========================================\n")
+	get_tree().quit(0 if _total_fail == 0 else 1)
 
 func _run_file(path: String) -> void:
 	var script: GDScript = load(path) as GDScript

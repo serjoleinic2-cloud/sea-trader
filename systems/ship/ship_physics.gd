@@ -55,7 +55,7 @@ var ship_node: Node2D = null
 # Public API
 # ============================================================================
 
-func setup(ship_data: Dictionary) -> void:
+func setup(ship_data: Dictionary, initialize_state: bool = true) -> void:
 	"""Initialize from ShipData JSON. Call once before first physics tick."""
 	_ship_data = ship_data
 	_heading = -PI / 2.0   # start facing up (north)
@@ -63,6 +63,9 @@ func setup(ship_data: Dictionary) -> void:
 	_throttle = 0.0
 	_steering = 0.0
 	_visual_roll = 0.0
+	if not initialize_state:
+		restore_from_state()
+		return
 
 	# Initialize GameState.ship_state from ShipData
 	GameState.ship_state["ship_id"] = ship_data.get("id", "ship_sloop")

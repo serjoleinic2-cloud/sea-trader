@@ -1,5 +1,6 @@
 {
   "id": "port_coastal_small",
+  "discovery_radius": 150.0,
   "display_name": "Small Coastal Port",
   "buildings": ["dock", "warehouse", "workshop"],
   "available_resources": [],

@@ -1,141 +1,69 @@
 extends "res://tests/test_base.gd"
 
-# test_phase05_ports.gd — Phase 05
-# Тесты для PortSystem и WorldRenderer.
-# Использует существующий test_base / test_runner.
+var _system: Node
+var _ship: Node2D
+var _world_ports: Dictionary = {
+	"test_port": {"id": "test_port", "name": "Test Port", "position": Vector2i(100, 100),
+		"level": 1, "buildings": {}}
+}
 
-# ---------------------------------------------------------------------------
-# TEST A: WorldRenderer инициализируется без ошибок
-# ---------------------------------------------------------------------------
-func test_world_renderer_initializes() -> void:
-	var renderer = load("res://systems/rendering/world_renderer.gd").new()
-	assert_not_null(renderer, "WorldRenderer should instantiate")
-	renderer.queue_free()
+func before_each() -> void:
+	GameState.reset_to_defaults()
+	_system = load("res://systems/ports/port_system.gd").new()
+	_ship = Node2D.new()
+	add_child(_ship)
+	_ship.global_position = Vector2(100, 100)
+	_system.initialize(_ship, _world_ports)
 
+func after_each() -> void:
+	_system.free()
+	_ship.free()
+	SaveSystem.delete_save()
+	GameState.reset_to_defaults()
 
-# ---------------------------------------------------------------------------
-# TEST B: PortSystem определяет вход в радиус порта
-# ---------------------------------------------------------------------------
-func test_port_system_detects_range() -> void:
-	var port_id := "test_port_001"
-	GameState.port_state[port_id] = {
-		"id": port_id,
-		"name": "Test Port",
-		"x": 100.0,
-		"y": 100.0,
-		"discovered": false,
-		"discovery_radius": 150.0
-	}
+func test_discovery_records_both_knowledge_fields_without_geometry() -> void:
+	_system._process(0.016)
+	assert_true(GameState.port_state.test_port.discovered)
+	assert_eq(GameState.player_state.discovered_port_ids, ["test_port"])
+	assert_false(GameState.port_state.test_port.has("position"))
+	assert_false(GameState.port_state.test_port.has("x"))
+	assert_true(GameState.known_routes_state.is_empty(), "discovery is not a known route")
+	assert_false(_world_ports.test_port.has("discovered"), "world data stays independent")
 
-	var port_system = load("res://systems/ports/port_system.gd").new()
+func test_initialize_does_not_populate_empty_saved_knowledge() -> void:
+	assert_true(GameState.port_state.is_empty())
+	assert_true(GameState.player_state.discovered_port_ids.is_empty())
 
-	# Имитируем корабль внутри радиуса
-	var fake_ship := Node2D.new()
-	fake_ship.global_position = Vector2(100.0, 100.0)  # прямо в центре порта
-	port_system.initialize(fake_ship)
+func test_outside_range_does_not_discover() -> void:
+	_ship.global_position = Vector2(900, 900)
+	_system._process(0.016)
+	assert_true(GameState.port_state.is_empty())
 
-	# Вызываем _process вручную
-	port_system._process(0.016)
+func test_saved_discovery_emits_entered_and_preserves_progress() -> void:
+	GameState.port_state.test_port = {"discovered": true, "level": 4,
+		"buildings": {"dock": {"level": 3, "damage_hp": 65}}}
+	GameState.player_state.discovered_port_ids = ["test_port"]
+	var snapshot: Dictionary = GameState.port_state.duplicate(true)
+	var signals_received: Array = []
+	var on_discovered := func(id: String): signals_received.append("discovered:" + id)
+	var on_entered := func(id: String): signals_received.append("entered:" + id)
+	var on_exited := func(id: String): signals_received.append("exited:" + id)
+	EventBus.port_discovered.connect(on_discovered)
+	EventBus.port_entered.connect(on_entered)
+	EventBus.port_exited.connect(on_exited)
+	_system._process(0.016)
+	_system._process(0.016)
+	_ship.global_position = Vector2(900, 900)
+	_system._process(0.016)
+	EventBus.port_discovered.disconnect(on_discovered)
+	EventBus.port_entered.disconnect(on_entered)
+	EventBus.port_exited.disconnect(on_exited)
+	assert_eq(signals_received, ["entered:test_port", "exited:test_port"])
+	assert_eq(GameState.port_state, snapshot)
 
-	var discovered: bool = GameState.port_state[port_id].get("discovered", false)
-	assert_true(discovered, "Port should be discovered when ship enters range")
-
-	# Cleanup
-	GameState.port_state.erase(port_id)
-	port_system.queue_free()
-	fake_ship.queue_free()
-
-
-# ---------------------------------------------------------------------------
-# TEST C: После входа в радиус discovered == true
-# ---------------------------------------------------------------------------
-func test_port_becomes_discovered_on_enter() -> void:
-	var port_id := "test_port_002"
-	GameState.port_state[port_id] = {
-		"id": port_id,
-		"name": "Hidden Cove",
-		"x": 0.0,
-		"y": 0.0,
-		"discovered": false,
-		"discovery_radius": 200.0
-	}
-
-	var port_system = load("res://systems/ports/port_system.gd").new()
-	var fake_ship := Node2D.new()
-	fake_ship.global_position = Vector2(50.0, 50.0)
-	port_system.initialize(fake_ship)
-	port_system._process(0.016)
-
-	assert_true(
-		GameState.port_state[port_id].get("discovered", false),
-		"Port discovered flag must be true after entering range"
-	)
-
-	# Cleanup
-	GameState.port_state.erase(port_id)
-	port_system.queue_free()
-	fake_ship.queue_free()
-
-
-# ---------------------------------------------------------------------------
-# TEST D: После Load Game discovered порты остаются discovered
-# ---------------------------------------------------------------------------
-func test_discovered_ports_survive_save_load() -> void:
-	var port_id := "test_port_003"
-	GameState.port_state[port_id] = {
-		"id": port_id,
-		"name": "Old Town",
-		"x": 500.0,
-		"y": 500.0,
-		"discovered": true,
-		"discovery_radius": 150.0
-	}
-
-	SaveSystem.save_game()
-	# Сбрасываем в памяти
-	GameState.port_state[port_id]["discovered"] = false
-	# Загружаем
-	SaveSystem.load_game()
-
-	assert_true(
-		GameState.port_state.get(port_id, {}).get("discovered", false),
-		"Discovered port must remain discovered after save/load"
-	)
-
-	GameState.port_state.erase(port_id)
-
-
-# ---------------------------------------------------------------------------
-# TEST E: Повторный вход в discovered порт → port_entered, не port_discovered
-# ---------------------------------------------------------------------------
-func test_already_discovered_port_emits_entered_not_discovered() -> void:
-	var port_id := "test_port_004"
-	GameState.port_state[port_id] = {
-		"id": port_id,
-		"name": "Known Harbor",
-		"x": 0.0,
-		"y": 0.0,
-		"discovered": true,    # уже открыт
-		"discovery_radius": 200.0
-	}
-
-	var port_system = load("res://systems/ports/port_system.gd").new()
-	var fake_ship := Node2D.new()
-	fake_ship.global_position = Vector2(10.0, 10.0)
-	port_system.initialize(fake_ship)
-
-	var discovered_signal_fired := false
-	var entered_signal_fired    := false
-
-	EventBus.port_discovered.connect(func(_id): discovered_signal_fired = true)
-	EventBus.port_entered.connect(func(_id): entered_signal_fired = true)
-
-	port_system._process(0.016)
-
-	assert_false(discovered_signal_fired, "port_discovered must NOT fire for already-discovered port")
-	assert_true(entered_signal_fired,     "port_entered must fire for already-discovered port")
-
-	# Cleanup
-	GameState.port_state.erase(port_id)
-	port_system.queue_free()
-	fake_ship.queue_free()
+func test_discovery_save_load() -> void:
+	_system._process(0.016)
+	GameState.reset_to_defaults()
+	assert_true(SaveSystem.load_game())
+	assert_true(GameState.port_state.test_port.discovered)
+	assert_eq(GameState.player_state.discovered_port_ids, ["test_port"])

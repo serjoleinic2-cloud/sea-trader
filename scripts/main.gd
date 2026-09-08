@@ -11,6 +11,10 @@ extends Node2D
 
 var _world_generator: Node
 var _ship: Node2D
+var _world_data: Dictionary = {}
+var _is_new_game: bool = false
+var _world_ready: bool = false
+var startup_error: String = ""
 
 # Phase 05
 var _port_system: Node = null
@@ -24,33 +28,46 @@ func _ready() -> void:
 	assert(SaveSystem != null, "SaveSystem autoload missing")
 	print("All autoloads verified.")
 
-	_initialize_world()
+	get_tree().auto_accept_quit = false
+	if not _initialize_world():
+		var error_label := Label.new()
+		error_label.text = startup_error + "\nSave files were not changed."
+		add_child(error_label)
+		return
 	_spawn_ship()
 	_initialize_port_systems()  # Phase 05
+	_world_ready = true
+	if _is_new_game:
+		SaveSystem.save_game()
 
 
 # ============================================================================
 # World init (Phase 02, preserved)
 # ============================================================================
 
-func _initialize_world() -> void:
-	var world_seed: int = _get_or_create_seed()
-	GameState.world_state.seed = world_seed
+func _initialize_world() -> bool:
+	if not _load_or_create_state():
+		return false
+	var world_seed: int = int(GameState.world_state.seed)
 	print("World seed: %d" % world_seed)
 
 	_world_generator = preload("res://systems/world/world_generator.gd").new()
+	add_child(_world_generator)
+	var generation_version: String = _world_generator.get_generation_version()
+	if _is_new_game:
+		GameState.world_state.world_gen_version = generation_version
+	elif GameState.world_state.get("world_gen_version", "") != generation_version:
+		startup_error = "World generation version is unsupported. Loading stopped."
+		return false
 	var world_data: Dictionary = _world_generator.generate(world_seed)
+	_world_data = world_data
 
-	GameState.world_state.current_position = Vector2(
-		world_data.world_size.x / 2.0,
-		world_data.world_size.y / 2.0
-	)
-	GameState.world_state.current_region = "starting_region"
-
-	# Phase 05: port_state заполняем только для новой игры
-	# При загрузке — уже восстановлен из SaveSystem.load_game()
-	if not SaveSystem.has_save() or GameState.port_state.is_empty():
-		_apply_port_state(world_data)
+	if _is_new_game:
+		GameState.ship_state.position = Vector2(world_data.world_size) * 0.25
+		GameState.world_state.current_position = GameState.ship_state.position
+		GameState.world_state.current_region = "starting_region"
+	# PortState is player knowledge, including a legitimately empty saved map.
+	# Generated port geometry is handed to consumers, never copied over progress.
 
 	if _world_renderer.has_method("setup"):
 		_world_renderer.setup(world_data)
@@ -62,38 +79,31 @@ func _initialize_world() -> void:
 		world_data.ports.size(),
 		world_data.hazard_zones.size()
 	])
+	return true
 
 
-func _get_or_create_seed() -> int:
+func _load_or_create_state() -> bool:
+	_is_new_game = false
 	if SaveSystem.has_save():
-		var loaded: bool = SaveSystem.load_game()
-		if loaded and GameState.world_state.seed != 0:
-			print("Loaded existing seed: %d" % GameState.world_state.seed)
-			return GameState.world_state.seed
+		if not SaveSystem.load_game():
+			startup_error = "Cannot load saved game. Loading stopped."
+			return false
+		return true  # Zero is also a valid saved seed.
 
 	var new_seed: int = int(Time.get_unix_time_from_system()) + randi()
 	GameState.reset_to_defaults()
 	GameState.world_state.seed = new_seed
-	return new_seed
+	_is_new_game = true
+	return true
 
 
-# Phase 05: записываем port_state из world_data в формате x/y
-func _apply_port_state(world_data: Dictionary) -> void:
-	GameState.port_state.clear()
-	for port_id in world_data.ports:
-		var p: Dictionary = world_data.ports[port_id]
-		var pos = p.get("position", Vector2i.ZERO)
-		GameState.port_state[port_id] = {
-			"id": port_id,
-			"name": p.get("name", port_id),
-			"x": float(pos.x),
-			"y": float(pos.y),
-			"discovered": false,
-			"discovery_radius": 150.0,
-			"region": p.get("region", ""),
-			"level": p.get("level", 1)
-		}
-	print("Phase 05: port_state populated with %d ports" % GameState.port_state.size())
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_APPLICATION_PAUSED or what == NOTIFICATION_WM_CLOSE_REQUEST:
+		if _world_ready and not SaveSystem.save_game():
+			push_error("Could not save game. Close cancelled; retry when storage is available.")
+			return
+		if what == NOTIFICATION_WM_CLOSE_REQUEST:
+			get_tree().quit()
 
 
 # ============================================================================
@@ -125,7 +135,7 @@ func _initialize_port_systems() -> void:
 		add_child(_port_system)
 
 	if _ship != null:
-		_port_system.initialize(_ship)
+		_port_system.initialize(_ship, _world_data.ports)
 	else:
 		push_warning("main.gd: _ship is null, PortSystem cannot track position")
 

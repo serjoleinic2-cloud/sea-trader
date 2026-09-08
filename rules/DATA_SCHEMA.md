@@ -1,7 +1,16 @@
 # DATA SCHEMA
 
 > Data models for runtime state and static game data. These are schemas, not implementations.
-> Last Updated: 2026-09-05 | Version: 0.3.0
+> Last Updated: 2026-09-08 | Version: 0.3.1
+
+Implementation note: save format 0.2.0 now persists the existing schema below.
+New games start with empty PortState; entries are created on discovery.
+Legacy saves keep progression fields but lose generated geometry metadata during
+migration. world_gen_version is the string form of the generation config version
+(currently "1"); legacy generation was also version 1. Relationship remains TBD;
+existing saved values are preserved, but new values are not invented.
+Port template JSON now contains discovery_radius=150.0, moved unchanged from
+the existing PortSystem constant; this remains provisional tuning, not final balance.
 
 ---
 
