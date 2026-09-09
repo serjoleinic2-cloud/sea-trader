@@ -16,6 +16,10 @@ var _is_new_game: bool = false
 var _world_ready: bool = false
 var startup_error: String = ""
 
+const CAMERA_ZOOM_STEP: float = 0.08
+const CAMERA_ZOOM_MIN: float = 0.15
+const CAMERA_ZOOM_MAX: float = 2.0
+
 # Phase 05
 var _port_system: Node = null
 var _port_debug_hud: CanvasLayer = null
@@ -158,15 +162,26 @@ func _input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed:
 		match event.keycode:
 			KEY_EQUAL:
-				var cam: Camera2D = _get_ship_camera()
-				if cam:
-					cam.zoom += Vector2(0.05, 0.05)
+				_zoom_ship_camera(CAMERA_ZOOM_STEP)
 			KEY_MINUS:
-				var cam: Camera2D = _get_ship_camera()
-				if cam:
-					cam.zoom = (cam.zoom - Vector2(0.05, 0.05)).clamp(
-						Vector2(0.05, 0.05), Vector2(2.0, 2.0)
-					)
+				_zoom_ship_camera(-CAMERA_ZOOM_STEP)
+
+	if event is InputEventMouseButton and event.pressed:
+		match event.button_index:
+			MOUSE_BUTTON_WHEEL_UP:
+				_zoom_ship_camera(CAMERA_ZOOM_STEP)
+				get_viewport().set_input_as_handled()
+			MOUSE_BUTTON_WHEEL_DOWN:
+				_zoom_ship_camera(-CAMERA_ZOOM_STEP)
+				get_viewport().set_input_as_handled()
+
+
+func _zoom_ship_camera(delta: float) -> void:
+	var cam: Camera2D = _get_ship_camera()
+	if cam == null:
+		return
+	var next_zoom: float = clamp(cam.zoom.x + delta, CAMERA_ZOOM_MIN, CAMERA_ZOOM_MAX)
+	cam.zoom = Vector2(next_zoom, next_zoom)
 
 
 func _get_ship_camera() -> Camera2D:
