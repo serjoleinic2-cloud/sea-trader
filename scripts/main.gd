@@ -23,6 +23,7 @@ const CAMERA_ZOOM_MAX: float = 2.0
 # Phase 05
 var _port_system: Node = null
 var _port_debug_hud: CanvasLayer = null
+var _ship_status_hud: CanvasLayer = null
 
 
 func _ready() -> void:
@@ -40,6 +41,7 @@ func _ready() -> void:
 		return
 	_spawn_ship()
 	_initialize_port_systems()  # Phase 05
+	_initialize_ship_status_hud()
 	_world_ready = true
 	if _is_new_game:
 		SaveSystem.save_game()
@@ -152,6 +154,16 @@ func _initialize_port_systems() -> void:
 
 	_port_debug_hud.initialize(_port_system)
 	print("Phase 05: PortSystem and PortDebugHUD initialized")
+
+
+func _initialize_ship_status_hud() -> void:
+	_ship_status_hud = get_node_or_null("ShipStatusHUD")
+	if _ship_status_hud == null:
+		_ship_status_hud = load("res://systems/ui/ship_status_hud.gd").new()
+		_ship_status_hud.name = "ShipStatusHUD"
+		add_child(_ship_status_hud)
+
+	_ship_status_hud.initialize(_port_system)
 
 
 # ============================================================================

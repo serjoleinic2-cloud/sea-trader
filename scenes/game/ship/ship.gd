@@ -31,6 +31,7 @@ func _ready() -> void:
 	_load_ship_data()
 	_init_systems()
 	_position_ship()
+	_hud.visible = false
 
 	# Connect collision
 	$Area2D.body_entered.connect(_on_body_entered)
