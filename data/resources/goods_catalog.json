@@ -20,6 +20,16 @@
       "regions": [
         "starting_region"
       ]
+    },
+    {
+      "id": "resource_parts",
+      "display_name": "Запчасти",
+      "category": "industrial_goods",
+      "base_price": 30,
+      "weight_per_unit": 1,
+      "regions": [
+        "starting_region"
+      ]
     }
   ]
 }
