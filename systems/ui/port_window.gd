@@ -178,9 +178,12 @@ func _get_building_name(building_id: String) -> String:
 
 func _get_building_state(port: Dictionary, building_id: String) -> String:
 	var raw_buildings: Variant = port.get("buildings", {})
-	if not (raw_buildings is Dictionary) or not raw_buildings.has(building_id):
+	if not (raw_buildings is Dictionary):
 		return "план"
-	var building: Dictionary = raw_buildings[building_id]
+	var buildings: Dictionary = raw_buildings
+	if not buildings.has(building_id):
+		return "план"
+	var building: Dictionary = buildings[building_id]
 	var level: int = int(building.get("level", 0))
 	var status: String = str(building.get("status", "построено"))
 	return status + ", ур. %d" % level
