@@ -11,6 +11,11 @@ var _progression_config: Dictionary = {}
 func _ready() -> void:
 	layer = 40
 	_panel = PanelContainer.new()
+	var panel_style: StyleBoxFlat = StyleBoxFlat.new()
+	panel_style.bg_color = Color(0.04, 0.06, 0.08, 1.0)
+	panel_style.border_color = Color(0.22, 0.45, 0.62, 1.0)
+	panel_style.set_border_width_all(2)
+	_panel.add_theme_stylebox_override("panel", panel_style)
 	_panel.position = Vector2(12, 12)
 	_panel.size = Vector2(520, 620)
 	add_child(_panel)
