@@ -152,7 +152,7 @@ func _process(_delta: float) -> void:
 		_last_home_port_id = ""
 		return
 	var viewport_size: Vector2 = get_viewport().get_visible_rect().size
-	_sheet.size = Vector2(minf(540.0, viewport_size.x - 24.0), minf(760.0, viewport_size.y - 124.0))
+	_sheet.size = Vector2(minf(540.0, viewport_size.x - 24.0), minf(840.0, viewport_size.y - 124.0))
 	_sheet.position = (viewport_size - _sheet.size) * 0.5 - Vector2(0.0, 38.0)
 	_bottom_menu.size = Vector2(minf(920.0, viewport_size.x - 24.0), 82.0)
 	_bottom_menu.position = Vector2((viewport_size.x - _bottom_menu.size.x) * 0.5, viewport_size.y - _bottom_menu.size.y - 14.0)
