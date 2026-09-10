@@ -15,10 +15,18 @@ extends Node2D
 
 var _world_data: Dictionary = {}
 var _camera: Camera2D
+var _last_home_port_id: String = ""
 
 
 func _ready() -> void:
 	EventBus.port_discovered.connect(_on_port_discovered)
+
+
+func _process(_delta: float) -> void:
+	var home_port_id: String = str(GameState.world_state.get("home_port_id", ""))
+	if home_port_id != _last_home_port_id:
+		_last_home_port_id = home_port_id
+		queue_redraw()
 
 
 func _on_port_discovered(_port_id: String) -> void:
@@ -103,6 +111,9 @@ func _draw_port(port: Dictionary) -> void:
 	# Port circle
 	draw_circle(pos, radius, port_color)
 	draw_arc(pos, radius, 0.0, TAU, 16, port_border_color, 2.0)
+	if str(GameState.world_state.get("home_port_id", "")) == str(port.id):
+		draw_arc(pos, radius + 10.0, 0.0, TAU, 32, Color("f5d142"), 3.0)
+		draw_string(ThemeDB.fallback_font, pos + Vector2(-18, -28), "БАЗА", HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color("f5d142"))
 	# Name label
 	draw_string(
 		ThemeDB.fallback_font,
