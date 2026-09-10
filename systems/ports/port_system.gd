@@ -103,3 +103,27 @@ func _update_nearest_port_debug(ship_pos: Vector2) -> void:
 		if dist <= radius and dist < best_dist:
 			best_dist = dist
 			nearest_port_name = _world_ports[port_id].get("name", port_id)
+
+
+func get_dock_candidate() -> String:
+	if _ship_node == null:
+		return ""
+	var best_id: String = ""
+	var best_distance: float = INF
+	for port_id in _world_ports:
+		var state: Dictionary = GameState.port_state.get(port_id, {})
+		if not state.get("discovered", false):
+			continue
+		var distance: float = _ship_node.global_position.distance_to(Vector2(_world_ports[port_id].position))
+		if distance <= _discovery_radius and distance < best_distance:
+			best_distance = distance
+			best_id = port_id
+	return best_id
+
+
+func dock(port_id: String) -> bool:
+	if port_id == "" or get_dock_candidate() != port_id:
+		return false
+	GameState.ship_state["docked_port_id"] = port_id
+	GameState.ship_state["velocity"] = Vector2.ZERO
+	return SaveSystem.save_game()
