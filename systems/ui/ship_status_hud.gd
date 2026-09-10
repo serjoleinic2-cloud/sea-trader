@@ -44,6 +44,7 @@ func _process(_delta: float) -> void:
 	var position: Vector2 = GameState.ship_state.get("position", Vector2.ZERO)
 	var discovered_count: int = GameState.player_state.get("discovered_port_ids", []).size()
 	var nearest_port: String = ""
+	var docked_port: String = str(GameState.ship_state.get("docked_port_id", ""))
 	var dock_candidate: String = ""
 
 	if _port_system != null:
@@ -65,6 +66,7 @@ func _process(_delta: float) -> void:
 		+ "Ports known: %d\n"
 		+ "Nearest: %s\n"
 		+ "Pos: %d, %d\n"
+		+ "Docked: %s"
 		+ "%s"
 	) % [
 		int(money),
