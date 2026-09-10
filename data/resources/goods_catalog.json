@@ -3,19 +3,23 @@
   "resources": [
     {
       "id": "resource_timber",
-      "display_name": "Timber",
+      "display_name": "Древесина",
       "category": "raw_material",
       "base_price": 10,
       "weight_per_unit": 2,
-      "regions": ["starting_region"]
+      "regions": [
+        "starting_region"
+      ]
     },
     {
       "id": "resource_fish",
-      "display_name": "Fish",
+      "display_name": "Рыба",
       "category": "raw_material",
       "base_price": 8,
       "weight_per_unit": 1,
-      "regions": ["starting_region"]
+      "regions": [
+        "starting_region"
+      ]
     }
   ]
 }
