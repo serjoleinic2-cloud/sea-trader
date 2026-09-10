@@ -68,7 +68,7 @@ func _unhandled_key_input(event: InputEvent) -> void:
 	if str(GameState.ship_state.get("docked_port_id", "")) != "":
 		_port_system.undock()
 	else:
-		var candidate := _port_system.get_dock_candidate()
+		var candidate: String = str(_port_system.get_dock_candidate())
 		if candidate != "":
 			_port_system.dock(candidate)
 	get_viewport().set_input_as_handled()
