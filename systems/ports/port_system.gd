@@ -5,7 +5,7 @@ extends Node
 # При входе в радиус:
 #   - если порт не discovered → отмечает как discovered, эмитирует port_discovered
 #   - если порт уже discovered → эмитирует port_entered
-# Не генерирует порты и не открывает UI. Управляет discovery и швартовкой.
+# Не генерирует порты. Не открывает UI. Только управляет состоянием discovery.
 
 var _discovery_radius: float = 0.0
 var _world_ports: Dictionary = {}
@@ -20,83 +20,12 @@ func _ready() -> void:
 	set_process(true)
 
 
-func initialize(ship: Node2D, world_ports: Dictionary) -> bool:
+func initialize(ship: Node2D, world_ports: Dictionary) -> void:
 	_ship_node = ship
 	_world_ports = world_ports
 	_ports_in_range.clear()
 	var config: Dictionary = SaveSystem._read_json("res://data/ports/port_template.json")
 	_discovery_radius = float(config.get("discovery_radius", 0.0))
-	return is_saved_dock_valid()
-
-
-func get_docked_port_id() -> String:
-	return GameState.ship_state.get("docked_port_id", "")
-
-
-func is_saved_dock_valid() -> bool:
-	var port_id: String = get_docked_port_id()
-	if port_id == "":
-		return true
-	return _is_discovered(port_id) and _is_in_range(port_id) \
-		and GameState.ship_state.get("velocity", Vector2.ZERO) == Vector2.ZERO
-
-
-func get_dock_candidate() -> String:
-	if get_docked_port_id() != "" or not is_instance_valid(_ship_node):
-		return ""
-	var nearest_id: String = ""
-	var nearest_distance: float = INF
-	var ids: Array = _world_ports.keys()
-	ids.sort()
-	for port_id in ids:
-		if not _is_discovered(port_id) or not _is_in_range(port_id):
-			continue
-		var distance: float = _ship_node.global_position.distance_to(
-			Vector2(_world_ports[port_id].position))
-		if distance < nearest_distance:
-			nearest_distance = distance
-			nearest_id = port_id
-	return nearest_id
-
-
-func get_port_name(port_id: String) -> String:
-	# Undiscovered port names are not exposed through the player-facing query.
-	if not _is_discovered(port_id):
-		return ""
-	return str(_world_ports[port_id].get("name", port_id))
-
-
-func dock(port_id: String) -> Dictionary:
-	# Recheck live distance on the action, not just the last discovery frame.
-	if get_docked_port_id() != "" or not _is_discovered(port_id) or not _is_in_range(port_id):
-		return {"ok": false, "saved": false}
-	GameState.ship_state.docked_port_id = port_id
-	GameState.ship_state.velocity = Vector2.ZERO
-	EventBus.ship_docked.emit(port_id)
-	return {"ok": true, "saved": SaveSystem.save_game()}
-
-
-func undock() -> Dictionary:
-	var port_id: String = get_docked_port_id()
-	if port_id == "":
-		return {"ok": false, "saved": false}
-	GameState.ship_state.docked_port_id = ""
-	GameState.ship_state.velocity = Vector2.ZERO
-	EventBus.ship_undocked.emit(port_id)
-	return {"ok": true, "saved": SaveSystem.save_game()}
-
-
-func _is_discovered(port_id: String) -> bool:
-	return _world_ports.has(port_id) \
-		and GameState.port_state.get(port_id, {}).get("discovered", false) \
-		and GameState.player_state.discovered_port_ids.has(port_id)
-
-
-func _is_in_range(port_id: String) -> bool:
-	if not is_instance_valid(_ship_node) or not _world_ports.has(port_id):
-		return false
-	return _ship_node.global_position.distance_to(
-		Vector2(_world_ports[port_id].position)) <= _discovery_radius
 
 
 func _process(_delta: float) -> void:
