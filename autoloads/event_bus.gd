@@ -17,6 +17,7 @@ signal ship_repaired(component: String, amount: float)
 signal port_discovered(port_id: String)
 signal port_entered(port_id: String)
 signal port_exited(port_id: String)
+signal building_activated(port_id: String, building_id: String)
 signal region_entered(region_id: String)
 
 # ============================================================================
