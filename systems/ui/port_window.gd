@@ -187,12 +187,18 @@ func _plan_selected_building() -> void:
 		port["buildings"] = {}
 	var buildings: Dictionary = port.get("buildings", {})
 	if buildings.has(_selected_building_id):
-		_notice = "Это здание уже построено."
-		return
-	buildings[_selected_building_id] = {"level": 1, "status": "active"}
+		var existing_building: Dictionary = buildings[_selected_building_id]
+		if int(existing_building.get("level", 0)) >= 1 and str(existing_building.get("status", "")) == "active":
+			_notice = "Это здание уже работает."
+			return
+		# Saves from the earlier planning prototype are upgraded to an active building.
+		buildings[_selected_building_id] = {"level": 1, "status": "active"}
+		_notice = "Старый проект построен и запущен. Производство начнётся через 10 секунд."
+	else:
+		buildings[_selected_building_id] = {"level": 1, "status": "active"}
+		_notice = "Здание построено. Производство начнётся через 10 секунд."
 	port["buildings"] = buildings
 	GameState.port_state[port_id] = port
-	_notice = "Здание построено. Производство начнётся через 10 секунд."
 	SaveSystem.save_game()
 	_rebuild_building_list(port_id)
 
