@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "base_demands": [
+    {
+      "resource_id": "resource_parts",
+      "target_quantity": 5,
+      "purpose": "Первое улучшение базы"
+    }
+  ],
+  "balance_status": "Provisional schematic base shortage."
+}
