@@ -61,6 +61,24 @@
         "company_management",
         "item_registry"
       ]
+    },
+    {
+      "building_id": "fishing_wharf",
+      "display_name": "Рыбацкий причал",
+      "role": "Производство рыбы для склада.",
+      "max_level": "TBD",
+      "effect_ids": [
+        "produce_fish"
+      ]
+    },
+    {
+      "building_id": "timber_yard",
+      "display_name": "Лесной терминал",
+      "role": "Производство древесины для склада.",
+      "max_level": "TBD",
+      "effect_ids": [
+        "produce_timber"
+      ]
     }
   ],
   "balance_status": "Building costs, requirements, levels and numeric effects are TBD."
