@@ -23,6 +23,7 @@ const CAMERA_ZOOM_MAX: float = 2.0
 # Phase 05
 var _port_system: Node = null
 var _ship_status_hud: CanvasLayer = null
+var _captain_cabinet: CanvasLayer = null
 
 
 func _ready() -> void:
@@ -41,6 +42,7 @@ func _ready() -> void:
 	_spawn_ship()
 	_initialize_port_systems()  # Phase 05
 	_initialize_ship_status_hud()
+	_initialize_captain_cabinet()
 	_world_ready = true
 	if _is_new_game:
 		SaveSystem.save_game()
@@ -155,6 +157,13 @@ func _initialize_ship_status_hud() -> void:
 		add_child(_ship_status_hud)
 
 	_ship_status_hud.initialize(_port_system)
+
+
+func _initialize_captain_cabinet() -> void:
+	_captain_cabinet = load("res://systems/ui/captain_cabinet.gd").new()
+	_captain_cabinet.name = "CaptainCabinet"
+	add_child(_captain_cabinet)
+	_captain_cabinet.initialize(_port_system)
 
 
 # ============================================================================
