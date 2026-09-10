@@ -30,6 +30,8 @@ func _process(_delta: float) -> void:
 	if _label == null or _port_system == null:
 		return
 	_panel.visible = _open
+	var viewport_size: Vector2 = get_viewport().get_visible_rect().size
+	_panel.position = Vector2(maxf(12.0, viewport_size.x - _panel.size.x - 12.0), 12.0)
 	if not _open:
 		return
 	var ship: Dictionary = GameState.ship_state
