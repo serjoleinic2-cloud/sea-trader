@@ -7,7 +7,7 @@
       "display_name": "Sloop",
       "role": "starter_coastal_trade",
       "progression_goal": "Teach manual navigation and one-cargo trading.",
-      "ship_progression_rule": "The player must reach Captain on this ship before unlocking the next ship tier.",
+      "ship_progression_rule": "The player must reach Master Captain on this ship before unlocking the next ship tier.",
       "next_ship_start": "Sailor with all personal skills retained."
     },
     {
@@ -16,7 +16,7 @@
       "display_name": "Barque",
       "role": "regional_trade",
       "progression_goal": "Introduce larger holds and multiple port choices.",
-      "ship_progression_rule": "The player must reach Captain on this ship before unlocking the next ship tier.",
+      "ship_progression_rule": "The player must reach Master Captain on this ship before unlocking the next ship tier.",
       "next_ship_start": "Sailor with all personal skills retained."
     },
     {
@@ -25,7 +25,7 @@
       "display_name": "Schooner",
       "role": "long_range_trade",
       "progression_goal": "Require planning fuel, cargo and risk.",
-      "ship_progression_rule": "The player must reach Captain on this ship before unlocking the next ship tier.",
+      "ship_progression_rule": "The player must reach Master Captain on this ship before unlocking the next ship tier.",
       "next_ship_start": "Sailor with all personal skills retained.",
       "crew_system_unlocked": true
     },
@@ -35,7 +35,7 @@
       "display_name": "Freighter",
       "role": "interregional_bulk_trade",
       "progression_goal": "Support company-scale contracts and specialization.",
-      "ship_progression_rule": "The player must reach Captain on this ship before unlocking the next ship tier.",
+      "ship_progression_rule": "The player must reach Master Captain on this ship before unlocking the next ship tier.",
       "next_ship_start": "Sailor with all personal skills retained."
     },
     {
@@ -44,7 +44,7 @@
       "display_name": "Tanker",
       "role": "heavy_bulk_trade",
       "progression_goal": "Support endgame logistics and rare-item economy.",
-      "ship_progression_rule": "The player must reach Captain on this ship before unlocking the next ship tier.",
+      "ship_progression_rule": "The player must reach Master Captain on this ship before unlocking the next ship tier.",
       "next_ship_start": "Sailor with all personal skills retained."
     }
   ],
