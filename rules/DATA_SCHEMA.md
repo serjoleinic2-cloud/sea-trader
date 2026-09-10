@@ -1,7 +1,7 @@
 # DATA SCHEMA
 
 > Data models for runtime state and static game data. These are schemas, not implementations.
-> Last Updated: 2026-09-10 | Version: 0.3.2
+> Last Updated: 2026-09-10 | Version: 0.3.3
 
 Implementation note: save format 0.2.0 now persists the existing schema below.
 New games start with empty PortState; entries are created on discovery.
@@ -78,6 +78,7 @@ port_id:
   discovered: bool        # true = player has visited this port
   level: int
   buildings: {}           # building_id → { level, damage_hp, status }
+  inventory: {}           # resource_id → quantity, stock held at this port
   relationship: float     # TBD
 ```
 
@@ -257,6 +258,18 @@ Static data is read-only at runtime. Never modified by gameplay.
   "unlock_level": 1
 }
 ```
+
+### ProductionRecipeData (data/ports/production_recipes.json)
+```json
+{
+  "building_id": "fishing_wharf",
+  "resource_id": "resource_fish",
+  "quantity_per_cycle": 1,
+  "required_building_level": 1
+}
+```
+
+> Production recipes are static data. Active production buildings add their output to the home-port inventory; loading removes one unit from that inventory and adds it to ShipState.cargo.
 
 ### ResourceData (`data/resources/goods_catalog.json`)
 ```json
