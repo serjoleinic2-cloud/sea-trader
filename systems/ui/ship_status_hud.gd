@@ -53,7 +53,7 @@ func _process(_delta: float) -> void:
 
 	var dock_hint: String = ""
 	if dock_candidate != "":
-		dock_hint = "\\nDock: press E"
+		dock_hint = "\nDock: press E"
 
 	_label.text = (
 		"SHIP STATUS\n"
@@ -64,7 +64,8 @@ func _process(_delta: float) -> void:
 		+ "Cargo: %d / %d\n"
 		+ "Ports known: %d\n"
 		+ "Nearest: %s\n"
-		+ "Pos: %d, %d"\n\t\t+ "%s"
+		+ "Pos: %d, %d\n"
+		+ "%s"
 	) % [
 		int(money),
 		speed,
