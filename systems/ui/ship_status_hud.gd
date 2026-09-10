@@ -51,6 +51,8 @@ func _process(_delta: float) -> void:
 		dock_candidate = _port_system.get_dock_candidate()
 
 	var dock_hint: String = ""
+	if GameState.ship_state.get("docked_port_id", "") != "":
+		dock_hint = "\nDocked: " + str(GameState.ship_state.get("docked_port_id", ""))
 	if dock_candidate != "":
 		dock_hint = "\nDock: press E"
 
