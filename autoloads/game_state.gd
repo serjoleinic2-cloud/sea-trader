@@ -171,7 +171,12 @@ func reset_to_defaults() -> void:
 		"stats": {
 			"total_deliveries": 0,
 			"total_distance": 0.0,
-			"total_earned": 0.0
+			"total_earned": 0.0,
+			"total_sales": 0,
+			"total_voyages": 0,
+			"cargo_units_moved": 0,
+			"safe_dockings": 0,
+			"ports_discovered": 0
 		}
 	}
 	world_state = {
