@@ -10,6 +10,17 @@
 
 Exact prices, rewards, requirements and boost values remain TBD and must be balanced in data files.
 
+## Captain and Crew Progression
+
+Every ship has its own career path: Sailor -> Boatswain -> Officer -> Captain.
+Reaching Captain unlocks the next ship tier. The player begins the next ship as
+Sailor again, but keeps personal skills earned on earlier ships.
+
+The crew system unlocks on ship tier 3. Each crew member gains experience and
+can specialize independently in cargo handling, navigation speed, fuel
+efficiency, repair or safety. Exact bonuses, XP thresholds, crew capacity and
+rank requirements remain data-driven balance decisions.
+
 ## Events
 
 Events should create concrete goals with limited availability, for example:
