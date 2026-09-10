@@ -57,6 +57,9 @@ var ship_node: Node2D = null
 
 func setup(ship_data: Dictionary, initialize_state: bool = true) -> void:
 	"""Initialize from ShipData JSON. Call once before first physics tick."""
+	if not EventBus.ship_docked.is_connected(_on_docking_changed):
+		EventBus.ship_docked.connect(_on_docking_changed)
+		EventBus.ship_undocked.connect(_on_docking_changed)
 	_ship_data = ship_data
 	_heading = -PI / 2.0   # start facing up (north)
 	_speed = 0.0
@@ -77,18 +80,26 @@ func setup(ship_data: Dictionary, initialize_state: bool = true) -> void:
 	GameState.ship_state["fuel_max"] = float(ship_data.get("fuel_capacity", 100))
 	GameState.ship_state["cargo_capacity"] = int(ship_data.get("cargo_capacity", 50))
 	GameState.ship_state["velocity"] = Vector2.ZERO
+	GameState.ship_state["docked_port_id"] = ""
 
 
 func apply_control(throttle: float, steering_input: float) -> void:
 	"""Receive normalized control commands from ShipControl.
 	throttle: -1 (brake) .. 0 (coast) .. 1 (full gas)
 	steering_input: -1 (hard left) .. 0 (straight) .. 1 (hard right)"""
+	if GameState.ship_state.get("docked_port_id", "") != "":
+		_stop_motion()
+		return
 	_throttle = clampf(throttle, -1.0, 1.0)
 	_steering = clampf(steering_input, -1.0, 1.0)
 
 
 func physics_tick(delta: float) -> void:
 	"""Main physics update. Call every _physics_process tick."""
+	if GameState.ship_state.get("docked_port_id", "") != "":
+		_stop_motion()
+		_update_visual_roll(delta)
+		return
 	_update_speed(delta)
 	_update_heading(delta)
 	_update_position(delta)
@@ -121,6 +132,21 @@ func restore_from_state() -> void:
 	_speed = vel.length()
 	if _speed > 0.0:
 		_heading = atan2(vel.y, vel.x)
+	if GameState.ship_state.get("docked_port_id", "") != "":
+		_speed = 0.0
+
+
+func _on_docking_changed(_port_id: String) -> void:
+	_stop_motion()
+	_update_visual_roll(0.0)
+
+
+func _stop_motion() -> void:
+	_speed = 0.0
+	_throttle = 0.0
+	_steering = 0.0
+	_visual_roll = 0.0
+	GameState.ship_state.velocity = Vector2.ZERO
 
 # ============================================================================
 # Internal — speed update
