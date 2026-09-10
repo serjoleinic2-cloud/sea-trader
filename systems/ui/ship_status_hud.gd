@@ -2,7 +2,7 @@ extends CanvasLayer
 
 ## Read-only ship state shown while sailing.
 
-const PANEL_SIZE := Vector2(370, 285)
+const PANEL_SIZE := Vector2(390, 370)
 
 var _panel: ColorRect
 var _label: Label
@@ -13,7 +13,7 @@ func _ready() -> void:
 	layer = 20
 	_panel = ColorRect.new()
 	_panel.size = PANEL_SIZE
-	_panel.color = Color(0.02, 0.03, 0.04, 0.72)
+	_panel.color = Color(0.02, 0.03, 0.04, 1.0)
 	add_child(_panel)
 	_label = Label.new()
 	_label.size = PANEL_SIZE - Vector2(28, 24)
