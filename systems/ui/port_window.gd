@@ -63,7 +63,7 @@ func _process(_delta: float) -> void:
 	_sheet.position = (viewport_size - _sheet.size) * 0.5
 	var ship: Dictionary = GameState.ship_state
 	var port: Dictionary = GameState.port_state.get(docked_port, {})
-	var port_name: String = str(_port_system._world_ports.get(docked_port, {}).get("name", docked_port))
+	var port_name: String = _port_system.get_port_name(docked_port)
 	_title.text = "PORT: " + port_name
 	_details.text = (
 		"Docked\n"
