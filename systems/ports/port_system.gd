@@ -56,28 +56,9 @@ func _process(_delta: float) -> void:
 	_update_nearest_port_debug(ship_pos)
 
 
-func _on_enter_port_range(port_id: String, port: Dictionary) -> void:
-	var already_discovered: bool = port.get("discovered", false)
-
-	if not already_discovered:
-		# Первое обнаружение
-		if not GameState.port_state.has(port_id):
-			var generated: Dictionary = _world_ports[port_id]
-			GameState.port_state[port_id] = {
-				"discovered": false,
-				"level": generated.get("level", 1),
-				"buildings": generated.get("buildings", {}).duplicate(true)
-			}
-		GameState.port_state[port_id]["discovered"] = true
-		if not GameState.player_state.discovered_port_ids.has(port_id):
-			GameState.player_state.discovered_port_ids.append(port_id)
-			GameState.player_state.stats["ports_discovered"] = int(GameState.player_state.stats.get("ports_discovered", 0)) + 1
-		SaveSystem.save_game()
-		EventBus.emit_signal("port_discovered", port_id)
-	else:
-		# Повторный вход в известный порт
-		EventBus.emit_signal("port_entered", port_id)
-
+func _on_enter_port_range(port_id: String, _port: Dictionary) -> void:
+	# Seeing a port is not a visit. Player knowledge is recorded only after docking.
+	EventBus.emit_signal("port_entered", port_id)
 
 # ---------------------------------------------------------------------------
 # Debug helper — имя ближайшего порта в радиусе
@@ -112,9 +93,6 @@ func get_dock_candidate() -> String:
 	var best_id: String = ""
 	var best_distance: float = INF
 	for port_id in _world_ports:
-		var state: Dictionary = GameState.port_state.get(port_id, {})
-		if not state.get("discovered", false):
-			continue
 		var distance: float = _ship_node.global_position.distance_to(Vector2(_world_ports[port_id].position))
 		if distance <= _discovery_radius and distance < best_distance:
 			best_distance = distance
@@ -125,6 +103,22 @@ func get_dock_candidate() -> String:
 func dock(port_id: String) -> bool:
 	if port_id == "" or get_dock_candidate() != port_id:
 		return false
+	var previous_port_id: String = str(GameState.world_state.get("last_docked_port_id", ""))
+	if not GameState.port_state.has(port_id):
+		var generated: Dictionary = _world_ports.get(port_id, {})
+		GameState.port_state[port_id] = {
+			"discovered": true,
+			"level": generated.get("level", 1),
+			"buildings": {}
+		}
+	else:
+		GameState.port_state[port_id]["discovered"] = true
+	if not GameState.player_state.discovered_port_ids.has(port_id):
+		GameState.player_state.discovered_port_ids.append(port_id)
+		GameState.player_state.stats["ports_discovered"] = int(GameState.player_state.stats.get("ports_discovered", 0)) + 1
+	if previous_port_id != "" and previous_port_id != port_id and _world_ports.has(previous_port_id):
+		_register_manual_route(previous_port_id, port_id)
+	GameState.world_state["last_docked_port_id"] = port_id
 	GameState.ship_state["docked_port_id"] = port_id
 	if str(GameState.world_state.get("home_port_id", "")) == "":
 		GameState.world_state["home_port_id"] = port_id
@@ -132,6 +126,23 @@ func dock(port_id: String) -> bool:
 	GameState.player_state.stats["safe_dockings"] = int(GameState.player_state.stats.get("safe_dockings", 0)) + 1
 	return SaveSystem.save_game()
 
+func _register_manual_route(port_a_id: String, port_b_id: String) -> void:
+	var ordered_ids: Array[String] = [port_a_id, port_b_id]
+	ordered_ids.sort()
+	var route_key: String = ordered_ids[0] + "--" + ordered_ids[1]
+	var distance: float = Vector2(_world_ports[port_a_id].position).distance_to(Vector2(_world_ports[port_b_id].position))
+	var route: Dictionary = GameState.known_routes_state.get(route_key, {})
+	if route.is_empty():
+		route = {
+			"port_a_id": ordered_ids[0],
+			"port_b_id": ordered_ids[1],
+			"distance": distance,
+			"risk_level": "low",
+			"discovered_timestamp": int(Time.get_unix_time_from_system()),
+			"times_traveled": 0
+		}
+	route["times_traveled"] = int(route.get("times_traveled", 0)) + 1
+	GameState.known_routes_state[route_key] = route
 
 func undock() -> bool:
 	if str(GameState.ship_state.get("docked_port_id", "")) == "":
