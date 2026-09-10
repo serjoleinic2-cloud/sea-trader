@@ -177,8 +177,26 @@ func _select_building(building_id: String) -> void:
 	_selected_building_id = building_id
 	_notice = ""
 	var port_id: String = str(GameState.ship_state.get("docked_port_id", ""))
-	if port_id != "":
+	if port_id != "" and _get_selected_resource_id() != "":
+		_ensure_selected_production_is_active(port_id)
 		EventBus.production_output_requested.emit(port_id, building_id)
+
+func _ensure_selected_production_is_active(port_id: String) -> void:
+	var port: Dictionary = GameState.port_state.get(port_id, {})
+	var raw_buildings: Variant = port.get("buildings", {})
+	var buildings: Dictionary = raw_buildings if raw_buildings is Dictionary else {}
+	var is_active: bool = false
+	if buildings.has(_selected_building_id):
+		var existing_building: Dictionary = buildings[_selected_building_id]
+		is_active = int(existing_building.get("level", 0)) >= 1 and str(existing_building.get("status", "")) == "active"
+	if is_active:
+		return
+	buildings[_selected_building_id] = {"level": 1, "status": "active"}
+	port["buildings"] = buildings
+	GameState.port_state[port_id] = port
+	_notice = "Производство запущено."
+	SaveSystem.save_game()
+	_rebuild_building_list(port_id)
 
 func _plan_selected_building() -> void:
 	var port_id: String = str(GameState.ship_state.get("docked_port_id", ""))
