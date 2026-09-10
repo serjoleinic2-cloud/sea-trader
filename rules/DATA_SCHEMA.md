@@ -1,7 +1,7 @@
 # DATA SCHEMA
 
 > Data models for runtime state and static game data. These are schemas, not implementations.
-> Last Updated: 2026-09-08 | Version: 0.3.1
+> Last Updated: 2026-09-10 | Version: 0.3.2
 
 Implementation note: save format 0.2.0 now persists the existing schema below.
 New games start with empty PortState; entries are created on discovery.
@@ -48,6 +48,7 @@ current_position: Vector2
 current_region: String    # region_id
 explored_region_ids: []   # [PLAYER KNOWLEDGE] regions player has entered
 destination_port_id: String | null
+home_port_id: String          # player-designated primary port/base
 last_session_timestamp: int  # Unix timestamp
 ```
 
@@ -76,7 +77,7 @@ cargo_capacity: int       # max cargo units
 port_id:
   discovered: bool        # true = player has visited this port
   level: int
-  buildings: {}           # building_id → { level, damage_hp }
+  buildings: {}           # building_id → { level, damage_hp, status }
   relationship: float     # TBD
 ```
 
