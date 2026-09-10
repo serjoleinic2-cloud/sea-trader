@@ -816,7 +816,11 @@ func _get_port_market_stock(port_id: String) -> Dictionary:
 	var port: Dictionary = GameState.port_state.get(port_id, {})
 	var raw_stock: Variant = port.get("market_stock", {})
 	if raw_stock is Dictionary and not raw_stock.is_empty():
-		return raw_stock
+		var existing_stock: Dictionary = raw_stock
+		if not existing_stock.has("resource_oil"):
+			existing_stock["resource_oil"] = 6
+			_set_port_market_stock(port_id, existing_stock)
+		return existing_stock
 	var stock: Dictionary = {"resource_parts": 5, "resource_timber": 8, "resource_fish": 8, "resource_oil": 6}
 	_set_port_market_stock(port_id, stock)
 	return stock
