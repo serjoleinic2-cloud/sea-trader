@@ -17,13 +17,28 @@
       "purpose": "Prepare for command and take responsibility for voyage decisions."
     },
     {
-      "rank_id": "captain",
-      "display_name": "Captain",
-      "purpose": "Complete the ship progression and unlock the next ship tier."
+      "rank_id": "captain_class_3",
+      "display_name": "Captain III",
+      "purpose": "First command rank."
+    },
+    {
+      "rank_id": "captain_class_2",
+      "display_name": "Captain II",
+      "purpose": "Develop command skills on more demanding voyages."
+    },
+    {
+      "rank_id": "captain_class_1",
+      "display_name": "Captain I",
+      "purpose": "Prove command of the current ship tier."
+    },
+    {
+      "rank_id": "master_captain",
+      "display_name": "Master Captain",
+      "purpose": "Complete this ship's command career and unlock the next ship tier."
     }
   ],
   "next_ship_rule": {
-    "required_rank": "captain",
+    "required_rank": "master_captain",
     "new_ship_start_rank": "sailor",
     "personal_skills_carry_over": true,
     "crew_skills_carry_over": false
