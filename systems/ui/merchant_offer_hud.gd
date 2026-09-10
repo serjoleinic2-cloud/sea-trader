@@ -89,6 +89,7 @@ func _process(_delta: float) -> void:
 	if not _is_open:
 		return
 	var available: int = int(offer.get("quantity_available", 0))
+	_slider.max_value = float(available)
 	if _selected_quantity > available:
 		_selected_quantity = available
 	_slider.max_value = float(available)
