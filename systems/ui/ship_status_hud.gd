@@ -44,17 +44,9 @@ func _process(_delta: float) -> void:
 	var position: Vector2 = GameState.ship_state.get("position", Vector2.ZERO)
 	var discovered_count: int = GameState.player_state.get("discovered_port_ids", []).size()
 	var nearest_port: String = ""
-	var dock_candidate: String = ""
 
 	if _port_system != null:
 		nearest_port = _port_system.nearest_port_name
-		dock_candidate = _port_system.get_dock_candidate()
-
-	var dock_hint: String = ""
-	if GameState.ship_state.get("docked_port_id", "") != "":
-		dock_hint = "\nDocked: " + str(GameState.ship_state.get("docked_port_id", ""))
-	if dock_candidate != "":
-		dock_hint = "\nDock: press E"
 
 	_label.text = (
 		"SHIP STATUS\n"
@@ -66,7 +58,6 @@ func _process(_delta: float) -> void:
 		+ "Ports known: %d\n"
 		+ "Nearest: %s\n"
 		+ "Pos: %d, %d"
-		+ "%s"
 	) % [
 		int(money),
 		speed,
@@ -75,15 +66,5 @@ func _process(_delta: float) -> void:
 		cargo.size(), cargo_capacity,
 		discovered_count,
 		nearest_port if nearest_port != "" else "-",
-		int(position.x), int(position.y), dock_hint
+		int(position.x), int(position.y)
 	]
-
-
-func _unhandled_key_input(event: InputEvent) -> void:
-	if _port_system == null or not event is InputEventKey or not event.pressed or event.echo:
-		return
-	if event.keycode == KEY_E or event.physical_keycode == KEY_E:
-		var candidate: String = _port_system.get_dock_candidate()
-		if candidate != "":
-			_port_system.dock(candidate)
-			get_viewport().set_input_as_handled()
