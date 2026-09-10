@@ -126,6 +126,8 @@ func dock(port_id: String) -> bool:
 	if port_id == "" or get_dock_candidate() != port_id:
 		return false
 	GameState.ship_state["docked_port_id"] = port_id
+	if str(GameState.world_state.get("home_port_id", "")) == "":
+		GameState.world_state["home_port_id"] = port_id
 	GameState.ship_state["velocity"] = Vector2.ZERO
 	GameState.player_state.stats["safe_dockings"] = int(GameState.player_state.stats.get("safe_dockings", 0)) + 1
 	return SaveSystem.save_game()
