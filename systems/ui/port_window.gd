@@ -12,6 +12,8 @@ var _plan_button: Button
 var _load_button: Button
 var _unload_button: Button
 var _sell_button: Button
+var _buy_button: Button
+var _market_switches: HBoxContainer
 var _quantity_label: Label
 var _quantity_slider: HSlider
 var _modernization_switches: HBoxContainer
@@ -29,6 +31,8 @@ var _last_home_port_id: String = ""
 var _notice: String = ""
 var _current_section: String = "construction"
 var _modernization_branch: String = "buildings"
+var _market_view: String = "personal"
+var _selected_market_resource_id: String = ""
 var _selected_quantity: int = 1
 
 func _ready() -> void:
@@ -100,6 +104,26 @@ func _ready() -> void:
 	_sell_button.custom_minimum_size.y = 42
 	_sell_button.pressed.connect(_sell_one_unit)
 	column.add_child(_sell_button)
+	_buy_button = Button.new()
+	_buy_button.text = "Купить"
+	_buy_button.custom_minimum_size.y = 42
+	_buy_button.pressed.connect(_buy_one_unit)
+	column.add_child(_buy_button)
+	_market_switches = HBoxContainer.new()
+	_market_switches.add_theme_constant_override("separation", 8)
+	column.add_child(_market_switches)
+	var personal_market_button: Button = Button.new()
+	personal_market_button.text = "Мой рынок"
+	personal_market_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	personal_market_button.custom_minimum_size.y = 40
+	personal_market_button.pressed.connect(_set_market_view.bind("personal"))
+	_market_switches.add_child(personal_market_button)
+	var port_market_button: Button = Button.new()
+	port_market_button.text = "Рынок порта"
+	port_market_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	port_market_button.custom_minimum_size.y = 40
+	port_market_button.pressed.connect(_set_market_view.bind("port"))
+	_market_switches.add_child(port_market_button)
 	_modernization_switches = HBoxContainer.new()
 	_modernization_switches.add_theme_constant_override("separation", 8)
 	column.add_child(_modernization_switches)
@@ -173,6 +197,8 @@ func _process(_delta: float) -> void:
 	_update_load_button(docked_port, is_home)
 	_update_unload_button(is_home)
 	_update_sell_button(is_home)
+	_update_buy_button(docked_port, is_home)
+	_market_switches.visible = _current_section == "market"
 	_refresh_text(docked_port, is_home)
 
 func _refresh_text(port_id: String, is_home: bool) -> void:
@@ -508,7 +534,20 @@ func _open_section(section_id: String) -> void:
 	elif section_id == "resources":
 		_rebuild_resource_list(port_id)
 	elif section_id == "market":
+		_market_view = "personal"
+		_selected_market_resource_id = ""
 		_rebuild_market_list(port_id)
+
+func _set_market_view(view_id: String) -> void:
+	_market_view = view_id
+	_selected_market_resource_id = ""
+	var port_id: String = str(GameState.ship_state.get("docked_port_id", ""))
+	if port_id != "":
+		_rebuild_market_list(port_id)
+
+func _select_market_resource(resource_id: String) -> void:
+	_selected_market_resource_id = resource_id
+	_notice = ""
 
 func _set_modernization_branch(branch_id: String) -> void:
 	_modernization_branch = branch_id
