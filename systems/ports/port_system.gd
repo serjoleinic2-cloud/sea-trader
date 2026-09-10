@@ -71,6 +71,7 @@ func _on_enter_port_range(port_id: String, port: Dictionary) -> void:
 		GameState.port_state[port_id]["discovered"] = true
 		if not GameState.player_state.discovered_port_ids.has(port_id):
 			GameState.player_state.discovered_port_ids.append(port_id)
+			GameState.player_state.stats["ports_discovered"] = int(GameState.player_state.stats.get("ports_discovered", 0)) + 1
 		SaveSystem.save_game()
 		EventBus.emit_signal("port_discovered", port_id)
 	else:
@@ -126,6 +127,7 @@ func dock(port_id: String) -> bool:
 		return false
 	GameState.ship_state["docked_port_id"] = port_id
 	GameState.ship_state["velocity"] = Vector2.ZERO
+	GameState.player_state.stats["safe_dockings"] = int(GameState.player_state.stats.get("safe_dockings", 0)) + 1
 	return SaveSystem.save_game()
 
 
@@ -134,6 +136,7 @@ func undock() -> bool:
 		return false
 	GameState.ship_state["docked_port_id"] = ""
 	GameState.ship_state["velocity"] = Vector2.ZERO
+	GameState.player_state.stats["total_voyages"] = int(GameState.player_state.stats.get("total_voyages", 0)) + 1
 	return SaveSystem.save_game()
 
 
