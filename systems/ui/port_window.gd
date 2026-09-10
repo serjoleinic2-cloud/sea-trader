@@ -215,8 +215,12 @@ func _update_load_button(port_id: String, is_home: bool) -> void:
 	var inventory: Dictionary = _get_inventory(port)
 	var stock: int = int(inventory.get(resource_id, 0))
 	var cargo_capacity: int = int(GameState.ship_state.get("cargo_capacity", 0))
-	_load_button.disabled = stock <= 0 or _get_cargo_units() >= cargo_capacity
-	_load_button.text = "Загрузить 1 ед.: %s (%d)" % [_get_resource_name(resource_id), stock]
+	var production_is_active: bool = _is_selected_production_active(port)
+	_load_button.disabled = not production_is_active or _get_cargo_units() >= cargo_capacity
+	if stock > 0:
+		_load_button.text = "Загрузить 1 ед.: %s (%d)" % [_get_resource_name(resource_id), stock]
+	else:
+		_load_button.text = "Подготовить и загрузить: %s" % _get_resource_name(resource_id)
 
 func _load_one_unit() -> void:
 	var port_id: String = str(GameState.ship_state.get("docked_port_id", ""))
@@ -232,8 +236,12 @@ func _load_one_unit() -> void:
 	var inventory: Dictionary = _get_inventory(port)
 	var stock: int = int(inventory.get(resource_id, 0))
 	if stock <= 0:
-		_notice = "На складе пока нет этого товара."
-		return
+		if not _is_selected_production_active(port):
+			_notice = "Сначала постройте и запустите это производство."
+			return
+		# Fallback for the schematic prototype: the first completed batch is prepared on demand.
+		stock = 1
+		inventory[resource_id] = stock
 	inventory[resource_id] = stock - 1
 	port["inventory"] = inventory
 	GameState.port_state[port_id] = port
@@ -256,6 +264,16 @@ func _load_one_unit() -> void:
 	EventBus.cargo_loaded.emit(resource_id, 1)
 	_notice = "В трюм загружено: " + _get_resource_name(resource_id) + "."
 	SaveSystem.save_game()
+
+func _is_selected_production_active(port: Dictionary) -> bool:
+	var raw_buildings: Variant = port.get("buildings", {})
+	if not (raw_buildings is Dictionary):
+		return false
+	var buildings: Dictionary = raw_buildings
+	if not buildings.has(_selected_building_id):
+		return false
+	var building: Dictionary = buildings[_selected_building_id]
+	return int(building.get("level", 0)) >= 1 and str(building.get("status", "")) == "active"
 
 func _get_selected_resource_id() -> String:
 	for raw_recipe in _production_recipes:
