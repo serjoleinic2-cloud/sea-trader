@@ -22,6 +22,7 @@ var _building_catalog: Array = []
 var _production_recipes: Array = []
 var _goods: Dictionary = {}
 var _goods_prices: Dictionary = {}
+var _market_rules: Dictionary = {}
 var _selected_building_id: String = ""
 var _last_home_port_id: String = ""
 var _notice: String = ""
@@ -140,6 +141,7 @@ func initialize(port_system: Node) -> void:
 			var resource_id: String = str(resource.get("id", ""))
 			_goods[resource_id] = str(resource.get("display_name", resource_id))
 			_goods_prices[resource_id] = float(resource.get("base_price", 0.0))
+	_market_rules = SaveSystem._read_json("res://data/economy/market_rules.json")
 
 func _process(_delta: float) -> void:
 	if _root == null or _port_system == null:
@@ -672,7 +674,12 @@ func _get_ship_cargo_text() -> String:
 	return ", ".join(entries)
 
 func _get_sale_price(resource_id: String) -> float:
-	return float(_goods_prices.get(resource_id, 0.0))
+	var multiplier: float = float(_market_rules.get("home_port_sell_multiplier", 1.0))
+	var docked_port_id: String = str(GameState.ship_state.get("docked_port_id", ""))
+	var home_port_id: String = str(GameState.world_state.get("home_port_id", ""))
+	if docked_port_id != "" and docked_port_id != home_port_id:
+		multiplier = float(_market_rules.get("remote_port_sell_multiplier", 1.0))
+	return round(float(_goods_prices.get(resource_id, 0.0)) * multiplier)
 
 func _get_building_id_for_resource(resource_id: String) -> String:
 	for raw_recipe in _production_recipes:
