@@ -3,45 +3,64 @@
   "buildings": [
     {
       "building_id": "dock",
-      "display_name": "Dock",
+      "display_name": "Причал",
       "role": "Ship service capacity and port access.",
       "max_level": "TBD",
-      "effect_ids": ["docking_access", "service_capacity"]
+      "effect_ids": [
+        "docking_access",
+        "service_capacity"
+      ]
     },
     {
       "building_id": "warehouse",
-      "display_name": "Warehouse",
+      "display_name": "Склад",
       "role": "Cargo storage and market stock capacity.",
       "max_level": "TBD",
-      "effect_ids": ["cargo_storage", "market_stock"]
+      "effect_ids": [
+        "cargo_storage",
+        "market_stock"
+      ]
     },
     {
       "building_id": "workshop",
-      "display_name": "Workshop",
+      "display_name": "Мастерская",
       "role": "Repair and ship improvement access.",
       "max_level": "TBD",
-      "effect_ids": ["repair_access", "upgrade_access"]
+      "effect_ids": [
+        "repair_access",
+        "upgrade_access"
+      ]
     },
     {
       "building_id": "market",
-      "display_name": "Market",
+      "display_name": "Рынок",
       "role": "Trading offers, prices and contract availability.",
       "max_level": "TBD",
-      "effect_ids": ["trade_offers", "contract_quality"]
+      "effect_ids": [
+        "trade_offers",
+        "contract_quality"
+      ]
     },
     {
       "building_id": "shipyard",
-      "display_name": "Shipyard",
+      "display_name": "Верфь",
       "role": "New ship tiers and ship construction access.",
       "max_level": "TBD",
-      "effect_ids": ["ship_purchase", "ship_tier_access"]
+      "effect_ids": [
+        "ship_purchase",
+        "ship_tier_access"
+      ]
     },
     {
       "building_id": "harbor_office",
-      "display_name": "Harbor Office",
+      "display_name": "Портовая администрация",
       "role": "Company, event and unique-item administration.",
       "max_level": "TBD",
-      "effect_ids": ["event_access", "company_management", "item_registry"]
+      "effect_ids": [
+        "event_access",
+        "company_management",
+        "item_registry"
+      ]
     }
   ],
   "balance_status": "Building costs, requirements, levels and numeric effects are TBD."
