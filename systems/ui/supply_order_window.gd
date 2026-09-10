@@ -10,6 +10,7 @@ var _open: bool = false
 var _notice: String = ""
 
 func _ready() -> void:
+	add_to_group("supply_order_window")
 	layer = 50
 	_panel = PanelContainer.new()
 	_panel.size = Vector2(430, 360)
