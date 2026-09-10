@@ -160,8 +160,8 @@ func _process(_delta: float) -> void:
 		_rebuild_building_list(docked_port)
 	elif not is_home:
 		_last_home_port_id = ""
-	_bottom_menu.visible = is_home
-	_building_list.visible = is_home and (_current_section == "construction" or _current_section == "resources" or _current_section == "market")
+	_bottom_menu.visible = true
+	_building_list.visible = (is_home and (_current_section == "construction" or _current_section == "resources")) or _current_section == "market"
 	_plan_button.visible = is_home and _current_section == "construction"
 	_modernization_switches.visible = is_home and _current_section == "modernization"
 	_update_quantity_selector(docked_port, is_home)
@@ -175,6 +175,12 @@ func _refresh_text(port_id: String, is_home: bool) -> void:
 	var port: Dictionary = GameState.port_state.get(port_id, {})
 	var port_name: String = _port_system.get_port_name(port_id)
 	if not is_home:
+		if _current_section == "market":
+			_refresh_market_page(port_name, ship)
+			return
+		if _current_section == "resources":
+			_refresh_away_resources_page(ship, port_name)
+			return
 		_title.text = "ПОРТ: " + port_name
 		_details.text = (
 			"Корабль пришвартован\n"
@@ -515,6 +521,19 @@ func _refresh_resources_page(port: Dictionary, ship: Dictionary, port_name: Stri
 		int(ship.get("cargo_capacity", 0))
 	]
 
+func _refresh_away_resources_page(ship: Dictionary, port_name: String) -> void:
+	_title.text = "РЕСУРСЫ КОРАБЛЯ: " + port_name
+	_details.text = (
+		"Трюм: %d / %d\n"
+		+ "Груз: %s\n\n"
+		+ "В этом порту можно продать товар на вкладке «Рынок».\n"
+		+ "Загрузка и выгрузка на склад доступны в главном порту."
+	) % [
+		_get_cargo_units(),
+		int(ship.get("cargo_capacity", 0)),
+		_get_ship_cargo_text()
+	]
+
 func _refresh_market_page(port_name: String, ship: Dictionary) -> void:
 	var resource_id: String = _get_selected_resource_id()
 	var selected_text: String = "Выберите товар из трюма в списке ниже."
@@ -524,7 +543,7 @@ func _refresh_market_page(port_name: String, ship: Dictionary) -> void:
 			_get_cargo_quantity(resource_id),
 			_get_sale_price(resource_id)
 		]
-	_title.text = "РЫНОК БАЗЫ: " + port_name
+	_title.text = "РЫНОК: " + port_name
 	_details.text = (
 		"Деньги: %.0f\n"
 		+ "Трюм: %d / %d\n\n"
@@ -638,6 +657,19 @@ func _unload_one_unit() -> void:
 	_notice = "На склад выгружено: %s × %d." % [_get_resource_name(resource_id), _selected_quantity]
 	SaveSystem.save_game()
 	_rebuild_resource_list(port_id)
+
+func _get_ship_cargo_text() -> String:
+	var raw_cargo: Variant = GameState.ship_state.get("cargo", [])
+	if not (raw_cargo is Array) or raw_cargo.is_empty():
+		return "пусто"
+	var entries: Array[String] = []
+	for raw_item in raw_cargo:
+		var item: Dictionary = raw_item
+		entries.append("%s: %d" % [
+			_get_resource_name(str(item.get("resource_id", ""))),
+			int(item.get("quantity", 0))
+		])
+	return ", ".join(entries)
 
 func _get_sale_price(resource_id: String) -> float:
 	return float(_goods_prices.get(resource_id, 0.0))
