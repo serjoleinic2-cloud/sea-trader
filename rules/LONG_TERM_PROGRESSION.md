@@ -32,6 +32,15 @@ Events should create concrete goals with limited availability, for example:
 
 Events must work without forcing a player to be online while sailing.
 
+## Port Base Progression
+
+A port is a developable base. Its buildings have independent levels and must
+produce gameplay effects: docks affect service access, warehouses affect cargo
+capacity, workshops affect repair and upgrades, markets affect trade and
+contracts, shipyards affect ship tiers, and harbor offices affect company,
+event and unique-item administration. Numeric effects and construction costs
+remain data-driven balance decisions.
+
 ## Unique Items
 
 Future unique items may be discovered, collected, traded and transferred between captains.
