@@ -189,7 +189,11 @@ func _initialize_port_window() -> void:
 # ============================================================================
 
 func _input(event: InputEvent) -> void:
-	if event is InputEventKey and event.pressed:
+	if event is InputEventKey and event.pressed and not event.echo:
+		if event.keycode == KEY_E or event.physical_keycode == KEY_E:
+			_handle_dock_key()
+			get_viewport().set_input_as_handled()
+			return
 		match event.keycode:
 			KEY_EQUAL:
 				_zoom_ship_camera(CAMERA_ZOOM_STEP)
@@ -204,6 +208,17 @@ func _input(event: InputEvent) -> void:
 			MOUSE_BUTTON_WHEEL_DOWN:
 				_zoom_ship_camera(-CAMERA_ZOOM_STEP)
 				get_viewport().set_input_as_handled()
+
+
+func _handle_dock_key() -> void:
+	if _port_system == null:
+		return
+	if str(GameState.ship_state.get("docked_port_id", "")) != "":
+		_port_system.undock()
+		return
+	var candidate: String = str(_port_system.get_dock_candidate())
+	if candidate != "":
+		_port_system.dock(candidate)
 
 
 func _zoom_ship_camera(delta: float) -> void:
