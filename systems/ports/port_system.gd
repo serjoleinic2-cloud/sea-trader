@@ -127,3 +127,11 @@ func dock(port_id: String) -> bool:
 	GameState.ship_state["docked_port_id"] = port_id
 	GameState.ship_state["velocity"] = Vector2.ZERO
 	return SaveSystem.save_game()
+
+
+func undock() -> bool:
+	if str(GameState.ship_state.get("docked_port_id", "")) == "":
+		return false
+	GameState.ship_state["docked_port_id"] = ""
+	GameState.ship_state["velocity"] = Vector2.ZERO
+	return SaveSystem.save_game()
