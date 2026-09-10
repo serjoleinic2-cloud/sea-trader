@@ -1,0 +1,54 @@
+{
+  "version": 1,
+  "rank_stage_count": 5,
+  "activity_metrics": {
+    "total_sales": { "weight": 1.0 },
+    "total_deliveries": { "weight": 5.0 },
+    "distance_unit": 1000.0,
+    "distance_weight": 1.0,
+    "total_voyages": { "weight": 3.0 },
+    "cargo_units_moved": { "weight": 0.2 },
+    "safe_dockings": { "weight": 2.0 },
+    "ports_discovered": { "weight": 5.0 }
+  },
+  "ranks": {
+    "sailor": {
+      "stages": [
+        {
+          "stage": 1,
+          "required_activity": 0,
+          "bonuses": []
+        },
+        {
+          "stage": 2,
+          "required_activity": 15,
+          "bonuses": [
+            { "stat": "ship_speed", "modifier": 0.02 }
+          ]
+        },
+        {
+          "stage": 3,
+          "required_activity": 50,
+          "bonuses": [
+            { "stat": "cargo_handling", "modifier": 0.03 }
+          ]
+        },
+        {
+          "stage": 4,
+          "required_activity": 120,
+          "bonuses": [
+            { "stat": "fuel_efficiency", "modifier": 0.03 }
+          ]
+        },
+        {
+          "stage": 5,
+          "required_activity": 260,
+          "bonuses": [
+            { "stat": "maneuverability", "modifier": 0.02 }
+          ]
+        }
+      ]
+    }
+  },
+  "balance_status": "Provisional values for the first playtest."
+}
