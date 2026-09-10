@@ -1,7 +1,7 @@
 # DATA SCHEMA
 
 > Data models for runtime state and static game data. These are schemas, not implementations.
-> Last Updated: 2026-09-10 | Version: 0.3.3
+> Last Updated: 2026-09-10 | Version: 0.3.4
 
 Implementation note: save format 0.2.0 now persists the existing schema below.
 New games start with empty PortState; entries are created on discovery.
@@ -282,6 +282,16 @@ Static data is read-only at runtime. Never modified by gameplay.
   "regions": ["northern_coast"]
 }
 ```
+
+### MarketRulesData (data/economy/market_rules.json)
+```json
+{
+  "home_port_sell_multiplier": 1.0,
+  "remote_port_sell_multiplier": 1.25
+}
+```
+
+> These provisional multipliers are static tuning data. Port-specific supply, demand, and contracts will replace them in the economy phase.
 
 ### ContractData (`data/contracts/contract_templates.json`)
 ```json
