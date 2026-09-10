@@ -97,17 +97,21 @@ func _process(_delta: float) -> void:
 	var resource_id: String = str(offer.get("resource_id", ""))
 	var resource_name: String = str(_goods.get(resource_id, resource_id))
 	var unit_price: float = float(offer.get("unit_price", 0.0))
+	var seconds_left: int = maxi(0, int(offer.get("expires_at", 0)) - int(Time.get_unix_time_from_system()))
 	_label.text = (
 		"ПРИБЫВШИЙ ТОРГОВЕЦ\n"
 		+ "Товар: %s\n"
 		+ "В наличии: %d\n"
 		+ "Цена за единицу: %.0f\n"
+		+ "Уедет через: %d:%02d\n"
 		+ "Ваши деньги: %.0f\n"
 		+ "%s"
 	) % [
 		resource_name,
 		available,
 		unit_price,
+		seconds_left / 60,
+		seconds_left % 60,
 		float(GameState.player_state.get("money", 0.0)),
 		_notice
 	]
