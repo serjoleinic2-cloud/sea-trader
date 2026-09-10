@@ -10,6 +10,7 @@ var _details: Label
 var _building_list: VBoxContainer
 var _plan_button: Button
 var _load_button: Button
+var _unload_button: Button
 var _modernization_switches: HBoxContainer
 var _save_button: Button
 var _bottom_menu: PanelContainer
@@ -67,6 +68,11 @@ func _ready() -> void:
 	_load_button.custom_minimum_size.y = 42
 	_load_button.pressed.connect(_load_one_unit)
 	column.add_child(_load_button)
+	_unload_button = Button.new()
+	_unload_button.text = "Выгрузить 1 единицу"
+	_unload_button.custom_minimum_size.y = 42
+	_unload_button.pressed.connect(_unload_one_unit)
+	column.add_child(_unload_button)
 	_modernization_switches = HBoxContainer.new()
 	_modernization_switches.add_theme_constant_override("separation", 8)
 	column.add_child(_modernization_switches)
@@ -133,6 +139,7 @@ func _process(_delta: float) -> void:
 	_plan_button.visible = is_home and _current_section == "construction"
 	_modernization_switches.visible = is_home and _current_section == "modernization"
 	_update_load_button(docked_port, is_home)
+	_update_unload_button(is_home)
 	_refresh_text(docked_port, is_home)
 
 func _refresh_text(port_id: String, is_home: bool) -> void:
@@ -294,6 +301,15 @@ func _update_load_button(port_id: String, is_home: bool) -> void:
 	else:
 		_load_button.text = "Подготовить и загрузить: %s" % _get_resource_name(resource_id)
 
+func _update_unload_button(is_home: bool) -> void:
+	var resource_id: String = _get_selected_resource_id()
+	_unload_button.visible = is_home and _current_section == "resources" and resource_id != ""
+	if not _unload_button.visible:
+		return
+	var quantity: int = _get_cargo_quantity(resource_id)
+	_unload_button.disabled = quantity <= 0
+	_unload_button.text = "Выгрузить 1 ед.: %s (%d)" % [_get_resource_name(resource_id), quantity]
+
 func _load_one_unit() -> void:
 	var port_id: String = str(GameState.ship_state.get("docked_port_id", ""))
 	var home_port_id: String = str(GameState.world_state.get("home_port_id", ""))
@@ -429,6 +445,56 @@ func _refresh_modernization_page(port: Dictionary, ship: Dictionary, port_name: 
 		int(ship.get("cargo_capacity", 0)),
 		branch_text
 	]
+
+func _unload_one_unit() -> void:
+	var port_id: String = str(GameState.ship_state.get("docked_port_id", ""))
+	var home_port_id: String = str(GameState.world_state.get("home_port_id", ""))
+	var resource_id: String = _get_selected_resource_id()
+	if port_id == "" or port_id != home_port_id or resource_id == "":
+		return
+	var raw_cargo: Variant = GameState.ship_state.get("cargo", [])
+	if not (raw_cargo is Array):
+		return
+	var cargo: Array = raw_cargo
+	var found_index: int = -1
+	for index in range(cargo.size()):
+		var cargo_item: Dictionary = cargo[index]
+		if str(cargo_item.get("resource_id", "")) == resource_id and int(cargo_item.get("quantity", 0)) > 0:
+			found_index = index
+			break
+	if found_index < 0:
+		_notice = "В трюме нет этого товара."
+		return
+	var item: Dictionary = cargo[found_index]
+	var remaining_quantity: int = int(item.get("quantity", 0)) - 1
+	if remaining_quantity <= 0:
+		cargo.remove_at(found_index)
+	else:
+		item["quantity"] = remaining_quantity
+		cargo[found_index] = item
+	GameState.ship_state["cargo"] = cargo
+	var port: Dictionary = GameState.port_state.get(port_id, {})
+	var inventory: Dictionary = _get_inventory(port)
+	inventory[resource_id] = int(inventory.get(resource_id, 0)) + 1
+	port["inventory"] = inventory
+	GameState.port_state[port_id] = port
+	var stats: Dictionary = GameState.player_state.get("stats", {})
+	stats["cargo_units_moved"] = int(stats.get("cargo_units_moved", 0)) + 1
+	GameState.player_state["stats"] = stats
+	EventBus.cargo_delivered.emit(resource_id, 1)
+	_notice = "На склад выгружено: " + _get_resource_name(resource_id) + "."
+	SaveSystem.save_game()
+	_rebuild_resource_list(port_id)
+
+func _get_cargo_quantity(resource_id: String) -> int:
+	var raw_cargo: Variant = GameState.ship_state.get("cargo", [])
+	if not (raw_cargo is Array):
+		return 0
+	for raw_item in raw_cargo:
+		var item: Dictionary = raw_item
+		if str(item.get("resource_id", "")) == resource_id:
+			return int(item.get("quantity", 0))
+	return 0
 
 func _get_selected_resource_id() -> String:
 	for raw_recipe in _production_recipes:
