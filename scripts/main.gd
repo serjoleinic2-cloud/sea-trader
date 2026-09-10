@@ -30,6 +30,8 @@ var _port_window: CanvasLayer = null
 var _port_production_system: Node = null
 var _merchant_visit_system: Node = null
 var _merchant_offer_hud: CanvasLayer = null
+var _supply_order_system: Node = null
+var _supply_order_window: CanvasLayer = null
 
 
 func _ready() -> void:
@@ -54,6 +56,7 @@ func _ready() -> void:
 	_initialize_port_production_system()
 	_initialize_merchant_visit_system()
 	_initialize_merchant_offer_hud()
+	_initialize_supply_orders()
 	_world_ready = true
 	if _is_new_game:
 		SaveSystem.save_game()
@@ -214,6 +217,17 @@ func _initialize_merchant_offer_hud() -> void:
 	_merchant_offer_hud.name = "MerchantOfferHUD"
 	add_child(_merchant_offer_hud)
 	_merchant_offer_hud.initialize(_merchant_visit_system)
+
+
+func _initialize_supply_orders() -> void:
+	_supply_order_system = load("res://systems/economy/supply_order_system.gd").new()
+	_supply_order_system.name = "SupplyOrderSystem"
+	add_child(_supply_order_system)
+	_supply_order_system.initialize(_port_system)
+	_supply_order_window = load("res://systems/ui/supply_order_window.gd").new()
+	_supply_order_window.name = "SupplyOrderWindow"
+	add_child(_supply_order_window)
+	_supply_order_window.initialize(_supply_order_system)
 
 
 # ============================================================================
