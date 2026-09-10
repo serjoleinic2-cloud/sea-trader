@@ -135,3 +135,9 @@ func undock() -> bool:
 	GameState.ship_state["docked_port_id"] = ""
 	GameState.ship_state["velocity"] = Vector2.ZERO
 	return SaveSystem.save_game()
+
+
+func get_port_name(port_id: String) -> String:
+	if not _world_ports.has(port_id):
+		return port_id
+	return str(_world_ports[port_id].get("name", port_id))
