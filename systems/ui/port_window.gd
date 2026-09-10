@@ -23,6 +23,7 @@ var _production_recipes: Array = []
 var _goods: Dictionary = {}
 var _goods_prices: Dictionary = {}
 var _market_rules: Dictionary = {}
+var _base_demands: Array = []
 var _selected_building_id: String = ""
 var _last_home_port_id: String = ""
 var _notice: String = ""
@@ -142,6 +143,8 @@ func initialize(port_system: Node) -> void:
 			_goods[resource_id] = str(resource.get("display_name", resource_id))
 			_goods_prices[resource_id] = float(resource.get("base_price", 0.0))
 	_market_rules = SaveSystem._read_json("res://data/economy/market_rules.json")
+	var base_demand_catalog: Dictionary = SaveSystem._read_json("res://data/economy/base_demand_catalog.json")
+	_base_demands = base_demand_catalog.get("base_demands", [])
 
 func _process(_delta: float) -> void:
 	if _root == null or _port_system == null:
@@ -178,7 +181,7 @@ func _refresh_text(port_id: String, is_home: bool) -> void:
 	var port_name: String = _port_system.get_port_name(port_id)
 	if not is_home:
 		if _current_section == "market":
-			_refresh_market_page(port_name, ship)
+			_refresh_market_page(port_name, ship, port)
 			return
 		if _current_section == "resources":
 			_refresh_away_resources_page(ship, port_name)
@@ -202,7 +205,7 @@ func _refresh_text(port_id: String, is_home: bool) -> void:
 		_refresh_resources_page(port, ship, port_name)
 		return
 	if _current_section == "market":
-		_refresh_market_page(port_name, ship)
+		_refresh_market_page(port_name, ship, port)
 		return
 	if _current_section == "modernization":
 		_refresh_modernization_page(port, ship, port_name)
@@ -395,7 +398,7 @@ func _on_quantity_changed(value: float) -> void:
 
 func _update_sell_button(is_home: bool) -> void:
 	var resource_id: String = _get_selected_resource_id()
-	_sell_button.visible = _current_section == "market" and resource_id != ""
+	_sell_button.visible = not is_home and _current_section == "market" and resource_id != ""
 	if not _sell_button.visible:
 		return
 	var quantity: int = _get_cargo_quantity(resource_id)
@@ -415,7 +418,7 @@ func _load_one_unit() -> void:
 	var port_id: String = str(GameState.ship_state.get("docked_port_id", ""))
 	var home_port_id: String = str(GameState.world_state.get("home_port_id", ""))
 	var resource_id: String = _get_selected_resource_id()
-	if port_id == "" or port_id != home_port_id or resource_id == "":
+	if port_id == "" or port_id == home_port_id or resource_id == "":
 		return
 	var cargo_capacity: int = int(GameState.ship_state.get("cargo_capacity", 0))
 	if _get_cargo_units() >= cargo_capacity:
@@ -536,7 +539,20 @@ func _refresh_away_resources_page(ship: Dictionary, port_name: String) -> void:
 		_get_ship_cargo_text()
 	]
 
-func _refresh_market_page(port_name: String, ship: Dictionary) -> void:
+func _refresh_market_page(port_name: String, ship: Dictionary, port: Dictionary) -> void:
+	var docked_port_id: String = str(GameState.ship_state.get("docked_port_id", ""))
+	var home_port_id: String = str(GameState.world_state.get("home_port_id", ""))
+	if docked_port_id == home_port_id:
+		_title.text = "РЫНОК БАЗЫ: " + port_name
+		_details.text = (
+			"Склад базы: %s\n\n"
+			+ "%s\n\n"
+			+ "База не платит сама себе за ваш груз. Выгружайте товар на вкладке «Ресурсы»; рынок базы позже даст обмен излишков на дефицит."
+		) % [
+			_get_inventory_text(port),
+			_get_base_demand_text(port)
+		]
+		return
 	var resource_id: String = _get_selected_resource_id()
 	var selected_text: String = "Выберите товар из трюма в списке ниже."
 	if resource_id != "":
@@ -550,13 +566,31 @@ func _refresh_market_page(port_name: String, ship: Dictionary) -> void:
 		"Деньги: %.0f\n"
 		+ "Трюм: %d / %d\n\n"
 		+ "%s\n"
-		+ "Продажа пока идёт по базовой цене. Региональный спрос и контракты добавим следующим этапом."
+		+ "Другой порт покупает ваш груз. Временная цена выше базовой; позже её заменят спрос и контракты."
 	) % [
 		float(GameState.player_state.get("money", 0.0)),
 		_get_cargo_units(),
 		int(ship.get("cargo_capacity", 0)),
 		selected_text
 	]
+
+func _get_base_demand_text(port: Dictionary) -> String:
+	if _base_demands.is_empty():
+		return "Дефицит базы: не назначен."
+	var inventory: Dictionary = _get_inventory(port)
+	var lines: Array[String] = ["ДЕФИЦИТ БАЗЫ"]
+	for raw_demand in _base_demands:
+		var demand: Dictionary = raw_demand
+		var resource_id: String = str(demand.get("resource_id", ""))
+		var target_quantity: int = int(demand.get("target_quantity", 0))
+		var current_quantity: int = int(inventory.get(resource_id, 0))
+		lines.append("%s: %d / %d — %s" % [
+			_get_resource_name(resource_id),
+			current_quantity,
+			target_quantity,
+			str(demand.get("purpose", "поставка"))
+		])
+	return "\n".join(lines)
 
 func _refresh_modernization_page(port: Dictionary, ship: Dictionary, port_name: String) -> void:
 	var branch_title: String = "ЗДАНИЯ"
