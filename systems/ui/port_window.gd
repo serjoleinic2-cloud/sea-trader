@@ -13,6 +13,7 @@ var _load_button: Button
 var _unload_button: Button
 var _sell_button: Button
 var _buy_button: Button
+var _supply_order_button: Button
 var _market_switches: HBoxContainer
 var _quantity_label: Label
 var _quantity_slider: HSlider
@@ -109,6 +110,11 @@ func _ready() -> void:
 	_buy_button.custom_minimum_size.y = 42
 	_buy_button.pressed.connect(_buy_one_unit)
 	column.add_child(_buy_button)
+	_supply_order_button = Button.new()
+	_supply_order_button.text = "Заказать поставку"
+	_supply_order_button.custom_minimum_size.y = 42
+	_supply_order_button.pressed.connect(_open_supply_order_window)
+	column.add_child(_supply_order_button)
 	_market_switches = HBoxContainer.new()
 	_market_switches.add_theme_constant_override("separation", 8)
 	column.add_child(_market_switches)
@@ -199,6 +205,7 @@ func _process(_delta: float) -> void:
 	_update_sell_button(is_home)
 	_update_buy_button(docked_port, is_home)
 	_market_switches.visible = not is_home and _current_section == "market"
+	_supply_order_button.visible = is_home and _current_section == "market"
 	_refresh_text(docked_port, is_home)
 
 func _refresh_text(port_id: String, is_home: bool) -> void:
@@ -571,6 +578,11 @@ func _open_section(section_id: String) -> void:
 		_market_view = "personal"
 		_selected_market_resource_id = ""
 		_rebuild_market_list(port_id)
+
+func _open_supply_order_window() -> void:
+	var windows: Array[Node] = get_tree().get_nodes_in_group("supply_order_window")
+	if not windows.is_empty():
+		windows[0].open()
 
 func _set_market_view(view_id: String) -> void:
 	_market_view = view_id
