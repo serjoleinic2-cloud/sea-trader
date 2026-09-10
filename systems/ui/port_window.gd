@@ -296,6 +296,9 @@ func _rebuild_resource_list(port_id: String) -> void:
 		]
 		button.pressed.connect(_select_building.bind(building_id))
 		_building_list.add_child(button)
+	if _get_selected_resource_id() == "" and not _production_recipes.is_empty():
+		var first_recipe: Dictionary = _production_recipes[0]
+		_selected_building_id = str(first_recipe.get("building_id", ""))
 
 func _rebuild_market_list(port_id: String) -> void:
 	for child in _building_list.get_children():
