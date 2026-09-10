@@ -34,6 +34,11 @@ func _ready() -> void:
 	backdrop.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_root.add_child(backdrop)
 	_sheet = PanelContainer.new()
+	var sheet_style: StyleBoxFlat = StyleBoxFlat.new()
+	sheet_style.bg_color = Color(0.04, 0.06, 0.08, 1.0)
+	sheet_style.border_color = Color(0.22, 0.45, 0.62, 1.0)
+	sheet_style.set_border_width_all(2)
+	_sheet.add_theme_stylebox_override("panel", sheet_style)
 	_sheet.size = Vector2(540, 760)
 	_root.add_child(_sheet)
 	var margin: MarginContainer = MarginContainer.new()
@@ -365,6 +370,11 @@ func _is_selected_production_active(port: Dictionary) -> bool:
 
 func _create_bottom_menu() -> void:
 	_bottom_menu = PanelContainer.new()
+	var menu_style: StyleBoxFlat = StyleBoxFlat.new()
+	menu_style.bg_color = Color(0.04, 0.06, 0.08, 1.0)
+	menu_style.border_color = Color(0.22, 0.45, 0.62, 1.0)
+	menu_style.set_border_width_all(2)
+	_bottom_menu.add_theme_stylebox_override("panel", menu_style)
 	_bottom_menu.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
 	_bottom_menu.size = Vector2(920, 82)
 	_root.add_child(_bottom_menu)
