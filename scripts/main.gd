@@ -27,6 +27,8 @@ var _captain_cabinet: CanvasLayer = null
 var _map_status_hud: CanvasLayer = null
 var _port_window: CanvasLayer = null
 var _port_production_system: Node = null
+var _merchant_visit_system: Node = null
+var _merchant_offer_hud: CanvasLayer = null
 
 
 func _ready() -> void:
@@ -49,6 +51,8 @@ func _ready() -> void:
 	_initialize_map_status_hud()
 	_initialize_port_window()
 	_initialize_port_production_system()
+	_initialize_merchant_visit_system()
+	_initialize_merchant_offer_hud()
 	_world_ready = true
 	if _is_new_game:
 		SaveSystem.save_game()
@@ -190,6 +194,18 @@ func _initialize_port_production_system() -> void:
 	_port_production_system = load("res://systems/ports/port_production_system.gd").new()
 	_port_production_system.name = "PortProductionSystem"
 	add_child(_port_production_system)
+
+
+func _initialize_merchant_visit_system() -> void:
+	_merchant_visit_system = load("res://systems/economy/merchant_visit_system.gd").new()
+	_merchant_visit_system.name = "MerchantVisitSystem"
+	add_child(_merchant_visit_system)
+
+func _initialize_merchant_offer_hud() -> void:
+	_merchant_offer_hud = load("res://systems/ui/merchant_offer_hud.gd").new()
+	_merchant_offer_hud.name = "MerchantOfferHUD"
+	add_child(_merchant_offer_hud)
+	_merchant_offer_hud.initialize(_merchant_visit_system)
 
 
 # ============================================================================
