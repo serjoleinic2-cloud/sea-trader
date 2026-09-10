@@ -10,7 +10,9 @@ var _details: Label
 var _building_list: VBoxContainer
 var _plan_button: Button
 var _load_button: Button
+var _modernization_switches: HBoxContainer
 var _save_button: Button
+var _bottom_menu: PanelContainer
 var _leave_button: Button
 var _building_catalog: Array = []
 var _production_recipes: Array = []
@@ -18,6 +20,8 @@ var _goods: Dictionary = {}
 var _selected_building_id: String = ""
 var _last_home_port_id: String = ""
 var _notice: String = ""
+var _current_section: String = "construction"
+var _modernization_branch: String = "buildings"
 
 func _ready() -> void:
 	layer = 35
@@ -63,6 +67,21 @@ func _ready() -> void:
 	_load_button.custom_minimum_size.y = 42
 	_load_button.pressed.connect(_load_one_unit)
 	column.add_child(_load_button)
+	_modernization_switches = HBoxContainer.new()
+	_modernization_switches.add_theme_constant_override("separation", 8)
+	column.add_child(_modernization_switches)
+	var upgrade_buildings_button: Button = Button.new()
+	upgrade_buildings_button.text = "Здания"
+	upgrade_buildings_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	upgrade_buildings_button.custom_minimum_size.y = 42
+	upgrade_buildings_button.pressed.connect(_set_modernization_branch.bind("buildings"))
+	_modernization_switches.add_child(upgrade_buildings_button)
+	var upgrade_units_button: Button = Button.new()
+	upgrade_units_button.text = "Юниты"
+	upgrade_units_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	upgrade_units_button.custom_minimum_size.y = 42
+	upgrade_units_button.pressed.connect(_set_modernization_branch.bind("units"))
+	_modernization_switches.add_child(upgrade_units_button)
 	_save_button = Button.new()
 	_save_button.text = "Сохранить игру"
 	_save_button.custom_minimum_size.y = 42
@@ -73,6 +92,7 @@ func _ready() -> void:
 	_leave_button.custom_minimum_size.y = 42
 	_leave_button.pressed.connect(_leave_port)
 	column.add_child(_leave_button)
+	_create_bottom_menu()
 	_root.hide()
 
 func initialize(port_system: Node) -> void:
@@ -106,8 +126,10 @@ func _process(_delta: float) -> void:
 		_rebuild_building_list(docked_port)
 	elif not is_home:
 		_last_home_port_id = ""
-	_building_list.visible = is_home
-	_plan_button.visible = is_home
+	_bottom_menu.visible = is_home
+	_building_list.visible = is_home and (_current_section == "construction" or _current_section == "resources")
+	_plan_button.visible = is_home and _current_section == "construction"
+	_modernization_switches.visible = is_home and _current_section == "modernization"
 	_update_load_button(docked_port, is_home)
 	_refresh_text(docked_port, is_home)
 
@@ -131,7 +153,16 @@ func _refresh_text(port_id: String, is_home: bool) -> void:
 			float(ship.get("hull", 0.0))
 		]
 		return
-	_title.text = "ГЛАВНЫЙ ПОРТ: " + port_name
+	if _current_section == "resources":
+		_refresh_resources_page(port, ship, port_name)
+		return
+	if _current_section == "market":
+		_refresh_market_page(port_name)
+		return
+	if _current_section == "modernization":
+		_refresh_modernization_page(port, ship, port_name)
+		return
+	_title.text = "СТРОИТЕЛЬСТВО: " + port_name
 	var selected_name: String = "не выбрано"
 	var selected_state: String = ""
 	if _selected_building_id != "":
@@ -173,6 +204,25 @@ func _rebuild_building_list(port_id: String) -> void:
 	if _selected_building_id == "" and not _building_catalog.is_empty():
 		_selected_building_id = str(_building_catalog[0].get("building_id", ""))
 
+func _rebuild_resource_list(port_id: String) -> void:
+	for child in _building_list.get_children():
+		child.queue_free()
+	var port: Dictionary = GameState.port_state.get(port_id, {})
+	var inventory: Dictionary = _get_inventory(port)
+	for raw_recipe in _production_recipes:
+		var recipe: Dictionary = raw_recipe
+		var building_id: String = str(recipe.get("building_id", ""))
+		var resource_id: String = str(recipe.get("resource_id", ""))
+		var button: Button = Button.new()
+		button.custom_minimum_size.y = 42
+		button.text = "%s: %d — %s" % [
+			_get_resource_name(resource_id),
+			int(inventory.get(resource_id, 0)),
+			_get_building_state(port, building_id)
+		]
+		button.pressed.connect(_select_building.bind(building_id))
+		_building_list.add_child(button)
+
 func _select_building(building_id: String) -> void:
 	_selected_building_id = building_id
 	_notice = ""
@@ -180,6 +230,8 @@ func _select_building(building_id: String) -> void:
 	if port_id != "" and _get_selected_resource_id() != "":
 		_ensure_selected_production_is_active(port_id)
 		EventBus.production_output_requested.emit(port_id, building_id)
+	if _current_section == "resources":
+		_rebuild_resource_list(port_id)
 
 func _ensure_selected_production_is_active(port_id: String) -> void:
 	var port: Dictionary = GameState.port_state.get(port_id, {})
@@ -226,7 +278,7 @@ func _plan_selected_building() -> void:
 
 func _update_load_button(port_id: String, is_home: bool) -> void:
 	var resource_id: String = _get_selected_resource_id()
-	_load_button.visible = is_home and resource_id != ""
+	_load_button.visible = is_home and _current_section == "resources" and resource_id != ""
 	if not _load_button.visible:
 		return
 	var port: Dictionary = GameState.port_state.get(port_id, {})
@@ -292,6 +344,89 @@ func _is_selected_production_active(port: Dictionary) -> bool:
 		return false
 	var building: Dictionary = buildings[_selected_building_id]
 	return int(building.get("level", 0)) >= 1 and str(building.get("status", "")) == "active"
+
+func _create_bottom_menu() -> void:
+	_bottom_menu = PanelContainer.new()
+	_bottom_menu.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+	_bottom_menu.size = Vector2(920, 82)
+	_root.add_child(_bottom_menu)
+	var margin: MarginContainer = MarginContainer.new()
+	for side in ["left", "top", "right", "bottom"]:
+		margin.add_theme_constant_override("margin_" + side, 8)
+	_bottom_menu.add_child(margin)
+	var row: HBoxContainer = HBoxContainer.new()
+	row.add_theme_constant_override("separation", 8)
+	margin.add_child(row)
+	_add_navigation_button(row, "Строительство", "construction")
+	_add_navigation_button(row, "Ресурсы", "resources")
+	_add_navigation_button(row, "Рынок", "market")
+	_add_navigation_button(row, "Модернизация", "modernization")
+
+func _add_navigation_button(row: HBoxContainer, label_text: String, section_id: String) -> void:
+	var button: Button = Button.new()
+	button.text = label_text
+	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	button.add_theme_font_size_override("font_size", 17)
+	button.pressed.connect(_open_section.bind(section_id))
+	row.add_child(button)
+
+func _open_section(section_id: String) -> void:
+	_current_section = section_id
+	_notice = ""
+	var port_id: String = str(GameState.ship_state.get("docked_port_id", ""))
+	if port_id == "":
+		return
+	if section_id == "construction":
+		_rebuild_building_list(port_id)
+	elif section_id == "resources":
+		_rebuild_resource_list(port_id)
+
+func _set_modernization_branch(branch_id: String) -> void:
+	_modernization_branch = branch_id
+
+func _refresh_resources_page(port: Dictionary, ship: Dictionary, port_name: String) -> void:
+	_title.text = "РЕСУРСЫ БАЗЫ: " + port_name
+	_details.text = (
+		"Склад: %s\n"
+		+ "Трюм: %d / %d\n\n"
+		+ "Выберите ресурс в списке ниже.\n"
+		+ "Активная кнопка загрузит его в трюм для перевозки или будущей продажи."
+	) % [
+		_get_inventory_text(port),
+		_get_cargo_units(),
+		int(ship.get("cargo_capacity", 0))
+	]
+
+func _refresh_market_page(port_name: String) -> void:
+	_title.text = "РЫНОК БАЗЫ: " + port_name
+	_details.text = (
+		"Здесь будут обмен, покупка и продажа товаров.\n\n"
+		+ "Следующим этапом подключим цены портов, спрос, контракты и продажу груза."
+	)
+
+func _refresh_modernization_page(port: Dictionary, ship: Dictionary, port_name: String) -> void:
+	var branch_title: String = "ЗДАНИЯ"
+	var branch_text: String = (
+		"Развитие причалов, склада, верфи и производственных объектов.\n"
+		+ "Каждый уровень будет давать скорость производства, вместимость или новые возможности."
+	)
+	if _modernization_branch == "units":
+		branch_title = "ЮНИТЫ"
+		branch_text = (
+			"Развитие капитана и экипажа: моряк, боцман, офицеры.\n"
+			+ "Навыки дадут бонусы к скорости, погрузке, расходу топлива и манёврам."
+		)
+	_title.text = "МОДЕРНИЗАЦИЯ: " + branch_title
+	_details.text = (
+		"База: %s\n"
+		+ "Корабль: трюм %d / %d\n\n"
+		+ "%s"
+	) % [
+		port_name,
+		_get_cargo_units(),
+		int(ship.get("cargo_capacity", 0)),
+		branch_text
+	]
 
 func _get_selected_resource_id() -> String:
 	for raw_recipe in _production_recipes:
