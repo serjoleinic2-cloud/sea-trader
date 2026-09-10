@@ -30,6 +30,16 @@
       "regions": [
         "starting_region"
       ]
+    },
+    {
+      "id": "resource_oil",
+      "display_name": "Масло",
+      "category": "liquid_cargo",
+      "base_price": 24,
+      "weight_per_unit": 1,
+      "regions": [
+        "starting_region"
+      ]
     }
   ]
 }
