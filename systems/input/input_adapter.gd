@@ -46,6 +46,11 @@ func _load_kb_config() -> void:
 func _physics_process(delta: float) -> void:
 	if _ship_control == null:
 		return
+	if GameState.ship_state.get("docked_port_id", "") != "":
+		_kb_throttle = 0.0
+		_kb_steering = 0.0
+		_ship_control.send_control(0.0, 0.0)
+		return
 
 	# If tilt sensors are active, the tilt_updated signal handles control.
 	# Only run keyboard when sensors are unavailable (editor/desktop).
