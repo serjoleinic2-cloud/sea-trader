@@ -1,0 +1,44 @@
+{
+  "version": 1,
+  "ship_rank_path": [
+    {
+      "rank_id": "sailor",
+      "display_name": "Sailor",
+      "purpose": "Learn the ship and earn personal skill experience."
+    },
+    {
+      "rank_id": "boatswain",
+      "display_name": "Boatswain",
+      "purpose": "Coordinate deck work and unlock broader skill choices."
+    },
+    {
+      "rank_id": "officer",
+      "display_name": "Officer",
+      "purpose": "Prepare for command and take responsibility for voyage decisions."
+    },
+    {
+      "rank_id": "captain",
+      "display_name": "Captain",
+      "purpose": "Complete the ship progression and unlock the next ship tier."
+    }
+  ],
+  "next_ship_rule": {
+    "required_rank": "captain",
+    "new_ship_start_rank": "sailor",
+    "personal_skills_carry_over": true,
+    "crew_skills_carry_over": false
+  },
+  "crew_system": {
+    "unlocks_at_ship_tier": 3,
+    "individual_progression": true,
+    "crew_growth": "Each later ship tier may add crew capacity; exact capacity is TBD.",
+    "skill_categories": [
+      "cargo_handling",
+      "navigation_speed",
+      "fuel_efficiency",
+      "repair",
+      "safety"
+    ],
+    "balance_status": "Skill percentages, XP thresholds and crew capacity are TBD."
+  }
+}
