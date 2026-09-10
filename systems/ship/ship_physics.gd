@@ -190,8 +190,10 @@ func _update_position(delta: float) -> void:
 	new_pos.x = clampf(new_pos.x, 0.0, world_size.x)
 	new_pos.y = clampf(new_pos.y, 0.0, world_size.y)
 
+	var traveled_distance: float = current_pos.distance_to(new_pos)
 	GameState.ship_state["position"] = new_pos
 	GameState.ship_state["velocity"] = direction * _speed
+	GameState.player_state.stats["total_distance"] = float(GameState.player_state.stats.get("total_distance", 0.0)) + traveled_distance
 
 
 func setup_world_bounds(w: float, h: float) -> void:
