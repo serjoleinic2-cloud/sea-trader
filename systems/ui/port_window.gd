@@ -422,6 +422,12 @@ func _update_quantity_selector(port_id: String, is_home: bool) -> void:
 		maximum = maxi(maximum, mini(stock, free_space))
 		if maximum <= 0 and _is_selected_production_active(port) and free_space > 0:
 			maximum = 1
+	elif _current_section == "market" and _market_view == "port":
+		var market_stock: Dictionary = _get_port_market_stock(port_id)
+		var available: int = int(market_stock.get(resource_id, 0))
+		var free_space: int = int(GameState.ship_state.get("cargo_capacity", 0)) - _get_cargo_units()
+		var affordable: int = int(float(GameState.player_state.get("money", 0.0)) / maxf(1.0, _get_purchase_price(resource_id)))
+		maximum = mini(available, mini(free_space, affordable))
 	maximum = maxi(1, maximum)
 	if _selected_quantity > maximum:
 		_selected_quantity = maximum
