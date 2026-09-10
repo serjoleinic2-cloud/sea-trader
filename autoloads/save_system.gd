@@ -8,7 +8,7 @@ const SAVE_DIR := "user://saves/"
 const SAVE_MAIN := "save_main.json"
 const SAVE_BACKUP := "save_backup.json"
 const SAVE_META := "save_meta.json"
-const CURRENT_SAVE_VERSION := "0.2.1"
+const CURRENT_SAVE_VERSION := "0.2.0"
 # The released generator before versioned saves used config version 1.
 const LEGACY_WORLD_GEN_VERSION := "1"
 
@@ -264,14 +264,10 @@ func _copy_file(from: String, to: String) -> void:
 # ============================================================================
 
 func _migrate(data: Dictionary, from_version: String, to_version: String) -> Dictionary:
-	if from_version not in ["0.0.0", "0.1.0", "0.2.0"] or to_version != CURRENT_SAVE_VERSION:
+	if from_version not in ["0.0.0", "0.1.0"] or to_version != CURRENT_SAVE_VERSION:
 		push_warning("SaveSystem: Unsupported save version %s. Save was not reset." % from_version)
 		return {}
 	var migrated: Dictionary = data.duplicate(true)
-	if from_version == "0.2.0":
-		# The additive docking field is supplied by GameState defaults on load.
-		migrated["version"] = to_version
-		return migrated
 	var world: Dictionary = migrated["world_state"]
 	if str(world.get("world_gen_version", "")) == "":
 		world["world_gen_version"] = LEGACY_WORLD_GEN_VERSION
@@ -311,7 +307,5 @@ func _valid_save(data: Dictionary) -> bool:
 		if not port is Dictionary:
 			return false
 	if not data.get("player_state", {}).get("discovered_port_ids", []) is Array:
-		return false
-	if not data.get("ship_state", {}).get("docked_port_id", "") is String:
 		return false
 	return true
