@@ -36,6 +36,7 @@ var world_state: Dictionary = {
 	"current_region": "",
 	"explored_region_ids": [],
 	"destination_port_id": null,
+	"home_port_id": "",
 	"last_session_timestamp": 0
 }
 
@@ -186,6 +187,7 @@ func reset_to_defaults() -> void:
 		"current_region": "",
 		"explored_region_ids": [],
 		"destination_port_id": null,
+		"home_port_id": "",
 		"last_session_timestamp": 0
 	}
 	ship_state = {
