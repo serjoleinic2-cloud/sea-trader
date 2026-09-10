@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "offer_duration_seconds": 1200,
+  "next_offer_delay_seconds": 1200,
+  "offers": [
+    {
+      "resource_id": "resource_parts",
+      "quantity": 5,
+      "unit_price": 45
+    },
+    {
+      "resource_id": "resource_timber",
+      "quantity": 12,
+      "unit_price": 12
+    },
+    {
+      "resource_id": "resource_fish",
+      "quantity": 12,
+      "unit_price": 10
+    }
+  ],
+  "balance_status": "Provisional schematic visiting-merchant prices."
+}
