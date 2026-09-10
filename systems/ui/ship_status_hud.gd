@@ -2,11 +2,12 @@ extends CanvasLayer
 
 ## Read-only ship state shown while sailing.
 
-const PANEL_SIZE := Vector2(340, 235)
+const PANEL_SIZE := Vector2(370, 285)
 
 var _panel: ColorRect
 var _label: Label
 var _port_system: Node
+var _goods: Dictionary = {}
 
 func _ready() -> void:
 	layer = 20
@@ -18,36 +19,54 @@ func _ready() -> void:
 	_label.size = PANEL_SIZE - Vector2(28, 24)
 	_label.add_theme_color_override("font_color", Color(0.9, 1.0, 0.9, 1.0))
 	_label.add_theme_font_size_override("font_size", 19)
+	_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	add_child(_label)
 
 func initialize(port_system: Node) -> void:
 	_port_system = port_system
+	var goods_catalog: Dictionary = SaveSystem._read_json("res://data/resources/goods_catalog.json")
+	var raw_resources: Variant = goods_catalog.get("resources", [])
+	if raw_resources is Array:
+		for raw_resource in raw_resources:
+			var resource: Dictionary = raw_resource
+			var resource_id: String = str(resource.get("id", ""))
+			_goods[resource_id] = str(resource.get("display_name", resource_id))
 
 func _process(_delta: float) -> void:
 	if _label == null:
 		return
 	var viewport_size: Vector2 = get_viewport().get_visible_rect().size
-	var panel_position := Vector2(maxf(12.0, (viewport_size.x - PANEL_SIZE.x) * 0.5), 12.0)
+	var panel_position: Vector2 = Vector2(maxf(12.0, (viewport_size.x - PANEL_SIZE.x) * 0.5), 12.0)
 	_panel.position = panel_position
 	_label.position = panel_position + Vector2(14, 12)
 	var ship: Dictionary = GameState.ship_state
-	var cargo_units: int = 0
-	for item in ship.get("cargo", []):
-		cargo_units += int(item.get("quantity", 0))
+	var cargo_units: int = _get_cargo_units(ship)
 	var docked_port: String = str(ship.get("docked_port_id", ""))
 	var dock_hint: String = ""
 	if docked_port != "":
-		dock_hint = "\nE: выйти из порта"
+		dock_hint = "
+E: выйти из порта"
 	elif _port_system != null and _port_system.has_method("get_dock_candidate") and _port_system.get_dock_candidate() != "":
-		dock_hint = "\nE: пришвартоваться"
+		dock_hint = "
+E: пришвартоваться"
 	_label.text = (
-		"КОРАБЛЬ\n"
-		+ "Деньги: %.0f\n"
-		+ "Скорость: %.1f\n"
-		+ "Топливо: %.1f / %.0f\n"
-		+ "Корпус: %.0f / 100\n"
-		+ "Груз: %d / %d\n"
-		+ "Координаты: %d, %d\n"
+		"КОРАБЛЬ
+"
+		+ "Деньги: %.0f
+"
+		+ "Скорость: %.1f
+"
+		+ "Топливо: %.1f / %.0f
+"
+		+ "Корпус: %.0f / 100
+"
+		+ "Трюм: %d / %d
+"
+		+ "Груз:
+%s
+"
+		+ "Координаты: %d, %d
+"
 		+ "Стоянка: %s"
 		+ "%s"
 	) % [
@@ -56,9 +75,33 @@ func _process(_delta: float) -> void:
 		float(ship.get("fuel", 0.0)), float(ship.get("fuel_max", 0.0)),
 		float(ship.get("hull", 0.0)),
 		cargo_units, int(ship.get("cargo_capacity", 0)),
+		_get_cargo_text(ship),
 		int(ship.get("position", Vector2.ZERO).x), int(ship.get("position", Vector2.ZERO).y),
 		docked_port if docked_port != "" else "в море", dock_hint
 	]
+
+func _get_cargo_units(ship: Dictionary) -> int:
+	var raw_cargo: Variant = ship.get("cargo", [])
+	if not (raw_cargo is Array):
+		return 0
+	var total: int = 0
+	for raw_item in raw_cargo:
+		var item: Dictionary = raw_item
+		total += int(item.get("quantity", 0))
+	return total
+
+func _get_cargo_text(ship: Dictionary) -> String:
+	var raw_cargo: Variant = ship.get("cargo", [])
+	if not (raw_cargo is Array) or raw_cargo.is_empty():
+		return "— пусто"
+	var entries: Array[String] = []
+	for raw_item in raw_cargo:
+		var item: Dictionary = raw_item
+		var resource_id: String = str(item.get("resource_id", ""))
+		var resource_name: String = str(_goods.get(resource_id, resource_id))
+		entries.append("• %s: %d" % [resource_name, int(item.get("quantity", 0))])
+	return "
+".join(entries)
 
 func _unhandled_key_input(event: InputEvent) -> void:
 	if _port_system == null or not event is InputEventKey or not event.pressed or event.echo:
