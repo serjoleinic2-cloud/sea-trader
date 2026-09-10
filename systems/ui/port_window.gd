@@ -176,6 +176,9 @@ func _rebuild_building_list(port_id: String) -> void:
 func _select_building(building_id: String) -> void:
 	_selected_building_id = building_id
 	_notice = ""
+	var port_id: String = str(GameState.ship_state.get("docked_port_id", ""))
+	if port_id != "":
+		EventBus.production_output_requested.emit(port_id, building_id)
 
 func _plan_selected_building() -> void:
 	var port_id: String = str(GameState.ship_state.get("docked_port_id", ""))
