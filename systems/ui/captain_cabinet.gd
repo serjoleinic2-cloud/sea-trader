@@ -42,7 +42,7 @@ func _process(_delta: float) -> void:
 	lines.append("")
 	lines.append("DISCOVERED PORTS: %d" % GameState.player_state.discovered_port_ids.size())
 	for port_id in GameState.player_state.discovered_port_ids:
-		var name := _port_system.get_port_name(port_id) if _port_system.has_method("get_port_name") else str(port_id)
+		var name: String = str(_port_system.get_port_name(port_id)) if _port_system.has_method("get_port_name") else str(port_id)
 		lines.append("- " + (name if name != "" else str(port_id)))
 	lines.append("")
 	lines.append("KNOWN ROUTES: %d" % GameState.known_routes_state.size())
