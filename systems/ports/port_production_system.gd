@@ -11,6 +11,7 @@ func _ready() -> void:
 	_cycle_seconds = float(config.get("cycle_seconds", 10.0))
 	_recipes = config.get("recipes", [])
 	EventBus.building_activated.connect(_on_building_activated)
+	EventBus.production_output_requested.connect(_on_production_output_requested)
 	# Existing working buildings from an older save receive their first visible batch on launch.
 	call_deferred("_produce_cycle")
 
@@ -21,6 +22,12 @@ func _process(delta: float) -> void:
 		_produce_cycle()
 
 func _on_building_activated(port_id: String, building_id: String) -> void:
+	_issue_starter_batch(port_id, building_id)
+
+func _on_production_output_requested(port_id: String, building_id: String) -> void:
+	_issue_starter_batch(port_id, building_id)
+
+func _issue_starter_batch(port_id: String, building_id: String) -> void:
 	var home_port_id: String = str(GameState.world_state.get("home_port_id", ""))
 	if port_id == "" or port_id != home_port_id or not GameState.port_state.has(port_id):
 		return
@@ -32,11 +39,16 @@ func _on_building_activated(port_id: String, building_id: String) -> void:
 	if not buildings.has(building_id):
 		return
 	var building: Dictionary = buildings[building_id]
+	if bool(building.get("starter_batch_issued", false)):
+		return
 	if int(building.get("level", 0)) < 1 or str(building.get("status", "")) != "active":
 		return
 	for raw_recipe in _recipes:
 		var recipe: Dictionary = raw_recipe
 		if str(recipe.get("building_id", "")) == building_id:
+			building["starter_batch_issued"] = true
+			buildings[building_id] = building
+			port["buildings"] = buildings
 			port = _add_recipe_output(port, recipe)
 			GameState.port_state[port_id] = port
 			SaveSystem.save_game()
