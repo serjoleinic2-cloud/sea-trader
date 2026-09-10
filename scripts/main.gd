@@ -10,6 +10,7 @@ extends Node2D
 @onready var _world_renderer: Node2D = $World/WorldRenderer
 
 var _world_generator: Node
+var _trader_traffic: Node2D
 var _ship: Node2D
 var _world_data: Dictionary = {}
 var _is_new_game: bool = false
@@ -88,6 +89,7 @@ func _initialize_world() -> bool:
 
 	if _world_renderer.has_method("setup"):
 		_world_renderer.setup(world_data)
+	_initialize_trader_traffic(world_data)
 	if _world_renderer.has_method("set_camera"):
 		_world_renderer.set_camera(null)
 
@@ -98,6 +100,12 @@ func _initialize_world() -> bool:
 	])
 	return true
 
+
+func _initialize_trader_traffic(world_data: Dictionary) -> void:
+	_trader_traffic = load("res://systems/world/trader_traffic_renderer.gd").new()
+	_trader_traffic.name = "TraderTraffic"
+	_world.add_child(_trader_traffic)
+	_trader_traffic.initialize(world_data)
 
 func _load_or_create_state() -> bool:
 	_is_new_game = false
