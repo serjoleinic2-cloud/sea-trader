@@ -190,7 +190,7 @@ func _process(_delta: float) -> void:
 	elif not is_home:
 		_last_home_port_id = ""
 	_bottom_menu.visible = true
-	_building_list.visible = (is_home and (_current_section == "construction" or _current_section == "resources")) or _current_section == "market"
+	_building_list.visible = (is_home and (_current_section == "construction" or _current_section == "resources")) or (not is_home and _current_section == "market")
 	_plan_button.visible = is_home and _current_section == "construction"
 	_modernization_switches.visible = is_home and _current_section == "modernization"
 	_update_quantity_selector(docked_port, is_home)
@@ -198,7 +198,7 @@ func _process(_delta: float) -> void:
 	_update_unload_button(is_home)
 	_update_sell_button(is_home)
 	_update_buy_button(docked_port, is_home)
-	_market_switches.visible = _current_section == "market"
+	_market_switches.visible = not is_home and _current_section == "market"
 	_refresh_text(docked_port, is_home)
 
 func _refresh_text(port_id: String, is_home: bool) -> void:
@@ -334,6 +334,7 @@ func _rebuild_market_list(port_id: String) -> void:
 		_building_list.add_child(button)
 
 func _select_building(building_id: String) -> void:
+	_selected_market_resource_id = ""
 	_selected_building_id = building_id
 	_notice = ""
 	var port_id: String = str(GameState.ship_state.get("docked_port_id", ""))
@@ -558,8 +559,10 @@ func _open_section(section_id: String) -> void:
 	if port_id == "":
 		return
 	if section_id == "construction":
+		_selected_market_resource_id = ""
 		_rebuild_building_list(port_id)
 	elif section_id == "resources":
+		_selected_market_resource_id = ""
 		_rebuild_resource_list(port_id)
 	elif section_id == "market":
 		_market_view = "personal"
