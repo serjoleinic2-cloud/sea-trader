@@ -12,6 +12,8 @@ var _plan_button: Button
 var _load_button: Button
 var _unload_button: Button
 var _sell_button: Button
+var _quantity_label: Label
+var _quantity_slider: HSlider
 var _modernization_switches: HBoxContainer
 var _save_button: Button
 var _bottom_menu: PanelContainer
@@ -25,6 +27,7 @@ var _last_home_port_id: String = ""
 var _notice: String = ""
 var _current_section: String = "construction"
 var _modernization_branch: String = "buildings"
+var _selected_quantity: int = 1
 
 func _ready() -> void:
 	layer = 35
@@ -73,6 +76,16 @@ func _ready() -> void:
 	_load_button = Button.new()
 	_load_button.text = "Загрузить 1 единицу"
 	_load_button.custom_minimum_size.y = 42
+	_quantity_label = Label.new()
+	_quantity_label.add_theme_font_size_override("font_size", 19)
+	column.add_child(_quantity_label)
+	_quantity_slider = HSlider.new()
+	_quantity_slider.min_value = 1.0
+	_quantity_slider.max_value = 1.0
+	_quantity_slider.step = 1.0
+	_quantity_slider.custom_minimum_size.y = 30
+	_quantity_slider.value_changed.connect(_on_quantity_changed)
+	column.add_child(_quantity_slider)
 	_load_button.pressed.connect(_load_one_unit)
 	column.add_child(_load_button)
 	_unload_button = Button.new()
@@ -151,6 +164,7 @@ func _process(_delta: float) -> void:
 	_building_list.visible = is_home and (_current_section == "construction" or _current_section == "resources" or _current_section == "market")
 	_plan_button.visible = is_home and _current_section == "construction"
 	_modernization_switches.visible = is_home and _current_section == "modernization"
+	_update_quantity_selector(docked_port, is_home)
 	_update_load_button(docked_port, is_home)
 	_update_unload_button(is_home)
 	_update_sell_button(is_home)
@@ -335,20 +349,50 @@ func _update_load_button(port_id: String, is_home: bool) -> void:
 	var stock: int = int(inventory.get(resource_id, 0))
 	var cargo_capacity: int = int(GameState.ship_state.get("cargo_capacity", 0))
 	var production_is_active: bool = _is_selected_production_active(port)
-	_load_button.disabled = not production_is_active or _get_cargo_units() >= cargo_capacity
+	var available_space: int = cargo_capacity - _get_cargo_units()
+	var available_stock: int = stock
+	if available_stock <= 0 and production_is_active:
+		available_stock = 1
+	_load_button.disabled = not production_is_active or _selected_quantity > available_stock or _selected_quantity > available_space
 	if stock > 0:
-		_load_button.text = "Загрузить 1 ед.: %s (%d)" % [_get_resource_name(resource_id), stock]
+		_load_button.text = "Загрузить %d ед.: %s (%d)" % [_selected_quantity, _get_resource_name(resource_id), stock]
 	else:
-		_load_button.text = "Подготовить и загрузить: %s" % _get_resource_name(resource_id)
+		_load_button.text = "Подготовить и загрузить %d ед.: %s" % [_selected_quantity, _get_resource_name(resource_id)]
+
+func _update_quantity_selector(port_id: String, is_home: bool) -> void:
+	var resource_id: String = _get_selected_resource_id()
+	var use_selector: bool = resource_id != "" and (_current_section == "resources" or _current_section == "market")
+	_quantity_label.visible = use_selector
+	_quantity_slider.visible = use_selector
+	if not use_selector:
+		return
+	var maximum: int = _get_cargo_quantity(resource_id)
+	if _current_section == "resources" and is_home:
+		var port: Dictionary = GameState.port_state.get(port_id, {})
+		var stock: int = int(_get_inventory(port).get(resource_id, 0))
+		var cargo_capacity: int = int(GameState.ship_state.get("cargo_capacity", 0))
+		var free_space: int = cargo_capacity - _get_cargo_units()
+		maximum = maxi(maximum, mini(stock, free_space))
+		if maximum <= 0 and _is_selected_production_active(port) and free_space > 0:
+			maximum = 1
+	maximum = maxi(1, maximum)
+	if _selected_quantity > maximum:
+		_selected_quantity = maximum
+	_quantity_slider.max_value = float(maximum)
+	_quantity_slider.value = float(_selected_quantity)
+	_quantity_label.text = "Количество: %d" % _selected_quantity
+
+func _on_quantity_changed(value: float) -> void:
+	_selected_quantity = maxi(1, int(round(value)))
 
 func _update_sell_button(is_home: bool) -> void:
 	var resource_id: String = _get_selected_resource_id()
-	_sell_button.visible = is_home and _current_section == "market" and resource_id != ""
+	_sell_button.visible = _current_section == "market" and resource_id != ""
 	if not _sell_button.visible:
 		return
 	var quantity: int = _get_cargo_quantity(resource_id)
-	_sell_button.disabled = quantity <= 0
-	_sell_button.text = "Продать 1 ед.: %s (+%.0f)" % [_get_resource_name(resource_id), _get_sale_price(resource_id)]
+	_sell_button.disabled = _selected_quantity > quantity
+	_sell_button.text = "Продать %d ед.: %s (+%.0f)" % [_selected_quantity, _get_resource_name(resource_id), _get_sale_price(resource_id) * _selected_quantity]
 
 func _update_unload_button(is_home: bool) -> void:
 	var resource_id: String = _get_selected_resource_id()
@@ -356,8 +400,8 @@ func _update_unload_button(is_home: bool) -> void:
 	if not _unload_button.visible:
 		return
 	var quantity: int = _get_cargo_quantity(resource_id)
-	_unload_button.disabled = quantity <= 0
-	_unload_button.text = "Выгрузить 1 ед.: %s (%d)" % [_get_resource_name(resource_id), quantity]
+	_unload_button.disabled = _selected_quantity > quantity
+	_unload_button.text = "Выгрузить %d ед.: %s (%d)" % [_selected_quantity, _get_resource_name(resource_id), quantity]
 
 func _load_one_unit() -> void:
 	var port_id: String = str(GameState.ship_state.get("docked_port_id", ""))
@@ -372,14 +416,14 @@ func _load_one_unit() -> void:
 	var port: Dictionary = GameState.port_state.get(port_id, {})
 	var inventory: Dictionary = _get_inventory(port)
 	var stock: int = int(inventory.get(resource_id, 0))
-	if stock <= 0:
-		if not _is_selected_production_active(port):
-			_notice = "Сначала постройте и запустите это производство."
+	if stock < _selected_quantity:
+		if stock > 0 or not _is_selected_production_active(port) or _selected_quantity > 1:
+			_notice = "На складе недостаточно товара."
 			return
 		# Fallback for the schematic prototype: the first completed batch is prepared on demand.
 		stock = 1
 		inventory[resource_id] = stock
-	inventory[resource_id] = stock - 1
+	inventory[resource_id] = stock - _selected_quantity
 	port["inventory"] = inventory
 	GameState.port_state[port_id] = port
 	var raw_cargo: Variant = GameState.ship_state.get("cargo", [])
@@ -388,18 +432,18 @@ func _load_one_unit() -> void:
 	for index in range(cargo.size()):
 		var cargo_item: Dictionary = cargo[index]
 		if str(cargo_item.get("resource_id", "")) == resource_id:
-			cargo_item["quantity"] = int(cargo_item.get("quantity", 0)) + 1
+			cargo_item["quantity"] = int(cargo_item.get("quantity", 0)) + _selected_quantity
 			cargo[index] = cargo_item
 			was_loaded = true
 			break
 	if not was_loaded:
-		cargo.append({"resource_id": resource_id, "quantity": 1})
+		cargo.append({"resource_id": resource_id, "quantity": _selected_quantity})
 	GameState.ship_state["cargo"] = cargo
 	var stats: Dictionary = GameState.player_state.get("stats", {})
-	stats["cargo_units_moved"] = int(stats.get("cargo_units_moved", 0)) + 1
+	stats["cargo_units_moved"] = int(stats.get("cargo_units_moved", 0)) + _selected_quantity
 	GameState.player_state["stats"] = stats
-	EventBus.cargo_loaded.emit(resource_id, 1)
-	_notice = "В трюм загружено: " + _get_resource_name(resource_id) + "."
+	EventBus.cargo_loaded.emit(resource_id, _selected_quantity)
+	_notice = "В трюм загружено: %s × %d." % [_get_resource_name(resource_id), _selected_quantity]
 	SaveSystem.save_game()
 
 func _is_selected_production_active(port: Dictionary) -> bool:
@@ -537,21 +581,21 @@ func _sell_one_unit() -> void:
 		_notice = "В трюме нет этого товара."
 		return
 	var item: Dictionary = cargo[found_index]
-	var remaining_quantity: int = int(item.get("quantity", 0)) - 1
+	var remaining_quantity: int = int(item.get("quantity", 0)) - _selected_quantity
 	if remaining_quantity <= 0:
 		cargo.remove_at(found_index)
 	else:
 		item["quantity"] = remaining_quantity
 		cargo[found_index] = item
 	GameState.ship_state["cargo"] = cargo
-	var sale_price: float = _get_sale_price(resource_id)
+	var sale_price: float = _get_sale_price(resource_id) * _selected_quantity
 	GameState.player_state["money"] = float(GameState.player_state.get("money", 0.0)) + sale_price
 	var stats: Dictionary = GameState.player_state.get("stats", {})
-	stats["total_sales"] = int(stats.get("total_sales", 0)) + 1
+	stats["total_sales"] = int(stats.get("total_sales", 0)) + _selected_quantity
 	stats["total_earned"] = float(stats.get("total_earned", 0.0)) + sale_price
 	GameState.player_state["stats"] = stats
-	EventBus.cargo_delivered.emit(resource_id, 1)
-	_notice = "Продано: %s. Получено %.0f." % [_get_resource_name(resource_id), sale_price]
+	EventBus.cargo_delivered.emit(resource_id, _selected_quantity)
+	_notice = "Продано: %s × %d. Получено %.0f." % [_get_resource_name(resource_id), _selected_quantity, sale_price]
 	SaveSystem.save_game()
 	_rebuild_market_list(port_id)
 
@@ -575,7 +619,7 @@ func _unload_one_unit() -> void:
 		_notice = "В трюме нет этого товара."
 		return
 	var item: Dictionary = cargo[found_index]
-	var remaining_quantity: int = int(item.get("quantity", 0)) - 1
+	var remaining_quantity: int = int(item.get("quantity", 0)) - _selected_quantity
 	if remaining_quantity <= 0:
 		cargo.remove_at(found_index)
 	else:
@@ -584,14 +628,14 @@ func _unload_one_unit() -> void:
 	GameState.ship_state["cargo"] = cargo
 	var port: Dictionary = GameState.port_state.get(port_id, {})
 	var inventory: Dictionary = _get_inventory(port)
-	inventory[resource_id] = int(inventory.get(resource_id, 0)) + 1
+	inventory[resource_id] = int(inventory.get(resource_id, 0)) + _selected_quantity
 	port["inventory"] = inventory
 	GameState.port_state[port_id] = port
 	var stats: Dictionary = GameState.player_state.get("stats", {})
-	stats["cargo_units_moved"] = int(stats.get("cargo_units_moved", 0)) + 1
+	stats["cargo_units_moved"] = int(stats.get("cargo_units_moved", 0)) + _selected_quantity
 	GameState.player_state["stats"] = stats
-	EventBus.cargo_delivered.emit(resource_id, 1)
-	_notice = "На склад выгружено: " + _get_resource_name(resource_id) + "."
+	EventBus.cargo_delivered.emit(resource_id, _selected_quantity)
+	_notice = "На склад выгружено: %s × %d." % [_get_resource_name(resource_id), _selected_quantity]
 	SaveSystem.save_game()
 	_rebuild_resource_list(port_id)
 
