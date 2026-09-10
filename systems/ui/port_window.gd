@@ -19,7 +19,7 @@ func _ready() -> void:
 	backdrop.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_root.add_child(backdrop)
 	_sheet = PanelContainer.new()
-	_sheet.size = Vector2(440, 380)
+	_sheet.size = Vector2(480, 420)
 	_root.add_child(_sheet)
 	var margin := MarginContainer.new()
 	for side in ["left", "top", "right", "bottom"]:
@@ -29,20 +29,20 @@ func _ready() -> void:
 	column.add_theme_constant_override("separation", 12)
 	margin.add_child(column)
 	_title = Label.new()
-	_title.add_theme_font_size_override("font_size", 22)
+	_title.add_theme_font_size_override("font_size", 24)
 	column.add_child(_title)
 	_details = Label.new()
-	_details.add_theme_font_size_override("font_size", 16)
+	_details.add_theme_font_size_override("font_size", 19)
 	_details.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_details.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	column.add_child(_details)
 	var save_button := Button.new()
-	save_button.text = "Save progress"
+	save_button.text = "Сохранить игру"
 	save_button.custom_minimum_size.y = 42
 	save_button.pressed.connect(_save_progress)
 	column.add_child(save_button)
 	_leave_button = Button.new()
-	_leave_button.text = "Leave port [E]"
+	_leave_button.text = "Выйти в море [E]"
 	_leave_button.custom_minimum_size.y = 42
 	_leave_button.pressed.connect(_leave_port)
 	column.add_child(_leave_button)
@@ -59,20 +59,20 @@ func _process(_delta: float) -> void:
 	if docked_port == "":
 		return
 	var viewport_size: Vector2 = get_viewport().get_visible_rect().size
-	_sheet.size = Vector2(minf(440.0, viewport_size.x - 24.0), minf(380.0, viewport_size.y - 24.0))
+	_sheet.size = Vector2(minf(480.0, viewport_size.x - 24.0), minf(420.0, viewport_size.y - 24.0))
 	_sheet.position = (viewport_size - _sheet.size) * 0.5
 	var ship: Dictionary = GameState.ship_state
 	var port: Dictionary = GameState.port_state.get(docked_port, {})
 	var port_name: String = _port_system.get_port_name(docked_port)
-	_title.text = "PORT: " + port_name
+	_title.text = "ПОРТ: " + port_name
 	_details.text = (
-		"Docked\n"
-		+ "Port level: %d\n\n"
-		+ "Money: %.0f\n"
-		+ "Fuel: %.1f / %.0f\n"
-		+ "Hull: %.0f / 100\n"
-		+ "Cargo entries: %d\n\n"
-		+ "Trade, refuel and repair will be added here."
+		"Корабль пришвартован\n"
+		+ "Уровень порта: %d\n\n"
+		+ "Деньги: %.0f\n"
+		+ "Топливо: %.1f / %.0f\n"
+		+ "Корпус: %.0f / 100\n"
+		+ "Видов груза: %d\n\n"
+		+ "Торговля, заправка и ремонт появятся здесь."
 	) % [
 		int(port.get("level", 1)),
 		float(GameState.player_state.get("money", 0.0)),
