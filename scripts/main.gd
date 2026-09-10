@@ -22,7 +22,6 @@ const CAMERA_ZOOM_MAX: float = 2.0
 
 # Phase 05
 var _port_system: Node = null
-var _port_debug_hud: CanvasLayer = null
 var _ship_status_hud: CanvasLayer = null
 
 
@@ -145,15 +144,7 @@ func _initialize_port_systems() -> void:
 	else:
 		push_warning("main.gd: _ship is null, PortSystem cannot track position")
 
-	# PortDebugHUD
-	_port_debug_hud = get_node_or_null("PortDebugHUD")
-	if _port_debug_hud == null:
-		_port_debug_hud = load("res://systems/ports/port_debug_hud.gd").new()
-		_port_debug_hud.name = "PortDebugHUD"
-		add_child(_port_debug_hud)
-
-	_port_debug_hud.initialize(_port_system)
-	print("Phase 05: PortSystem and PortDebugHUD initialized")
+	print("Phase 05: PortSystem initialized")
 
 
 func _initialize_ship_status_hud() -> void:
