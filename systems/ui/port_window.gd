@@ -199,6 +199,7 @@ func _plan_selected_building() -> void:
 		_notice = "Здание построено. Производство начнётся через 10 секунд."
 	port["buildings"] = buildings
 	GameState.port_state[port_id] = port
+	EventBus.building_activated.emit(port_id, _selected_building_id)
 	SaveSystem.save_game()
 	_rebuild_building_list(port_id)
 
