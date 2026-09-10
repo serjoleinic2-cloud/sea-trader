@@ -25,6 +25,7 @@ var _port_system: Node = null
 var _ship_status_hud: CanvasLayer = null
 var _captain_cabinet: CanvasLayer = null
 var _map_status_hud: CanvasLayer = null
+var _port_window: CanvasLayer = null
 
 
 func _ready() -> void:
@@ -45,6 +46,7 @@ func _ready() -> void:
 	_initialize_ship_status_hud()
 	_initialize_captain_cabinet()
 	_initialize_map_status_hud()
+	_initialize_port_window()
 	_world_ready = true
 	if _is_new_game:
 		SaveSystem.save_game()
@@ -173,6 +175,13 @@ func _initialize_map_status_hud() -> void:
 	_map_status_hud.name = "MapStatusHUD"
 	add_child(_map_status_hud)
 	_map_status_hud.initialize(_port_system)
+
+
+func _initialize_port_window() -> void:
+	_port_window = load("res://systems/ui/port_window.gd").new()
+	_port_window.name = "PortWindow"
+	add_child(_port_window)
+	_port_window.initialize(_port_system)
 
 
 # ============================================================================
