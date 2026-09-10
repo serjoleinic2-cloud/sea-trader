@@ -45,6 +45,11 @@ func _ready() -> void:
 	_order_button.custom_minimum_size.y = 44
 	_order_button.pressed.connect(_order)
 	box.add_child(_order_button)
+	var close_button: Button = Button.new()
+	close_button.text = "Закрыть"
+	close_button.custom_minimum_size.y = 40
+	close_button.pressed.connect(_close)
+	box.add_child(close_button)
 	_panel.hide()
 
 func initialize(system: Node) -> void:
@@ -77,6 +82,10 @@ func _process(_delta: float) -> void:
 	_label.text = "ЗАКАЗ ПОСТАВКИ\n\nТовар: Масло\nПоставщик: %s\nЦена у поставщика: %.0f\nДоставка: +50%%\nПрибытие: %d сек.\nВаши деньги: %.0f\n%s" % [str(quote.get("source_name", "")), float(quote.get("source_price", 0.0)), int(quote.get("delivery_seconds", 0)), float(GameState.player_state.get("money", 0.0)), _notice]
 	_quantity_label.text = "Количество: %d | Итого: %.0f" % [quantity, total]
 	_order_button.disabled = quantity > available or float(GameState.player_state.get("money", 0.0)) < total
+
+func _close() -> void:
+	_open = false
+	_notice = ""
 
 func _on_quantity_changed(_value: float) -> void:
 	pass
