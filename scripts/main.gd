@@ -24,6 +24,7 @@ const CAMERA_ZOOM_MAX: float = 2.0
 var _port_system: Node = null
 var _ship_status_hud: CanvasLayer = null
 var _captain_cabinet: CanvasLayer = null
+var _map_status_hud: CanvasLayer = null
 
 
 func _ready() -> void:
@@ -43,6 +44,7 @@ func _ready() -> void:
 	_initialize_port_systems()  # Phase 05
 	_initialize_ship_status_hud()
 	_initialize_captain_cabinet()
+	_initialize_map_status_hud()
 	_world_ready = true
 	if _is_new_game:
 		SaveSystem.save_game()
@@ -164,6 +166,13 @@ func _initialize_captain_cabinet() -> void:
 	_captain_cabinet.name = "CaptainCabinet"
 	add_child(_captain_cabinet)
 	_captain_cabinet.initialize(_port_system)
+
+
+func _initialize_map_status_hud() -> void:
+	_map_status_hud = load("res://systems/ui/map_status_hud.gd").new()
+	_map_status_hud.name = "MapStatusHUD"
+	add_child(_map_status_hud)
+	_map_status_hud.initialize(_port_system)
 
 
 # ============================================================================
