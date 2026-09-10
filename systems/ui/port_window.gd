@@ -408,7 +408,7 @@ func _refresh_resources_page(port: Dictionary, ship: Dictionary, port_name: Stri
 		"Склад: %s\n"
 		+ "Трюм: %d / %d\n\n"
 		+ "Выберите ресурс в списке ниже.\n"
-		+ "Активная кнопка загрузит его в трюм для перевозки или будущей продажи."
+		+ "Его можно загрузить в трюм или выгрузить обратно на склад."
 	) % [
 		_get_inventory_text(port),
 		_get_cargo_units(),
