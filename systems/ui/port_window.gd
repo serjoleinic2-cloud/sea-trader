@@ -620,7 +620,7 @@ func _sell_one_unit() -> void:
 	var port_id: String = str(GameState.ship_state.get("docked_port_id", ""))
 	var home_port_id: String = str(GameState.world_state.get("home_port_id", ""))
 	var resource_id: String = _get_selected_resource_id()
-	if port_id == "" or port_id != home_port_id or resource_id == "":
+	if port_id == "" or port_id == home_port_id or resource_id == "":
 		return
 	var raw_cargo: Variant = GameState.ship_state.get("cargo", [])
 	if not (raw_cargo is Array):
