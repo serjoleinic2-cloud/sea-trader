@@ -1,16 +1,17 @@
 {
   "project": "Sea Trader",
-  "documentationVersion": "0.3.1",
+  "documentationVersion": "0.3.2",
   "architectureVersion": "0.2.0",
   "gameVersion": "0.0.4",
   "status": "development",
-  "lastUpdated": "2026-09-08",
+  "lastUpdated": "2026-09-10",
   "godotVersion": "4.x",
   "saveFormatVersion": "0.2.0",
   "changelog": {
     "0.3.1": "Persistent state foundation implemented; non-destructive legacy migration and world/knowledge separation. Godot runtime verification pending.",
     "0.3.0": "World Permanence + Player Knowledge architecture. KnownRoutesState schema. Discovered Port != Known Route. Bidirectional routes. Social trading TBD.",
     "0.2.0": "Phase 03-04 implementation. Ship physics, Android tilt input. GUT replaced with TestBase.",
-    "0.1.0": "Initial architecture. Phase 01-02. Foundation and world generation."
+    "0.1.0": "Initial architecture. Phase 01-02. Foundation and world generation.",
+    "0.3.2": "Home-port designation and port building progression foundation."
   }
 }
