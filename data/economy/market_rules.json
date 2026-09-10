@@ -1,0 +1,6 @@
+{
+  "version": 1,
+  "home_port_sell_multiplier": 1.0,
+  "remote_port_sell_multiplier": 1.25,
+  "balance_status": "Provisional schematic market prices. Rebalance before economy release."
+}
