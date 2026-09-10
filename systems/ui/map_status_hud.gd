@@ -11,7 +11,7 @@ func _ready() -> void:
 	_panel = ColorRect.new()
 	_panel.position = Vector2(12, 12)
 	_panel.size = Vector2(300, 180)
-	_panel.color = Color(0.02, 0.03, 0.04, 0.72)
+	_panel.color = Color(0.02, 0.03, 0.04, 1.0)
 	add_child(_panel)
 	_label = Label.new()
 	_label.position = Vector2(26, 24)
