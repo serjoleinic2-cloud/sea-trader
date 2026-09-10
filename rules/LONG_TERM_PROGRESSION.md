@@ -12,8 +12,8 @@ Exact prices, rewards, requirements and boost values remain TBD and must be bala
 
 ## Captain and Crew Progression
 
-Every ship has its own career path: Sailor -> Boatswain -> Officer -> Captain.
-Reaching Captain unlocks the next ship tier. The player begins the next ship as
+Every ship has its own career path: Sailor -> Boatswain -> Officer -> Captain III -> Captain II -> Captain I -> Master Captain.
+Reaching Master Captain unlocks the next ship tier. The player begins the next ship as
 Sailor again, but keeps personal skills earned on earlier ships.
 
 The crew system unlocks on ship tier 3. Each crew member gains experience and
