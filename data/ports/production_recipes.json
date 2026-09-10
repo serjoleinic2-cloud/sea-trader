@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "cycle_seconds": 10.0,
+  "recipes": [
+    {
+      "building_id": "fishing_wharf",
+      "resource_id": "resource_fish",
+      "quantity_per_cycle": 1,
+      "required_building_level": 1
+    },
+    {
+      "building_id": "timber_yard",
+      "resource_id": "resource_timber",
+      "quantity_per_cycle": 1,
+      "required_building_level": 1
+    }
+  ],
+  "balance_status": "Provisional schematic production rate."
+}
