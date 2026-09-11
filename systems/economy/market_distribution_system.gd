@@ -70,7 +70,8 @@ func _refresh_base_deficits() -> void:
 			break
 		var already_active: bool = false
 		for raw_demand in retained:
-			if str((raw_demand as Dictionary).get("resource_id", "")) == resource_id:
+			var candidate_demand: Dictionary = raw_demand
+			if str(candidate_demand.get("resource_id", "")) == resource_id:
 				already_active = true
 				break
 		if already_active:
