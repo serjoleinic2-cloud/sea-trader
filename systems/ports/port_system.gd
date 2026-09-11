@@ -177,3 +177,9 @@ func get_nearest_market_source(from_port_id: String, resource_id: String) -> Str
 			best_distance = distance
 			best_port_id = port_id
 	return best_port_id
+
+
+func get_port_position(port_id: String) -> Vector2:
+	if not _world_ports.has(port_id):
+		return Vector2.ZERO
+	return Vector2(_world_ports[port_id].position)
