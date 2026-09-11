@@ -35,6 +35,7 @@ var _supply_order_window: CanvasLayer = null
 var _navigation_hud: CanvasLayer = null
 var _hiring_system: Node = null
 var _hiring_window: CanvasLayer = null
+var _crew_window: CanvasLayer = null
 
 
 func _ready() -> void:
@@ -62,6 +63,7 @@ func _ready() -> void:
 	_initialize_supply_orders()
 	_initialize_navigation_hud()
 	_initialize_hiring_system()
+	_initialize_crew_window()
 	_world_ready = true
 	if _is_new_game:
 		SaveSystem.save_game()
@@ -251,6 +253,12 @@ func _initialize_hiring_system() -> void:
 	_hiring_window.name = "HiringWindow"
 	add_child(_hiring_window)
 	_hiring_window.initialize(_hiring_system)
+
+
+func _initialize_crew_window() -> void:
+	_crew_window = load("res://systems/ui/crew_window.gd").new()
+	_crew_window.name = "CrewWindow"
+	add_child(_crew_window)
 
 
 # ============================================================================
