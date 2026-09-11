@@ -10,6 +10,7 @@ var _details: Label
 var _voyage_label: Label
 var _voyage_slider: HSlider
 var _hire_button: Button
+var _refresh_button: Button
 var _close_button: Button
 var _selected_candidate_id: String = ""
 var _selected_voyages: int = 1
@@ -53,6 +54,11 @@ func _ready() -> void:
 	_list = VBoxContainer.new()
 	_list.add_theme_constant_override("separation", 6)
 	scroll.add_child(_list)
+	_refresh_button = Button.new()
+	_refresh_button.text = "Обновить кандидатов"
+	_refresh_button.custom_minimum_size.y = 40
+	_refresh_button.pressed.connect(_refresh_candidates)
+	box.add_child(_refresh_button)
 	_voyage_label = Label.new()
 	_voyage_label.add_theme_font_size_override("font_size", 19)
 	box.add_child(_voyage_label)
@@ -132,12 +138,13 @@ func _refresh_details() -> void:
 		var value: int = int(stats.get(stat_id, 0))
 		lines.append("%s: %+d%%" % [str(_stat_labels.get(stat_id, stat_id)), value])
 	var salary: float = float(candidate.get("salary_per_voyage", 0.0)) * _selected_voyages
+	lines.append("Ваш допуск: сотрудник до %d ранга" % _system.get_hiring_rank_limit())
 	lines.append("")
 	lines.append("Корабль: %s | экипаж %d / %d" % [str(ship.get("name", "")), int(ship.get("crew_count", 0)), int(ship.get("max_crew", 1))])
 	lines.append("Контракт: %d рейс. | зарплата: %.0f" % [_selected_voyages, salary])
 	lines.append(_notice)
 	_details.text = "\n".join(lines)
-	_hire_button.disabled = int(ship.get("crew_count", 0)) >= int(ship.get("max_crew", 1)) or float(GameState.player_state.get("money", 0.0)) < salary
+	_hire_button.disabled = int(candidate.get("rank", 1)) > _system.get_hiring_rank_limit() or int(ship.get("crew_count", 0)) >= int(ship.get("max_crew", 1)) or float(GameState.player_state.get("money", 0.0)) < salary
 
 func _get_selected_candidate() -> Dictionary:
 	for raw_candidate in _system.get_candidates():
@@ -155,6 +162,12 @@ func _hire() -> void:
 	if bool(result.get("ok", false)):
 		_selected_candidate_id = ""
 		_rebuild_list()
+
+func _refresh_candidates() -> void:
+	var result: Dictionary = _system.refresh_candidates()
+	_notice = str(result.get("message", ""))
+	_selected_candidate_id = ""
+	_rebuild_list()
 
 func _close() -> void:
 	_is_open = false
