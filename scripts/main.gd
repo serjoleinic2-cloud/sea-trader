@@ -28,6 +28,7 @@ var _captain_cabinet: CanvasLayer = null
 var _map_status_hud: CanvasLayer = null
 var _port_window: CanvasLayer = null
 var _port_production_system: Node = null
+var _market_distribution_system: Node = null
 var _merchant_visit_system: Node = null
 var _merchant_offer_hud: CanvasLayer = null
 var _supply_order_system: Node = null
@@ -58,6 +59,7 @@ func _ready() -> void:
 		return
 	_spawn_ship()
 	_initialize_port_systems()  # Phase 05
+	_initialize_market_distribution()
 	_initialize_ship_status_hud()
 	_initialize_captain_cabinet()
 	_initialize_map_status_hud()
@@ -185,6 +187,12 @@ func _initialize_port_systems() -> void:
 
 	print("Phase 05: PortSystem initialized")
 
+
+func _initialize_market_distribution() -> void:
+	_market_distribution_system = load("res://systems/economy/market_distribution_system.gd").new()
+	_market_distribution_system.name = "MarketDistributionSystem"
+	add_child(_market_distribution_system)
+	_market_distribution_system.initialize(_port_system)
 
 func _initialize_ship_status_hud() -> void:
 	_ship_status_hud = get_node_or_null("ShipStatusHUD")
