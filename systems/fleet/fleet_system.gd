@@ -39,29 +39,29 @@ func get_command_progress() -> Dictionary:
 		return {"stage_name": "Матрос", "rank": 1, "next_activity": 15}
 	return systems[0].get_command_progress()
 
-func build_ship(ship_type_id: String) -> Dictionary:
+func build_ship(_ship_type_id: String) -> Dictionary:
+	return {"ok": false, "message": "Корабли строятся через проект верфи из материалов склада."}
+
+func complete_ship_from_shipyard(ship_type_id: String, ship_name: String) -> Dictionary:
 	var home_port_id: String = str(GameState.world_state.get("home_port_id", ""))
-	var docked_port_id: String = str(GameState.ship_state.get("docked_port_id", ""))
-	if home_port_id == "" or docked_port_id != home_port_id:
-		return {"ok": false, "message": "Строить корабли можно только на своей базе."}
+	if home_port_id == "" or str(GameState.ship_state.get("docked_port_id", "")) != home_port_id:
+		return {"ok": false, "message": "Спуск на воду возможен только на базе."}
 	var ship_type: Dictionary = get_ship_type(ship_type_id)
 	if ship_type.is_empty():
 		return {"ok": false, "message": "Неизвестный проект корабля."}
 	var required_rank: int = int(ship_type.get("command_rank_required", 1))
-	var current_rank: int = int(get_command_progress().get("rank", 1))
-	if current_rank < required_rank:
-		return {"ok": false, "message": "Нужен допуск капитана %d ранга." % required_rank}
-	var price: float = float(ship_type.get("price", 0.0))
-	if float(GameState.player_state.get("money", 0.0)) < price:
-		return {"ok": false, "message": "Недостаточно денег для постройки."}
-	GameState.player_state["money"] = float(GameState.player_state.get("money", 0.0)) - price
+	if int(get_command_progress().get("rank", 1)) < required_rank:
+		return {"ok": false, "message": "Недостаточный допуск для этого корабля."}
 	var instance_id: String = "fleet_ship_%03d" % (GameState.fleet_state.size() + 1)
+	var clean_name: String = ship_name.strip_edges()
+	if clean_name == "":
+		clean_name = str(ship_type.get("name", "Корабль")) + " №" + str(GameState.fleet_state.size() + 1)
 	GameState.fleet_state.append({
 		"instance_id": instance_id,
 		"ship_type_id": ship_type_id,
-		"name": str(ship_type.get("name", "Корабль")) + " №" + str(GameState.fleet_state.size() + 1),
+		"name": clean_name,
 		"current_port_id": home_port_id,
-		"status": "В порту",
+		"status": "У причала",
 		"crew": [],
 		"cargo": [],
 		"cargo_capacity": int(ship_type.get("cargo_capacity", 0)),
@@ -69,7 +69,7 @@ func build_ship(ship_type_id: String) -> Dictionary:
 	})
 	EventBus.fleet_ship_added.emit(instance_id)
 	SaveSystem.save_game()
-	return {"ok": true, "message": "Корабль построен и ждёт экипаж на базе."}
+	return {"ok": true, "message": "Корабль «" + clean_name + "» построен и спущен на воду."}
 
 func assign_employee(employee_id: String, target_ship_id: String) -> Dictionary:
 	if not _employee_exists(employee_id):
