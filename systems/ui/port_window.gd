@@ -567,9 +567,6 @@ func _open_section(section_id: String) -> void:
 	_notice = ""
 	var port_id: String = str(GameState.ship_state.get("docked_port_id", ""))
 	if section_id == "hiring":
-		if port_id != str(GameState.world_state.get("home_port_id", "")):
-			_notice = "Найм персонала доступен в главном порту."
-			return
 		var windows: Array[Node] = get_tree().get_nodes_in_group("hiring_window")
 		if not windows.is_empty():
 			windows[0].open()
