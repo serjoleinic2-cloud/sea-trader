@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "roles": {
+    "captain": {"name": "Капитан", "base_salary_per_voyage": 36},
+    "sailor": {"name": "Моряк", "base_salary_per_voyage": 14},
+    "navigator": {"name": "Лоцман", "base_salary_per_voyage": 25},
+    "mechanic": {"name": "Механик", "base_salary_per_voyage": 22},
+    "dock_worker": {"name": "Портовый рабочий", "base_salary_per_voyage": 12}
+  },
+  "stat_labels": {
+    "speed": "Скорость",
+    "loading": "Погрузка",
+    "fuel": "Расход топлива",
+    "repair": "Ремонт",
+    "navigation": "Навигация"
+  },
+  "balance_status": "Provisional schematic personnel salaries and bonuses."
+}
