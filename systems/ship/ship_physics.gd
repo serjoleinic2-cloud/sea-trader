@@ -118,7 +118,8 @@ func get_visual_roll() -> float:
 func get_max_speed() -> float:
 	var base: float = _ship_data.get("base_speed", 120.0)
 	var engine_ratio: float = _get_engine_ratio()
-	return base * engine_ratio
+	var crew_speed_bonus: float = float(_get_crew_stat_total("speed")) / 100.0
+	return base * engine_ratio * maxf(0.25, 1.0 + crew_speed_bonus)
 
 
 func restore_from_state() -> void:
@@ -229,7 +230,8 @@ func _update_fuel(delta: float) -> void:
 		return
 
 	var speed_ratio: float = _speed / maxf(get_max_speed(), 1.0)
-	var consumption: float = FUEL_CONSUMPTION_RATE * speed_ratio * delta
+	var crew_fuel_bonus: float = float(_get_crew_stat_total("fuel")) / 100.0
+	var consumption: float = FUEL_CONSUMPTION_RATE * speed_ratio * delta * maxf(0.25, 1.0 - crew_fuel_bonus)
 
 	var current_fuel: float = float(GameState.ship_state.get("fuel", 0.0))
 	var new_fuel: float = maxf(current_fuel - consumption, FUEL_MIN)
@@ -243,6 +245,20 @@ func _update_fuel(delta: float) -> void:
 # ============================================================================
 # Internal — helpers
 # ============================================================================
+
+func _get_crew_stat_total(stat_id: String) -> int:
+	var raw_crew: Variant = GameState.ship_state.get("crew", [])
+	if not (raw_crew is Array):
+		return 0
+	var total: int = 0
+	for employee_id in raw_crew:
+		for raw_employee in GameState.employee_state:
+			var employee: Dictionary = raw_employee
+			if str(employee.get("employee_instance_id", "")) == str(employee_id):
+				var stats: Dictionary = employee.get("stats", {})
+				total += int(stats.get(stat_id, 0))
+				break
+	return total
 
 func _get_engine_ratio() -> float:
 	var engine: float = float(GameState.ship_state.get("engine", 100.0))
