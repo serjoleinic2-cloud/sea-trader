@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "stages": [
+    {"id": "sailor", "name": "Матрос", "first_rank": 1, "last_rank": 10, "activity_at_first_rank": 0, "activity_per_rank": 15},
+    {"id": "bosun", "name": "Боцман", "first_rank": 11, "last_rank": 20, "activity_at_first_rank": 150, "activity_per_rank": 30},
+    {"id": "navigator", "name": "Штурман", "first_rank": 21, "last_rank": 30, "activity_at_first_rank": 450, "activity_per_rank": 55},
+    {"id": "chief_officer", "name": "Старший помощник", "first_rank": 31, "last_rank": 40, "activity_at_first_rank": 1000, "activity_per_rank": 90},
+    {"id": "captain", "name": "Капитан", "first_rank": 41, "last_rank": 50, "activity_at_first_rank": 1900, "activity_per_rank": 140}
+  ],
+  "activity_weights": {
+    "total_sales": 1.0,
+    "total_deliveries": 5.0,
+    "distance_unit": 1000.0,
+    "distance_weight": 1.0,
+    "total_voyages": 3.0,
+    "cargo_units_moved": 0.2,
+    "safe_dockings": 2.0,
+    "ports_discovered": 5.0
+  }
+}
