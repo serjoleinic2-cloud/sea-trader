@@ -39,6 +39,8 @@ var _crew_window: CanvasLayer = null
 var _career_system: Node = null
 var _fleet_system: Node = null
 var _fleet_window: CanvasLayer = null
+var _shipyard_system: Node = null
+var _shipyard_window: CanvasLayer = null
 
 
 func _ready() -> void:
@@ -70,6 +72,7 @@ func _ready() -> void:
 	_initialize_crew_window()
 	_initialize_fleet_system()
 	_initialize_fleet_window()
+	_initialize_shipyard()
 	_world_ready = true
 	if _is_new_game:
 		SaveSystem.save_game()
@@ -282,6 +285,16 @@ func _initialize_fleet_window() -> void:
 	_fleet_window.name = "FleetWindow"
 	add_child(_fleet_window)
 	_fleet_window.initialize(_fleet_system)
+
+func _initialize_shipyard() -> void:
+	_shipyard_system = load("res://systems/shipyard/shipyard_system.gd").new()
+	_shipyard_system.name = "ShipyardSystem"
+	add_child(_shipyard_system)
+	_shipyard_system.initialize(_fleet_system)
+	_shipyard_window = load("res://systems/ui/shipyard_window.gd").new()
+	_shipyard_window.name = "ShipyardWindow"
+	add_child(_shipyard_window)
+	_shipyard_window.initialize(_shipyard_system)
 
 
 # ============================================================================
