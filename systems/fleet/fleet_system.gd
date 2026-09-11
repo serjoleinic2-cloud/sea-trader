@@ -33,6 +33,12 @@ func get_auxiliary_ships() -> Array:
 func get_ship_type(ship_type_id: String) -> Dictionary:
 	return _ship_types.get(ship_type_id, {})
 
+func get_command_progress() -> Dictionary:
+	var systems: Array[Node] = get_tree().get_nodes_in_group("career_system")
+	if systems.is_empty():
+		return {"stage_name": "Матрос", "rank": 1, "next_activity": 15}
+	return systems[0].get_command_progress()
+
 func build_ship(ship_type_id: String) -> Dictionary:
 	var home_port_id: String = str(GameState.world_state.get("home_port_id", ""))
 	var docked_port_id: String = str(GameState.ship_state.get("docked_port_id", ""))
@@ -41,6 +47,10 @@ func build_ship(ship_type_id: String) -> Dictionary:
 	var ship_type: Dictionary = get_ship_type(ship_type_id)
 	if ship_type.is_empty():
 		return {"ok": false, "message": "Неизвестный проект корабля."}
+	var required_rank: int = int(ship_type.get("command_rank_required", 1))
+	var current_rank: int = int(get_command_progress().get("rank", 1))
+	if current_rank < required_rank:
+		return {"ok": false, "message": "Нужен допуск капитана %d ранга." % required_rank}
 	var price: float = float(ship_type.get("price", 0.0))
 	if float(GameState.player_state.get("money", 0.0)) < price:
 		return {"ok": false, "message": "Недостаточно денег для постройки."}
