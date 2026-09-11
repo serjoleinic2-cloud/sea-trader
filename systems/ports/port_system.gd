@@ -195,6 +195,13 @@ func get_port_name(port_id: String) -> String:
 	return str(_world_ports[port_id].get("name", port_id))
 
 
+func get_all_port_ids() -> Array:
+	var ids: Array = []
+	for port_id in _world_ports:
+		ids.append(port_id)
+	ids.sort()
+	return ids
+
 func get_nearest_market_source(from_port_id: String, resource_id: String) -> String:
 	if not _world_ports.has(from_port_id):
 		return ""
@@ -203,6 +210,8 @@ func get_nearest_market_source(from_port_id: String, resource_id: String) -> Str
 	var best_distance: float = INF
 	for port_id in _world_ports:
 		if port_id == from_port_id:
+			continue
+		if not GameState.player_state.discovered_port_ids.has(port_id):
 			continue
 		var state: Dictionary = GameState.port_state.get(port_id, {})
 		var raw_stock: Variant = state.get("market_stock", {})
