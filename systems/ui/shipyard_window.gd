@@ -138,12 +138,14 @@ func _add_material_row(resource_id: String, current: int, required: int) -> void
 	slider.max_value = float(required)
 	slider.step = 1.0
 	slider.value = float(current)
-	slider.value_changed.connect(_set_material.bind(resource_id))
+	slider.drag_ended.connect(_commit_slider.bind(slider, resource_id))
 	box.add_child(slider)
 	_material_list.add_child(box)
 
-func _set_material(value: float, resource_id: String) -> void:
-	var result: Dictionary = _system.set_material_amount(resource_id, int(round(value)))
+func _commit_slider(value_changed: bool, slider: HSlider, resource_id: String) -> void:
+	if not value_changed:
+		return
+	var result: Dictionary = _system.set_material_amount(resource_id, int(round(slider.value)))
 	if not bool(result.get("ok", false)):
 		_notice = str(result.get("message", ""))
 	_refresh()
