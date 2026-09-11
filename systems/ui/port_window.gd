@@ -119,13 +119,13 @@ func _ready() -> void:
 	_market_switches.add_theme_constant_override("separation", 8)
 	column.add_child(_market_switches)
 	var personal_market_button: Button = Button.new()
-	personal_market_button.text = "Мой рынок"
+	personal_market_button.text = "Я продаю"
 	personal_market_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	personal_market_button.custom_minimum_size.y = 40
 	personal_market_button.pressed.connect(_set_market_view.bind("personal"))
 	_market_switches.add_child(personal_market_button)
 	var port_market_button: Button = Button.new()
-	port_market_button.text = "Рынок порта"
+	port_market_button.text = "Я покупаю"
 	port_market_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	port_market_button.custom_minimum_size.y = 40
 	port_market_button.pressed.connect(_set_market_view.bind("port"))
