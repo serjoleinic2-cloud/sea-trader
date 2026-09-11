@@ -1,10 +1,55 @@
 {
   "version": 1,
   "ship_types": [
-    {"id": "ship_sloop", "name": "Лодка", "tier": 1, "price": 180, "cargo_capacity": 20, "max_crew": 1, "speed": 1.0},
-    {"id": "ship_barque", "name": "Баркас", "tier": 2, "price": 900, "cargo_capacity": 55, "max_crew": 2, "speed": 1.1},
-    {"id": "ship_schooner", "name": "Шхуна", "tier": 3, "price": 4500, "cargo_capacity": 130, "max_crew": 4, "speed": 1.15},
-    {"id": "ship_freighter", "name": "Грузовое судно", "tier": 4, "price": 18000, "cargo_capacity": 380, "max_crew": 8, "speed": 0.9},
-    {"id": "ship_tanker", "name": "Танкер", "tier": 5, "price": 80000, "cargo_capacity": 900, "max_crew": 14, "speed": 0.75}
+    {
+      "id": "ship_sloop",
+      "name": "Лодка",
+      "tier": 1,
+      "price": 180,
+      "cargo_capacity": 20,
+      "max_crew": 1,
+      "speed": 1,
+      "command_rank_required": 1
+    },
+    {
+      "id": "ship_barque",
+      "name": "Баркас",
+      "tier": 2,
+      "price": 900,
+      "cargo_capacity": 55,
+      "max_crew": 2,
+      "speed": 1.1,
+      "command_rank_required": 10
+    },
+    {
+      "id": "ship_schooner",
+      "name": "Шхуна",
+      "tier": 3,
+      "price": 4500,
+      "cargo_capacity": 130,
+      "max_crew": 4,
+      "speed": 1.15,
+      "command_rank_required": 20
+    },
+    {
+      "id": "ship_freighter",
+      "name": "Грузовое судно",
+      "tier": 4,
+      "price": 18000,
+      "cargo_capacity": 380,
+      "max_crew": 8,
+      "speed": 0.9,
+      "command_rank_required": 30
+    },
+    {
+      "id": "ship_tanker",
+      "name": "Танкер",
+      "tier": 5,
+      "price": 80000,
+      "cargo_capacity": 900,
+      "max_crew": 14,
+      "speed": 0.75,
+      "command_rank_required": 40
+    }
   ]
 }
