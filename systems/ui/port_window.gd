@@ -303,6 +303,21 @@ func _rebuild_resource_list(port_id: String) -> void:
 		]
 		button.pressed.connect(_select_building.bind(building_id))
 		_building_list.add_child(button)
+	var raw_cargo: Variant = GameState.ship_state.get("cargo", [])
+	if raw_cargo is Array:
+		for raw_item in raw_cargo:
+			var cargo_item: Dictionary = raw_item
+			var cargo_resource_id: String = str(cargo_item.get("resource_id", ""))
+			if cargo_resource_id == "" or _get_building_id_for_resource(cargo_resource_id) != "":
+				continue
+			var cargo_button: Button = Button.new()
+			cargo_button.custom_minimum_size.y = 42
+			cargo_button.text = "Из трюма: %s (%d) — выгрузить на склад" % [
+				_get_resource_name(cargo_resource_id),
+				int(cargo_item.get("quantity", 0))
+			]
+			cargo_button.pressed.connect(_select_transfer_resource.bind(cargo_resource_id))
+			_building_list.add_child(cargo_button)
 	if _get_selected_resource_id() == "" and not _production_recipes.is_empty():
 		var first_recipe: Dictionary = _production_recipes[0]
 		_selected_building_id = str(first_recipe.get("building_id", ""))
@@ -353,6 +368,27 @@ func _select_building(building_id: String) -> void:
 		EventBus.production_output_requested.emit(port_id, building_id)
 	if _current_section == "resources":
 		_rebuild_resource_list(port_id)
+
+func _select_transfer_resource(resource_id: String) -> void:
+	_selected_building_id = ""
+	_selected_market_resource_id = resource_id
+	_notice = ""
+	var port_id: String = str(GameState.ship_state.get("docked_port_id", ""))
+	if port_id != "":
+		_rebuild_resource_list(port_id)
+
+func _is_production_active_for_resource(port: Dictionary, resource_id: String) -> bool:
+	var building_id: String = _get_building_id_for_resource(resource_id)
+	if building_id == "":
+		return false
+	var raw_buildings: Variant = port.get("buildings", {})
+	if not (raw_buildings is Dictionary):
+		return false
+	var buildings: Dictionary = raw_buildings
+	if not buildings.has(building_id):
+		return false
+	var building: Dictionary = buildings[building_id]
+	return int(building.get("level", 0)) >= 1 and str(building.get("status", "")) == "active"
 
 func _ensure_selected_production_is_active(port_id: String) -> void:
 	var port: Dictionary = GameState.port_state.get(port_id, {})
@@ -406,7 +442,7 @@ func _update_load_button(port_id: String, is_home: bool) -> void:
 	var inventory: Dictionary = _get_inventory(port)
 	var stock: int = int(inventory.get(resource_id, 0))
 	var cargo_capacity: int = int(GameState.ship_state.get("cargo_capacity", 0))
-	var production_is_active: bool = _is_selected_production_active(port)
+	var production_is_active: bool = _is_production_active_for_resource(port, resource_id)
 	var available_space: int = cargo_capacity - _get_cargo_units()
 	var available_stock: int = stock
 	if available_stock <= 0 and production_is_active:
