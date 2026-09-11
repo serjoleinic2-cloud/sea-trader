@@ -118,6 +118,7 @@ func dock(port_id: String) -> bool:
 		GameState.player_state.stats["ports_discovered"] = int(GameState.player_state.stats.get("ports_discovered", 0)) + 1
 	if previous_port_id != "" and previous_port_id != port_id and _world_ports.has(previous_port_id):
 		_register_manual_route(previous_port_id, port_id)
+		_consume_active_crew_voyage()
 	GameState.world_state["last_docked_port_id"] = port_id
 	GameState.ship_state["docked_port_id"] = port_id
 	if str(GameState.world_state.get("home_port_id", "")) == "":
@@ -125,6 +126,27 @@ func dock(port_id: String) -> bool:
 	GameState.ship_state["velocity"] = Vector2.ZERO
 	GameState.player_state.stats["safe_dockings"] = int(GameState.player_state.stats.get("safe_dockings", 0)) + 1
 	return SaveSystem.save_game()
+
+func _consume_active_crew_voyage() -> void:
+	var raw_crew: Variant = GameState.ship_state.get("crew", [])
+	var crew_ids: Array = raw_crew if raw_crew is Array else []
+	var retained_employees: Array = []
+	var retained_crew_ids: Array = []
+	for raw_employee in GameState.employee_state:
+		var employee: Dictionary = raw_employee
+		var employee_id: String = str(employee.get("employee_instance_id", ""))
+		if crew_ids.has(employee_id):
+			var remaining: int = int(employee.get("contract_voyages_remaining", 0)) - 1
+			if remaining > 0:
+				employee["contract_voyages_remaining"] = remaining
+				retained_employees.append(employee)
+				retained_crew_ids.append(employee_id)
+			else:
+				continue
+		else:
+			retained_employees.append(employee)
+	GameState.employee_state = retained_employees
+	GameState.ship_state["crew"] = retained_crew_ids
 
 func _register_manual_route(port_a_id: String, port_b_id: String) -> void:
 	var ordered_ids: Array[String] = [port_a_id, port_b_id]
