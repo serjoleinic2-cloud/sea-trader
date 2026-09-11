@@ -39,7 +39,7 @@ func _process(_delta: float) -> void:
 	for port_id in _world_ports:
 		var port: Dictionary = GameState.port_state.get(port_id, {})
 		var port_pos := Vector2(_world_ports[port_id].position)
-		var radius: float = _discovery_radius
+		var radius: float = _get_effective_discovery_radius()
 		var dist: float = ship_pos.distance_to(port_pos)
 		var in_range: bool = dist <= radius
 		var was_in_range: bool = _ports_in_range.get(port_id, false)
@@ -80,12 +80,26 @@ func _update_nearest_port_debug(ship_pos: Vector2) -> void:
 		if port.get("discovered", false):
 			discovered_count += 1
 		var port_pos := Vector2(_world_ports[port_id].position)
-		var radius: float = _discovery_radius
+		var radius: float = _get_effective_discovery_radius()
 		var dist := ship_pos.distance_to(port_pos)
 		if dist <= radius and dist < best_dist:
 			best_dist = dist
 			nearest_port_name = _world_ports[port_id].get("name", port_id)
 
+
+func _get_effective_discovery_radius() -> float:
+	var raw_crew: Variant = GameState.ship_state.get("crew", [])
+	if not (raw_crew is Array):
+		return _discovery_radius
+	var navigation_bonus: int = 0
+	for employee_id in raw_crew:
+		for raw_employee in GameState.employee_state:
+			var employee: Dictionary = raw_employee
+			if str(employee.get("employee_instance_id", "")) == str(employee_id):
+				var stats: Dictionary = employee.get("stats", {})
+				navigation_bonus += int(stats.get("navigation", 0))
+				break
+	return _discovery_radius * maxf(0.55, 1.0 + float(navigation_bonus) / 100.0)
 
 func get_dock_candidate() -> String:
 	if _ship_node == null:
