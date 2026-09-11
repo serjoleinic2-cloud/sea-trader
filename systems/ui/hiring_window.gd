@@ -18,6 +18,7 @@ var _is_open: bool = false
 var _stat_labels: Dictionary = {}
 
 func _ready() -> void:
+	add_to_group("hiring_window")
 	layer = 55
 	_root = Control.new()
 	_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
