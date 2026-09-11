@@ -435,7 +435,7 @@ func _plan_selected_building() -> void:
 
 func _update_load_button(port_id: String, is_home: bool) -> void:
 	var resource_id: String = _get_selected_resource_id()
-	_load_button.visible = is_home and _current_section == "resources" and resource_id != ""
+	_load_button.visible = is_home and _current_section == "resources" and resource_id != "" and _get_building_id_for_resource(resource_id) != ""
 	if not _load_button.visible:
 		return
 	var port: Dictionary = GameState.port_state.get(port_id, {})
