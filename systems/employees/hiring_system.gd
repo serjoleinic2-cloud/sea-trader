@@ -7,6 +7,9 @@ var _requirements: Dictionary = {}
 var _stat_labels: Dictionary = {}
 var _port_system: Node
 
+func _ready() -> void:
+	add_to_group("hiring_system")
+
 func initialize(port_system: Node) -> void:
 	_port_system = port_system
 	var catalog: Dictionary = SaveSystem._read_json("res://data/employees/hiring_rules.json")
@@ -36,10 +39,6 @@ func get_active_ship_option() -> Dictionary:
 func hire(candidate_id: String, voyages: int) -> Dictionary:
 	if voyages < 1:
 		return {"ok": false, "message": "Выберите число рейсов."}
-	var home_port_id: String = str(GameState.world_state.get("home_port_id", ""))
-	var docked_port_id: String = str(GameState.ship_state.get("docked_port_id", ""))
-	if home_port_id == "" or docked_port_id != home_port_id:
-		return {"ok": false, "message": "Нанимать персонал можно только в главном порту."}
 	var candidates: Array = get_candidates()
 	var selected: Dictionary = {}
 	for raw_candidate in candidates:
@@ -74,6 +73,27 @@ func hire(candidate_id: String, voyages: int) -> Dictionary:
 	EventBus.employee_hired.emit(str(employee.get("employee_instance_id", "")), str(employee.get("role_id", "")))
 	SaveSystem.save_game()
 	return {"ok": true, "message": "Контракт оформлен. Сотрудник назначен на текущий корабль."}
+
+func dismiss(employee_id: String) -> Dictionary:
+	var raw_crew: Variant = GameState.ship_state.get("crew", [])
+	var crew_ids: Array = raw_crew if raw_crew is Array else []
+	if not crew_ids.has(employee_id):
+		return {"ok": false, "message": "Сотрудник не назначен на этот корабль."}
+	var retained_employees: Array = []
+	var found: bool = false
+	for raw_employee in GameState.employee_state:
+		var employee: Dictionary = raw_employee
+		if str(employee.get("employee_instance_id", "")) == employee_id:
+			found = true
+			continue
+		retained_employees.append(employee)
+	if not found:
+		return {"ok": false, "message": "Сотрудник не найден."}
+	crew_ids.erase(employee_id)
+	GameState.employee_state = retained_employees
+	GameState.ship_state["crew"] = crew_ids
+	SaveSystem.save_game()
+	return {"ok": true, "message": "Сотрудник уволен, место освобождено."}
 
 func _ensure_candidates() -> void:
 	var existing: Variant = GameState.company_state.get("hire_candidates", [])
