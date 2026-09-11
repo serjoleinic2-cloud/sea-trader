@@ -40,6 +40,66 @@
       "regions": [
         "starting_region"
       ]
+    },
+    {
+      "id": "resource_nails",
+      "display_name": "Гвозди",
+      "category": "industrial_goods",
+      "base_price": 12,
+      "weight_per_unit": 1,
+      "regions": [
+        "starting_region"
+      ]
+    },
+    {
+      "id": "resource_fabric",
+      "display_name": "Парусная ткань",
+      "category": "industrial_goods",
+      "base_price": 18,
+      "weight_per_unit": 1,
+      "regions": [
+        "starting_region"
+      ]
+    },
+    {
+      "id": "resource_rope",
+      "display_name": "Канаты",
+      "category": "industrial_goods",
+      "base_price": 16,
+      "weight_per_unit": 1,
+      "regions": [
+        "starting_region"
+      ]
+    },
+    {
+      "id": "resource_paint",
+      "display_name": "Краска",
+      "category": "industrial_goods",
+      "base_price": 22,
+      "weight_per_unit": 1,
+      "regions": [
+        "starting_region"
+      ]
+    },
+    {
+      "id": "resource_varnish",
+      "display_name": "Лак",
+      "category": "industrial_goods",
+      "base_price": 28,
+      "weight_per_unit": 1,
+      "regions": [
+        "starting_region"
+      ]
+    },
+    {
+      "id": "resource_glass",
+      "display_name": "Стекло",
+      "category": "industrial_goods",
+      "base_price": 20,
+      "weight_per_unit": 1,
+      "regions": [
+        "starting_region"
+      ]
     }
   ]
 }
