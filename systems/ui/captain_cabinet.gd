@@ -44,11 +44,11 @@ func _process(_delta: float) -> void:
 	var ship: Dictionary = GameState.ship_state
 	var stats: Dictionary = GameState.player_state.get("stats", {})
 	var activity_score: int = _calculate_activity_score(stats)
-	var sailor_stage: Dictionary = _get_sailor_stage(activity_score)
-	var next_requirement: int = _get_next_sailor_requirement(activity_score)
+	var career: Dictionary = _get_career_progress(activity_score)
+	var next_requirement: int = int(career.get("next_activity", 0))
 	var lines: PackedStringArray = ["КАБИНЕТ КАПИТАНА", "Нажмите M для закрытия", ""]
 	lines.append("КАРЬЕРА")
-	lines.append("Ранг: Моряк %d / 5" % int(sailor_stage.get("stage", 1)))
+	lines.append("Допуск: %s, ранг %d" % [str(career.get("stage_name", "Матрос")), int(career.get("rank", 1))])
 	lines.append("Активность: %d%s" % [activity_score, "" if next_requirement == 0 else " / %d" % next_requirement])
 	lines.append("Путь: %.0f | Рейсы: %d" % [float(stats.get("total_distance", 0.0)), int(stats.get("total_voyages", 0))])
 	lines.append("Швартовки: %d | Порты: %d" % [int(stats.get("safe_dockings", 0)), int(stats.get("ports_discovered", 0))])
@@ -69,6 +69,12 @@ func _process(_delta: float) -> void:
 		lines.append("- " + str(route_key))
 	_label.text = "\n".join(lines)
 
+
+func _get_career_progress(activity_score: int) -> Dictionary:
+	var systems: Array[Node] = get_tree().get_nodes_in_group("career_system")
+	if not systems.is_empty():
+		return systems[0].get_command_progress()
+	return {"stage_name": "Матрос", "rank": 1, "next_activity": activity_score + 15}
 
 func _calculate_activity_score(stats: Dictionary) -> int:
 	var metrics: Dictionary = _progression_config.get("activity_metrics", {})
