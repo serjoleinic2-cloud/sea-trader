@@ -553,6 +553,7 @@ func _create_bottom_menu() -> void:
 	_add_navigation_button(row, "Ресурсы", "resources")
 	_add_navigation_button(row, "Рынок", "market")
 	_add_navigation_button(row, "Модернизация", "modernization")
+	_add_navigation_button(row, "Найм", "hiring")
 
 func _add_navigation_button(row: HBoxContainer, label_text: String, section_id: String) -> void:
 	var button: Button = Button.new()
@@ -563,9 +564,14 @@ func _add_navigation_button(row: HBoxContainer, label_text: String, section_id: 
 	row.add_child(button)
 
 func _open_section(section_id: String) -> void:
-	_current_section = section_id
 	_notice = ""
 	var port_id: String = str(GameState.ship_state.get("docked_port_id", ""))
+	if section_id == "hiring":
+		var windows: Array[Node] = get_tree().get_nodes_in_group("hiring_window")
+		if not windows.is_empty():
+			windows[0].open()
+		return
+	_current_section = section_id
 	if port_id == "":
 		return
 	if section_id == "construction":
