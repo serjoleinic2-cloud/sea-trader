@@ -25,6 +25,20 @@ func get_candidates() -> Array:
 func get_stat_labels() -> Dictionary:
 	return _stat_labels
 
+func get_hiring_rank_limit() -> int:
+	var systems: Array[Node] = get_tree().get_nodes_in_group("career_system")
+	if systems.is_empty():
+		return 1
+	return systems[0].get_hiring_rank_limit()
+
+func refresh_candidates() -> Dictionary:
+	var refresh_index: int = int(GameState.company_state.get("hire_refresh_index", 0)) + 1
+	GameState.company_state["hire_refresh_index"] = refresh_index
+	GameState.company_state["hire_candidates"] = []
+	_ensure_candidates()
+	SaveSystem.save_game()
+	return {"ok": true, "message": "Биржа труда обновлена. Пришли новые кандидаты."}
+
 func get_active_ship_option() -> Dictionary:
 	var crew: Array = GameState.ship_state.get("crew", [])
 	var ship_id: String = str(GameState.ship_state.get("ship_id", "default"))
@@ -48,6 +62,8 @@ func hire(candidate_id: String, voyages: int) -> Dictionary:
 			break
 	if selected.is_empty():
 		return {"ok": false, "message": "Кандидат уже недоступен."}
+	if int(selected.get("rank", 1)) > get_hiring_rank_limit():
+		return {"ok": false, "message": "Ваш допуск пока не позволяет нанять сотрудника такого ранга."}
 	var ship: Dictionary = get_active_ship_option()
 	if int(ship.get("crew_count", 0)) >= int(ship.get("max_crew", 1)):
 		return {"ok": false, "message": "На текущем корабле нет места для экипажа."}
@@ -99,25 +115,27 @@ func _ensure_candidates() -> void:
 	var existing: Variant = GameState.company_state.get("hire_candidates", [])
 	if existing is Array and not existing.is_empty():
 		return
+	var refresh_index: int = int(GameState.company_state.get("hire_refresh_index", 0))
 	var roles_order: Array[String] = ["captain", "sailor", "navigator", "mechanic", "dock_worker"]
 	var names: Array[String] = ["Алексей Морозов", "Марина Ветрова", "Илья Кормин", "София Рей", "Виктор Грант", "Анна Ледова", "Павел Штиль", "Елена Ван", "Роман Маяк", "Никита Север"]
 	var candidates: Array = []
 	for index in range(names.size()):
-		var role_id: String = roles_order[index % roles_order.size()]
+		var serial: int = index + refresh_index * 7
+		var role_id: String = roles_order[serial % roles_order.size()]
 		var role: Dictionary = _roles.get(role_id, {})
-		var rank: int = 1 + (index % 3)
+		var rank: int = 1 + (serial % 3)
 		var stats: Dictionary = {
-			"speed": -2 + ((index * 3) % 7),
-			"loading": -2 + ((index * 5) % 7),
-			"fuel": -2 + ((index * 2) % 7),
-			"repair": -2 + ((index * 4) % 7),
-			"navigation": -2 + ((index * 6) % 7)
+			"speed": -3 + ((serial * 3) % 9),
+			"loading": -3 + ((serial * 5) % 9),
+			"fuel": -3 + ((serial * 2) % 9),
+			"repair": -3 + ((serial * 4) % 9),
+			"navigation": -3 + ((serial * 6) % 9)
 		}
 		if role_id == "captain" and rank == 1:
 			stats["speed"] = 3
 			stats["loading"] = -2
 		candidates.append({
-			"candidate_id": "candidate_%02d" % index,
+			"candidate_id": "candidate_%02d_%02d" % [refresh_index, index],
 			"name": names[index],
 			"role_id": role_id,
 			"role_name": str(role.get("name", role_id)),
