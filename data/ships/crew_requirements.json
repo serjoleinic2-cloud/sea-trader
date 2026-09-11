@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "requirements": {
+    "default": {"min_crew": 1, "max_crew": 1},
+    "ship_sloop": {"min_crew": 1, "max_crew": 1},
+    "ship_barque": {"min_crew": 2, "max_crew": 2},
+    "ship_schooner": {"min_crew": 3, "max_crew": 4},
+    "ship_freighter": {"min_crew": 5, "max_crew": 8},
+    "ship_tanker": {"min_crew": 8, "max_crew": 14}
+  }
+}
