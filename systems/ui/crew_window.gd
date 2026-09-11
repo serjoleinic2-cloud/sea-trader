@@ -136,12 +136,15 @@ func _add_employee_row(employee: Dictionary) -> void:
 		int(stats.get("repair", 0)),
 		int(stats.get("navigation", 0))
 	]
-	card.add_child(label)
+	var card_content: VBoxContainer = VBoxContainer.new()
+	card_content.add_theme_constant_override("separation", 8)
+	card.add_child(card_content)
+	card_content.add_child(label)
 	var dismiss_button: Button = Button.new()
 	dismiss_button.text = "Уволить досрочно"
 	dismiss_button.custom_minimum_size.y = 34
 	dismiss_button.pressed.connect(_dismiss_employee.bind(str(employee.get("employee_instance_id", ""))))
-	card.add_child(dismiss_button)
+	card_content.add_child(dismiss_button)
 
 func _dismiss_employee(employee_id: String) -> void:
 	var systems: Array[Node] = get_tree().get_nodes_in_group("hiring_system")
