@@ -666,11 +666,13 @@ func _refresh_market_page(port_name: String, ship: Dictionary, port: Dictionary)
 	]
 
 func _get_base_demand_text(port: Dictionary) -> String:
-	if _base_demands.is_empty():
+	var raw_dynamic_demands: Variant = GameState.economy_state.get("base_deficits", [])
+	var demands: Array = raw_dynamic_demands if raw_dynamic_demands is Array and not raw_dynamic_demands.is_empty() else _base_demands
+	if demands.is_empty():
 		return "Дефицит базы: не назначен."
 	var inventory: Dictionary = _get_inventory(port)
-	var lines: Array[String] = ["ДЕФИЦИТ БАЗЫ"]
-	for raw_demand in _base_demands:
+	var lines: Array[String] = ["ДЕФИЦИТ БАЗЫ — минимум 30% товаров в дефиците"]
+	for raw_demand in demands:
 		var demand: Dictionary = raw_demand
 		var resource_id: String = str(demand.get("resource_id", ""))
 		var target_quantity: int = int(demand.get("target_quantity", 0))
