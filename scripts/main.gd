@@ -36,6 +36,8 @@ var _navigation_hud: CanvasLayer = null
 var _hiring_system: Node = null
 var _hiring_window: CanvasLayer = null
 var _crew_window: CanvasLayer = null
+var _fleet_system: Node = null
+var _fleet_window: CanvasLayer = null
 
 
 func _ready() -> void:
@@ -64,6 +66,8 @@ func _ready() -> void:
 	_initialize_navigation_hud()
 	_initialize_hiring_system()
 	_initialize_crew_window()
+	_initialize_fleet_system()
+	_initialize_fleet_window()
 	_world_ready = true
 	if _is_new_game:
 		SaveSystem.save_game()
@@ -259,6 +263,18 @@ func _initialize_crew_window() -> void:
 	_crew_window = load("res://systems/ui/crew_window.gd").new()
 	_crew_window.name = "CrewWindow"
 	add_child(_crew_window)
+
+func _initialize_fleet_system() -> void:
+	_fleet_system = load("res://systems/fleet/fleet_system.gd").new()
+	_fleet_system.name = "FleetSystem"
+	add_child(_fleet_system)
+	_fleet_system.initialize(_port_system)
+
+func _initialize_fleet_window() -> void:
+	_fleet_window = load("res://systems/ui/fleet_window.gd").new()
+	_fleet_window.name = "FleetWindow"
+	add_child(_fleet_window)
+	_fleet_window.initialize(_fleet_system)
 
 
 # ============================================================================
