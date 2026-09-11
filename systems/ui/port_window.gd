@@ -823,15 +823,10 @@ func _unload_one_unit() -> void:
 func _get_port_market_stock(port_id: String) -> Dictionary:
 	var port: Dictionary = GameState.port_state.get(port_id, {})
 	var raw_stock: Variant = port.get("market_stock", {})
-	if raw_stock is Dictionary and not raw_stock.is_empty():
-		var existing_stock: Dictionary = raw_stock
-		var shipyard_goods: Dictionary = {"resource_oil": 6, "resource_nails": 12, "resource_fabric": 8, "resource_rope": 8, "resource_paint": 5, "resource_varnish": 4, "resource_glass": 4}
-		for resource_id in shipyard_goods:
-			if not existing_stock.has(resource_id):
-				existing_stock[resource_id] = int(shipyard_goods[resource_id])
-		_set_port_market_stock(port_id, existing_stock)
-		return existing_stock
-	var stock: Dictionary = {"resource_parts": 5, "resource_timber": 8, "resource_fish": 8, "resource_oil": 6, "resource_nails": 12, "resource_fabric": 8, "resource_rope": 8, "resource_paint": 5, "resource_varnish": 4, "resource_glass": 4}
+	if raw_stock is Dictionary:
+		return raw_stock
+	# Safety fallback for old saves; normal stock is created by MarketDistributionSystem.
+	var stock: Dictionary = {"resource_parts": 5, "resource_timber": 8}
 	_set_port_market_stock(port_id, stock)
 	return stock
 
