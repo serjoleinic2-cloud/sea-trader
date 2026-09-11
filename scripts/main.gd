@@ -33,6 +33,8 @@ var _merchant_offer_hud: CanvasLayer = null
 var _supply_order_system: Node = null
 var _supply_order_window: CanvasLayer = null
 var _navigation_hud: CanvasLayer = null
+var _hiring_system: Node = null
+var _hiring_window: CanvasLayer = null
 
 
 func _ready() -> void:
@@ -59,6 +61,7 @@ func _ready() -> void:
 	_initialize_merchant_offer_hud()
 	_initialize_supply_orders()
 	_initialize_navigation_hud()
+	_initialize_hiring_system()
 	_world_ready = true
 	if _is_new_game:
 		SaveSystem.save_game()
@@ -237,6 +240,17 @@ func _initialize_navigation_hud() -> void:
 	_navigation_hud.name = "NavigationHUD"
 	add_child(_navigation_hud)
 	_navigation_hud.initialize(_port_system)
+
+
+func _initialize_hiring_system() -> void:
+	_hiring_system = load("res://systems/employees/hiring_system.gd").new()
+	_hiring_system.name = "HiringSystem"
+	add_child(_hiring_system)
+	_hiring_system.initialize(_port_system)
+	_hiring_window = load("res://systems/ui/hiring_window.gd").new()
+	_hiring_window.name = "HiringWindow"
+	add_child(_hiring_window)
+	_hiring_window.initialize(_hiring_system)
 
 
 # ============================================================================
