@@ -36,6 +36,7 @@ var _navigation_hud: CanvasLayer = null
 var _hiring_system: Node = null
 var _hiring_window: CanvasLayer = null
 var _crew_window: CanvasLayer = null
+var _career_system: Node = null
 var _fleet_system: Node = null
 var _fleet_window: CanvasLayer = null
 
@@ -64,6 +65,7 @@ func _ready() -> void:
 	_initialize_merchant_offer_hud()
 	_initialize_supply_orders()
 	_initialize_navigation_hud()
+	_initialize_career_system()
 	_initialize_hiring_system()
 	_initialize_crew_window()
 	_initialize_fleet_system()
@@ -247,6 +249,11 @@ func _initialize_navigation_hud() -> void:
 	add_child(_navigation_hud)
 	_navigation_hud.initialize(_port_system)
 
+
+func _initialize_career_system() -> void:
+	_career_system = load("res://systems/progression/career_system.gd").new()
+	_career_system.name = "CareerSystem"
+	add_child(_career_system)
 
 func _initialize_hiring_system() -> void:
 	_hiring_system = load("res://systems/employees/hiring_system.gd").new()
