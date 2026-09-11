@@ -109,8 +109,9 @@ func cancel_project() -> Dictionary:
 	var home_port_id: String = str(GameState.world_state.get("home_port_id", ""))
 	var port: Dictionary = GameState.port_state.get(home_port_id, {})
 	var inventory: Dictionary = port.get("inventory", {})
-	for resource_id in project.get("materials", {}):
-		inventory[resource_id] = int(inventory.get(resource_id, 0)) + int(project.get("materials", {}).get(resource_id, 0))
+	var reserved_materials: Dictionary = project.get("materials", {})
+	for resource_id in reserved_materials:
+		inventory[resource_id] = int(inventory.get(resource_id, 0)) + int(reserved_materials.get(resource_id, 0))
 	port["inventory"] = inventory
 	GameState.port_state[home_port_id] = port
 	GameState.company_state["shipyard_project"] = {}
