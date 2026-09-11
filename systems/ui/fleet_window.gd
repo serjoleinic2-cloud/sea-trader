@@ -60,16 +60,11 @@ func _ready() -> void:
 func initialize(fleet_system: Node) -> void:
 	_fleet_system = fleet_system
 
-func _process(delta: float) -> void:
+func _process(_delta: float) -> void:
 	var viewport: Vector2 = get_viewport().get_visible_rect().size
 	_button.position = Vector2((viewport.x - _button.size.x) * 0.5, 445.0)
 	_panel.position = (viewport - _panel.size) * 0.5
 	_panel.visible = _is_open
-	if _is_open:
-		_refresh_elapsed += delta
-		if _refresh_elapsed >= 0.5:
-			_refresh_elapsed = 0.0
-			_refresh()
 
 func _toggle() -> void:
 	_is_open = not _is_open
