@@ -90,7 +90,8 @@ func _refresh() -> void:
 	var place_text: String = "В море"
 	if docked_port_id != "":
 		place_text = "в порту " + _fleet_system._port_system.get_port_name(docked_port_id)
-	_summary.text = "Ваше судно: %s. Дополнительных кораблей: %d.\n%s" % [place_text, GameState.fleet_state.size(), _notice]
+	var progress: Dictionary = _fleet_system.get_command_progress()
+	_summary.text = "Ваше судно: %s. Дополнительных кораблей: %d.\nДопуск: %s, ранг %d.\n%s" % [place_text, GameState.fleet_state.size(), str(progress.get("stage_name", "Матрос")), int(progress.get("rank", 1)), _notice]
 	_add_active_ship_card()
 	for raw_ship in _fleet_system.get_auxiliary_ships():
 		var ship: Dictionary = raw_ship
@@ -168,9 +169,9 @@ func _add_build_section(home_port_id: String, docked_port_id: String) -> void:
 		var ship_type: Dictionary = raw_type
 		var button: Button = Button.new()
 		button.custom_minimum_size.y = 38
-		button.text = "Построить: %s (ур. %d, трюм %d, цена %.0f)" % [
+		button.text = "Построить: %s (допуск %d, трюм %d, цена %.0f)" % [
 			str(ship_type.get("name", "Корабль")),
-			int(ship_type.get("tier", 1)),
+			int(ship_type.get("command_rank_required", 1)),
 			int(ship_type.get("cargo_capacity", 0)),
 			float(ship_type.get("price", 0.0))
 		]
