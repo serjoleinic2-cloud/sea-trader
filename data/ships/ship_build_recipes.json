@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "recipes": {
+    "ship_sloop": {
+      "materials": {"resource_timber": 20, "resource_nails": 10, "resource_fabric": 8, "resource_rope": 8, "resource_paint": 4, "resource_varnish": 2},
+      "default_name": "Лодка"
+    },
+    "ship_barque": {
+      "materials": {"resource_timber": 70, "resource_nails": 35, "resource_fabric": 25, "resource_rope": 25, "resource_paint": 12, "resource_varnish": 8, "resource_glass": 4},
+      "default_name": "Баркас"
+    },
+    "ship_schooner": {
+      "materials": {"resource_timber": 180, "resource_nails": 90, "resource_fabric": 70, "resource_rope": 65, "resource_paint": 35, "resource_varnish": 25, "resource_glass": 12},
+      "default_name": "Шхуна"
+    },
+    "ship_freighter": {
+      "materials": {"resource_timber": 500, "resource_nails": 260, "resource_fabric": 180, "resource_rope": 160, "resource_paint": 100, "resource_varnish": 75, "resource_glass": 45},
+      "default_name": "Грузовое судно"
+    },
+    "ship_tanker": {
+      "materials": {"resource_timber": 900, "resource_nails": 700, "resource_fabric": 300, "resource_rope": 250, "resource_paint": 280, "resource_varnish": 180, "resource_glass": 120},
+      "default_name": "Танкер"
+    }
+  }
+}
