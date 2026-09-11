@@ -10,7 +10,6 @@ var _list: VBoxContainer
 var _is_open: bool = false
 var _selected_ship_id: String = ""
 var _notice: String = ""
-var _refresh_elapsed: float = 0.0
 
 func _ready() -> void:
 	layer = 31
@@ -69,7 +68,6 @@ func _process(_delta: float) -> void:
 func _toggle() -> void:
 	_is_open = not _is_open
 	if _is_open:
-		_refresh_elapsed = 0.0
 		_refresh()
 
 func _close() -> void:
@@ -151,27 +149,35 @@ func _add_auxiliary_ship_card(ship: Dictionary) -> void:
 func _add_build_section(home_port_id: String, docked_port_id: String) -> void:
 	var box: VBoxContainer = _create_card()
 	var title: Label = Label.new()
-	title.text = "ВЕРФЬ — постройка нового корабля"
+	title.text = "ВЕРФЬ — ПРОЕКТ СТРОИТЕЛЬСТВА"
 	title.add_theme_font_size_override("font_size", 20)
 	box.add_child(title)
 	if home_port_id == "" or docked_port_id != home_port_id:
 		var hint: Label = Label.new()
-		hint.text = "Постройка доступна только на вашей базе."
+		hint.text = "Верфь доступна только на вашей базе."
 		hint.add_theme_font_size_override("font_size", 17)
 		box.add_child(hint)
 		return
+	var hint: Label = Label.new()
+	hint.text = "Выберите корпус: затем передайте древесину, гвозди, ткань и другие материалы со склада."
+	hint.add_theme_font_size_override("font_size", 17)
+	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	box.add_child(hint)
 	for raw_type in _fleet_system.get_ship_types():
 		var ship_type: Dictionary = raw_type
 		var button: Button = Button.new()
 		button.custom_minimum_size.y = 38
-		button.text = "Построить: %s (допуск %d, трюм %d, цена %.0f)" % [
+		button.text = "Открыть проект: %s (допуск %d)" % [
 			str(ship_type.get("name", "Корабль")),
-			int(ship_type.get("command_rank_required", 1)),
-			int(ship_type.get("cargo_capacity", 0)),
-			float(ship_type.get("price", 0.0))
+			int(ship_type.get("command_rank_required", 1))
 		]
-		button.pressed.connect(_build_ship.bind(str(ship_type.get("id", ""))))
+		button.pressed.connect(_open_shipyard.bind(str(ship_type.get("id", ""))))
 		box.add_child(button)
+
+func _open_shipyard(ship_type_id: String) -> void:
+	var windows: Array[Node] = get_tree().get_nodes_in_group("shipyard_window")
+	if not windows.is_empty():
+		windows[0].open_for_ship(ship_type_id)
 
 func _add_selected_ship_actions() -> void:
 	var ship: Dictionary = _get_selected_ship()
