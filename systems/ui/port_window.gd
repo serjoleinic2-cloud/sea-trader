@@ -863,7 +863,11 @@ func _set_port_market_stock(port_id: String, stock: Dictionary) -> void:
 	GameState.port_state[port_id] = port
 
 func _get_purchase_price(resource_id: String) -> float:
-	return round(float(_goods_prices.get(resource_id, 0.0)) * 1.20)
+	var port_id: String = str(GameState.ship_state.get("docked_port_id", ""))
+	var port: Dictionary = GameState.port_state.get(port_id, {})
+	var multipliers: Dictionary = port.get("price_multipliers", {})
+	var regional_multiplier: float = float(multipliers.get(resource_id, 1.0))
+	return round(float(_goods_prices.get(resource_id, 0.0)) * 1.20 * regional_multiplier)
 
 func _get_ship_cargo_text() -> String:
 	var raw_cargo: Variant = GameState.ship_state.get("cargo", [])
@@ -884,7 +888,11 @@ func _get_sale_price(resource_id: String) -> float:
 	var home_port_id: String = str(GameState.world_state.get("home_port_id", ""))
 	if docked_port_id != "" and docked_port_id != home_port_id:
 		multiplier = float(_market_rules.get("remote_port_sell_multiplier", 1.0))
-	return round(float(_goods_prices.get(resource_id, 0.0)) * multiplier)
+	var port: Dictionary = GameState.port_state.get(docked_port_id, {})
+	var multipliers: Dictionary = port.get("price_multipliers", {})
+	var supply_price_multiplier: float = float(multipliers.get(resource_id, 1.0))
+	var demand_multiplier: float = 2.0 - supply_price_multiplier
+	return round(float(_goods_prices.get(resource_id, 0.0)) * multiplier * demand_multiplier)
 
 func _get_building_id_for_resource(resource_id: String) -> String:
 	for raw_recipe in _production_recipes:
