@@ -81,7 +81,10 @@ func _add_recipe_output(port: Dictionary, recipe: Dictionary) -> Dictionary:
 	var raw_inventory: Variant = port.get("inventory", {})
 	var inventory: Dictionary = raw_inventory if raw_inventory is Dictionary else {}
 	var resource_id: String = str(recipe.get("resource_id", ""))
-	var quantity: int = int(recipe.get("quantity_per_cycle", 0))
+	var building_id: String = str(recipe.get("building_id", ""))
+	var buildings: Dictionary = port.get("buildings", {})
+	var building: Dictionary = buildings.get(building_id, {})
+	var quantity: int = int(recipe.get("quantity_per_cycle", 0)) * maxi(1, int(building.get("level", 1)))
 	if resource_id == "" or quantity <= 0:
 		return port
 	inventory[resource_id] = int(inventory.get(resource_id, 0)) + quantity
