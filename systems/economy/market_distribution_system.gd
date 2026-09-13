@@ -36,6 +36,7 @@ func _seed_remote_markets() -> void:
 		if state.is_empty():
 			state = {"discovered": false, "level": 1, "buildings": {}}
 		var stock: Dictionary = state.get("market_stock", {})
+		var multipliers: Dictionary = state.get("price_multipliers", {})
 		for goods_index in range(_goods.size()):
 			var good: Dictionary = _goods[goods_index]
 			var resource_id: String = str(good.get("id", ""))
@@ -44,7 +45,10 @@ func _seed_remote_markets() -> void:
 			# Each good has several ports of origin. Stocks remain finite after a purchase.
 			if posmod(port_index + goods_index * 2, 3) != 0:
 				stock[resource_id] = 5 + posmod(port_index * 3 + goods_index, 9)
+			if not multipliers.has(resource_id):
+				multipliers[resource_id] = 0.80 + float(posmod(port_index * 11 + goods_index * 17, 51)) / 100.0
 		state["market_stock"] = stock
+		state["price_multipliers"] = multipliers
 		GameState.port_state[port_id] = state
 	SaveSystem.save_game()
 
