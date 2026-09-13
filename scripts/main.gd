@@ -35,6 +35,8 @@ var _merchant_visit_system: Node = null
 var _merchant_offer_hud: CanvasLayer = null
 var _supply_order_system: Node = null
 var _supply_order_window: CanvasLayer = null
+var _port_service_system: Node = null
+var _port_service_window: CanvasLayer = null
 var _navigation_hud: CanvasLayer = null
 var _hiring_system: Node = null
 var _hiring_window: CanvasLayer = null
@@ -71,6 +73,7 @@ func _ready() -> void:
 	_initialize_merchant_visit_system()
 	_initialize_merchant_offer_hud()
 	_initialize_supply_orders()
+	_initialize_port_services()
 	_initialize_navigation_hud()
 	_initialize_career_system()
 	_initialize_hiring_system()
@@ -265,6 +268,17 @@ func _initialize_supply_orders() -> void:
 	_supply_order_window.name = "SupplyOrderWindow"
 	add_child(_supply_order_window)
 	_supply_order_window.initialize(_supply_order_system)
+
+
+func _initialize_port_services() -> void:
+	_port_service_system = load("res://systems/ports/port_service_system.gd").new()
+	_port_service_system.name = "PortServiceSystem"
+	add_child(_port_service_system)
+	_port_service_system.initialize(_port_system)
+	_port_service_window = load("res://systems/ui/port_service_window.gd").new()
+	_port_service_window.name = "PortServiceWindow"
+	add_child(_port_service_window)
+	_port_service_window.initialize(_port_service_system)
 
 
 func _initialize_navigation_hud() -> void:
