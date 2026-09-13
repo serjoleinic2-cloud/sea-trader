@@ -111,8 +111,9 @@ func _refresh_quote() -> void:
 	var active_order: Dictionary = _system.get_active_order()
 	if not active_order.is_empty():
 		var remaining: int = maxi(0, int(active_order.get("arrives_at", 0)) - int(Time.get_unix_time_from_system()))
+		var active_resource_id: String = str(active_order.get("resource_id", ""))
 		_label.text = "Текущая поставка: %s × %d\nПрибудет примерно через %d сек.\nНовый заказ можно сделать после прибытия." % [
-			resource_id,
+			_system.get_goods_name(active_resource_id),
 			int(active_order.get("quantity", 0)),
 			remaining
 		]
