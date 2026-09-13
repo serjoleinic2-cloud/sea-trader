@@ -20,7 +20,7 @@ func initialize(port_system: Node) -> void:
 
 func _migrate_legacy_order() -> void:
 	var raw_orders: Variant = GameState.economy_state.get("supply_orders", [])
-	if raw_orders is Array:
+	if GameState.economy_state.has("supply_orders") and raw_orders is Array:
 		return
 	var legacy: Variant = GameState.economy_state.get("supply_order", {})
 	var legacy_order: Dictionary = legacy if legacy is Dictionary else {}
@@ -69,7 +69,7 @@ func get_delivery_capacity() -> int:
 	var market: Dictionary = buildings.get("market", {})
 	var dock: Dictionary = buildings.get("dock", {})
 	var market_slots: int = mini(3, int(market.get("level", 0)))
-	var dock_slots: int = mini(3, int(dock.get("level", 0)) / 5)
+	var dock_slots: int = mini(3, int(int(dock.get("level", 0)) / 5))
 	return 2 + market_slots + dock_slots
 
 func place_order(resource_id: String, quantity: int) -> Dictionary:
