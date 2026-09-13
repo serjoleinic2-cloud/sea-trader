@@ -5,6 +5,7 @@ extends Node
 var _port_system: Node
 var _ship_types: Dictionary = {}
 var _requirements: Dictionary = {}
+var _goods_prices: Dictionary = {}
 
 func _ready() -> void:
 	add_to_group("fleet_system")
@@ -19,6 +20,10 @@ func initialize(port_system: Node) -> void:
 			_ship_types[str(ship_type.get("id", ""))] = ship_type
 	var crew_config: Dictionary = SaveSystem._read_json("res://data/ships/crew_requirements.json")
 	_requirements = crew_config.get("requirements", {})
+	var goods_catalog: Dictionary = SaveSystem._read_json("res://data/resources/goods_catalog.json")
+	for raw_good in goods_catalog.get("resources", []):
+		var good: Dictionary = raw_good
+		_goods_prices[str(good.get("id", ""))] = float(good.get("base_price", 0.0))
 
 func get_ship_types() -> Array:
 	var result: Array = []
@@ -113,13 +118,16 @@ func start_autopilot(ship_id: String, route_key: String) -> Dictionary:
 	if not _ship_has_captain(crew):
 		return {"ok": false, "message": "Для автопилота нужен капитан в экипаже."}
 	var duration: float = maxf(45.0, float(route.get("distance", 0.0)) / 120.0)
+	var freight: Dictionary = _make_freight_contract(current_port_id, destination_port_id, int(ship.get("cargo_capacity", 0)))
+	ship["cargo"] = [{"resource_id": str(freight.get("resource_id", "")), "quantity": int(freight.get("quantity", 0))}]
 	ship["status"] = "В пути"
 	ship["autopilot"] = {
 		"route_key": route_key,
 		"origin_port_id": current_port_id,
 		"destination_port_id": destination_port_id,
 		"started_at": Time.get_unix_time_from_system(),
-		"duration_seconds": duration
+		"duration_seconds": duration,
+		"freight": freight
 	}
 	GameState.fleet_state[ship_index] = ship
 	SaveSystem.save_game()
@@ -168,13 +176,42 @@ func _process(_delta: float) -> void:
 		var elapsed: float = now - float(autopilot.get("started_at", now))
 		var duration: float = maxf(1.0, float(autopilot.get("duration_seconds", 1.0)))
 		if elapsed >= duration:
+			var freight: Dictionary = autopilot.get("freight", {})
+			var reward: float = float(freight.get("reward", 0.0))
+			GameState.player_state["money"] = float(GameState.player_state.get("money", 0.0)) + reward
+			var stats: Dictionary = GameState.player_state.get("stats", {})
+			stats["total_deliveries"] = int(stats.get("total_deliveries", 0)) + 1
+			stats["total_earned"] = float(stats.get("total_earned", 0.0)) + reward
+			GameState.player_state["stats"] = stats
+			ship["cargo"] = []
 			ship["current_port_id"] = str(autopilot.get("destination_port_id", ""))
-			ship["status"] = "В порту"
+			ship["status"] = "В порту, рейс оплачен: %.0f" % reward
 			ship["autopilot"] = {}
 			GameState.fleet_state[index] = ship
 			changed = true
 	if changed:
 		SaveSystem.save_game()
+
+func _make_freight_contract(origin_port_id: String, destination_port_id: String, capacity: int) -> Dictionary:
+	var origin: Dictionary = GameState.port_state.get(origin_port_id, {})
+	var stock: Dictionary = origin.get("market_stock", {})
+	var chosen_resource: String = ""
+	var chosen_quantity: int = 0
+	for resource_id in stock:
+		var available: int = int(stock.get(resource_id, 0))
+		if available > chosen_quantity:
+			chosen_resource = str(resource_id)
+			chosen_quantity = available
+	var quantity: int = mini(maxi(1, capacity), maxi(1, chosen_quantity))
+	var base_price: float = float(_goods_prices.get(chosen_resource, 10.0))
+	var reward: float = round(base_price * float(quantity) * 1.45)
+	return {
+		"resource_id": chosen_resource,
+		"quantity": quantity,
+		"origin_port_id": origin_port_id,
+		"destination_port_id": destination_port_id,
+		"reward": reward
+	}
 
 func _find_auxiliary_index(ship_id: String) -> int:
 	for index in range(GameState.fleet_state.size()):
