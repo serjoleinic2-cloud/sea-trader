@@ -28,31 +28,32 @@ func _ready() -> void:
 	_root.add_child(_panel)
 	var margin: MarginContainer = MarginContainer.new()
 	for side in ["left", "top", "right", "bottom"]:
-		margin.add_theme_constant_override("margin_" + side, 16)
+		margin.add_theme_constant_override("margin_" + side, 22)
 	_panel.add_child(margin)
 	var box: VBoxContainer = VBoxContainer.new()
-	box.add_theme_constant_override("separation", 9)
+	box.add_theme_constant_override("separation", 12)
 	margin.add_child(box)
 	_title = Label.new()
 	_title.text = "ВЕРФЬ — СТРОИТЕЛЬСТВО КОРАБЛЯ"
-	_title.add_theme_font_size_override("font_size", 24)
+	_title.add_theme_font_size_override("font_size", 30)
 	box.add_child(_title)
 	_details = Label.new()
-	_details.add_theme_font_size_override("font_size", 18)
+	_details.add_theme_font_size_override("font_size", 22)
 	_details.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	box.add_child(_details)
 	_name_input = LineEdit.new()
 	_name_input.placeholder_text = "Имя или номер корабля"
-	_name_input.add_theme_font_size_override("font_size", 19)
+	_name_input.add_theme_font_size_override("font_size", 23)
 	_name_input.text_submitted.connect(_save_name)
 	box.add_child(_name_input)
 	var save_name_button: Button = Button.new()
 	save_name_button.text = "Сохранить имя"
-	save_name_button.custom_minimum_size.y = 36
+	save_name_button.add_theme_font_size_override("font_size", 21)
+	save_name_button.custom_minimum_size.y = 46
 	save_name_button.pressed.connect(_save_name.bind(""))
 	box.add_child(save_name_button)
 	var scroll: ScrollContainer = ScrollContainer.new()
-	scroll.custom_minimum_size.y = 400
+	scroll.custom_minimum_size.y = 510
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	box.add_child(scroll)
 	_material_list = VBoxContainer.new()
@@ -60,17 +61,20 @@ func _ready() -> void:
 	scroll.add_child(_material_list)
 	_build_button = Button.new()
 	_build_button.text = "ПОСТРОИТЬ И СПУСТИТЬ НА ВОДУ"
-	_build_button.custom_minimum_size.y = 46
+	_build_button.add_theme_font_size_override("font_size", 22)
+	_build_button.custom_minimum_size.y = 54
 	_build_button.pressed.connect(_finish_project)
 	box.add_child(_build_button)
 	var cancel_button: Button = Button.new()
 	cancel_button.text = "Отменить проект и вернуть материалы"
-	cancel_button.custom_minimum_size.y = 38
+	cancel_button.add_theme_font_size_override("font_size", 20)
+	cancel_button.custom_minimum_size.y = 46
 	cancel_button.pressed.connect(_cancel_project)
 	box.add_child(cancel_button)
 	var close_button: Button = Button.new()
 	close_button.text = "Закрыть"
-	close_button.custom_minimum_size.y = 38
+	close_button.add_theme_font_size_override("font_size", 20)
+	close_button.custom_minimum_size.y = 46
 	close_button.pressed.connect(_close)
 	box.add_child(close_button)
 	_root.hide()
@@ -93,7 +97,7 @@ func _process(_delta: float) -> void:
 	if not _is_open:
 		return
 	var viewport: Vector2 = get_viewport().get_visible_rect().size
-	_panel.size = Vector2(minf(690.0, viewport.x - 24.0), minf(840.0, viewport.y - 24.0))
+	_panel.size = Vector2(minf(920.0, viewport.x - 32.0), minf(1080.0, viewport.y - 32.0))
 	_panel.position = (viewport - _panel.size) * 0.5
 
 func _refresh() -> void:
@@ -125,7 +129,7 @@ func _refresh() -> void:
 func _add_material_row(resource_id: String, current: int, required: int) -> void:
 	var box: VBoxContainer = VBoxContainer.new()
 	var label: Label = Label.new()
-	label.add_theme_font_size_override("font_size", 19)
+	label.add_theme_font_size_override("font_size", 23)
 	label.text = "%s: %d / %d — %d%%" % [
 		_system.get_goods_name(resource_id),
 		current,
