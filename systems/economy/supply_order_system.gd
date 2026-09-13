@@ -26,6 +26,9 @@ func get_available_goods() -> Array:
 		})
 	return goods
 
+func get_goods_name(resource_id: String) -> String:
+	return str(_goods_names.get(resource_id, resource_id))
+
 func get_quote(resource_id: String) -> Dictionary:
 	if not _goods_prices.has(resource_id):
 		return {"ok": false, "message": "Неизвестный товар."}
