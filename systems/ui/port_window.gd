@@ -76,7 +76,7 @@ func _ready() -> void:
 	_building_list.add_theme_constant_override("separation", 6)
 	scroll.add_child(_building_list)
 	_plan_button = Button.new()
-	_plan_button.text = "Построить (без цены)"
+	_plan_button.text = "Открыть проект строительства"
 	_plan_button.custom_minimum_size.y = 42
 	_plan_button.pressed.connect(_plan_selected_building)
 	column.add_child(_plan_button)
@@ -95,6 +95,7 @@ func _ready() -> void:
 	column.add_child(_quantity_slider)
 	_load_button.pressed.connect(_load_one_unit)
 	column.add_child(_load_button)
+	EventBus.building_activated.connect(_on_building_activated)
 	_unload_button = Button.new()
 	_unload_button.text = "Выгрузить 1 единицу"
 	_unload_button.custom_minimum_size.y = 42
@@ -364,7 +365,6 @@ func _select_building(building_id: String) -> void:
 	_notice = ""
 	var port_id: String = str(GameState.ship_state.get("docked_port_id", ""))
 	if port_id != "" and _get_selected_resource_id() != "" and (_current_section == "construction" or _current_section == "resources"):
-		_ensure_selected_production_is_active(port_id)
 		EventBus.production_output_requested.emit(port_id, building_id)
 	if _current_section == "resources":
 		_rebuild_resource_list(port_id)
@@ -390,6 +390,10 @@ func _is_production_active_for_resource(port: Dictionary, resource_id: String) -
 	var building: Dictionary = buildings[building_id]
 	return int(building.get("level", 0)) >= 1 and str(building.get("status", "")) == "active"
 
+func _on_building_activated(port_id: String, _building_id: String) -> void:
+	if port_id == str(GameState.ship_state.get("docked_port_id", "")):
+		_rebuild_building_list(port_id)
+
 func _ensure_selected_production_is_active(port_id: String) -> void:
 	var port: Dictionary = GameState.port_state.get(port_id, {})
 	var raw_buildings: Variant = port.get("buildings", {})
@@ -408,30 +412,11 @@ func _ensure_selected_production_is_active(port_id: String) -> void:
 	_rebuild_building_list(port_id)
 
 func _plan_selected_building() -> void:
-	var port_id: String = str(GameState.ship_state.get("docked_port_id", ""))
-	if port_id == "" or _selected_building_id == "":
+	if _selected_building_id == "":
 		return
-	var port: Dictionary = GameState.port_state.get(port_id, {})
-	var raw_buildings: Variant = port.get("buildings", {})
-	if not (raw_buildings is Dictionary):
-		port["buildings"] = {}
-	var buildings: Dictionary = port.get("buildings", {})
-	if buildings.has(_selected_building_id):
-		var existing_building: Dictionary = buildings[_selected_building_id]
-		if int(existing_building.get("level", 0)) >= 1 and str(existing_building.get("status", "")) == "active":
-			_notice = "Это здание уже работает."
-			return
-		# Saves from the earlier planning prototype are upgraded to an active building.
-		buildings[_selected_building_id] = {"level": 1, "status": "active"}
-		_notice = "Старый проект построен и запущен. Производство начнётся через 10 секунд."
-	else:
-		buildings[_selected_building_id] = {"level": 1, "status": "active"}
-		_notice = "Здание построено. Производство начнётся через 10 секунд."
-	port["buildings"] = buildings
-	GameState.port_state[port_id] = port
-	EventBus.building_activated.emit(port_id, _selected_building_id)
-	SaveSystem.save_game()
-	_rebuild_building_list(port_id)
+	var windows: Array[Node] = get_tree().get_nodes_in_group("building_project_window")
+	if not windows.is_empty():
+		windows[0].open_for_building(_selected_building_id)
 
 func _update_load_button(port_id: String, is_home: bool) -> void:
 	var resource_id: String = _get_selected_resource_id()
