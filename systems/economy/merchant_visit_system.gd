@@ -73,7 +73,7 @@ func _update_offer() -> void:
 	if now < int(merchant.get("next_offer_at", now)):
 		GameState.economy_state["merchant"] = merchant
 		return
-	var offer_index: int = int(merchant.get("offer_index", 0)) % _offer_templates.size()
+	var offer_index: int = randi_range(0, _offer_templates.size() - 1)
 	var template: Dictionary = _offer_templates[offer_index]
 	var trader_index: int = offer_index % 6
 	var trader_names: Array[String] = [
@@ -101,7 +101,7 @@ func _update_offer() -> void:
 		"vessel_name": vessel_classes[trader_index],
 		"visitor_index": trader_index
 	}
-	merchant["offer_index"] = offer_index + 1
+	merchant["offer_index"] = offer_index
 	merchant["next_offer_at"] = now + _offer_duration_seconds + _next_offer_delay_seconds
 	GameState.economy_state["merchant"] = merchant
 	SaveSystem.save_game()
