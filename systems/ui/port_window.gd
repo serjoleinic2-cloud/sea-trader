@@ -575,6 +575,7 @@ func _create_bottom_menu() -> void:
 	_add_navigation_button(row, "Рынок", "market")
 	_add_navigation_button(row, "Модернизация", "modernization")
 	_add_navigation_button(row, "Найм", "hiring")
+	_add_navigation_button(row, "Сервис", "service")
 
 func _add_navigation_button(row: HBoxContainer, label_text: String, section_id: String) -> void:
 	var button: Button = Button.new()
@@ -591,6 +592,11 @@ func _open_section(section_id: String) -> void:
 		var windows: Array[Node] = get_tree().get_nodes_in_group("hiring_window")
 		if not windows.is_empty():
 			windows[0].open()
+		return
+	if section_id == "service":
+		var service_windows: Array[Node] = get_tree().get_nodes_in_group("port_service_window")
+		if not service_windows.is_empty():
+			service_windows[0].open()
 		return
 	_current_section = section_id
 	if port_id == "":
