@@ -108,18 +108,9 @@ func _refresh_quote() -> void:
 		_label.text = "Нет товаров в каталоге."
 		_order_button.disabled = true
 		return
-	var active_order: Dictionary = _system.get_active_order()
-	if not active_order.is_empty():
-		var remaining: int = maxi(0, int(active_order.get("arrives_at", 0)) - int(Time.get_unix_time_from_system()))
-		var active_resource_id: String = str(active_order.get("resource_id", ""))
-		_label.text = "Текущая поставка: %s × %d\nПрибудет примерно через %d сек.\nНовый заказ можно сделать после прибытия." % [
-			_system.get_goods_name(active_resource_id),
-			int(active_order.get("quantity", 0)),
-			remaining
-		]
-		_quantity_label.text = ""
-		_order_button.disabled = true
-		return
+	var orders: Array = _system.get_active_orders()
+	var capacity: int = _system.get_delivery_capacity()
+	var deliveries_text: String = _get_deliveries_text(orders, capacity)
 	var quote: Dictionary = _system.get_quote(resource_id)
 	if not bool(quote.get("ok", false)):
 		_label.text = "Выбранный товар: " + _resource_select.get_item_text(_resource_select.selected) + "\n\n" + str(quote.get("message", ""))
@@ -135,16 +126,31 @@ func _refresh_quote() -> void:
 		_slider.value = _slider.max_value
 	var quantity: int = int(_slider.value)
 	var total: float = float(quote.get("delivery_price", 0.0)) * quantity
-	_label.text = "Товар: %s\nПоставщик: %s\nЦена у поставщика: %.0f\nДоставка: +50%%\nПрибытие: %d сек.\nВаши деньги: %.0f\n%s" % [
+	_label.text = "Товар: %s\nПоставщик: %s\nЦена у поставщика: %.0f\nДоставка: +50%%\nПрибытие: %d сек.\nВаши деньги: %.0f\n%s\n%s" % [
 		_resource_select.get_item_text(_resource_select.selected),
 		str(quote.get("source_name", "")),
 		float(quote.get("source_price", 0.0)),
 		int(quote.get("delivery_seconds", 0)),
 		float(GameState.player_state.get("money", 0.0)),
-		_notice
+		_notice,
+		deliveries_text
 	]
 	_quantity_label.text = "Количество: %d | Итого: %.0f" % [quantity, total]
-	_order_button.disabled = quantity > available or float(GameState.player_state.get("money", 0.0)) < total
+	_order_button.disabled = orders.size() >= capacity or quantity > available or float(GameState.player_state.get("money", 0.0)) < total
+
+func _get_deliveries_text(orders: Array, capacity: int) -> String:
+	var lines: Array[String] = ["Торговцы в пути: %d / %d" % [orders.size(), capacity]]
+	for raw_order in orders:
+		var order: Dictionary = raw_order
+		var remaining: int = maxi(0, int(order.get("arrives_at", 0)) - int(Time.get_unix_time_from_system()))
+		lines.append("• %s × %d — %d сек." % [
+			_system.get_goods_name(str(order.get("resource_id", ""))),
+			int(order.get("quantity", 0)),
+			remaining
+		])
+	if orders.size() >= capacity:
+		lines.append("Все торговые места заняты.")
+	return "\n".join(lines)
 
 func _get_selected_resource_id() -> String:
 	var index: int = _resource_select.selected
