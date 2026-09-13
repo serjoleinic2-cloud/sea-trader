@@ -1,23 +1,18 @@
 {
-  "version": 1,
+  "version": 2,
   "offer_duration_seconds": 1200,
   "next_offer_delay_seconds": 1200,
   "offers": [
-    {
-      "resource_id": "resource_parts",
-      "quantity": 5,
-      "unit_price": 45
-    },
-    {
-      "resource_id": "resource_timber",
-      "quantity": 12,
-      "unit_price": 12
-    },
-    {
-      "resource_id": "resource_fish",
-      "quantity": 12,
-      "unit_price": 10
-    }
+    {"resource_id": "resource_parts", "quantity": 5, "unit_price": 45},
+    {"resource_id": "resource_timber", "quantity": 14, "unit_price": 12},
+    {"resource_id": "resource_fish", "quantity": 16, "unit_price": 10},
+    {"resource_id": "resource_oil", "quantity": 10, "unit_price": 34},
+    {"resource_id": "resource_nails", "quantity": 18, "unit_price": 18},
+    {"resource_id": "resource_fabric", "quantity": 12, "unit_price": 27},
+    {"resource_id": "resource_rope", "quantity": 12, "unit_price": 24},
+    {"resource_id": "resource_paint", "quantity": 10, "unit_price": 33},
+    {"resource_id": "resource_varnish", "quantity": 8, "unit_price": 42},
+    {"resource_id": "resource_glass", "quantity": 10, "unit_price": 30}
   ],
-  "balance_status": "Provisional schematic visiting-merchant prices."
+  "balance_status": "Schematic random visiting merchants; final prices and offer sizes require economy balancing."
 }
