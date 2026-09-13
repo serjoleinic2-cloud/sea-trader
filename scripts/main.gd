@@ -28,6 +28,8 @@ var _captain_cabinet: CanvasLayer = null
 var _map_status_hud: CanvasLayer = null
 var _port_window: CanvasLayer = null
 var _port_production_system: Node = null
+var _building_project_system: Node = null
+var _building_project_window: CanvasLayer = null
 var _market_distribution_system: Node = null
 var _merchant_visit_system: Node = null
 var _merchant_offer_hud: CanvasLayer = null
@@ -64,6 +66,7 @@ func _ready() -> void:
 	_initialize_captain_cabinet()
 	_initialize_map_status_hud()
 	_initialize_port_window()
+	_initialize_building_projects()
 	_initialize_port_production_system()
 	_initialize_merchant_visit_system()
 	_initialize_merchant_offer_hud()
@@ -224,6 +227,16 @@ func _initialize_port_window() -> void:
 	add_child(_port_window)
 	_port_window.initialize(_port_system)
 
+
+func _initialize_building_projects() -> void:
+	_building_project_system = load("res://systems/buildings/building_project_system.gd").new()
+	_building_project_system.name = "BuildingProjectSystem"
+	add_child(_building_project_system)
+	_building_project_system.initialize()
+	_building_project_window = load("res://systems/ui/building_project_window.gd").new()
+	_building_project_window.name = "BuildingProjectWindow"
+	add_child(_building_project_window)
+	_building_project_window.initialize(_building_project_system)
 
 func _initialize_port_production_system() -> void:
 	_port_production_system = load("res://systems/ports/port_production_system.gd").new()
