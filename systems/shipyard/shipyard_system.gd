@@ -130,4 +130,9 @@ func is_project_ready(project: Dictionary) -> bool:
 
 func _is_at_home() -> bool:
 	var home_port_id: String = str(GameState.world_state.get("home_port_id", ""))
-	return home_port_id != "" and str(GameState.ship_state.get("docked_port_id", "")) == home_port_id
+	if home_port_id == "" or str(GameState.ship_state.get("docked_port_id", "")) != home_port_id:
+		return false
+	var port: Dictionary = GameState.port_state.get(home_port_id, {})
+	var buildings: Dictionary = port.get("buildings", {})
+	var shipyard: Dictionary = buildings.get("shipyard", {})
+	return int(shipyard.get("level", 0)) >= 1 and str(shipyard.get("status", "")) == "active
