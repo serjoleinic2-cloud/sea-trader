@@ -1,14 +1,18 @@
 extends Node2D
 
-## Sparse ambient merchant traffic. Decorative now; later ships can become visible offer carriers.
+## Sparse ambient merchant traffic plus the real visiting merchant at the home port.
 
 var _world_size: Vector2 = Vector2(4096, 4096)
 var _vessels: Array = []
+var _ports: Dictionary = {}
 
 func initialize(world_data: Dictionary) -> void:
 	var raw_size: Variant = world_data.get("world_size", Vector2(4096, 4096))
 	if raw_size is Vector2:
 		_world_size = raw_size
+	var raw_ports: Variant = world_data.get("ports", {})
+	if raw_ports is Dictionary:
+		_ports = raw_ports
 	var ship_sizes: Array[float] = [7.0, 10.0, 14.0, 9.0, 18.0, 11.0]
 	var ship_colors: Array[Color] = [
 		Color(0.9, 0.9, 0.82, 1.0),
@@ -55,15 +59,48 @@ func _process(delta: float) -> void:
 
 func _draw() -> void:
 	for vessel in _vessels:
-		var position: Vector2 = vessel.get("position", Vector2.ZERO)
-		var destination: Vector2 = vessel.get("destination", Vector2.ZERO)
-		var size: float = float(vessel.get("size", 8.0))
-		var color: Color = vessel.get("color", Color.WHITE)
-		var direction: Vector2 = (destination - position).normalized()
-		var side: Vector2 = Vector2(-direction.y, direction.x)
-		var points: PackedVector2Array = PackedVector2Array([
-			position + direction * size,
-			position - direction * size * 0.7 + side * size * 0.55,
-			position - direction * size * 0.7 - side * size * 0.55
-		])
-		draw_colored_polygon(points, color)
+		_draw_ambient_vessel(vessel)
+	_draw_visiting_merchant()
+
+func _draw_ambient_vessel(vessel: Dictionary) -> void:
+	var position: Vector2 = vessel.get("position", Vector2.ZERO)
+	var destination: Vector2 = vessel.get("destination", Vector2.ZERO)
+	var size: float = float(vessel.get("size", 8.0))
+	var color: Color = vessel.get("color", Color.WHITE)
+	var direction: Vector2 = (destination - position).normalized()
+	var side: Vector2 = Vector2(-direction.y, direction.x)
+	var points: PackedVector2Array = PackedVector2Array([
+		position + direction * size,
+		position - direction * size * 0.7 + side * size * 0.55,
+		position - direction * size * 0.7 - side * size * 0.55
+	])
+	draw_colored_polygon(points, color)
+
+func _draw_visiting_merchant() -> void:
+	var merchant: Dictionary = GameState.economy_state.get("merchant", {})
+	var raw_offer: Variant = merchant.get("active_offer", {})
+	if not (raw_offer is Dictionary):
+		return
+	var offer: Dictionary = raw_offer
+	if offer.is_empty() or int(offer.get("quantity_available", 0)) <= 0:
+		return
+	var home_port_id: String = str(GameState.world_state.get("home_port_id", ""))
+	if home_port_id == "" or not _ports.has(home_port_id):
+		return
+	var port: Dictionary = _ports[home_port_id]
+	var port_position: Vector2 = Vector2(port.get("position", Vector2.ZERO))
+	var visitor_index: int = int(offer.get("visitor_index", 0))
+	var size: float = 17.0 + float(visitor_index % 3) * 4.0
+	var bob: float = sin(float(Time.get_ticks_msec()) / 550.0) * 2.0
+	var position: Vector2 = port_position + Vector2(42.0, -38.0 + bob)
+	var direction: Vector2 = Vector2(1.0, 0.25).normalized()
+	var side: Vector2 = Vector2(-direction.y, direction.x)
+	var hull: PackedVector2Array = PackedVector2Array([
+		position + direction * size,
+		position - direction * size * 0.85 + side * size * 0.62,
+		position - direction * size * 0.85 - side * size * 0.62
+	])
+	draw_colored_polygon(hull, Color(0.18, 0.86, 0.38, 1.0))
+	draw_polyline(hull, Color(0.84, 1.0, 0.78, 1.0), 2.0, true)
+	draw_line(position, position - direction * size * 0.35 + side * size * 1.15, Color(0.95, 0.9, 0.65, 1.0), 2.0)
+	draw_string(ThemeDB.fallback_font, position + Vector2(-38.0, -size - 11.0), "ТОРГОВЕЦ", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color(0.65, 1.0, 0.70, 1.0))
