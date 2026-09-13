@@ -135,4 +135,4 @@ func _is_at_home() -> bool:
 	var port: Dictionary = GameState.port_state.get(home_port_id, {})
 	var buildings: Dictionary = port.get("buildings", {})
 	var shipyard: Dictionary = buildings.get("shipyard", {})
-	return int(shipyard.get("level", 0)) >= 1 and str(shipyard.get("status", "")) == "active
+	return int(shipyard.get("level", 0)) >= 1 and str(shipyard.get("status", "")) == "active"
