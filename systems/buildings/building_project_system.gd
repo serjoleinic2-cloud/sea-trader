@@ -29,9 +29,10 @@ func _migrate_legacy_project() -> void:
 	if raw_projects is Array:
 		return
 	var legacy: Variant = GameState.company_state.get("building_project", {})
+	var legacy_project: Dictionary = legacy if legacy is Dictionary else {}
 	var projects: Array = []
-	if legacy is Dictionary and not legacy.is_empty():
-		projects.append(legacy)
+	if not legacy_project.is_empty():
+		projects.append(legacy_project)
 	GameState.company_state["building_projects"] = projects
 	GameState.company_state.erase("building_project")
 
