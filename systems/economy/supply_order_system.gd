@@ -1,9 +1,10 @@
 extends Node
 
-## Paid remote supply orders delivered to the home warehouse.
+## Paid remote supply orders for every catalog good, delivered to the home warehouse.
 
 var _port_system: Node
 var _goods_prices: Dictionary = {}
+var _goods_names: Dictionary = {}
 const DELIVERY_SURCHARGE: float = 0.50
 const DELIVERY_SECONDS: int = 120
 
@@ -12,15 +13,28 @@ func initialize(port_system: Node) -> void:
 	var catalog: Dictionary = SaveSystem._read_json("res://data/resources/goods_catalog.json")
 	for raw_resource in catalog.get("resources", []):
 		var resource: Dictionary = raw_resource
-		_goods_prices[str(resource.get("id", ""))] = float(resource.get("base_price", 0.0))
+		var resource_id: String = str(resource.get("id", ""))
+		_goods_prices[resource_id] = float(resource.get("base_price", 0.0))
+		_goods_names[resource_id] = str(resource.get("display_name", resource_id))
+
+func get_available_goods() -> Array:
+	var goods: Array = []
+	for resource_id in _goods_names:
+		goods.append({
+			"id": str(resource_id),
+			"display_name": str(_goods_names[resource_id])
+		})
+	return goods
 
 func get_quote(resource_id: String) -> Dictionary:
+	if not _goods_prices.has(resource_id):
+		return {"ok": false, "message": "Неизвестный товар."}
 	var home_port_id: String = str(GameState.world_state.get("home_port_id", ""))
 	if _port_system == null or home_port_id == "":
 		return {"ok": false, "message": "Сначала назначьте главный порт."}
 	var source_port_id: String = str(_port_system.get_nearest_market_source(home_port_id, resource_id))
 	if source_port_id == "":
-		return {"ok": false, "message": "Нет известного порта с этим товаром."}
+		return {"ok": false, "message": "Нет известного порта с этим товаром. Откройте новые порты или привезите товар сами."}
 	var source_price: float = float(_goods_prices.get(resource_id, 0.0)) * 1.20
 	return {
 		"ok": true,
@@ -33,6 +47,9 @@ func get_quote(resource_id: String) -> Dictionary:
 	}
 
 func place_order(resource_id: String, quantity: int) -> Dictionary:
+	var active_order: Dictionary = get_active_order()
+	if not active_order.is_empty():
+		return {"ok": false, "message": "Уже идёт одна поставка. Дождитесь её прибытия."}
 	var quote: Dictionary = get_quote(resource_id)
 	if not bool(quote.get("ok", false)):
 		return quote
@@ -57,11 +74,14 @@ func place_order(resource_id: String, quantity: int) -> Dictionary:
 	SaveSystem.save_game()
 	return {"ok": true, "message": "Поставка отправлена к базе."}
 
-func _process(_delta: float) -> void:
+func get_active_order() -> Dictionary:
 	var raw_order: Variant = GameState.economy_state.get("supply_order", {})
-	if not (raw_order is Dictionary) or raw_order.is_empty():
+	return raw_order if raw_order is Dictionary else {}
+
+func _process(_delta: float) -> void:
+	var order: Dictionary = get_active_order()
+	if order.is_empty():
 		return
-	var order: Dictionary = raw_order
 	if int(Time.get_unix_time_from_system()) < int(order.get("arrives_at", 0)):
 		return
 	var home_port_id: String = str(GameState.world_state.get("home_port_id", ""))
