@@ -75,11 +75,31 @@ func _update_offer() -> void:
 		return
 	var offer_index: int = int(merchant.get("offer_index", 0)) % _offer_templates.size()
 	var template: Dictionary = _offer_templates[offer_index]
+	var trader_index: int = offer_index % 6
+	var trader_names: Array[String] = [
+		"Капитан Марек",
+		"Капитан Элина",
+		"Капитан Рустам",
+		"Капитан Нора",
+		"Капитан Ивар",
+		"Капитан Селин"
+	]
+	var vessel_classes: Array[String] = [
+		"Шхуна «Ветер»",
+		"Баркас «Север»",
+		"Шхуна «Лазурь»",
+		"Грузовой бот «Три волны»",
+		"Каботажник «Маяк»",
+		"Торговая лодка «Искра»"
+	]
 	merchant["active_offer"] = {
 		"resource_id": str(template.get("resource_id", "")),
 		"quantity_available": int(template.get("quantity", 0)),
 		"unit_price": float(template.get("unit_price", 0.0)),
-		"expires_at": now + _offer_duration_seconds
+		"expires_at": now + _offer_duration_seconds,
+		"merchant_name": trader_names[trader_index],
+		"vessel_name": vessel_classes[trader_index],
+		"visitor_index": trader_index
 	}
 	merchant["offer_index"] = offer_index + 1
 	merchant["next_offer_at"] = now + _offer_duration_seconds + _next_offer_delay_seconds
