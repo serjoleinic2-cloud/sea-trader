@@ -39,6 +39,8 @@ var _port_service_system: Node = null
 var _port_service_window: CanvasLayer = null
 var _world_event_system: Node = null
 var _world_event_hud: CanvasLayer = null
+var _work_hire_system: Node = null
+var _work_hire_window: CanvasLayer = null
 var _navigation_hud: CanvasLayer = null
 var _hiring_system: Node = null
 var _hiring_window: CanvasLayer = null
@@ -77,6 +79,7 @@ func _ready() -> void:
 	_initialize_supply_orders()
 	_initialize_port_services()
 	_initialize_world_events()
+	_initialize_work_hire()
 	_initialize_navigation_hud()
 	_initialize_career_system()
 	_initialize_hiring_system()
@@ -292,6 +295,17 @@ func _initialize_world_events() -> void:
 	_world_event_hud.name = "WorldEventHUD"
 	add_child(_world_event_hud)
 	_world_event_hud.initialize(_world_event_system)
+
+
+func _initialize_work_hire() -> void:
+	_work_hire_system = load("res://systems/contracts/work_hire_system.gd").new()
+	_work_hire_system.name = "WorkHireSystem"
+	add_child(_work_hire_system)
+	_work_hire_system.initialize(_port_system)
+	_work_hire_window = load("res://systems/ui/work_hire_window.gd").new()
+	_work_hire_window.name = "WorkHireWindow"
+	add_child(_work_hire_window)
+	_work_hire_window.initialize(_work_hire_system)
 
 
 func _initialize_navigation_hud() -> void:
