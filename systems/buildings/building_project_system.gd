@@ -1,6 +1,6 @@
 extends Node
 
-## One material-funded project at a time for home-port buildings, levels 1..30.
+## Parallel, material-funded construction projects for home-port buildings.
 
 const MAX_LEVEL: int = 30
 
@@ -19,10 +19,35 @@ func initialize() -> void:
 	for raw_good in goods_catalog.get("resources", []):
 		var good: Dictionary = raw_good
 		_goods[str(good.get("id", ""))] = str(good.get("display_name", ""))
+	_migrate_legacy_project()
 
-func get_project() -> Dictionary:
-	var raw_project: Variant = GameState.company_state.get("building_project", {})
-	return raw_project if raw_project is Dictionary else {}
+func _process(_delta: float) -> void:
+	_complete_finished_projects()
+
+func _migrate_legacy_project() -> void:
+	var raw_projects: Variant = GameState.company_state.get("building_projects", [])
+	if raw_projects is Array:
+		return
+	var legacy: Variant = GameState.company_state.get("building_project", {})
+	var projects: Array = []
+	if legacy is Dictionary and not legacy.is_empty():
+		projects.append(legacy)
+	GameState.company_state["building_projects"] = projects
+	GameState.company_state.erase("building_project")
+
+func get_projects() -> Array:
+	var raw_projects: Variant = GameState.company_state.get("building_projects", [])
+	if raw_projects is Array:
+		return raw_projects
+	return []
+
+func get_project(building_id: String = "") -> Dictionary:
+	var projects: Array = get_projects()
+	for raw_project in projects:
+		var project: Dictionary = raw_project
+		if building_id == "" or str(project.get("building_id", "")) == building_id:
+			return project
+	return {}
 
 func get_building_name(building_id: String) -> String:
 	var building: Dictionary = _catalog.get(building_id, {})
@@ -43,33 +68,36 @@ func create_project(building_id: String) -> Dictionary:
 		return {"ok": false, "message": "Строительство доступно только на вашей базе."}
 	if not _catalog.has(building_id):
 		return {"ok": false, "message": "Неизвестное здание."}
-	var project: Dictionary = get_project()
-	if not project.is_empty():
-		if str(project.get("building_id", "")) == building_id:
-			return {"ok": true, "message": "Проект уже открыт."}
-		return {"ok": false, "message": "Сначала завершите или отмените текущий проект."}
+	var existing: Dictionary = get_project(building_id)
+	if not existing.is_empty():
+		return {"ok": true, "message": "Проект этого здания уже подготовлен."}
 	var current_level: int = get_building_level(building_id)
 	if current_level >= MAX_LEVEL:
 		return {"ok": false, "message": "Здание уже достигло 30 уровня."}
 	var next_level: int = current_level + 1
-	var requirements: Dictionary = _make_requirements(building_id, next_level)
-	GameState.company_state["building_project"] = {
+	var projects: Array = get_projects()
+	projects.append({
 		"building_id": building_id,
 		"target_level": next_level,
 		"materials": {},
-		"required_materials": requirements,
+		"required_materials": _make_requirements(building_id, next_level),
 		"required_rank": _get_required_rank(next_level),
-		"required_ports": _get_required_ports(next_level)
-	}
+		"required_ports": _get_required_ports(next_level),
+		"started_at_unix": 0,
+		"duration_sec": _get_build_duration(next_level)
+	})
+	_set_projects(projects)
 	SaveSystem.save_game()
-	return {"ok": true, "message": "Проект уровня %d открыт." % next_level}
+	return {"ok": true, "message": "Проект уровня %d подготовлен. Передайте материалы и запустите стройку." % next_level}
 
-func set_material_amount(resource_id: String, amount: int) -> Dictionary:
+func set_material_amount(building_id: String, resource_id: String, amount: int) -> Dictionary:
 	if not _is_at_home():
 		return {"ok": false, "message": "Материалы можно передавать только на базе."}
-	var project: Dictionary = get_project()
+	var project: Dictionary = get_project(building_id)
 	if project.is_empty():
-		return {"ok": false, "message": "Нет активного проекта."}
+		return {"ok": false, "message": "Нет такого проекта."}
+	if is_project_started(project):
+		return {"ok": false, "message": "Стройка уже запущена: материалы закреплены."}
 	var required: Dictionary = project.get("required_materials", {})
 	if not required.has(resource_id):
 		return {"ok": false, "message": "Материал не нужен этому проекту."}
@@ -85,41 +113,37 @@ func set_material_amount(resource_id: String, amount: int) -> Dictionary:
 	inventory[resource_id] = int(inventory.get(resource_id, 0)) - delta
 	reserved[resource_id] = target
 	project["materials"] = reserved
+	_replace_project(project)
 	port["inventory"] = inventory
 	GameState.port_state[home_port_id] = port
-	GameState.company_state["building_project"] = project
 	SaveSystem.save_game()
 	return {"ok": true, "message": ""}
 
-func finish_project() -> Dictionary:
+func start_project(building_id: String) -> Dictionary:
 	if not _is_at_home():
-		return {"ok": false, "message": "Завершать проект можно только на базе."}
-	var project: Dictionary = get_project()
+		return {"ok": false, "message": "Запуск строительства возможен только на вашей базе."}
+	var project: Dictionary = get_project(building_id)
 	if project.is_empty():
-		return {"ok": false, "message": "Нет активного проекта."}
-	var target_level: int = int(project.get("target_level", 0))
+		return {"ok": false, "message": "Нет такого проекта."}
+	if is_project_started(project):
+		return {"ok": false, "message": "Строительство уже идёт."}
 	if not is_project_ready(project):
-		return {"ok": false, "message": "Не все материалы переданы в строительство."}
+		return {"ok": false, "message": "Передайте все материалы в полном объёме."}
 	if _get_command_rank() < int(project.get("required_rank", 1)):
 		return {"ok": false, "message": "Недостаточный допуск капитана."}
 	if GameState.player_state.discovered_port_ids.size() < int(project.get("required_ports", 1)):
 		return {"ok": false, "message": "Нужно открыть больше портов для такой стройки."}
-	var home_port_id: String = str(GameState.world_state.get("home_port_id", ""))
-	var port: Dictionary = GameState.port_state.get(home_port_id, {})
-	var buildings: Dictionary = port.get("buildings", {})
-	var building_id: String = str(project.get("building_id", ""))
-	buildings[building_id] = {"level": target_level, "status": "active"}
-	port["buildings"] = buildings
-	GameState.port_state[home_port_id] = port
-	GameState.company_state["building_project"] = {}
-	EventBus.building_activated.emit(home_port_id, building_id)
+	project["started_at_unix"] = _get_now_unix()
+	_replace_project(project)
 	SaveSystem.save_game()
-	return {"ok": true, "message": "%s улучшено до уровня %d." % [get_building_name(building_id), target_level]}
+	return {"ok": true, "message": "Строительство запущено. Оно продолжится и вне игры."}
 
-func cancel_project() -> Dictionary:
-	var project: Dictionary = get_project()
+func cancel_project(building_id: String) -> Dictionary:
+	var project: Dictionary = get_project(building_id)
 	if project.is_empty():
 		return {"ok": false, "message": "Нет проекта для отмены."}
+	if is_project_started(project):
+		return {"ok": false, "message": "Стройка уже запущена, материалы закреплены до завершения."}
 	var home_port_id: String = str(GameState.world_state.get("home_port_id", ""))
 	var port: Dictionary = GameState.port_state.get(home_port_id, {})
 	var inventory: Dictionary = port.get("inventory", {})
@@ -128,7 +152,7 @@ func cancel_project() -> Dictionary:
 		inventory[resource_id] = int(inventory.get(resource_id, 0)) + int(reserved.get(resource_id, 0))
 	port["inventory"] = inventory
 	GameState.port_state[home_port_id] = port
-	GameState.company_state["building_project"] = {}
+	_remove_project(building_id)
 	SaveSystem.save_game()
 	return {"ok": true, "message": "Проект отменён, материалы возвращены на склад."}
 
@@ -141,6 +165,22 @@ func is_project_ready(project: Dictionary) -> bool:
 		if int(reserved.get(resource_id, 0)) < int(required.get(resource_id, 0)):
 			return false
 	return true
+
+func is_project_started(project: Dictionary) -> bool:
+	return int(project.get("started_at_unix", 0)) > 0
+
+func get_project_time_left(project: Dictionary) -> int:
+	if not is_project_started(project):
+		return int(project.get("duration_sec", 0))
+	var passed: int = maxi(0, _get_now_unix() - int(project.get("started_at_unix", 0)))
+	return maxi(0, int(project.get("duration_sec", 0)) - passed)
+
+func get_project_status(project: Dictionary) -> String:
+	if is_project_started(project):
+		return "Строительство идёт: осталось %s." % _format_time(get_project_time_left(project))
+	if is_project_ready(project):
+		return "Материалы собраны. Можно запустить стройку: %s." % _format_time(int(project.get("duration_sec", 0)))
+	return "Соберите материалы, затем запустите стройку (%s)." % _format_time(int(project.get("duration_sec", 0)))
 
 func get_effect_text(building_id: String, level: int) -> String:
 	match building_id:
@@ -159,6 +199,68 @@ func get_effect_text(building_id: String, level: int) -> String:
 		"market":
 			return "Рынок: будущая скидка и контракты, уровень %d." % level
 	return "Уровень здания: %d." % level
+
+func _complete_finished_projects() -> void:
+	var projects: Array = get_projects()
+	if projects.is_empty():
+		return
+	var remaining: Array = []
+	var changed: bool = false
+	for raw_project in projects:
+		var project: Dictionary = raw_project
+		if is_project_started(project) and get_project_time_left(project) <= 0:
+			_finalize_project(project)
+			changed = true
+		else:
+			remaining.append(project)
+	if changed:
+		_set_projects(remaining)
+		SaveSystem.save_game()
+
+func _finalize_project(project: Dictionary) -> void:
+	var home_port_id: String = str(GameState.world_state.get("home_port_id", ""))
+	var port: Dictionary = GameState.port_state.get(home_port_id, {})
+	var buildings: Dictionary = port.get("buildings", {})
+	var building_id: String = str(project.get("building_id", ""))
+	buildings[building_id] = {"level": int(project.get("target_level", 1)), "status": "active"}
+	port["buildings"] = buildings
+	GameState.port_state[home_port_id] = port
+	EventBus.building_activated.emit(home_port_id, building_id)
+
+func _replace_project(updated_project: Dictionary) -> void:
+	var building_id: String = str(updated_project.get("building_id", ""))
+	var projects: Array = get_projects()
+	for index in range(projects.size()):
+		var project: Dictionary = projects[index]
+		if str(project.get("building_id", "")) == building_id:
+			projects[index] = updated_project
+			break
+	_set_projects(projects)
+
+func _remove_project(building_id: String) -> void:
+	var projects: Array = get_projects()
+	var remaining: Array = []
+	for raw_project in projects:
+		var project: Dictionary = raw_project
+		if str(project.get("building_id", "")) != building_id:
+			remaining.append(project)
+	_set_projects(remaining)
+
+func _set_projects(projects: Array) -> void:
+	GameState.company_state["building_projects"] = projects
+
+func _get_build_duration(level: int) -> int:
+	return 20 + level * 20
+
+func _format_time(seconds: int) -> String:
+	var minutes: int = int(seconds / 60)
+	var rest_seconds: int = seconds % 60
+	if minutes <= 0:
+		return "%d сек." % rest_seconds
+	return "%d мин. %02d сек." % [minutes, rest_seconds]
+
+func _get_now_unix() -> int:
+	return int(Time.get_unix_time_from_system())
 
 func _make_requirements(building_id: String, level: int) -> Dictionary:
 	var bases: Dictionary = {
