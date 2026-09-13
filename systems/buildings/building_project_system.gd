@@ -25,7 +25,8 @@ func get_project() -> Dictionary:
 	return raw_project if raw_project is Dictionary else {}
 
 func get_building_name(building_id: String) -> String:
-	return str(_catalog.get(building_id, {}).get("display_name", building_id))
+	var building: Dictionary = _catalog.get(building_id, {})
+	return str(building.get("display_name", building_id))
 
 func get_goods_name(resource_id: String) -> String:
 	return str(_goods.get(resource_id, resource_id))
