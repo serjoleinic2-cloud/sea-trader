@@ -133,7 +133,7 @@ func _get_selected(select: OptionButton, ids: Array[String]) -> String:
 		return ""
 	return ids[index]
 
-func _on_changed(_value: float = 0.0) -> void:
+func _on_changed(_value: float = 0.0, _unused: float = 0.0) -> void:
 	pass
 
 func _close() -> void:
