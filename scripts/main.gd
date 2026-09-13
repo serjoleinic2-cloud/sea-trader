@@ -37,6 +37,8 @@ var _supply_order_system: Node = null
 var _supply_order_window: CanvasLayer = null
 var _port_service_system: Node = null
 var _port_service_window: CanvasLayer = null
+var _world_event_system: Node = null
+var _world_event_hud: CanvasLayer = null
 var _navigation_hud: CanvasLayer = null
 var _hiring_system: Node = null
 var _hiring_window: CanvasLayer = null
@@ -74,6 +76,7 @@ func _ready() -> void:
 	_initialize_merchant_offer_hud()
 	_initialize_supply_orders()
 	_initialize_port_services()
+	_initialize_world_events()
 	_initialize_navigation_hud()
 	_initialize_career_system()
 	_initialize_hiring_system()
@@ -279,6 +282,16 @@ func _initialize_port_services() -> void:
 	_port_service_window.name = "PortServiceWindow"
 	add_child(_port_service_window)
 	_port_service_window.initialize(_port_service_system)
+
+
+func _initialize_world_events() -> void:
+	_world_event_system = load("res://systems/events/world_event_system.gd").new()
+	_world_event_system.name = "WorldEventSystem"
+	add_child(_world_event_system)
+	_world_event_hud = load("res://systems/ui/world_event_hud.gd").new()
+	_world_event_hud.name = "WorldEventHUD"
+	add_child(_world_event_hud)
+	_world_event_hud.initialize(_world_event_system)
 
 
 func _initialize_navigation_hud() -> void:
