@@ -9,6 +9,8 @@ var _destination: OptionButton
 var _goods: OptionButton
 var _quantity: HSlider
 var _quantity_label: Label
+var _send_button: Button
+var _notice: String = ""
 var _open: bool = false
 var _ship_ids: Array[String] = []
 var _port_ids: Array[String] = []
@@ -54,6 +56,12 @@ func _ready() -> void:
 	_details.add_theme_font_size_override("font_size", 20)
 	_details.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	box.add_child(_details)
+	_send_button = Button.new()
+	_send_button.text = "НАЧАТЬ РЕЙС"
+	_send_button.add_theme_font_size_override("font_size", 22)
+	_send_button.custom_minimum_size.y = 54
+	_send_button.pressed.connect(_start_route)
+	box.add_child(_send_button)
 	var close_button: Button = Button.new()
 	close_button.text = "Закрыть"
 	close_button.add_theme_font_size_override("font_size", 20)
@@ -144,7 +152,8 @@ func _refresh() -> void:
 	var good_id: String = _get_selected(_goods, _good_ids)
 	var quote: Dictionary = _system.evaluate(ship_id, origin_id, destination_id, good_id, int(_quantity.value))
 	if not bool(quote.get("ok", false)):
-		_details.text = str(quote.get("message", ""))
+		_details.text = str(quote.get("message", "")) + "\n" + _notice
+		_send_button.disabled = true
 		return
 	_details.text = "%s\nТрюм: %d | Топливо: %.0f\n\nЦена покупки: %.0f\nЦена продажи: %.0f\nДистанция: %.0f\nТопливо: %.1f (≈ %.0f)\nРезерв ремонта: %.0f\nВаловая прибыль: %.0f\n\nЧИСТАЯ ПРИБЫЛЬ: %.0f" % [
 		str(quote.get("ship_name", "")),
@@ -159,6 +168,8 @@ func _refresh() -> void:
 		float(quote.get("gross", 0.0)),
 		float(quote.get("net", 0.0))
 	]
+	_details.text += "\n" + _notice
+	_send_button.disabled = false
 
 func _get_selected(select: OptionButton, ids: Array[String]) -> String:
 	var index: int = select.selected
@@ -168,6 +179,15 @@ func _get_selected(select: OptionButton, ids: Array[String]) -> String:
 
 func _on_changed(_value: float = 0.0, _unused: float = 0.0) -> void:
 	pass
+
+func _start_route() -> void:
+	var ship_id: String = _get_selected(_ship, _ship_ids)
+	var origin_id: String = _get_selected(_origin, _port_ids)
+	var destination_id: String = _get_selected(_destination, _port_ids)
+	var result: Dictionary = _system.start_route(ship_id, origin_id, destination_id)
+	_notice = str(result.get("message", ""))
+	if bool(result.get("ok", false)) and ship_id == "active_ship":
+		_open = false
 
 func _close() -> void:
 	_open = false
