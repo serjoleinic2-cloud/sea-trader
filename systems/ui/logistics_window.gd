@@ -3,12 +3,14 @@ extends CanvasLayer
 var _system: Node
 var _panel: PanelContainer
 var _details: Label
+var _ship: OptionButton
 var _origin: OptionButton
 var _destination: OptionButton
 var _goods: OptionButton
 var _quantity: HSlider
 var _quantity_label: Label
 var _open: bool = false
+var _ship_ids: Array[String] = []
 var _port_ids: Array[String] = []
 var _good_ids: Array[String] = []
 
@@ -33,6 +35,8 @@ func _ready() -> void:
 	title.text = "ЛОГИСТИКА И ПРИБЫЛЬ"
 	title.add_theme_font_size_override("font_size", 28)
 	box.add_child(title)
+	_ship = _add_select(box, "Корабль")
+	_ship.item_selected.connect(_on_ship_selected)
 	_origin = _add_select(box, "Откуда")
 	_destination = _add_select(box, "Куда")
 	_goods = _add_select(box, "Товар")
@@ -80,11 +84,18 @@ func open() -> void:
 func _fill_options() -> void:
 	if _system == null:
 		return
+	_ship.clear()
 	_origin.clear()
 	_destination.clear()
 	_goods.clear()
+	_ship_ids.clear()
 	_port_ids.clear()
 	_good_ids.clear()
+	var ships: Array = _system.get_available_ships()
+	for raw_ship in ships:
+		var ship: Dictionary = raw_ship
+		_ship_ids.append(str(ship.get("id", "")))
+		_ship.add_item("%s — %s" % [str(ship.get("name", "")), str(ship.get("status", ""))])
 	var ports: Array = _system.get_known_ports()
 	for raw_port in ports:
 		var port: Dictionary = raw_port
@@ -97,26 +108,48 @@ func _fill_options() -> void:
 		var good: Dictionary = raw_good
 		_good_ids.append(str(good.get("id", "")))
 		_goods.add_item(str(good.get("display_name", "")))
+	_sync_ship_origin()
 
 func _process(_delta: float) -> void:
 	_panel.visible = _open
 	if not _open or _system == null:
 		return
 	var viewport: Vector2 = get_viewport().get_visible_rect().size
-	_panel.size = Vector2(minf(800.0, viewport.x - 32.0), minf(980.0, viewport.y - 32.0))
+	_panel.size = Vector2(minf(800.0, viewport.x - 32.0), minf(1080.0, viewport.y - 32.0))
 	_panel.position = (viewport - _panel.size) * 0.5
-	_quantity_label.text = "Количество: %d" % int(_quantity.value)
+	var ship: Dictionary = _system.get_ship(_get_selected(_ship, _ship_ids))
+	var capacity: int = maxi(1, int(ship.get("cargo_capacity", 1)))
+	_quantity.max_value = float(capacity)
+	if _quantity.value > _quantity.max_value:
+		_quantity.value = _quantity.max_value
+	_quantity_label.text = "Количество: %d / трюм %d" % [int(_quantity.value), capacity]
 	_refresh()
 
+func _sync_ship_origin() -> void:
+	if _system == null:
+		return
+	var ship: Dictionary = _system.get_ship(_get_selected(_ship, _ship_ids))
+	var port_id: String = str(ship.get("current_port_id", ""))
+	var index: int = _port_ids.find(port_id)
+	if index >= 0:
+		_origin.select(index)
+
+func _on_ship_selected(_index: int) -> void:
+	_sync_ship_origin()
+
 func _refresh() -> void:
+	var ship_id: String = _get_selected(_ship, _ship_ids)
 	var origin_id: String = _get_selected(_origin, _port_ids)
 	var destination_id: String = _get_selected(_destination, _port_ids)
 	var good_id: String = _get_selected(_goods, _good_ids)
-	var quote: Dictionary = _system.evaluate(origin_id, destination_id, good_id, int(_quantity.value))
+	var quote: Dictionary = _system.evaluate(ship_id, origin_id, destination_id, good_id, int(_quantity.value))
 	if not bool(quote.get("ok", false)):
 		_details.text = str(quote.get("message", ""))
 		return
-	_details.text = "Цена покупки: %.0f\nЦена продажи: %.0f\nДистанция: %.0f\nТопливо: %.1f (≈ %.0f)\nРезерв ремонта: %.0f\nВаловая прибыль: %.0f\n\nЧИСТАЯ ПРИБЫЛЬ: %.0f" % [
+	_details.text = "%s\nТрюм: %d | Топливо: %.0f\n\nЦена покупки: %.0f\nЦена продажи: %.0f\nДистанция: %.0f\nТопливо: %.1f (≈ %.0f)\nРезерв ремонта: %.0f\nВаловая прибыль: %.0f\n\nЧИСТАЯ ПРИБЫЛЬ: %.0f" % [
+		str(quote.get("ship_name", "")),
+		int(quote.get("capacity", 0)),
+		float(quote.get("fuel_current", 0.0)),
 		float(quote.get("buy_price", 0.0)),
 		float(quote.get("sell_price", 0.0)),
 		float(quote.get("distance", 0.0)),
