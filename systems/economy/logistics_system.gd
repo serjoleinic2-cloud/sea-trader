@@ -93,6 +93,34 @@ func evaluate(ship_id: String, origin_port_id: String, destination_port_id: Stri
 		"net": net
 	}
 
+func start_route(ship_id: String, origin_port_id: String, destination_port_id: String) -> Dictionary:
+	var ship: Dictionary = get_ship(ship_id)
+	if ship.is_empty() or str(ship.get("current_port_id", "")) != origin_port_id:
+		return {"ok": false, "message": "Выбранный корабль не готов в этом порту."}
+	var route_key: String = _get_route_key(origin_port_id, destination_port_id)
+	if route_key == "":
+		return {"ok": false, "message": "Сначала изучите маршрут своим кораблём."}
+	if ship_id == "active_ship":
+		GameState.world_state["destination_port_id"] = destination_port_id
+		EventBus.navigation_destination_set.emit(destination_port_id)
+		if str(GameState.ship_state.get("docked_port_id", "")) != "":
+			_port_system.undock()
+		SaveSystem.save_game()
+		return {"ok": true, "message": "Курс проложен. Ваш корабль вышел в море — управляйте им вручную."}
+	var fleets: Array[Node] = get_tree().get_nodes_in_group("fleet_system")
+	if fleets.is_empty():
+		return {"ok": false, "message": "Система флота недоступна."}
+	return fleets[0].start_autopilot(ship_id, route_key)
+
+func _get_route_key(origin_id: String, destination_id: String) -> String:
+	for route_key in GameState.known_routes_state:
+		var route: Dictionary = GameState.known_routes_state[route_key]
+		var a_id: String = str(route.get("port_a_id", ""))
+		var b_id: String = str(route.get("port_b_id", ""))
+		if (a_id == origin_id and b_id == destination_id) or (a_id == destination_id and b_id == origin_id):
+			return str(route_key)
+	return ""
+
 func _get_route_distance(origin_id: String, destination_id: String) -> float:
 	for route_key in GameState.known_routes_state:
 		var route: Dictionary = GameState.known_routes_state[route_key]
