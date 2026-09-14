@@ -1,6 +1,6 @@
 extends Node
 
-## Evaluates a manual trading route before the player spends money or fuel.
+## Evaluates a concrete ship's trading route before the player spends money or fuel.
 
 var _port_system: Node
 var _goods: Array = []
@@ -25,13 +25,51 @@ func get_known_ports() -> Array:
 		result.append({"id": port_id, "name": _port_system.get_port_name(port_id)})
 	return result
 
-func evaluate(origin_port_id: String, destination_port_id: String, resource_id: String, quantity: int) -> Dictionary:
+func get_available_ships() -> Array:
+	var ships: Array = [{
+		"id": "active_ship",
+		"name": "Ваш корабль",
+		"current_port_id": str(GameState.ship_state.get("docked_port_id", "")),
+		"cargo_capacity": int(GameState.ship_state.get("cargo_capacity", 0)),
+		"fuel": float(GameState.ship_state.get("fuel", 0.0)),
+		"status": "Под вашим управлением"
+	}]
+	for raw_ship in GameState.fleet_state:
+		var ship: Dictionary = raw_ship
+		if str(ship.get("status", "")) == "В пути":
+			continue
+		ships.append({
+			"id": str(ship.get("instance_id", "")),
+			"name": str(ship.get("name", "Корабль")),
+			"current_port_id": str(ship.get("current_port_id", "")),
+			"cargo_capacity": int(ship.get("cargo_capacity", 0)),
+			"fuel": 100.0,
+			"status": str(ship.get("status", "В порту"))
+		})
+	return ships
+
+func get_ship(ship_id: String) -> Dictionary:
+	for raw_ship in get_available_ships():
+		var ship: Dictionary = raw_ship
+		if str(ship.get("id", "")) == ship_id:
+			return ship
+	return {}
+
+func evaluate(ship_id: String, origin_port_id: String, destination_port_id: String, resource_id: String, quantity: int) -> Dictionary:
+	var ship: Dictionary = get_ship(ship_id)
+	if ship.is_empty():
+		return {"ok": false, "message": "Выберите доступный корабль."}
 	if origin_port_id == "" or destination_port_id == "" or origin_port_id == destination_port_id:
 		return {"ok": false, "message": "Выберите два разных известных порта."}
+	if str(ship.get("current_port_id", "")) != origin_port_id:
+		return {"ok": false, "message": "Корабль сейчас не находится в начальном порту маршрута."}
+	var amount: int = maxi(1, quantity)
+	var capacity: int = int(ship.get("cargo_capacity", 0))
+	if amount > capacity:
+		return {"ok": false, "message": "Выбранный объём больше трюма корабля (%d)." % capacity}
 	var distance: float = _get_route_distance(origin_port_id, destination_port_id)
 	if distance <= 0.0:
 		return {"ok": false, "message": "Между этими портами ещё нет известного маршрута."}
-	var amount: int = maxi(1, quantity)
 	var buy_price: float = _get_buy_price(origin_port_id, resource_id)
 	var sell_price: float = _get_sell_price(destination_port_id, resource_id)
 	var fuel_needed: float = maxf(1.0, distance / 500.0)
@@ -41,6 +79,10 @@ func evaluate(origin_port_id: String, destination_port_id: String, resource_id: 
 	var net: float = gross - fuel_cost - repair_reserve
 	return {
 		"ok": true,
+		"ship_name": str(ship.get("name", "")),
+		"ship_status": str(ship.get("status", "")),
+		"capacity": capacity,
+		"fuel_current": float(ship.get("fuel", 0.0)),
 		"buy_price": buy_price,
 		"sell_price": sell_price,
 		"distance": distance,
