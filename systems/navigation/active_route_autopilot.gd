@@ -11,6 +11,7 @@ var _active: bool = false
 
 func _ready() -> void:
 	add_to_group("active_route_autopilot_system")
+	process_physics_priority = 100
 
 func initialize(ship: Node2D, port_system: Node) -> void:
 	_ship = ship
@@ -25,6 +26,7 @@ func start(destination_port_id: String, resource_id: String = "", quantity: int 
 	_active = true
 	GameState.voyage_state["active_autopilot"] = true
 	GameState.world_state["destination_port_id"] = destination_port_id
+	GameState.world_state["autopilot_notice"] = "Автопилот запущен: " + _port_system.get_port_name(destination_port_id)
 	if str(GameState.ship_state.get("docked_port_id", "")) != "":
 		_port_system.undock()
 	SaveSystem.save_game()
@@ -33,7 +35,7 @@ func start(destination_port_id: String, resource_id: String = "", quantity: int 
 		cargo_text = " с грузом «%s» × %d" % [_cargo_resource_id.replace("resource_", "").capitalize(), _cargo_quantity]
 	return {"ok": true, "message": "Автопилот ведёт корабль в %s%s." % [_port_system.get_port_name(destination_port_id), cargo_text]}
 
-func _process(delta: float) -> void:
+func _physics_process(delta: float) -> void:
 	if not _active or _ship == null:
 		return
 	var fuel: float = float(GameState.ship_state.get("fuel", 0.0))
