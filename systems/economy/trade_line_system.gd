@@ -254,7 +254,7 @@ func _refresh_demand(port_id: String) -> void:
 		return
 	if now < recovery_at:
 		return
-	var steps: int = maxi(1, (now - recovery_at) / DEMAND_RECOVERY_SECONDS + 1)
+	var steps: int = maxi(1, int((now - recovery_at) / DEMAND_RECOVERY_SECONDS) + 1)
 	var demand: Dictionary = port.get("market_demand", {})
 	for resource_id in demand:
 		demand[resource_id] = mini(DEMAND_MAX, int(demand[resource_id]) + DEMAND_RECOVERY_AMOUNT * steps)
