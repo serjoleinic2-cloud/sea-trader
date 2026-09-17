@@ -101,12 +101,10 @@ func start_route(ship_id: String, origin_port_id: String, destination_port_id: S
 	if route_key == "":
 		return {"ok": false, "message": "Сначала изучите маршрут своим кораблём."}
 	if ship_id == "active_ship":
-		GameState.world_state["destination_port_id"] = destination_port_id
-		EventBus.navigation_destination_set.emit(destination_port_id)
-		if str(GameState.ship_state.get("docked_port_id", "")) != "":
-			_port_system.undock()
-		SaveSystem.save_game()
-		return {"ok": true, "message": "Курс проложен. Ваш корабль вышел в море — управляйте им вручную."}
+		var systems: Array[Node] = get_tree().get_nodes_in_group("active_route_autopilot_system")
+		if systems.is_empty():
+			return {"ok": false, "message": "Автопилот основного корабля недоступен."}
+		return systems[0].start(destination_port_id)
 	var fleets: Array[Node] = get_tree().get_nodes_in_group("fleet_system")
 	if fleets.is_empty():
 		return {"ok": false, "message": "Система флота недоступна."}
