@@ -686,10 +686,11 @@ func _refresh_market_page(port_name: String, ship: Dictionary, port: Dictionary)
 	var resource_id: String = _get_selected_resource_id()
 	var selected_text: String = "Выберите товар из трюма в списке ниже."
 	if resource_id != "":
-		selected_text = "%s: в трюме %d, цена продажи %.0f." % [
+		selected_text = "%s: в трюме %d, цена продажи %.0f.\n%s" % [
 			_get_resource_name(resource_id),
 			_get_cargo_quantity(resource_id),
-			_get_sale_price(resource_id)
+			_get_sale_price(resource_id),
+			_get_port_demand_text(docked_port_id, resource_id)
 		]
 	_title.text = "РЫНОК: " + port_name
 	_details.text = (
@@ -702,6 +703,18 @@ func _refresh_market_page(port_name: String, ship: Dictionary, port: Dictionary)
 		_get_cargo_units(),
 		int(ship.get("cargo_capacity", 0)),
 		selected_text
+	]
+
+func _get_port_demand_text(port_id: String, resource_id: String) -> String:
+	var market_systems: Array[Node] = get_tree().get_nodes_in_group("trade_line_system")
+	if market_systems.is_empty():
+		return "Спрос порта ещё рассчитывается."
+	var info: Dictionary = market_systems[0].get_market_info(port_id, resource_id)
+	if not bool(info.get("accepted", false)):
+		return "Порт не принимает этот товар."
+	return "Спрос: %d ед. Восстановление через %d сек." % [
+		int(info.get("demand", 0)),
+		int(info.get("restores_in", 0))
 	]
 
 func _get_base_demand_text(port: Dictionary) -> String:
@@ -801,6 +814,17 @@ func _sell_one_unit() -> void:
 		_notice = "В трюме нет этого товара."
 		return
 	var item: Dictionary = cargo[found_index]
+	if int(item.get("quantity", 0)) < _selected_quantity:
+		_notice = "В трюме нет выбранного количества товара."
+		return
+	var sale_price: float = _get_sale_price(resource_id) * _selected_quantity
+	var market_systems: Array[Node] = get_tree().get_nodes_in_group("trade_line_system")
+	if not market_systems.is_empty():
+		var sale: Dictionary = market_systems[0].try_sell_to_port(port_id, resource_id, _selected_quantity)
+		if not bool(sale.get("ok", false)):
+			_notice = str(sale.get("message", "Порт не принимает этот товар."))
+			return
+		sale_price = float(sale.get("revenue", 0.0))
 	var remaining_quantity: int = int(item.get("quantity", 0)) - _selected_quantity
 	if remaining_quantity <= 0:
 		cargo.remove_at(found_index)
@@ -808,7 +832,6 @@ func _sell_one_unit() -> void:
 		item["quantity"] = remaining_quantity
 		cargo[found_index] = item
 	GameState.ship_state["cargo"] = cargo
-	var sale_price: float = _get_sale_price(resource_id) * _selected_quantity
 	GameState.player_state["money"] = float(GameState.player_state.get("money", 0.0)) + sale_price
 	var stats: Dictionary = GameState.player_state.get("stats", {})
 	stats["total_sales"] = int(stats.get("total_sales", 0)) + _selected_quantity
