@@ -161,7 +161,7 @@ func _refresh() -> void:
 		_details.text = str(quote.get("message", "")) + "\n" + _notice
 		_send_button.disabled = true
 		return
-	_details.text = "%s\nТрюм: %d | Топливо: %.0f\n\nЦена покупки: %.0f\nЦена продажи: %.0f\nДистанция: %.0f\nТопливо: %.1f (≈ %.0f)\nРезерв ремонта: %.0f\nВаловая прибыль: %.0f\n\nЧИСТАЯ ПРИБЫЛЬ: %.0f" % [
+	_details.text = "%s\nТрюм: %d | Топливо: %.0f\n\nЦена покупки: %.0f\nЦена продажи: %.0f\nДистанция: %.0f\nТопливо: %.1f (≈ %.0f)\nРезерв ремонта: %.0f\nВаловая прибыль: %.0f\n\nЧИСТАЯ ПРИБЫЛЬ: %.0f\n\nДля вашего корабля выбранный груз будет продан автоматически при прибытии." % [
 		str(quote.get("ship_name", "")),
 		int(quote.get("capacity", 0)),
 		float(quote.get("fuel_current", 0.0)),
@@ -195,7 +195,8 @@ func _start_route() -> void:
 	var ship_id: String = _get_selected(_ship, _ship_ids)
 	var origin_id: String = _get_selected(_origin, _port_ids)
 	var destination_id: String = _get_selected(_destination, _port_ids)
-	var result: Dictionary = _system.start_route(ship_id, origin_id, destination_id)
+	var good_id: String = _get_selected(_goods, _good_ids)
+	var result: Dictionary = _system.start_route(ship_id, origin_id, destination_id, good_id, int(_quantity.value))
 	_notice = str(result.get("message", ""))
 	if bool(result.get("ok", false)) and ship_id == "active_ship":
 		_open = false
