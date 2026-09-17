@@ -93,7 +93,7 @@ func evaluate(ship_id: String, origin_port_id: String, destination_port_id: Stri
 		"net": net
 	}
 
-func start_route(ship_id: String, origin_port_id: String, destination_port_id: String) -> Dictionary:
+func start_route(ship_id: String, origin_port_id: String, destination_port_id: String, resource_id: String = "", quantity: int = 0) -> Dictionary:
 	var ship: Dictionary = get_ship(ship_id)
 	if ship.is_empty() or str(ship.get("current_port_id", "")) != origin_port_id:
 		return {"ok": false, "message": "Выбранный корабль не готов в этом порту."}
@@ -104,7 +104,7 @@ func start_route(ship_id: String, origin_port_id: String, destination_port_id: S
 		var systems: Array[Node] = get_tree().get_nodes_in_group("active_route_autopilot_system")
 		if systems.is_empty():
 			return {"ok": false, "message": "Автопилот основного корабля недоступен."}
-		return systems[0].start(destination_port_id)
+		return systems[0].start(destination_port_id, resource_id, quantity)
 	var fleets: Array[Node] = get_tree().get_nodes_in_group("fleet_system")
 	if fleets.is_empty():
 		return {"ok": false, "message": "Система флота недоступна."}
