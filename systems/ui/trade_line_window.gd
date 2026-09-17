@@ -117,17 +117,15 @@ func _fill() -> void:
 				continue
 			_ship_ids.append(str(ship.get("instance_id", "")))
 			_ship.add_item(str(ship.get("name", "Корабль")))
-	var ports: Array = _system._port_system.get_all_port_ids()
-	for raw_port_id in ports:
-		var port_id: String = str(raw_port_id)
-		if GameState.player_state.discovered_port_ids.has(port_id):
-			_port_ids.append(port_id)
-			var port_name: String = _system._port_system.get_port_name(port_id)
-			_origin.add_item(port_name)
-			_destination.add_item(port_name)
-	for resource_id in _system._base_prices:
-		_good_ids.append(str(resource_id))
-		_goods.add_item(str(resource_id).replace("resource_", "").capitalize())
+	for raw_port in _system.get_known_ports():
+		var port: Dictionary = raw_port
+		_port_ids.append(str(port.get("id", "")))
+		_origin.add_item(str(port.get("name", "")))
+		_destination.add_item(str(port.get("name", "")))
+	for raw_good in _system.get_goods():
+		var good: Dictionary = raw_good
+		_good_ids.append(str(good.get("id", "")))
+		_goods.add_item(str(good.get("name", "")))
 
 func _process(_delta: float) -> void:
 	_panel.visible = _open
