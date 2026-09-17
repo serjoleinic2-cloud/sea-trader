@@ -45,6 +45,7 @@ var _logistics_system: Node = null
 var _logistics_window: CanvasLayer = null
 var _trade_line_system: Node = null
 var _trade_line_window: CanvasLayer = null
+var _active_route_autopilot: Node = null
 var _navigation_hud: CanvasLayer = null
 var _hiring_system: Node = null
 var _hiring_window: CanvasLayer = null
@@ -71,6 +72,7 @@ func _ready() -> void:
 		return
 	_spawn_ship()
 	_initialize_port_systems()  # Phase 05
+	_initialize_active_route_autopilot()
 	_initialize_market_distribution()
 	_initialize_ship_status_hud()
 	_initialize_captain_cabinet()
@@ -204,6 +206,13 @@ func _initialize_port_systems() -> void:
 		push_warning("main.gd: _ship is null, PortSystem cannot track position")
 
 	print("Phase 05: PortSystem initialized")
+
+
+func _initialize_active_route_autopilot() -> void:
+	_active_route_autopilot = load("res://systems/navigation/active_route_autopilot.gd").new()
+	_active_route_autopilot.name = "ActiveRouteAutopilot"
+	add_child(_active_route_autopilot)
+	_active_route_autopilot.initialize(_ship, _port_system)
 
 
 func _initialize_market_distribution() -> void:
