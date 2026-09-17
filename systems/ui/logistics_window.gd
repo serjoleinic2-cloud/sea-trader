@@ -62,6 +62,12 @@ func _ready() -> void:
 	_send_button.custom_minimum_size.y = 54
 	_send_button.pressed.connect(_start_route)
 	box.add_child(_send_button)
+	var lines_button: Button = Button.new()
+	lines_button.text = "ПОСТОЯННЫЕ ТОРГОВЫЕ ЛИНИИ"
+	lines_button.add_theme_font_size_override("font_size", 20)
+	lines_button.custom_minimum_size.y = 46
+	lines_button.pressed.connect(_open_trade_lines)
+	box.add_child(lines_button)
 	var close_button: Button = Button.new()
 	close_button.text = "Закрыть"
 	close_button.add_theme_font_size_override("font_size", 20)
@@ -179,6 +185,11 @@ func _get_selected(select: OptionButton, ids: Array[String]) -> String:
 
 func _on_changed(_value: float = 0.0, _unused: float = 0.0) -> void:
 	pass
+
+func _open_trade_lines() -> void:
+	var windows: Array[Node] = get_tree().get_nodes_in_group("trade_line_window")
+	if not windows.is_empty():
+		windows[0].open()
 
 func _start_route() -> void:
 	var ship_id: String = _get_selected(_ship, _ship_ids)
