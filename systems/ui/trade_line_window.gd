@@ -7,6 +7,7 @@ var _ship: OptionButton
 var _origin: OptionButton
 var _destination: OptionButton
 var _goods: OptionButton
+var _return_goods: OptionButton
 var _quantity: HSlider
 var _min_profit: HSlider
 var _quantity_label: Label
@@ -40,7 +41,8 @@ func _ready() -> void:
 	_ship = _select(box, "Корабль")
 	_origin = _select(box, "Порт закупки")
 	_destination = _select(box, "Порт продажи")
-	_goods = _select(box, "Товар")
+	_goods = _select(box, "Товар туда")
+	_return_goods = _select(box, "Товар обратно (можно оставить пустым)")
 	_quantity_label = _label(box)
 	_quantity = HSlider.new()
 	_quantity.min_value = 1.0
@@ -106,6 +108,7 @@ func _fill() -> void:
 	_origin.clear()
 	_destination.clear()
 	_goods.clear()
+	_return_goods.clear()
 	_ship_ids.clear()
 	_port_ids.clear()
 	_good_ids.clear()
@@ -122,10 +125,12 @@ func _fill() -> void:
 		_port_ids.append(str(port.get("id", "")))
 		_origin.add_item(str(port.get("name", "")))
 		_destination.add_item(str(port.get("name", "")))
+	_return_goods.add_item("Не везти обратно")
 	for raw_good in _system.get_goods():
 		var good: Dictionary = raw_good
 		_good_ids.append(str(good.get("id", "")))
 		_goods.add_item(str(good.get("name", "")))
+		_return_goods.add_item(str(good.get("name", "")))
 
 func _process(_delta: float) -> void:
 	_panel.visible = _open
@@ -134,16 +139,20 @@ func _process(_delta: float) -> void:
 	var viewport: Vector2 = get_viewport().get_visible_rect().size
 	_panel.size = Vector2(minf(820.0, viewport.x - 24.0), minf(1120.0, viewport.y - 24.0))
 	_panel.position = (viewport - _panel.size) * 0.5
-	_quantity_label.text = "Количество: %d" % int(_quantity.value)
+	_quantity_label.text = "Количество на каждую сторону: %d" % int(_quantity.value)
 	_profit_label.text = "Минимальная прибыль за рейс: %.0f" % _min_profit.value
 	_details.text = _lines_text()
 
 func _start() -> void:
+	var return_resource_id: String = ""
+	if _return_goods.selected > 0:
+		return_resource_id = _good_ids[_return_goods.selected - 1]
 	var result: Dictionary = _system.create_line(
 		_id(_ship, _ship_ids),
 		_id(_origin, _port_ids),
 		_id(_destination, _port_ids),
 		_id(_goods, _good_ids),
+		return_resource_id,
 		int(_quantity.value),
 		_min_profit.value
 	)
@@ -158,13 +167,14 @@ func _lines_text() -> String:
 	var lines: Array[String] = ["ЛИНИИ:"]
 	for raw_line in _system.get_lines():
 		var line: Dictionary = raw_line
-		lines.append("%s: %s | циклов %d | доход %.0f" % [
+		lines.append("%s: %s | циклов %d | доход %.0f\n%s" % [
 			str(line.get("id", "")),
 			str(line.get("status", "")),
 			int(line.get("cycles", 0)),
-			float(line.get("earned", 0.0))
+			float(line.get("earned", 0.0)),
+			str(line.get("last_message", ""))
 		])
-	return "\n".join(lines)
+	return "\n\n".join(lines)
 
 func _id(select: OptionButton, ids: Array[String]) -> String:
 	var index: int = select.selected
