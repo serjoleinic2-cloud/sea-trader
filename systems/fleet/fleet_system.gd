@@ -94,7 +94,7 @@ func assign_employee(employee_id: String, target_ship_id: String) -> Dictionary:
 	SaveSystem.save_game()
 	return {"ok": true, "message": "Сотрудник назначен на корабль."}
 
-func start_autopilot(ship_id: String, route_key: String) -> Dictionary:
+func start_autopilot(ship_id: String, route_key: String, freight_plan: Dictionary = {}) -> Dictionary:
 	var ship_index: int = _find_auxiliary_index(ship_id)
 	if ship_index < 0:
 		return {"ok": false, "message": "Автопилот доступен только дополнительному кораблю."}
@@ -118,7 +118,7 @@ func start_autopilot(ship_id: String, route_key: String) -> Dictionary:
 	if not _ship_has_captain(crew):
 		return {"ok": false, "message": "Для автопилота нужен капитан в экипаже."}
 	var duration: float = maxf(45.0, float(route.get("distance", 0.0)) / 120.0)
-	var freight: Dictionary = _make_freight_contract(current_port_id, destination_port_id, int(ship.get("cargo_capacity", 0)))
+	var freight: Dictionary = freight_plan if not freight_plan.is_empty() else _make_freight_contract(current_port_id, destination_port_id, int(ship.get("cargo_capacity", 0)))
 	ship["cargo"] = [{"resource_id": str(freight.get("resource_id", "")), "quantity": int(freight.get("quantity", 0))}]
 	ship["status"] = "В пути"
 	ship["autopilot"] = {
