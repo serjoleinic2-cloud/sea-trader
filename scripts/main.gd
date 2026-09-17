@@ -43,6 +43,8 @@ var _work_hire_system: Node = null
 var _work_hire_window: CanvasLayer = null
 var _logistics_system: Node = null
 var _logistics_window: CanvasLayer = null
+var _trade_line_system: Node = null
+var _trade_line_window: CanvasLayer = null
 var _navigation_hud: CanvasLayer = null
 var _hiring_system: Node = null
 var _hiring_window: CanvasLayer = null
@@ -88,6 +90,7 @@ func _ready() -> void:
 	_initialize_hiring_system()
 	_initialize_crew_window()
 	_initialize_fleet_system()
+	_initialize_trade_lines()
 	_initialize_fleet_window()
 	_initialize_shipyard()
 	_world_ready = true
@@ -355,6 +358,17 @@ func _initialize_fleet_system() -> void:
 	_fleet_system.name = "FleetSystem"
 	add_child(_fleet_system)
 	_fleet_system.initialize(_port_system)
+
+func _initialize_trade_lines() -> void:
+	_trade_line_system = load("res://systems/economy/trade_line_system.gd").new()
+	_trade_line_system.name = "TradeLineSystem"
+	add_child(_trade_line_system)
+	_trade_line_system.initialize(_port_system, _fleet_system)
+	_trade_line_window = load("res://systems/ui/trade_line_window.gd").new()
+	_trade_line_window.name = "TradeLineWindow"
+	add_child(_trade_line_window)
+	_trade_line_window.initialize(_trade_line_system)
+
 
 func _initialize_fleet_window() -> void:
 	_fleet_window = load("res://systems/ui/fleet_window.gd").new()
