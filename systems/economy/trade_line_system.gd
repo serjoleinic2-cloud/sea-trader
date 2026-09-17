@@ -21,6 +21,22 @@ func get_lines() -> Array:
 	var raw_lines: Variant = GameState.economy_state.get("trade_lines", [])
 	return raw_lines if raw_lines is Array else []
 
+func get_known_ports() -> Array:
+	var ports: Array = []
+	if _port_system == null:
+		return ports
+	for raw_port_id in _port_system.get_all_port_ids():
+		var port_id: String = str(raw_port_id)
+		if GameState.player_state.discovered_port_ids.has(port_id):
+			ports.append({"id": port_id, "name": _port_system.get_port_name(port_id)})
+	return ports
+
+func get_goods() -> Array:
+	var goods: Array = []
+	for resource_id in _base_prices:
+		goods.append({"id": str(resource_id), "name": str(resource_id).replace("resource_", "").capitalize()})
+	return goods
+
 func create_line(ship_id: String, origin_id: String, destination_id: String, resource_id: String, quantity: int, min_profit: float) -> Dictionary:
 	if ship_id == "active_ship":
 		return {"ok": false, "message": "Постоянные линии выполняют дополнительные корабли."}
@@ -74,7 +90,7 @@ func _process(_delta: float) -> void:
 		var line: Dictionary = lines[index]
 		var status: String = str(line.get("status", ""))
 		if status == "В пути к покупателю" and _ship_arrived(line, str(line.get("destination_id", ""))):
-			_finish_sale(line)
+			line = _finish_sale(line)
 			var return_result: Dictionary = _start_return(line)
 			line["last_message"] = str(return_result.get("message", ""))
 			line["status"] = "Возвращается" if bool(return_result.get("ok", false)) else "Остановлена"
@@ -129,13 +145,14 @@ func _start_return(line: Dictionary) -> Dictionary:
 	var empty_freight: Dictionary = {"resource_id": "", "quantity": 0, "reward": 0.0, "line_id": str(line.get("id", ""))}
 	return _fleet_system.start_autopilot(str(line.get("ship_id", "")), _get_route_key(str(line.get("origin_id", "")), str(line.get("destination_id", ""))), empty_freight)
 
-func _finish_sale(line: Dictionary) -> void:
+func _finish_sale(line: Dictionary) -> Dictionary:
 	var destination_id: String = str(line.get("destination_id", ""))
 	var resource_id: String = str(line.get("resource_id", ""))
 	var quantity: int = int(line.get("quantity", 0))
 	_set_demand(destination_id, resource_id, maxi(0, _get_demand(destination_id, resource_id) - quantity))
 	line["cycles"] = int(line.get("cycles", 0)) + 1
 	line["earned"] = float(line.get("earned", 0.0)) + _sale_price(destination_id, resource_id) * quantity
+	return line
 
 func _ship_arrived(line: Dictionary, port_id: String) -> bool:
 	var ship: Dictionary = _get_ship(str(line.get("ship_id", "")))
