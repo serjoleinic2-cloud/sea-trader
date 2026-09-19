@@ -11,9 +11,8 @@ func _ready() -> void:
 
 func initialize(fleet_system: Node) -> void:
 	_fleet_system = fleet_system
-	var catalog: Dictionary = SaveSystem._read_json("res://data/ships/ship_build_recipes.json")
-	_recipes = catalog.get("recipes", {})
-	var goods_catalog: Dictionary = SaveSystem._read_json("res://data/resources/goods_catalog.json")
+	_recipes = GameData.get_ship_recipes()
+	var goods_catalog: Dictionary = GameData.read("res://data/resources/goods_catalog.json")
 	for raw_good in goods_catalog.get("resources", []):
 		var good: Dictionary = raw_good
 		_goods[str(good.get("id", ""))] = str(good.get("display_name", ""))

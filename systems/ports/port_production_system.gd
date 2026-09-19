@@ -7,7 +7,7 @@ var _elapsed: float = 0.0
 var _recipes: Array = []
 
 func _ready() -> void:
-	var config: Dictionary = SaveSystem._read_json("res://data/ports/production_recipes.json")
+	var config: Dictionary = GameData.read("res://data/ports/production_recipes.json")
 	_cycle_seconds = float(config.get("cycle_seconds", 10.0))
 	_recipes = config.get("recipes", [])
 	EventBus.building_activated.connect(_on_building_activated)

@@ -1,0 +1,354 @@
+{
+  "version": 1,
+  "modules": [
+    {
+      "id": "RewardSystem",
+      "script": "res://systems/rewards/reward_system.gd"
+    },
+    {
+      "id": "PortSystem",
+      "script": "res://systems/ports/port_system.gd",
+      "bind": "_port_system",
+      "initialize": "initialize",
+      "args": [
+        "$ship",
+        "$ports"
+      ]
+    },
+    {
+      "id": "ActiveRouteAutopilot",
+      "script": "res://systems/navigation/active_route_autopilot.gd",
+      "bind": "_active_route_autopilot",
+      "initialize": "initialize",
+      "args": [
+        "$ship",
+        "PortSystem"
+      ]
+    },
+    {
+      "id": "MarketDistributionSystem",
+      "script": "res://systems/economy/market_distribution_system.gd",
+      "bind": "_market_distribution_system",
+      "initialize": "initialize",
+      "args": [
+        "PortSystem"
+      ]
+    },
+    {
+      "id": "CareerSystem",
+      "script": "res://systems/progression/career_system.gd",
+      "bind": "_career_system"
+    },
+    {
+      "id": "FleetSystem",
+      "script": "res://systems/fleet/fleet_system.gd",
+      "bind": "_fleet_system",
+      "initialize": "initialize",
+      "args": [
+        "PortSystem"
+      ]
+    },
+    {
+      "id": "TradeLineSystem",
+      "script": "res://systems/economy/trade_line_system.gd",
+      "bind": "_trade_line_system",
+      "initialize": "initialize",
+      "args": [
+        "PortSystem",
+        "FleetSystem"
+      ]
+    },
+    {
+      "id": "CargoTransferSystem",
+      "script": "res://systems/economy/cargo_transfer_system.gd",
+      "initialize": "initialize",
+      "args": [
+        "TradeLineSystem"
+      ]
+    },
+    {
+      "id": "BuildingProjectSystem",
+      "script": "res://systems/buildings/building_project_system.gd",
+      "bind": "_building_project_system",
+      "initialize": "initialize",
+      "args": []
+    },
+    {
+      "id": "PortProductionSystem",
+      "script": "res://systems/ports/port_production_system.gd",
+      "bind": "_port_production_system"
+    },
+    {
+      "id": "MerchantVisitSystem",
+      "script": "res://systems/economy/merchant_visit_system.gd",
+      "bind": "_merchant_visit_system"
+    },
+    {
+      "id": "SupplyOrderSystem",
+      "script": "res://systems/economy/supply_order_system.gd",
+      "bind": "_supply_order_system",
+      "initialize": "initialize",
+      "args": [
+        "PortSystem"
+      ]
+    },
+    {
+      "id": "PortServiceSystem",
+      "script": "res://systems/ports/port_service_system.gd",
+      "bind": "_port_service_system",
+      "initialize": "initialize",
+      "args": [
+        "PortSystem"
+      ]
+    },
+    {
+      "id": "WorldEventSystem",
+      "script": "res://systems/events/world_event_system.gd",
+      "bind": "_world_event_system"
+    },
+    {
+      "id": "WorkHireSystem",
+      "script": "res://systems/contracts/work_hire_system.gd",
+      "bind": "_work_hire_system",
+      "initialize": "initialize",
+      "args": [
+        "PortSystem"
+      ]
+    },
+    {
+      "id": "LogisticsSystem",
+      "script": "res://systems/economy/logistics_system.gd",
+      "bind": "_logistics_system",
+      "initialize": "initialize",
+      "args": [
+        "PortSystem"
+      ]
+    },
+    {
+      "id": "HiringSystem",
+      "script": "res://systems/employees/hiring_system.gd",
+      "bind": "_hiring_system",
+      "initialize": "initialize",
+      "args": [
+        "PortSystem"
+      ]
+    },
+    {
+      "id": "ShipyardSystem",
+      "script": "res://systems/shipyard/shipyard_system.gd",
+      "bind": "_shipyard_system",
+      "initialize": "initialize",
+      "args": [
+        "FleetSystem"
+      ]
+    },
+    {
+      "id": "ShipStatusHUD",
+      "script": "res://systems/ui/ship_status_hud.gd",
+      "bind": "_ship_status_hud",
+      "initialize": "initialize",
+      "args": [
+        "PortSystem"
+      ]
+    },
+    {
+      "id": "CaptainCabinet",
+      "script": "res://systems/ui/captain_cabinet.gd",
+      "bind": "_captain_cabinet",
+      "initialize": "initialize",
+      "args": [
+        "PortSystem"
+      ],
+      "workspace_flag": "_open",
+      "navigation": {
+        "label": "Капитан",
+        "method": "",
+        "order": 40
+      }
+    },
+    {
+      "id": "MapStatusHUD",
+      "script": "res://systems/ui/map_status_hud.gd",
+      "bind": "_map_status_hud",
+      "initialize": "initialize",
+      "args": [
+        "PortSystem"
+      ]
+    },
+    {
+      "id": "PortWindow",
+      "script": "res://systems/ui/port_window.gd",
+      "bind": "_port_window",
+      "initialize": "initialize",
+      "args": [
+        "PortSystem",
+        "CargoTransferSystem"
+      ]
+    },
+    {
+      "id": "BuildingProjectWindow",
+      "script": "res://systems/ui/building_project_window.gd",
+      "bind": "_building_project_window",
+      "initialize": "initialize",
+      "args": [
+        "BuildingProjectSystem"
+      ],
+      "workspace_flag": "_is_open"
+    },
+    {
+      "id": "MerchantOfferHUD",
+      "script": "res://systems/ui/merchant_offer_hud.gd",
+      "bind": "_merchant_offer_hud",
+      "initialize": "initialize",
+      "args": [
+        "MerchantVisitSystem"
+      ],
+      "workspace_flag": "_is_open"
+    },
+    {
+      "id": "SupplyOrderWindow",
+      "script": "res://systems/ui/supply_order_window.gd",
+      "bind": "_supply_order_window",
+      "initialize": "initialize",
+      "args": [
+        "SupplyOrderSystem"
+      ],
+      "workspace_flag": "_open"
+    },
+    {
+      "id": "PortServiceWindow",
+      "script": "res://systems/ui/port_service_window.gd",
+      "bind": "_port_service_window",
+      "initialize": "initialize",
+      "args": [
+        "PortServiceSystem"
+      ],
+      "workspace_flag": "_open"
+    },
+    {
+      "id": "WorldEventHUD",
+      "script": "res://systems/ui/world_event_hud.gd",
+      "bind": "_world_event_hud",
+      "initialize": "initialize",
+      "args": [
+        "WorldEventSystem"
+      ]
+    },
+    {
+      "id": "WorkHireWindow",
+      "script": "res://systems/ui/work_hire_window.gd",
+      "bind": "_work_hire_window",
+      "initialize": "initialize",
+      "args": [
+        "WorkHireSystem"
+      ],
+      "workspace_flag": "_open"
+    },
+    {
+      "id": "LogisticsWindow",
+      "script": "res://systems/ui/logistics_window.gd",
+      "bind": "_logistics_window",
+      "initialize": "initialize",
+      "args": [
+        "LogisticsSystem"
+      ],
+      "workspace_flag": "_open",
+      "navigation": {
+        "label": "Рейсы",
+        "method": "open",
+        "order": 30
+      }
+    },
+    {
+      "id": "NavigationHUD",
+      "script": "res://systems/ui/navigation_hud.gd",
+      "bind": "_navigation_hud",
+      "initialize": "initialize",
+      "args": [
+        "PortSystem"
+      ],
+      "workspace_flag": "_is_open",
+      "navigation": {
+        "label": "Карта",
+        "method": "_toggle_panel",
+        "order": 10
+      }
+    },
+    {
+      "id": "HiringWindow",
+      "script": "res://systems/ui/hiring_window.gd",
+      "bind": "_hiring_window",
+      "initialize": "initialize",
+      "args": [
+        "HiringSystem"
+      ],
+      "workspace_flag": "_is_open"
+    },
+    {
+      "id": "CrewWindow",
+      "script": "res://systems/ui/crew_window.gd",
+      "bind": "_crew_window",
+      "workspace_flag": "_is_open"
+    },
+    {
+      "id": "TradeLineWindow",
+      "script": "res://systems/ui/trade_line_window.gd",
+      "bind": "_trade_line_window",
+      "initialize": "initialize",
+      "args": [
+        "TradeLineSystem"
+      ],
+      "workspace_flag": "_open"
+    },
+    {
+      "id": "FleetWindow",
+      "script": "res://systems/ui/fleet_window.gd",
+      "bind": "_fleet_window",
+      "initialize": "initialize",
+      "args": [
+        "FleetSystem"
+      ],
+      "workspace_flag": "_is_open",
+      "navigation": {
+        "label": "Флот",
+        "method": "_toggle",
+        "order": 20
+      }
+    },
+    {
+      "id": "ShipyardWindow",
+      "script": "res://systems/ui/shipyard_window.gd",
+      "bind": "_shipyard_window",
+      "initialize": "initialize",
+      "args": [
+        "ShipyardSystem"
+      ],
+      "workspace_flag": "_is_open"
+    },
+    {
+      "id": "ChallengeSystem",
+      "script": "res://systems/challenges/challenge_system.gd",
+      "initialize": "initialize",
+      "args": [
+        "PortSystem",
+        "CareerSystem",
+        "RewardSystem"
+      ]
+    },
+    {
+      "id": "ChallengeWindow",
+      "script": "res://systems/ui/challenge_window.gd",
+      "initialize": "initialize",
+      "args": [
+        "ChallengeSystem",
+        "RewardSystem"
+      ],
+      "workspace_flag": "_open",
+      "navigation": {
+        "label": "Челленджи",
+        "method": "open",
+        "order": 50
+      }
+    }
+  ]
+}

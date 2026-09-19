@@ -32,15 +32,8 @@ func setup(sensor: Node, control: Node) -> void:
 
 
 func _load_kb_config() -> void:
-	var path: String = "res://data/input/input_config.json"
-	var f: FileAccess = FileAccess.open(path, FileAccess.READ)
-	if f == null:
-		return
-	var parsed: Variant = JSON.parse_string(f.get_as_text())
-	f.close()
-	if parsed is Dictionary:
-		var kb: Dictionary = parsed.get("debug_keyboard", {})
-		_kb_ramp_speed = float(kb.get("ramp_speed", _kb_ramp_speed))
+	var config: Dictionary = GameData.read("res://data/input/input_config.json")
+	_kb_ramp_speed = float(config.get("debug_keyboard", {}).get("ramp_speed", _kb_ramp_speed))
 
 
 func _physics_process(delta: float) -> void:

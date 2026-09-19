@@ -5,7 +5,6 @@ extends Node2D
 ## Owns Camera2D follow and debug HUD.
 ## See ARCHITECTURE.md Phase 03.
 
-const SHIP_DATA_PATH: String = "res://data/ships/ship_sloop.json"
 
 # Child nodes (assigned in _ready from scene tree)
 @onready var _sprite: Polygon2D = $ShipVisual
@@ -52,16 +51,12 @@ func get_navigation_speed(cruise_speed: float = 110.0) -> float:
 # ============================================================================
 
 func _load_ship_data() -> void:
-	var file: FileAccess = FileAccess.open(SHIP_DATA_PATH, FileAccess.READ)
-	if file == null:
-		push_error("Ship: Cannot open " + SHIP_DATA_PATH)
-		return
-	var parsed: Variant = JSON.parse_string(file.get_as_text())
-	file.close()
-	if parsed is Dictionary:
-		_ship_data = parsed
-	else:
-		push_error("Ship: Invalid JSON in " + SHIP_DATA_PATH)
+	var ship_id: String = str(GameState.ship_state.get("ship_id", ""))
+	if ship_id == "":
+		ship_id = GameData.get_starter_ship_id()
+	_ship_data = GameData.get_ship(ship_id)
+	if _ship_data.is_empty():
+		push_error("Ship: unknown saved ship ID " + ship_id)
 
 
 func _init_systems() -> void:

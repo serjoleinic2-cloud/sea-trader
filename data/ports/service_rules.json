@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "fuel_per_oil": 5.0,
+  "hull_per_parts": 10.0,
+  "price_per_fuel": 5.0,
+  "price_per_hull": 6.0,
+  "workshop_discount_per_level": 0.05,
+  "minimum_price_factor": 0.55
+}

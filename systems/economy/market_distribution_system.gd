@@ -11,7 +11,7 @@ func _ready() -> void:
 
 func initialize(port_system: Node) -> void:
 	_port_system = port_system
-	var catalog: Dictionary = SaveSystem._read_json("res://data/resources/goods_catalog.json")
+	var catalog: Dictionary = GameData.read("res://data/resources/goods_catalog.json")
 	var raw_goods: Variant = catalog.get("resources", [])
 	if raw_goods is Array:
 		_goods = raw_goods

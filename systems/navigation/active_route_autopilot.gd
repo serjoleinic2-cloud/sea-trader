@@ -18,8 +18,8 @@ func _ready() -> void:
 func initialize(ship: Node2D, port_system: Node) -> void:
 	_ship = ship
 	_port_system = port_system
-	_rules = SaveSystem._read_json("res://data/economy/logistics_rules.json")
-	for good in SaveSystem._read_json("res://data/resources/goods_catalog.json").get("resources", []):
+	_rules = GameData.read("res://data/economy/logistics_rules.json")
+	for good in GameData.read("res://data/resources/goods_catalog.json").get("resources", []):
 		_goods[str(good.get("id", ""))] = str(good.get("display_name", ""))
 	if bool(GameState.voyage_state.get("active_autopilot", false)):
 		_destination_port_id = str(GameState.voyage_state.get("autopilot_destination_id", GameState.world_state.get("destination_port_id", "")))
@@ -135,68 +135,23 @@ func _physics_process(delta: float) -> void:
 func _resolve_cargo_operation() -> String:
 	if _cargo_resource_id == "" or _cargo_quantity <= 0:
 		return "Грузовая операция не назначена."
-	var available: int = _get_cargo_quantity(_cargo_resource_id)
-	var amount: int = mini(available, _cargo_quantity)
-	if amount <= 0:
-		return "В трюме нет назначенного товара; продажа не выполнена."
-	var home_port_id: String = str(GameState.world_state.get("home_port_id", ""))
-	if _destination_port_id == home_port_id:
-		_remove_cargo(_cargo_resource_id, amount)
-		var port: Dictionary = GameState.port_state.get(home_port_id, {})
-		var inventory: Dictionary = port.get("inventory", {})
-		inventory[_cargo_resource_id] = int(inventory.get(_cargo_resource_id, 0)) + amount
-		port["inventory"] = inventory
-		GameState.port_state[home_port_id] = port
-		var stats: Dictionary = GameState.player_state.get("stats", {})
-		var credit: int = mini(amount, int(GameState.ship_state.get("delivery_credit_remaining", 0)))
-		GameState.ship_state["delivery_credit_remaining"] = int(GameState.ship_state.get("delivery_credit_remaining", 0)) - credit
-		stats["cargo_units_moved"] = int(stats.get("cargo_units_moved", 0)) + credit
-		GameState.player_state["stats"] = stats
-		EventBus.cargo_delivered.emit(_cargo_resource_id, amount)
-		return "На склад: %s × %d." % [str(_goods.get(_cargo_resource_id, _cargo_resource_id)), amount]
-	var systems: Array[Node] = get_tree().get_nodes_in_group("trade_line_system")
+	var systems: Array[Node] = get_tree().get_nodes_in_group("cargo_transfer_system")
 	if systems.is_empty():
-		return "Рынок назначения недоступен; груз остался в трюме."
-	var sale: Dictionary = systems[0].try_sell_to_port(_destination_port_id, _cargo_resource_id, amount)
-	if not bool(sale.get("ok", false)):
-		return "Автопродажа не выполнена: " + str(sale.get("message", "нет спроса."))
-	_remove_cargo(_cargo_resource_id, amount)
-	var revenue: float = float(sale.get("revenue", 0.0))
-	GameState.player_state["money"] = float(GameState.player_state.get("money", 0.0)) + revenue
-	var stats: Dictionary = GameState.player_state.get("stats", {})
-	stats["total_sales"] = int(stats.get("total_sales", 0)) + amount
-	stats["total_earned"] = float(stats.get("total_earned", 0.0)) + revenue
-	GameState.player_state["stats"] = stats
-	EventBus.cargo_delivered.emit(_cargo_resource_id, amount)
-	return "Продано: %s × %d, получено %.0f." % [str(_goods.get(_cargo_resource_id, _cargo_resource_id)), amount, revenue]
+		return "Система груза недоступна; товар остался в трюме."
+	var action: String = "unload" if _destination_port_id == str(GameState.world_state.get("home_port_id", "")) else "sell"
+	var result: Dictionary = systems[0].execute(action, _cargo_resource_id, _cargo_quantity)
+	return str(result.get("message", ""))
 
 func _get_cargo_quantity(resource_id: String) -> int:
 	var raw_cargo: Variant = GameState.ship_state.get("cargo", [])
 	if not (raw_cargo is Array):
 		return 0
+	var total: int = 0
 	for raw_item in raw_cargo:
 		var item: Dictionary = raw_item
 		if str(item.get("resource_id", "")) == resource_id:
-			return int(item.get("quantity", 0))
-	return 0
-
-func _remove_cargo(resource_id: String, amount: int) -> void:
-	var raw_cargo: Variant = GameState.ship_state.get("cargo", [])
-	if not (raw_cargo is Array):
-		return
-	var cargo: Array = raw_cargo
-	for index in range(cargo.size()):
-		var item: Dictionary = cargo[index]
-		if str(item.get("resource_id", "")) != resource_id:
-			continue
-		var remaining: int = int(item.get("quantity", 0)) - amount
-		if remaining <= 0:
-			cargo.remove_at(index)
-		else:
-			item["quantity"] = remaining
-			cargo[index] = item
-		break
-	GameState.ship_state["cargo"] = cargo
+			total += int(item.get("quantity", 0))
+	return total
 
 func _stop(message: String) -> void:
 	_active = false

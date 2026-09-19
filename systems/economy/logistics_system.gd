@@ -7,7 +7,7 @@ var _goods: Array = []
 
 func initialize(port_system: Node) -> void:
 	_port_system = port_system
-	var catalog: Dictionary = SaveSystem._read_json("res://data/resources/goods_catalog.json")
+	var catalog: Dictionary = GameData.read("res://data/resources/goods_catalog.json")
 	var raw_goods: Variant = catalog.get("resources", [])
 	if raw_goods is Array:
 		_goods = raw_goods
@@ -79,10 +79,11 @@ func evaluate(ship_id: String, origin_port_id: String, destination_port_id: Stri
 		if not systems.is_empty():
 			fuel_needed = systems[0].fuel_needed(destination_port_id)
 			ready = systems[0].validate_start(destination_port_id, resource_id, quantity)
-	var fuel_cost: float = fuel_needed * 5.0
-	var repair_reserve: float = ceil(distance / 1500.0) * 6.0
+	var services: Dictionary = GameData.read("res://data/ports/service_rules.json")
+	var fuel_cost: float = fuel_needed * float(services.get("price_per_fuel", 5.0))
+	var repair_reserve: float = ceil(distance / 1500.0) * float(services.get("price_per_hull", 6.0))
 	if ship_id != "active_ship":
-		var rules: Dictionary = SaveSystem._read_json("res://data/economy/logistics_rules.json")
+		var rules: Dictionary = GameData.read("res://data/economy/logistics_rules.json")
 		fuel_cost = float(rules.get("fleet_leg_service_cost", 12.0))
 		repair_reserve = 0.0
 	var gross: float = (sell_price - buy_price) * amount
@@ -148,26 +149,10 @@ func _get_buy_price(port_id: String, resource_id: String) -> float:
 	if port_id == str(GameState.world_state.get("home_port_id", "")):
 		return 0.0
 	var markets: Array[Node] = get_tree().get_nodes_in_group("trade_line_system")
-	if not markets.is_empty():
-		return markets[0].get_buy_price(port_id, resource_id)
-	var port: Dictionary = GameState.port_state.get(port_id, {})
-	var multipliers: Dictionary = port.get("price_multipliers", {})
-	return round(_get_base_price(resource_id) * 1.20 * float(multipliers.get(resource_id, 1.0)))
+	return float(markets[0].get_buy_price(port_id, resource_id)) if not markets.is_empty() else 0.0
 
 func _get_sell_price(port_id: String, resource_id: String) -> float:
 	if port_id == str(GameState.world_state.get("home_port_id", "")):
 		return 0.0
 	var markets: Array[Node] = get_tree().get_nodes_in_group("trade_line_system")
-	if not markets.is_empty():
-		return markets[0].get_sell_price(port_id, resource_id)
-	var port: Dictionary = GameState.port_state.get(port_id, {})
-	var multipliers: Dictionary = port.get("price_multipliers", {})
-	var demand: float = 2.0 - float(multipliers.get(resource_id, 1.0))
-	return round(_get_base_price(resource_id) * 1.25 * demand)
-
-func _get_base_price(resource_id: String) -> float:
-	for raw_good in _goods:
-		var good: Dictionary = raw_good
-		if str(good.get("id", "")) == resource_id:
-			return float(good.get("base_price", 0.0))
-	return 0.0
+	return float(markets[0].get_sell_price(port_id, resource_id)) if not markets.is_empty() else 0.0

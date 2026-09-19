@@ -1,0 +1,7 @@
+.godot/
+build/
+dist/
+*.apk
+*.aab
+*.log
+

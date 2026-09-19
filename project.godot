@@ -25,6 +25,7 @@ boot_splash/bg_color=Color(0.141176, 0.141176, 0.141176, 1)
 GameState="*res://autoloads/game_state.gd"
 EventBus="*res://autoloads/event_bus.gd"
 SaveSystem="*res://autoloads/save_system.gd"
+GameData="*res://autoloads/game_data.gd"
 
 [display]
 

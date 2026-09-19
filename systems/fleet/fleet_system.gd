@@ -12,15 +12,13 @@ func _ready() -> void:
 
 func initialize(port_system: Node) -> void:
 	_port_system = port_system
-	var catalog: Dictionary = SaveSystem._read_json("res://data/ships/fleet_catalog.json")
-	var raw_types: Variant = catalog.get("ship_types", [])
+	var raw_types: Variant = GameData.get_ships()
 	if raw_types is Array:
 		for raw_type in raw_types:
 			var ship_type: Dictionary = raw_type
 			_ship_types[str(ship_type.get("id", ""))] = ship_type
-	var crew_config: Dictionary = SaveSystem._read_json("res://data/ships/crew_requirements.json")
-	_requirements = crew_config.get("requirements", {})
-	var goods_catalog: Dictionary = SaveSystem._read_json("res://data/resources/goods_catalog.json")
+	_requirements = GameData.get_crew_requirements()
+	var goods_catalog: Dictionary = GameData.read("res://data/resources/goods_catalog.json")
 	for raw_good in goods_catalog.get("resources", []):
 		var good: Dictionary = raw_good
 		_goods_prices[str(good.get("id", ""))] = float(good.get("base_price", 0.0))
@@ -129,7 +127,7 @@ func start_autopilot(ship_id: String, route_key: String, freight_plan: Dictionar
 		return {"ok": false, "message": "Не хватает экипажа для выхода в море."}
 	if not _ship_has_captain(crew):
 		return {"ok": false, "message": "Для автопилота нужен капитан в экипаже."}
-	var duration: float = maxf(45.0, float(route.get("distance", 0.0)) / 120.0)
+	var duration: float = maxf(45.0, float(route.get("distance", 0.0)) / maxf(1.0, float(get_ship_type(str(ship.get("ship_type_id", ""))).get("base_speed", 120.0))))
 	var freight: Dictionary = freight_plan if not freight_plan.is_empty() else _make_freight_contract(current_port_id, destination_port_id, int(ship.get("cargo_capacity", 0)))
 	ship.erase("trade_receipt")
 	ship["cargo"] = [{"resource_id": str(freight.get("resource_id", "")), "quantity": int(freight.get("quantity", 0))}] if int(freight.get("quantity", 0)) > 0 else []

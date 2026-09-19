@@ -53,10 +53,9 @@ func _ready() -> void:
 	close_button.custom_minimum_size.y = 40
 	close_button.pressed.connect(_close)
 	box.add_child(close_button)
-	var hiring: Dictionary = SaveSystem._read_json("res://data/employees/hiring_rules.json")
+	var hiring: Dictionary = GameData.read("res://data/employees/hiring_rules.json")
 	_stat_labels = hiring.get("stat_labels", {})
-	var crew_config: Dictionary = SaveSystem._read_json("res://data/ships/crew_requirements.json")
-	_requirements = crew_config.get("requirements", {})
+	_requirements = GameData.get_crew_requirements()
 	_panel.hide()
 
 func _process(_delta: float) -> void:

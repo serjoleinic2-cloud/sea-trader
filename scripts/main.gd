@@ -1,10 +1,7 @@
 extends Node2D
 
 ## Main game scene root.
-## Phase 01: Verifies autoloads.
-## Phase 02: World generation and rendering.
-## Phase 03: Ship spawn, Camera2D follows ship (Camera lives inside Ship scene).
-## Phase 05: PortSystem discovery + PortDebugHUD.
+## Owns world identity and scene lifecycle. Modules are declared in data/config/game_modules.json.
 
 @onready var _world: Node2D = $World
 @onready var _world_renderer: Node2D = $World/WorldRenderer
@@ -16,6 +13,7 @@ var _world_data: Dictionary = {}
 var _is_new_game: bool = false
 var _world_ready: bool = false
 var startup_error: String = ""
+var _modules: RefCounted = preload("res://core/module_loader.gd").new()
 
 const CAMERA_ZOOM_STEP: float = 0.08
 const CAMERA_ZOOM_MIN: float = 0.15
@@ -58,43 +56,34 @@ var _shipyard_window: CanvasLayer = null
 
 
 func _ready() -> void:
-	print("Sea Trader — Phase 05 World Rendering + Ports")
+	print("Sea Trader — modular runtime")
 	assert(GameState != null, "GameState autoload missing")
 	assert(EventBus != null, "EventBus autoload missing")
 	assert(SaveSystem != null, "SaveSystem autoload missing")
 	print("All autoloads verified.")
 
 	get_tree().auto_accept_quit = false
+	var config_errors: Array[String] = GameData.validate()
+	if not config_errors.is_empty():
+		_show_startup_error("Ошибка конфигурации:\n" + "\n".join(config_errors))
+		return
+	var manifest: Dictionary = GameData.read("res://data/config/game_modules.json")
+	if not manifest.get("modules") is Array or manifest.modules.is_empty():
+		_show_startup_error("Пустой или неверный список модулей.")
+		return
+	var prepared: Dictionary = _modules.prepare(manifest.modules)
+	if not bool(prepared.get("ok", false)):
+		_show_startup_error(str(prepared.get("message", "")))
+		return
 	if not _initialize_world():
-		var error_label := Label.new()
-		error_label.text = startup_error + "\nSave files were not changed."
-		add_child(error_label)
+		_show_startup_error(startup_error)
+		return
+	var saved_ship_id: String = str(GameState.ship_state.get("ship_id", ""))
+	if saved_ship_id != "" and GameData.get_ship(saved_ship_id).is_empty():
+		_show_startup_error("В каталоге нет сохранённого корабля: " + saved_ship_id)
 		return
 	_spawn_ship()
-	_initialize_port_systems()  # Phase 05
-	_initialize_active_route_autopilot()
-	_initialize_market_distribution()
-	_initialize_ship_status_hud()
-	_initialize_captain_cabinet()
-	_initialize_map_status_hud()
-	_initialize_port_window()
-	_initialize_building_projects()
-	_initialize_port_production_system()
-	_initialize_merchant_visit_system()
-	_initialize_merchant_offer_hud()
-	_initialize_supply_orders()
-	_initialize_port_services()
-	_initialize_world_events()
-	_initialize_work_hire()
-	_initialize_logistics()
-	_initialize_navigation_hud()
-	_initialize_career_system()
-	_initialize_hiring_system()
-	_initialize_crew_window()
-	_initialize_fleet_system()
-	_initialize_trade_lines()
-	_initialize_fleet_window()
-	_initialize_shipyard()
+	_modules.start(self, {"$ship": _ship, "$ports": _world_data.ports, "$main": self})
 	var window_coordinator: Node = load("res://systems/ui/window_coordinator.gd").new()
 	window_coordinator.name = "WindowCoordinator"
 	add_child(window_coordinator)
@@ -192,212 +181,16 @@ func _spawn_ship() -> void:
 	print("Ship spawned at: %s" % str(GameState.ship_state.get("position", Vector2.ZERO)))
 
 
-# ============================================================================
-# Phase 05: PortSystem + PortDebugHUD
-# ============================================================================
+func get_module(module_id: String) -> Node:
+	return _modules.services.get(module_id)
 
-func _initialize_port_systems() -> void:
-	# PortSystem
-	_port_system = get_node_or_null("PortSystem")
-	if _port_system == null:
-		_port_system = load("res://systems/ports/port_system.gd").new()
-		_port_system.name = "PortSystem"
-		add_child(_port_system)
-
-	if _ship != null:
-		_port_system.initialize(_ship, _world_data.ports)
-	else:
-		push_warning("main.gd: _ship is null, PortSystem cannot track position")
-
-	print("Phase 05: PortSystem initialized")
-
-
-func _initialize_active_route_autopilot() -> void:
-	_active_route_autopilot = load("res://systems/navigation/active_route_autopilot.gd").new()
-	_active_route_autopilot.name = "ActiveRouteAutopilot"
-	add_child(_active_route_autopilot)
-	_active_route_autopilot.initialize(_ship, _port_system)
-
-
-func _initialize_market_distribution() -> void:
-	_market_distribution_system = load("res://systems/economy/market_distribution_system.gd").new()
-	_market_distribution_system.name = "MarketDistributionSystem"
-	add_child(_market_distribution_system)
-	_market_distribution_system.initialize(_port_system)
-
-func _initialize_ship_status_hud() -> void:
-	_ship_status_hud = get_node_or_null("ShipStatusHUD")
-	if _ship_status_hud == null:
-		_ship_status_hud = load("res://systems/ui/ship_status_hud.gd").new()
-		_ship_status_hud.name = "ShipStatusHUD"
-		add_child(_ship_status_hud)
-
-	_ship_status_hud.initialize(_port_system)
-
-
-func _initialize_captain_cabinet() -> void:
-	_captain_cabinet = load("res://systems/ui/captain_cabinet.gd").new()
-	_captain_cabinet.name = "CaptainCabinet"
-	add_child(_captain_cabinet)
-	_captain_cabinet.initialize(_port_system)
-
-
-func _initialize_map_status_hud() -> void:
-	_map_status_hud = load("res://systems/ui/map_status_hud.gd").new()
-	_map_status_hud.name = "MapStatusHUD"
-	add_child(_map_status_hud)
-	_map_status_hud.initialize(_port_system)
-
-
-func _initialize_port_window() -> void:
-	_port_window = load("res://systems/ui/port_window.gd").new()
-	_port_window.name = "PortWindow"
-	add_child(_port_window)
-	_port_window.initialize(_port_system)
-
-
-func _initialize_building_projects() -> void:
-	_building_project_system = load("res://systems/buildings/building_project_system.gd").new()
-	_building_project_system.name = "BuildingProjectSystem"
-	add_child(_building_project_system)
-	_building_project_system.initialize()
-	_building_project_window = load("res://systems/ui/building_project_window.gd").new()
-	_building_project_window.name = "BuildingProjectWindow"
-	add_child(_building_project_window)
-	_building_project_window.initialize(_building_project_system)
-
-func _initialize_port_production_system() -> void:
-	_port_production_system = load("res://systems/ports/port_production_system.gd").new()
-	_port_production_system.name = "PortProductionSystem"
-	add_child(_port_production_system)
-
-
-func _initialize_merchant_visit_system() -> void:
-	_merchant_visit_system = load("res://systems/economy/merchant_visit_system.gd").new()
-	_merchant_visit_system.name = "MerchantVisitSystem"
-	add_child(_merchant_visit_system)
-
-func _initialize_merchant_offer_hud() -> void:
-	_merchant_offer_hud = load("res://systems/ui/merchant_offer_hud.gd").new()
-	_merchant_offer_hud.name = "MerchantOfferHUD"
-	add_child(_merchant_offer_hud)
-	_merchant_offer_hud.initialize(_merchant_visit_system)
-
-
-func _initialize_supply_orders() -> void:
-	_supply_order_system = load("res://systems/economy/supply_order_system.gd").new()
-	_supply_order_system.name = "SupplyOrderSystem"
-	add_child(_supply_order_system)
-	_supply_order_system.initialize(_port_system)
-	_supply_order_window = load("res://systems/ui/supply_order_window.gd").new()
-	_supply_order_window.name = "SupplyOrderWindow"
-	add_child(_supply_order_window)
-	_supply_order_window.initialize(_supply_order_system)
-
-
-func _initialize_port_services() -> void:
-	_port_service_system = load("res://systems/ports/port_service_system.gd").new()
-	_port_service_system.name = "PortServiceSystem"
-	add_child(_port_service_system)
-	_port_service_system.initialize(_port_system)
-	_port_service_window = load("res://systems/ui/port_service_window.gd").new()
-	_port_service_window.name = "PortServiceWindow"
-	add_child(_port_service_window)
-	_port_service_window.initialize(_port_service_system)
-
-
-func _initialize_world_events() -> void:
-	_world_event_system = load("res://systems/events/world_event_system.gd").new()
-	_world_event_system.name = "WorldEventSystem"
-	add_child(_world_event_system)
-	_world_event_hud = load("res://systems/ui/world_event_hud.gd").new()
-	_world_event_hud.name = "WorldEventHUD"
-	add_child(_world_event_hud)
-	_world_event_hud.initialize(_world_event_system)
-
-
-func _initialize_work_hire() -> void:
-	_work_hire_system = load("res://systems/contracts/work_hire_system.gd").new()
-	_work_hire_system.name = "WorkHireSystem"
-	add_child(_work_hire_system)
-	_work_hire_system.initialize(_port_system)
-	_work_hire_window = load("res://systems/ui/work_hire_window.gd").new()
-	_work_hire_window.name = "WorkHireWindow"
-	add_child(_work_hire_window)
-	_work_hire_window.initialize(_work_hire_system)
-
-
-func _initialize_logistics() -> void:
-	_logistics_system = load("res://systems/economy/logistics_system.gd").new()
-	_logistics_system.name = "LogisticsSystem"
-	add_child(_logistics_system)
-	_logistics_system.initialize(_port_system)
-	_logistics_window = load("res://systems/ui/logistics_window.gd").new()
-	_logistics_window.name = "LogisticsWindow"
-	add_child(_logistics_window)
-	_logistics_window.initialize(_logistics_system)
-
-
-func _initialize_navigation_hud() -> void:
-	_navigation_hud = load("res://systems/ui/navigation_hud.gd").new()
-	_navigation_hud.name = "NavigationHUD"
-	add_child(_navigation_hud)
-	_navigation_hud.initialize(_port_system)
-
-
-func _initialize_career_system() -> void:
-	_career_system = load("res://systems/progression/career_system.gd").new()
-	_career_system.name = "CareerSystem"
-	add_child(_career_system)
-
-func _initialize_hiring_system() -> void:
-	_hiring_system = load("res://systems/employees/hiring_system.gd").new()
-	_hiring_system.name = "HiringSystem"
-	add_child(_hiring_system)
-	_hiring_system.initialize(_port_system)
-	_hiring_window = load("res://systems/ui/hiring_window.gd").new()
-	_hiring_window.name = "HiringWindow"
-	add_child(_hiring_window)
-	_hiring_window.initialize(_hiring_system)
-
-
-func _initialize_crew_window() -> void:
-	_crew_window = load("res://systems/ui/crew_window.gd").new()
-	_crew_window.name = "CrewWindow"
-	add_child(_crew_window)
-
-func _initialize_fleet_system() -> void:
-	_fleet_system = load("res://systems/fleet/fleet_system.gd").new()
-	_fleet_system.name = "FleetSystem"
-	add_child(_fleet_system)
-	_fleet_system.initialize(_port_system)
-
-func _initialize_trade_lines() -> void:
-	_trade_line_system = load("res://systems/economy/trade_line_system.gd").new()
-	_trade_line_system.name = "TradeLineSystem"
-	add_child(_trade_line_system)
-	_trade_line_system.initialize(_port_system, _fleet_system)
-	_trade_line_window = load("res://systems/ui/trade_line_window.gd").new()
-	_trade_line_window.name = "TradeLineWindow"
-	add_child(_trade_line_window)
-	_trade_line_window.initialize(_trade_line_system)
-
-
-func _initialize_fleet_window() -> void:
-	_fleet_window = load("res://systems/ui/fleet_window.gd").new()
-	_fleet_window.name = "FleetWindow"
-	add_child(_fleet_window)
-	_fleet_window.initialize(_fleet_system)
-
-func _initialize_shipyard() -> void:
-	_shipyard_system = load("res://systems/shipyard/shipyard_system.gd").new()
-	_shipyard_system.name = "ShipyardSystem"
-	add_child(_shipyard_system)
-	_shipyard_system.initialize(_fleet_system)
-	_shipyard_window = load("res://systems/ui/shipyard_window.gd").new()
-	_shipyard_window.name = "ShipyardWindow"
-	add_child(_shipyard_window)
-	_shipyard_window.initialize(_shipyard_system)
+func _show_startup_error(message: String) -> void:
+	startup_error = message
+	var label: Label = Label.new()
+	label.text = message + "\nСохранения не изменены."
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	label.size = Vector2(900, 600)
+	add_child(label)
 
 
 # ============================================================================
@@ -417,6 +210,8 @@ func _input(event: InputEvent) -> void:
 				_zoom_ship_camera(-CAMERA_ZOOM_STEP)
 
 	if event is InputEventMouseButton and event.pressed:
+		if get_viewport().gui_get_hovered_control() != null:
+			return # Let scroll containers consume wheel input over UI.
 		match event.button_index:
 			MOUSE_BUTTON_WHEEL_UP:
 				_zoom_ship_camera(CAMERA_ZOOM_STEP)

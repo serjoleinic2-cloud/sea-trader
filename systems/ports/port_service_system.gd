@@ -2,9 +2,11 @@ extends Node
 
 ## Refuel and repair services. Home workshop can consume stored materials cheaply.
 
+var _rules: Dictionary = {}
 var _port_system: Node
 
 func initialize(port_system: Node) -> void:
+	_rules = GameData.read("res://data/ports/service_rules.json")
 	_port_system = port_system
 
 func get_service_text() -> String:
@@ -31,15 +33,15 @@ func refuel(amount: float) -> Dictionary:
 		var port: Dictionary = GameState.port_state.get(port_id, {})
 		var inventory: Dictionary = port.get("inventory", {})
 		var oil_available: int = int(inventory.get("resource_oil", 0))
-		var oil_needed: int = int(ceil(target / 5.0))
+		var oil_needed: int = int(ceil(target / maxf(0.01, float(_rules.get("fuel_per_oil", 5.0)))))
 		if oil_available >= oil_needed:
 			inventory["resource_oil"] = oil_available - oil_needed
 			port["inventory"] = inventory
 			GameState.port_state[port_id] = port
-			GameState.ship_state["fuel"] = minf(fuel_max, fuel + float(oil_needed) * 5.0)
+			GameState.ship_state["fuel"] = minf(fuel_max, fuel + float(oil_needed) * float(_rules.get("fuel_per_oil", 5.0)))
 			SaveSystem.save_game()
 			return {"ok": true, "message": "Заправлено за масло со склада: %d ед." % oil_needed}
-	var price_per_fuel: float = 5.0 * _service_discount(port_id)
+	var price_per_fuel: float = float(_rules.get("price_per_fuel", 5.0)) * _service_discount(port_id)
 	var price: float = ceil(target * price_per_fuel)
 	if float(GameState.player_state.get("money", 0.0)) < price:
 		return {"ok": false, "message": "Недостаточно денег на заправку."}
@@ -62,16 +64,16 @@ func repair(amount: float) -> Dictionary:
 		var port: Dictionary = GameState.port_state.get(port_id, {})
 		var inventory: Dictionary = port.get("inventory", {})
 		var parts_available: int = int(inventory.get("resource_parts", 0))
-		var parts_needed: int = int(ceil(target / 10.0))
+		var parts_needed: int = int(ceil(target / maxf(0.01, float(_rules.get("hull_per_parts", 10.0)))))
 		if parts_available >= parts_needed:
 			inventory["resource_parts"] = parts_available - parts_needed
 			port["inventory"] = inventory
 			GameState.port_state[port_id] = port
-			GameState.ship_state["hull"] = minf(100.0, hull + float(parts_needed) * 10.0)
-			EventBus.ship_repaired.emit("hull", float(parts_needed) * 10.0)
+			GameState.ship_state["hull"] = minf(100.0, hull + float(parts_needed) * float(_rules.get("hull_per_parts", 10.0)))
+			EventBus.ship_repaired.emit("hull", float(parts_needed) * float(_rules.get("hull_per_parts", 10.0)))
 			SaveSystem.save_game()
 			return {"ok": true, "message": "Корпус отремонтирован за запчасти со склада: %d ед." % parts_needed}
-	var price_per_hull: float = 6.0 * _service_discount(port_id)
+	var price_per_hull: float = float(_rules.get("price_per_hull", 6.0)) * _service_discount(port_id)
 	var price: float = ceil(target * price_per_hull)
 	if float(GameState.player_state.get("money", 0.0)) < price:
 		return {"ok": false, "message": "Недостаточно денег на ремонт."}
@@ -89,4 +91,4 @@ func _service_discount(port_id: String) -> float:
 	var buildings: Dictionary = port.get("buildings", {})
 	var workshop: Dictionary = buildings.get("workshop", {})
 	var level: int = int(workshop.get("level", 0))
-	return maxf(0.55, 1.0 - float(level) * 0.05)
+	return maxf(float(_rules.get("minimum_price_factor", 0.55)), 1.0 - float(level) * float(_rules.get("workshop_discount_per_level", 0.05)))

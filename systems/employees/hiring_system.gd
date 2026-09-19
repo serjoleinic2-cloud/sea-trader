@@ -12,11 +12,10 @@ func _ready() -> void:
 
 func initialize(port_system: Node) -> void:
 	_port_system = port_system
-	var catalog: Dictionary = SaveSystem._read_json("res://data/employees/hiring_rules.json")
+	var catalog: Dictionary = GameData.read("res://data/employees/hiring_rules.json")
 	_roles = catalog.get("roles", {})
 	_stat_labels = catalog.get("stat_labels", {})
-	var requirements: Dictionary = SaveSystem._read_json("res://data/ships/crew_requirements.json")
-	_requirements = requirements.get("requirements", {})
+	_requirements = GameData.get_crew_requirements()
 
 func get_candidates() -> Array:
 	_ensure_candidates()

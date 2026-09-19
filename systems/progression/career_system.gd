@@ -6,7 +6,7 @@ var _config: Dictionary = {}
 
 func _ready() -> void:
 	add_to_group("career_system")
-	_config = SaveSystem._read_json("res://data/progression/career_ladder.json")
+	_config = GameData.read("res://data/progression/career_ladder.json")
 
 func get_activity_score() -> int:
 	var stats: Dictionary = GameState.player_state.get("stats", {})

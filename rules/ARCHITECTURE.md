@@ -1,298 +1,62 @@
-# ARCHITECTURE
+# Архитектура Sea Trader
 
-> Approved system architecture. Do not restructure without owner decision.
-> Last Updated: 2026-09-05 | Version: 0.2.0
+Обновлено: 2026-09-19. Здесь описан работающий код; будущие механики перечислены в PROJECT_STATE.md.
 
----
+## Разделение ответственности
 
-## Technology Stack
+| Слой | Реализация | Ответственность |
+| --- | --- | --- |
+| Статические определения | data/**/*.json, GameData | Каталоги и параметры, кэш на время запуска, копии для потребителей |
+| Проверка и сборка | core/config_validator.gd, core/module_loader.gd | Проверка определений и порядка зависимостей |
+| Состояние | GameState | Единственный источник сохраняемого прогресса |
+| Сохранение | SaveSystem | Дисковые операции, версия формата, резервная копия, миграции |
+| Правила | systems/<область>/ | Изменение состояния, валидация действий |
+| Представление | systems/ui/, scenes/ | Отображение и команды игрока |
+| Уведомления | EventBus | События между системами без зависимости от окон |
 
-| Layer | Technology |
-|-------|-----------|
-| Engine | Godot 4.x |
-| Language | GDScript (C# only if performance critical) |
-| Platform | Android primary, iOS secondary |
-| Persistence | Local filesystem (FileAccess + JSON) |
-| Backend | None. Offline-first. |
+Основная игра работает офлайн. Сайт с реальными платежами и рынком игроков — отдельно спроектированный будущий сервис, а не часть текущего runtime.
 
----
+## Запуск и жизненный цикл
 
-## Architectural Principle
+Main проверяет основные каталоги, готовит список модулей, загружает сохранение, восстанавливает мир из постоянного seed, создаёт активный корабль и запускает модули. Некорректные основные определения, граф зависимостей или неизвестный сохранённый корабль останавливают запуск с сообщением.
 
-```
-Static Data (JSON files)
-        ↓
-Runtime State (GameState autoload)
-        ↓
-Game Systems (process state, emit events)
-        ↓
-Presentation / UI (read state, show to player)
-```
+Список модулей — data/config/game_modules.json. ModuleLoader проверяет зависимости, сортирует их, создаёт экземпляры и вызывает initialize с объявленными аргументами. Все экземпляры принадлежат Main; после удаления сцены не остаётся глобального набора старых модулей. GameState содержит прогресс, а не Node-ссылки.
 
-**Communication:**
-- Systems read from and write to `GameState` directly when the dependency is obvious and local.
-- Systems emit signals on `EventBus` when they need to notify other systems without creating a direct dependency.
-- Direct references between systems are allowed when architecturally justified (e.g. `ShipControl` directly calls `ShipPhysics`).
-- UI always reads from `GameState`, never holds game logic.
+WindowCoordinator подключается после модулей и читает метаданные окон и навигации. Новое окно регистрируется в manifest, без новой функции инициализации Main.
 
----
+WorldGenerator, создание основного корабля, ввод камеры и сохранение жизненного цикла остаются обязанностью Main. Это небольшой корень сборки, а не универсальная игровая система.
 
-## World Identity and Player Knowledge
+## Каталоги и экземпляры
 
-### Principle: World Seed is Permanent
+ship_catalog.json — единственное определение характеристик, допуска, экипажа и материалов корпуса. Общие defaults объединяются с полями конкретного корабля. Найм, физика и верфь получают данные через GameData.
 
-The identity of the world is determined by the persistent **World Seed** stored in `WorldState`.
+Каталог не перезаписывает индивидуальное состояние существующего экземпляра: груз, позицию, топливо, повреждения, вместимость и улучшения. Переименование ID, изменение семантики состояния и массовая смена параметров существующих экземпляров требуют миграции.
 
-- Same seed + same generation algorithm version = same world, always.
-- `WorldGenerator` is called with the saved seed on load, not with a new random value.
-- A new seed is created **only** when starting a new game.
-- World size and rendering strategy may evolve (e.g. sector-based streaming in the future), but the seed remains the source of world identity.
+Время сборки и материалы уже созданного проекта фиксируются в состоянии проекта. Активный челлендж аналогично хранит копию целей и награды. Правка каталога влияет на новые проекты/задания, а не переписывает обязательства игрока задним числом.
 
-### Principle: World ≠ Player Knowledge
+## Основные связи
 
-Two distinct concepts must never be conflated:
+- PortSystem: геометрия портов, швартовка, открытие портов, запись KnownRoutesState, выбор назначения.
+- ShipPhysics: ручная физика; во время автопилота синхронизирует визуал с состоянием.
+- ActiveRouteAutopilot: проверка выхода, сохранённый план, перемещение и прибытие.
+- CargoTransferSystem: покупки, продажи и перенос между трюмом и складом основного судна. Один API для UI и автопилота.
+- TradeLineSystem: цены, спрос, маршруты торговли и расчёт прибытия вспомогательного флота.
+- FleetSystem: суда, назначение экипажа, выполнение плеча рейса, расход контрактов.
+- BuildingProjectSystem / ShipyardSystem: проекты зданий и кораблей.
+- PortProductionSystem: выпуск по рецептам; MarketDistributionSystem: исходный ассортимент рынков и дефициты.
+- CareerSystem: единый расчёт ранга. HiringSystem: сотрудники и контракты.
+- ChallengeSystem: генерация, принятие и прогресс заданий. RewardSystem: журнал выдачи, бусты, премиум, части и экземпляры артефактов.
 
-**World Data** (generated from seed, exists independently of player):
-- Island positions and sizes
-- Port positions, IDs, and base characteristics
-- Resource distribution per region
-- Hazard zone positions
+Прямые зависимости передаются через initialize. Группы Godot остаются для событийных/необязательных взаимодействий существующих систем (например, влияние наград на физику и продажу). Наличие UI не должно быть условием выполнения экономической операции.
 
-**Player Knowledge** (what the player has discovered, stored in GameState):
-- Which ports have been discovered (`PlayerState.discovered_port_ids`)
-- Which ports have been visited (`PortState.discovered`)
-- Which routes have been manually sailed (`KnownRoutesState`)
-- Which regions have been explored
-
-On save/load:
-- World is **regenerated** from the permanent seed (no need to store world geometry).
-- Player Knowledge is **restored** from saved state.
-- Regeneration must never overwrite or invalidate Player Knowledge.
-
-### Discovered Port ≠ Known Route
-
-| State | Meaning |
-|-------|---------|
-| Port discovered | Player knows the port exists and its location |
-| Known Route A→B | Player has manually sailed from A to B at least once |
-
-A player may know a port exists without having a Known Route to it.
-Automation (autopilot, fleet) requires a Known Route — discovery alone is not sufficient.
-
----
-
-## Systems
-
-### Core / Infrastructure
-
-#### GameState
-- **Responsibility:** Single source of truth for all runtime data.
-- **Knows:** All state sub-objects (PlayerState, WorldState, ShipState, KnownRoutesState, etc.)
-- **Does not know:** Game rules, physics, rendering, UI
-- **Dependencies:** None (autoload)
-
-#### SaveSystem
-- **Responsibility:** Serialize/deserialize GameState to disk. Handle versioning, backup, migration, offline progress.
-- **Knows:** GameState structure, file paths, save format version
-- **Does not know:** Game rules, UI, physics
-- **Dependencies:** GameState
-- **Critical rule:** Must save `WorldState.seed` and `KnownRoutesState` as separate concerns. Must save `PlayerState.discovered_port_ids` and `PortState` independently of world generation.
-
-#### EventBus
-- **Responsibility:** Global signal bus for decoupled communication.
-- **Knows:** Signal definitions only
-- **Does not know:** Any game logic
-- **Dependencies:** None (autoload)
-
----
-
-### Input / Sensors
-
-#### SensorInput
-- **Responsibility:** Read Android accelerometer. Emit normalized pitch/roll values.
-- **Knows:** Android Input API
-- **Does not know:** Ship physics, game rules
-- **Dependencies:** Godot `Input`
-
-#### InputAdapter
-- **Responsibility:** Convert SensorInput values to ship control commands. In debug: read keyboard.
-- **Knows:** SensorInput, ShipControl interface
-- **Does not know:** Physics implementation, game state
-- **Dependencies:** SensorInput → ShipControl
-
----
-
-### Ship
-
-#### ShipControl
-- **Responsibility:** Translate normalized input (-1..1) into physics commands.
-- **Knows:** ShipPhysics interface
-- **Does not know:** Android API, input source, game economy
-- **Dependencies:** InputAdapter (receives commands), ShipPhysics (sends commands)
-
-#### ShipPhysics
-- **Responsibility:** Apply movement, inertia, turning, visual tilt. Update position.
-- **Knows:** Physics parameters from ShipData + ShipState
-- **Does not know:** Input source, economy, UI
-- **Dependencies:** GameState.ShipState (reads/writes position, velocity)
-
-#### DamageSystem
-- **Responsibility:** Calculate and apply damage to ship components. Check destruction conditions.
-- **Knows:** ShipState, collision events, hazard data
-- **Does not know:** Economy, contracts, UI
-- **Dependencies:** GameState.ShipState, EventBus (emits damage events)
-
----
-
-### World
-
-#### WorldGenerator
-- **Responsibility:** Generate deterministic world from seed. Islands, ports, resources, hazards.
-- **Knows:** WorldGenerationConfig, noise algorithms, seed
-- **Does not know:** Ship, economy, UI, player knowledge
-- **Dependencies:** `data/world/world_gen_config.json`, GameState.WorldState (reads seed)
-- **Critical rule:** Must never write to `PortState.discovered` or `KnownRoutesState`. Those belong to Player Knowledge, not world generation.
-
-#### PortSystem
-- **Responsibility:** Manage port discovery, port state, port development, dock interactions.
-- **Knows:** PortState, PortData (static), WorldState
-- **Does not know:** Ship physics, economy formulas
-- **Dependencies:** GameState.PortState, GameState.WorldState
-- **On discovery:** Writes `PortState[port_id].discovered = true`, adds to `PlayerState.discovered_port_ids`.
-
-#### KnownRoutesSystem *(to be implemented, Phase 05+)*
-- **Responsibility:** Record, validate, and query known routes.
-- **Knows:** KnownRoutesState, PortState
-- **Does not know:** Physics, economy
-- **On route completion:** Adds route key in both directions. Emits `route_discovered`.
-- **On automation request:** Validates route exists in KnownRoutesState before allowing.
-
-#### ResourceSystem
-- **Responsibility:** Manage resource availability, supply/demand, price fluctuation per port.
-- **Knows:** ResourceData, PortState, EconomyState
-- **Does not know:** Contracts, company, ship
-- **Dependencies:** GameState.EconomyState, PortSystem
-
-#### HazardSystem
-- **Responsibility:** Manage pirate zones, storm areas. Trigger hazard events.
-- **Knows:** WorldState (hazard zones), ShipState (position)
-- **Does not know:** Economy, UI
-- **Dependencies:** GameState.WorldState, GameState.ShipState, EventBus
-
----
-
-### Economy
-
-#### EconomyEngine
-- **Responsibility:** Process all financial transactions. Buy/sell goods. Calculate costs.
-- **Knows:** EconomyState, ResourceSystem prices, ContractSystem rewards
-- **Does not know:** Physics, UI layout
-- **Dependencies:** GameState.EconomyState, ResourceSystem, ContractSystem
-
-#### ContractSystem
-- **Responsibility:** Generate contracts, track active contracts, calculate rewards on delivery.
-- **Knows:** ContractData templates, EconomyState, PortState, time/timestamp
-- **Does not know:** Ship physics, UI
-- **Dependencies:** GameState.EconomyState, PortSystem, EconomyEngine
-
-#### ProgressionSystem
-- **Responsibility:** Track XP, levels, reputation, unlock triggers.
-- **Knows:** ProgressionState, unlock rules from data
-- **Does not know:** Physics, UI
-- **Dependencies:** GameState.ProgressionState, EventBus (listens for delivery/contract events)
-
----
-
-### Company
-
-#### CompanySystem
-- **Responsibility:** Manage company creation, expenses calculation, finances.
-- **Knows:** CompanyState, EmployeeState, FleetState
-- **Does not know:** Ship physics, world generation
-- **Dependencies:** GameState.CompanyState, EmployeeManager, FleetManager
-
-#### EmployeeManager
-- **Responsibility:** Hire/fire employees, apply role bonuses, calculate salaries.
-- **Knows:** EmployeeData (static), EmployeeState
-- **Does not know:** Ship physics, contracts
-- **Dependencies:** GameState.CompanyState, EconomyEngine
-
-#### FleetManager
-- **Responsibility:** Manage additional ships, assign captains, run auto-routes, calculate offline income.
-- **Knows:** FleetState, RouteData, EmployeeState
-- **Does not know:** Player ship physics, active contracts
-- **Dependencies:** GameState.FleetState, CompanySystem, SaveSystem (offline progress)
-- **Critical rule:** May only assign routes that exist in `KnownRoutesState`.
-
----
-
-### Navigation
-
-#### NavigationHUD
-- **Responsibility:** Display compass arrow pointing to selected destination. Show distance.
-- **Knows:** GameState.WorldState (ship position, destination)
-- **Does not know:** Economy, contracts, port internals
-- **Dependencies:** GameState.WorldState, GameState.ShipState
-
----
-
-### Presentation
-
-#### UI (screens)
-- **Responsibility:** Display game state to player. Send player actions to systems.
-- **Knows:** GameState (read-only for display)
-- **Does not know:** Game logic, physics calculations
-- **Rule:** No game logic in UI files.
-
-#### AudioManager
-- **Responsibility:** Play sfx and music. Works fully offline.
-- **Knows:** Audio file paths, game events
-- **Does not know:** Game logic, state
-- **Dependencies:** EventBus (listens for events to trigger audio)
-
----
-
-## Future: Social Trading (TBD, NOT IMPLEMENTED)
-
-A future optional social feature may allow player-to-player trading via offline mechanisms (QR codes, trade codes, port rendezvous). This must never require a backend server and must not affect:
-- Deterministic world generation
-- Player discovery state
-- Known Routes system
-- Offline-first architecture
-
-Design of this feature is deferred. Do not implement until explicitly decided.
-
----
-
-## Folder Structure
-
-```
-sea_trader/
-├── autoloads/
-│   ├── game_state.gd
-│   ├── save_system.gd
-│   └── event_bus.gd
-├── data/
-│   ├── ships/
-│   ├── ports/
-│   ├── resources/
-│   ├── upgrades/
-│   ├── employees/
-│   ├── achievements/
-│   ├── input/
-│   └── world/
-├── systems/
-│   ├── input/
-│   ├── ship/
-│   ├── world/
-│   ├── economy/
-│   └── company/
-├── scenes/
-│   ├── game/
-│   └── ui/
-├── assets/
-│   ├── sprites/
-│   ├── audio/
-│   └── fonts/
-└── tests/
-```
+## Мир и прогресс
+
+Seed и версия генератора сохраняются. Геометрия восстанавливается из seed, знание игрока — из сохранения. Наличие порта в мире не открывает его игроку. Открытие происходит при швартовке; автоматизация использует только изученные пути. Перезапуск не уничтожает активный рейс.
+
+## Проверки
+
+tests/run_tests.sh выполняет импорт, модульные проверки и полную сцену с изолированными сохранениями. Ошибки скриптов считаются отказом. Тесты каталога проверяют ID, диапазоны, ссылки материалов и копирование данных; тесты загрузчика — зависимости и отказ на цикле. Runtime-проверка нажимает кнопки, проходит физические кадры, перезагружает сцену и проверяет границы окон.
+
+Проверка на физическом телефоне, финальная экономика и визуальная проверка Windows не заменяются headless-тестами.
+
+Инструкции расширения и карта параметров: [DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md).

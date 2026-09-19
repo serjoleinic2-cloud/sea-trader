@@ -8,7 +8,7 @@ var _offer_templates: Array = []
 
 func _ready() -> void:
 	add_to_group("merchant_visit_system")
-	var config: Dictionary = SaveSystem._read_json("res://data/economy/merchant_visits.json")
+	var config: Dictionary = GameData.read("res://data/economy/merchant_visits.json")
 	_offer_duration_seconds = int(config.get("offer_duration_seconds", 1200))
 	_next_offer_delay_seconds = int(config.get("next_offer_delay_seconds", 1200))
 	_offer_templates = config.get("offers", [])

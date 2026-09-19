@@ -1,0 +1,107 @@
+{
+  "version": 1,
+  "base_materials": {
+    "dock": {
+      "resource_timber": 16,
+      "resource_nails": 8,
+      "resource_rope": 5,
+      "resource_paint": 2
+    },
+    "warehouse": {
+      "resource_timber": 20,
+      "resource_nails": 12,
+      "resource_glass": 3,
+      "resource_paint": 3
+    },
+    "workshop": {
+      "resource_timber": 18,
+      "resource_nails": 14,
+      "resource_parts": 5,
+      "resource_varnish": 3
+    },
+    "market": {
+      "resource_timber": 16,
+      "resource_nails": 8,
+      "resource_fabric": 8,
+      "resource_glass": 4
+    },
+    "shipyard": {
+      "resource_timber": 30,
+      "resource_nails": 18,
+      "resource_fabric": 10,
+      "resource_rope": 10,
+      "resource_paint": 5
+    },
+    "harbor_office": {
+      "resource_timber": 14,
+      "resource_nails": 8,
+      "resource_glass": 5,
+      "resource_paint": 4
+    },
+    "fishing_wharf": {
+      "resource_timber": 14,
+      "resource_nails": 7,
+      "resource_rope": 7,
+      "resource_paint": 2
+    },
+    "timber_yard": {
+      "resource_timber": 18,
+      "resource_nails": 9,
+      "resource_rope": 5,
+      "resource_paint": 2
+    }
+  },
+  "growth_per_level": 0.12,
+  "growth_exponent": 2,
+  "duration_base_seconds": 20,
+  "duration_per_level_seconds": 20,
+  "ports_per_level_step": 5,
+  "additional_materials": [
+    {
+      "from_level": 6,
+      "materials": {
+        "resource_fabric": 4,
+        "resource_glass": 2
+      }
+    },
+    {
+      "from_level": 11,
+      "materials": {
+        "resource_parts": 5,
+        "resource_varnish": 3
+      }
+    },
+    {
+      "from_level": 21,
+      "materials": {
+        "resource_oil": 6
+      }
+    }
+  ],
+  "rank_gates": [
+    {
+      "through_level": 5,
+      "rank": 1
+    },
+    {
+      "through_level": 10,
+      "rank": 10
+    },
+    {
+      "through_level": 15,
+      "rank": 20
+    },
+    {
+      "through_level": 20,
+      "rank": 25
+    },
+    {
+      "through_level": 25,
+      "rank": 32
+    },
+    {
+      "through_level": 30,
+      "rank": 40
+    }
+  ]
+}

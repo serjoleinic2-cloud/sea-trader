@@ -11,35 +11,32 @@ func initialize(main: Node) -> void:
 	_main = main
 	layer = 90
 	process_priority = 1000
-	var definitions: Dictionary = {
-		"CaptainCabinet": "_open", "FleetWindow": "_is_open",
-		"LogisticsWindow": "_open", "TradeLineWindow": "_open",
-		"NavigationHUD": "_is_open", "HiringWindow": "_is_open",
-		"CrewWindow": "_is_open", "ShipyardWindow": "_is_open",
-		"BuildingProjectWindow": "_is_open", "SupplyOrderWindow": "_open",
-		"PortServiceWindow": "_open", "WorkHireWindow": "_open",
-		"MerchantOfferHUD": "_is_open"
-	}
-	for node_name in definitions:
-		var window: Node = main.get_node_or_null(str(node_name))
-		if window == null:
+	for window in main.get_children():
+		if not window.has_meta("workspace_flag"):
 			continue
 		var panel: PanelContainer = window.get("_panel")
 		if panel == null:
 			continue
-		var flag: String = str(definitions[node_name])
+		var flag: String = str(window.get_meta("workspace_flag"))
 		_entries.append({"window": window, "flag": flag, "was_open": false, "panel": panel})
 		window.layer = 60
 		_wrap_panel(window, panel, flag)
 	_toolbar = HBoxContainer.new()
 	_toolbar.add_theme_constant_override("separation", 8)
 	add_child(_toolbar)
-	for item in [["Карта", "NavigationHUD", "_toggle_panel"], ["Флот", "FleetWindow", "_toggle"], ["Рейсы", "LogisticsWindow", "open"], ["Капитан", "CaptainCabinet", ""]]:
+	var navigation: Array = []
+	for window in main.get_children():
+		if window.has_meta("navigation"):
+			var item: Dictionary = window.get_meta("navigation").duplicate(true)
+			item["node_name"] = str(window.name)
+			navigation.append(item)
+	navigation.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return int(a.get("order", 0)) < int(b.get("order", 0)))
+	for item in navigation:
 		var button: Button = Button.new()
-		button.text = item[0]
+		button.text = str(item.get("label", ""))
 		button.custom_minimum_size = Vector2(135, 44)
 		button.add_theme_font_size_override("font_size", 20)
-		button.pressed.connect(_open_tool.bind(str(item[1]), str(item[2])))
+		button.pressed.connect(_open_tool.bind(str(item.node_name), str(item.get("method", ""))))
 		_toolbar.add_child(button)
 	_cancel = Button.new()
 	_cancel.text = "Ручное управление"

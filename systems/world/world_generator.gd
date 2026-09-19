@@ -57,17 +57,7 @@ func regenerate_from_state() -> Dictionary:
 func _load_config() -> void:
 	if not _config.is_empty():
 		return
-	var file: FileAccess = FileAccess.open(CONFIG_PATH, FileAccess.READ)
-	if file == null:
-		push_error("WorldGenerator: Cannot open " + CONFIG_PATH)
-		return
-	var text: String = file.get_as_text()
-	file.close()
-	var parsed: Variant = JSON.parse_string(text)
-	if parsed is Dictionary:
-		_config = parsed
-	else:
-		push_error("WorldGenerator: Invalid JSON in " + CONFIG_PATH)
+	_config = GameData.read(CONFIG_PATH)
 
 
 # ============================================================================

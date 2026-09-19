@@ -1,0 +1,116 @@
+{
+  "version": 1,
+  "starter_ship_id": "ship_sloop",
+  "defaults": {
+    "base_maneuverability": 0.85,
+    "fuel_capacity": 100,
+    "hull_max": 100,
+    "engine_max": 100,
+    "steering_max": 100,
+    "cargo_hold_max": 100,
+    "acceleration": 80,
+    "deceleration": 60,
+    "brake_force": 120,
+    "turn_rate": 1.6,
+    "turn_speed_reduction": 0.35,
+    "max_roll_degrees": 12,
+    "roll_smooth_speed": 5,
+    "fuel_per_second": 0.5
+  },
+  "ships": [
+    {
+      "id": "ship_sloop",
+      "name": "Лодка",
+      "tier": 1,
+      "base_speed": 120,
+      "cargo_capacity": 50,
+      "command_rank_required": 1,
+      "min_crew": 1,
+      "max_crew": 1,
+      "build_materials": {
+        "resource_timber": 20,
+        "resource_nails": 10,
+        "resource_fabric": 8,
+        "resource_rope": 8,
+        "resource_paint": 4,
+        "resource_varnish": 2
+      }
+    },
+    {
+      "id": "ship_barque",
+      "name": "Баркас",
+      "tier": 2,
+      "base_speed": 132,
+      "cargo_capacity": 55,
+      "command_rank_required": 10,
+      "min_crew": 2,
+      "max_crew": 2,
+      "build_materials": {
+        "resource_timber": 70,
+        "resource_nails": 35,
+        "resource_fabric": 25,
+        "resource_rope": 25,
+        "resource_paint": 12,
+        "resource_varnish": 8,
+        "resource_glass": 4
+      }
+    },
+    {
+      "id": "ship_schooner",
+      "name": "Шхуна",
+      "tier": 3,
+      "base_speed": 138,
+      "cargo_capacity": 130,
+      "command_rank_required": 20,
+      "min_crew": 3,
+      "max_crew": 4,
+      "build_materials": {
+        "resource_timber": 180,
+        "resource_nails": 90,
+        "resource_fabric": 70,
+        "resource_rope": 65,
+        "resource_paint": 35,
+        "resource_varnish": 25,
+        "resource_glass": 12
+      }
+    },
+    {
+      "id": "ship_freighter",
+      "name": "Грузовое судно",
+      "tier": 4,
+      "base_speed": 108,
+      "cargo_capacity": 380,
+      "command_rank_required": 30,
+      "min_crew": 5,
+      "max_crew": 8,
+      "build_materials": {
+        "resource_timber": 500,
+        "resource_nails": 260,
+        "resource_fabric": 180,
+        "resource_rope": 160,
+        "resource_paint": 100,
+        "resource_varnish": 75,
+        "resource_glass": 45
+      }
+    },
+    {
+      "id": "ship_tanker",
+      "name": "Танкер",
+      "tier": 5,
+      "base_speed": 90,
+      "cargo_capacity": 900,
+      "command_rank_required": 40,
+      "min_crew": 8,
+      "max_crew": 14,
+      "build_materials": {
+        "resource_timber": 900,
+        "resource_nails": 700,
+        "resource_fabric": 300,
+        "resource_rope": 250,
+        "resource_paint": 280,
+        "resource_varnish": 180,
+        "resource_glass": 120
+      }
+    }
+  ]
+}

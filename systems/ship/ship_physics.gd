@@ -7,32 +7,7 @@ extends Node
 ## See ARCHITECTURE.md, SYSTEM_MAP.md, DATA_SCHEMA.md.
 
 # ============================================================================
-# Tunable constants (placeholder values — TBD per game balance)
-# ============================================================================
-
-## Base acceleration multiplier applied to throttle input. TUNABLE.
-const BASE_ACCELERATION: float = 80.0
-
-## Base deceleration when throttle is released (friction). TUNABLE.
-const BASE_DECELERATION: float = 60.0
-
-## Base braking force when throttle is negative. TUNABLE.
-const BASE_BRAKE_FORCE: float = 120.0
-
-## Base turn rate in radians/second at full steering input. TUNABLE.
-const BASE_TURN_RATE: float = 1.6
-
-## Turn rate is reduced at high speed by this fraction. TUNABLE.
-const TURN_SPEED_REDUCTION: float = 0.35
-
-## Max visual roll angle in degrees. TUNABLE.
-const MAX_ROLL_DEGREES: float = 12.0
-
-## Roll interpolation speed (lerp factor per second). TUNABLE.
-const ROLL_SMOOTH_SPEED: float = 5.0
-
-## Fuel consumption per second at full speed. Placeholder — TBD.
-const FUEL_CONSUMPTION_RATE: float = 0.5
+# Physical lower bound; tunable defaults live in ship_catalog.json.
 
 ## Minimum fuel above zero (engine sputters, doesn't go below 0). TBD.
 const FUEL_MIN: float = 0.0
@@ -126,7 +101,11 @@ func get_max_speed() -> float:
 	var base: float = _ship_data.get("base_speed", 120.0)
 	var engine_ratio: float = _get_engine_ratio()
 	var crew_speed_bonus: float = float(_get_crew_stat_total("speed")) / 100.0
-	return base * engine_ratio * maxf(0.25, 1.0 + crew_speed_bonus)
+	var reward_bonus: float = 0.0
+	var rewards: Array[Node] = get_tree().get_nodes_in_group("reward_system")
+	if not rewards.is_empty():
+		reward_bonus = float(rewards[0].get_bonus_percent("speed")) / 100.0
+	return base * engine_ratio * maxf(0.25, 1.0 + crew_speed_bonus + reward_bonus)
 
 
 func restore_from_state() -> void:
@@ -145,15 +124,15 @@ func _update_speed(delta: float) -> void:
 
 	if _throttle > 0.0:
 		# Accelerate
-		var accel: float = BASE_ACCELERATION * _throttle * _get_engine_ratio()
+		var accel: float = float(_ship_data.get("acceleration", 80.0)) * _throttle * _get_engine_ratio()
 		_speed = move_toward(_speed, max_spd * _throttle, accel * delta)
 	elif _throttle < 0.0:
 		# Active brake
-		var brake: float = BASE_BRAKE_FORCE
+		var brake: float = float(_ship_data.get("brake_force", 120.0))
 		_speed = move_toward(_speed, 0.0, brake * delta)
 	else:
 		# Natural deceleration (water friction)
-		var decel: float = BASE_DECELERATION
+		var decel: float = float(_ship_data.get("deceleration", 60.0))
 		_speed = move_toward(_speed, 0.0, decel * delta)
 
 	_speed = clampf(_speed, 0.0, max_spd)
@@ -172,9 +151,9 @@ func _update_heading(delta: float) -> void:
 
 	# Turn rate decreases at high speed
 	var speed_ratio: float = _speed / maxf(get_max_speed(), 1.0)
-	var speed_factor: float = lerp(1.0, TURN_SPEED_REDUCTION, speed_ratio)
+	var speed_factor: float = lerp(1.0, float(_ship_data.get("turn_speed_reduction", 0.35)), speed_ratio)
 
-	var turn_rate: float = BASE_TURN_RATE * maneuv * steering_ratio * speed_factor
+	var turn_rate: float = float(_ship_data.get("turn_rate", 1.6)) * maneuv * steering_ratio * speed_factor
 	_heading += _steering * turn_rate * delta
 
 
@@ -215,13 +194,13 @@ func setup_world_bounds(w: float, h: float) -> void:
 # ============================================================================
 
 func _update_visual_roll(delta: float) -> void:
-	var target_roll: float = _steering * MAX_ROLL_DEGREES
+	var target_roll: float = _steering * float(_ship_data.get("max_roll_degrees", 12.0))
 
 	# Only roll when actually moving
 	if _speed < 1.0:
 		target_roll = 0.0
 
-	_visual_roll = lerpf(_visual_roll, target_roll, ROLL_SMOOTH_SPEED * delta)
+	_visual_roll = lerpf(_visual_roll, target_roll, float(_ship_data.get("roll_smooth_speed", 5.0)) * delta)
 
 	# Apply to ship node if assigned
 	if ship_node != null:
@@ -238,7 +217,7 @@ func _update_fuel(delta: float) -> void:
 
 	var speed_ratio: float = _speed / maxf(get_max_speed(), 1.0)
 	var crew_fuel_bonus: float = float(_get_crew_stat_total("fuel")) / 100.0
-	var consumption: float = FUEL_CONSUMPTION_RATE * speed_ratio * delta * maxf(0.25, 1.0 - crew_fuel_bonus)
+	var consumption: float = float(_ship_data.get("fuel_per_second", 0.5)) * speed_ratio * delta * maxf(0.25, 1.0 - crew_fuel_bonus)
 
 	var current_fuel: float = float(GameState.ship_state.get("fuel", 0.0))
 	var new_fuel: float = maxf(current_fuel - consumption, FUEL_MIN)

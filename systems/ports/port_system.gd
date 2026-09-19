@@ -24,7 +24,7 @@ func initialize(ship: Node2D, world_ports: Dictionary) -> void:
 	_ship_node = ship
 	_world_ports = world_ports
 	_ports_in_range.clear()
-	var config: Dictionary = SaveSystem._read_json("res://data/ports/port_template.json")
+	var config: Dictionary = GameData.read("res://data/ports/port_template.json")
 	_discovery_radius = float(config.get("discovery_radius", 0.0))
 
 
@@ -100,6 +100,17 @@ func _get_effective_discovery_radius() -> float:
 				navigation_bonus += int(stats.get("navigation", 0))
 				break
 	return _discovery_radius * maxf(0.55, 1.0 + float(navigation_bonus) / 100.0)
+
+func select_destination(port_id: String) -> bool:
+	if not GameState.player_state.get("discovered_port_ids", []).has(port_id) or not _world_ports.has(port_id):
+		return false
+	var previous: Variant = GameState.world_state.get("destination_port_id", "")
+	GameState.world_state["destination_port_id"] = port_id
+	if not SaveSystem.save_game():
+		GameState.world_state["destination_port_id"] = previous
+		return false
+	EventBus.navigation_destination_set.emit(port_id)
+	return true
 
 func get_dock_candidate() -> String:
 	if _ship_node == null:

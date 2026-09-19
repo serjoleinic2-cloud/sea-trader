@@ -6,6 +6,7 @@ var _pilot: Node
 var _fleet: Node
 var _market: Node
 var _career: Node
+var _transfers: Node
 var _destination: String
 
 func before_each() -> void:
@@ -42,11 +43,14 @@ func before_each() -> void:
 	_market = load("res://systems/economy/trade_line_system.gd").new()
 	add_child(_market)
 	_market.initialize(_ports, _fleet)
+	_transfers = load("res://systems/economy/cargo_transfer_system.gd").new()
+	add_child(_transfers)
+	_transfers.initialize(_market)
 	_career = load("res://systems/progression/career_system.gd").new()
 	add_child(_career)
 
 func after_each() -> void:
-	for node in [_pilot, _market, _fleet, _career, _ports, _ship]:
+	for node in [_pilot, _transfers, _market, _fleet, _career, _ports, _ship]:
 		node.free()
 	SaveSystem.delete_save()
 	GameState.reset_to_defaults()
@@ -213,6 +217,21 @@ func test_signed_crew_bonuses_affect_autopilot_speed_and_fuel() -> void:
 	GameState.employee_state[0].stats = {"speed": -3, "fuel": -4}
 	assert_lt(_ship.get_navigation_speed(), 110.0)
 	assert_gt(_pilot.fuel_needed(_destination), 1.2)
+
+func test_shared_cargo_service_rejects_invalid_transfers_without_mutation() -> void:
+	var ship: Dictionary = GameState.ship_state.duplicate(true)
+	var ports: Dictionary = GameState.port_state.duplicate(true)
+	assert_false(_transfers.execute("load", "resource_timber", -5).ok)
+	assert_false(_transfers.execute("load", "resource_timber", 1000).ok)
+	assert_false(_transfers.execute("load", "unknown", 1).ok)
+	assert_false(_transfers.execute("sell", "resource_timber", 1).ok)
+	assert_eq(GameState.ship_state, ship)
+	assert_eq(GameState.port_state, ports)
+	assert_eq(GameState.player_state.money, 1000.0)
+	GameState.ship_state.cargo = [{"resource_id": "resource_timber", "quantity": 2}, {"resource_id": "resource_timber", "quantity": 3}]
+	assert_true(_transfers.execute("unload", "resource_timber", 5).ok)
+	assert_true(GameState.ship_state.cargo.is_empty())
+	assert_eq(GameState.port_state.home.inventory.resource_timber, 55)
 
 func test_repeating_line_charges_both_legs_and_stops_without_teleport() -> void:
 	_add_fleet()

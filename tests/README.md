@@ -1,45 +1,29 @@
-# Tests
+# Проверки Sea Trader
 
-The project uses its own TestBase / TestRunner, not GUT. No test plugin is needed.
+Собственные TestBase/TestRunner, без внешнего тестового плагина.
 
-## Safe Linux run
-
-Install a Godot 4.x executable appropriate for this project, then:
+## Безопасный запуск на Linux
 
 ```bash
 GODOT_BIN=/absolute/path/to/godot bash tests/run_tests.sh
 ```
 
-The wrapper sets XDG_DATA_HOME to a newly created temporary directory before
-starting Godot. Player saves are not used. Temporary test data is retained for
-diagnosis. The runner refuses to run without SEA_TRADER_ISOLATED_TESTS=1;
-do not set that variable for a normal player-data directory.
+Скрипт создаёт отдельный XDG_DATA_HOME, импортирует проект и запускает test_runner.tscn и runtime_smoke.tscn. Игровые сохранения не используются. Временные данные и логи сохраняются для диагностики. Не выставлять SEA_TRADER_ISOLATED_TESTS вручную в каталоге обычного игрока.
 
-The wrapper first imports the project in headless editor mode, then runs
-tests/test_runner.tscn. Assertion failures return exit code 1. Inspect engine
-output for parse/runtime errors as well; an assertion count alone is not proof
-that every script executed successfully.
+Ненулевой код процесса, упавшая проверка, SCRIPT ERROR или Parse Error означают отказ. Некоторые тесты специально подают повреждённые и неподдерживаемые сохранения; сообщения SaveSystem об их отклонении ожидаемы.
 
-The persistence suite deliberately exercises rejected/corrupt saves; warnings
-and errors for those specific negative cases are expected.
+## Покрытие
 
-## Coverage added for persistence
+- Мир из seed, данные GameState, события и сохранения.
+- Миграция, резервные копии, отказ без перезаписи неизвестной версии/корабля.
+- Физика, управление, расход топлива и основной автопилот.
+- Цены, спрос, однократная выплата, груз при отказе, повторные рейсы и контракты.
+- Карьера и отсутствие опыта за перекладывание товаров.
+- Единый каталог, защита кэша, валидация определений и графа модулей.
+- Генерация челленджей, baseline, сроки, повторное получение, запас наград.
+- Активация бустов, премиум, сборка артефактов, эффект на скорость и сохранение.
+- Полная сцена: кнопка запуска рейса, движение, перезагрузка, склад, принятие челленджа и окна в двух размерах viewport.
 
-- New game seed and generator version, saved on initial launch.
-- JSON round trip of every GameState section.
-- Real main-scene launch preserving port progress, routes, voyage and ship.
-- Empty saved knowledge and seed zero.
-- Full generated-world equality and no mutation of player state.
-- Non-destructive legacy migration and discovery-list repair.
-- Corrupt main file recovery, backup-only launch and backup preservation.
-- Refusal of unknown save/world versions and invalid save files.
-- Background/pause save.
-- Port discovery, re-entry/exit events and world/knowledge separation.
+## Подтверждение
 
-## Verification status (2026-09-08)
-
-NOT RUN in Godot in the implementation environment: no engine was installed,
-and engine download did not receive network approval. The test command exited
-127 (godot: command not found). Do not treat these tests as passing yet.
-
-Existing Android tilt/device tests still require a physical device.
+Автоматический запуск выполнен в Godot 4.4.1 headless на Linux 19 сентября 2026 года. Эти проверки подтверждают игровую логику и геометрию контролов; внешний вид Windows, Android-экспорт и датчики на телефоне проверяются отдельно.

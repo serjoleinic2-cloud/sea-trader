@@ -95,10 +95,8 @@ func _add_destination_button(port_id: String, prefix: String) -> void:
 	_destination_list.add_child(button)
 
 func _select_destination(port_id: String) -> void:
-	GameState.world_state["destination_port_id"] = port_id
-	EventBus.navigation_destination_set.emit(port_id)
-	_is_open = false
-	SaveSystem.save_game()
+	if _port_system.select_destination(port_id):
+		_is_open = false
 
 func _update_course(destination_id: String) -> void:
 	if destination_id == "" or _port_system == null:

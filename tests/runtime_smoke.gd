@@ -89,6 +89,21 @@ func _ready() -> void:
 	_check(GameState.ship_state.position.distance_to(before) > 20.0, "Full scene reload resumes saved voyage")
 	main._active_route_autopilot.cancel()
 	var coordinator: Node = main.get_node("WindowCoordinator")
+	var challenge_window: Node = main.get_module("ChallengeWindow")
+	for button in coordinator._toolbar.get_children():
+		if button is Button and button.text == "Челленджи":
+			button.pressed.emit()
+	await _frames()
+	_check(challenge_window._open, "Manifest registers challenge navigation button")
+	var accepted: bool = false
+	for button in challenge_window._content.get_children():
+		if button is Button and button.text == "Принять задание":
+			button.pressed.emit()
+			accepted = true
+			break
+	_check(accepted and GameState.economy_state.get("challenges", {}).get("slots", {}).has("short"), "Challenge can be accepted through full-scene UI")
+	challenge_window._open = false
+	await _frames()
 	GameState.ship_state.cargo = []
 	for good in main._logistics_system.get_goods():
 		GameState.ship_state.cargo.append({"resource_id": str(good.id), "quantity": 1})

@@ -124,6 +124,17 @@ status: String            # "planning" | "sailing" | "intermediary_stop" | "comp
 ```
 
 ### EconomyState
+
+Дополнения текущего runtime (сохраняются внутри economy_state; старые сохранения получают пустые значения через get):
+
+- `challenges.slots[tier_id]`: id, serial, status (`active/complete/claimed/expired`), goals, baseline, reward, started_at, expires_at, next_available_at, completed_at.
+- `rewards.claims[challenge_id]`: отметка однократной выдачи.
+- `rewards.boosts[definition_id]`: количество; `active_boost`: id и seconds_remaining.
+- `rewards.premium_days`: неактивированные дни; `premium_until`: календарный Unix-срок активного премиума.
+- `rewards.fragments[artifact_id]`: количество частей; `artifacts`: список локальных экземпляров; `equipped_artifact`: ID установленного экземпляра; `artifact_serial`: счётчик выпущенных экземпляров.
+- Экземпляр артефакта: instance_id, definition_id, origin, authority=`offline_prototype`, tradable=false. Это не серверный актив.
+
+Ранние поля экономики (часть остаётся проектной схемой):
 ```
 market: {}                # port_id → { resource_id → price }
 last_market_update: int   # timestamp
@@ -228,12 +239,14 @@ language: String
 
 Static data is read-only at runtime. Never modified by gameplay.
 
-### ShipData (`data/ships/*.json`)
+### ShipData (`data/ships/ship_catalog.json`)
+
+Каталог содержит `starter_ship_id`, общие `defaults` и массив `ships`. GameData возвращает объединённые значения. Пример записи в `ships`:
 ```json
 {
   "id": "ship_sloop",
-  "version": 2,
-  "display_name": "Sloop",
+  "name": "Лодка",
+  "tier": 1,
   "base_speed": 120.0,
   "base_maneuverability": 0.85,
   "cargo_capacity": 50,
@@ -242,8 +255,10 @@ Static data is read-only at runtime. Never modified by gameplay.
   "engine_max": 100,
   "steering_max": 100,
   "cargo_hold_max": 100,
-  "unlock_level": 1,
-  "cost": 500
+  "command_rank_required": 1,
+  "min_crew": 1,
+  "max_crew": 1,
+  "build_materials": {"resource_timber": 20, "resource_nails": 10}
 }
 ```
 

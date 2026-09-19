@@ -5,12 +5,12 @@ extends Node
 var _port_system: Node
 var _goods_prices: Dictionary = {}
 var _goods_names: Dictionary = {}
-const DELIVERY_SURCHARGE: float = 0.50
-const DELIVERY_SECONDS: int = 120
+var _rules: Dictionary = {}
 
 func initialize(port_system: Node) -> void:
+	_rules = GameData.read("res://data/economy/market_rules.json")
 	_port_system = port_system
-	var catalog: Dictionary = SaveSystem._read_json("res://data/resources/goods_catalog.json")
+	var catalog: Dictionary = GameData.read("res://data/resources/goods_catalog.json")
 	for raw_resource in catalog.get("resources", []):
 		var resource: Dictionary = raw_resource
 		var resource_id: String = str(resource.get("id", ""))
@@ -51,15 +51,18 @@ func get_quote(resource_id: String) -> Dictionary:
 	var source_port_id: String = str(_port_system.get_nearest_market_source(home_port_id, resource_id))
 	if source_port_id == "":
 		return {"ok": false, "message": "Нет известного порта с этим товаром. Откройте новые порты или привезите товар сами."}
-	var source_price: float = float(_goods_prices.get(resource_id, 0.0)) * 1.20
+	var markets: Array[Node] = get_tree().get_nodes_in_group("trade_line_system")
+	if markets.is_empty():
+		return {"ok": false, "message": "Рынок недоступен."}
+	var source_price: float = float(markets[0].get_buy_price(source_port_id, resource_id))
 	return {
 		"ok": true,
 		"resource_id": resource_id,
 		"source_port_id": source_port_id,
 		"source_name": _port_system.get_port_name(source_port_id),
 		"source_price": source_price,
-		"delivery_price": source_price * (1.0 + DELIVERY_SURCHARGE),
-		"delivery_seconds": DELIVERY_SECONDS
+		"delivery_price": source_price * (1.0 + float(_rules.get("delivery_surcharge", 0.50))),
+		"delivery_seconds": int(_rules.get("delivery_seconds", 120))
 	}
 
 func get_delivery_capacity() -> int:
@@ -96,7 +99,7 @@ func place_order(resource_id: String, quantity: int) -> Dictionary:
 		"resource_id": resource_id,
 		"quantity": quantity,
 		"source_port_id": source_port_id,
-		"arrives_at": int(Time.get_unix_time_from_system()) + DELIVERY_SECONDS
+		"arrives_at": int(Time.get_unix_time_from_system()) + int(_rules.get("delivery_seconds", 120))
 	})
 	_set_active_orders(orders)
 	SaveSystem.save_game()

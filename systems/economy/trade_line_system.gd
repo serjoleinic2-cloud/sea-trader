@@ -2,9 +2,7 @@ extends Node
 
 ## Repeating fleet trade lines with demand, return cargo and clear stop reasons.
 
-const DEMAND_MAX: int = 60
-const DEMAND_RECOVERY_SECONDS: int = 120
-const DEMAND_RECOVERY_AMOUNT: int = 8
+var _rules: Dictionary = {}
 
 var _port_system: Node
 var _fleet_system: Node
@@ -15,9 +13,10 @@ func _ready() -> void:
 	add_to_group("trade_line_system")
 
 func initialize(port_system: Node, fleet_system: Node) -> void:
+	_rules = GameData.read("res://data/economy/market_rules.json")
 	_port_system = port_system
 	_fleet_system = fleet_system
-	var catalog: Dictionary = SaveSystem._read_json("res://data/resources/goods_catalog.json")
+	var catalog: Dictionary = GameData.read("res://data/resources/goods_catalog.json")
 	var raw_goods: Variant = catalog.get("resources", [])
 	if raw_goods is Array:
 		for raw_good in raw_goods:
@@ -182,7 +181,7 @@ func _start_return(line: Dictionary) -> Dictionary:
 	var origin_id: String = str(line.get("origin_id", ""))
 	var destination_id: String = str(line.get("destination_id", ""))
 	if return_resource_id == "":
-		var rules: Dictionary = SaveSystem._read_json("res://data/economy/logistics_rules.json")
+		var rules: Dictionary = GameData.read("res://data/economy/logistics_rules.json")
 		var cost: float = float(rules.get("fleet_leg_service_cost", 12.0))
 		if float(GameState.player_state.get("money", 0.0)) < cost:
 			return {"ok": false, "message": "Не хватает денег на обратный рейс: %.0f." % cost}
@@ -196,7 +195,7 @@ func _start_return(line: Dictionary) -> Dictionary:
 
 func get_buy_price(port_id: String, resource_id: String) -> float:
 	var port: Dictionary = GameState.port_state.get(port_id, {})
-	return round(_base_price(resource_id) * 1.20 * float(port.get("price_multipliers", {}).get(resource_id, 1.0)))
+	return round(_base_price(resource_id) * float(_rules.get("remote_port_buy_multiplier", 1.20)) * float(port.get("price_multipliers", {}).get(resource_id, 1.0)))
 
 func get_sell_price(port_id: String, resource_id: String) -> float:
 	return _sale_price(port_id, resource_id)
@@ -227,7 +226,7 @@ func _start_trade_leg(line: Dictionary, source_id: String, target_id: String, re
 		return {"ok": false, "message": "В источнике недостаточно «%s»." % _good_name(resource_id)}
 	var buy_price: float = 0.0 if source_id == home_id else get_buy_price(source_id, resource_id)
 	var sale_price: float = 0.0 if to_home else _sale_price(target_id, resource_id)
-	var rules: Dictionary = SaveSystem._read_json("res://data/economy/logistics_rules.json")
+	var rules: Dictionary = GameData.read("res://data/economy/logistics_rules.json")
 	var service_cost: float = float(rules.get("fleet_leg_service_cost", 12.0))
 	var predicted_profit: float = (sale_price - buy_price) * quantity - service_cost
 	if not to_home and predicted_profit < float(line.get("min_profit", 0.0)):
@@ -352,17 +351,17 @@ func _refresh_demand(port_id: String) -> void:
 	var now: int = _now()
 	var recovery_at: int = int(port.get("market_demand_recovery_at", 0))
 	if recovery_at == 0:
-		port["market_demand_recovery_at"] = now + DEMAND_RECOVERY_SECONDS
+		port["market_demand_recovery_at"] = now + maxi(1, int(_rules.get("demand_recovery_seconds", 120)))
 		GameState.port_state[port_id] = port
 		return
 	if now < recovery_at:
 		return
-	var steps: int = maxi(1, int((now - recovery_at) / DEMAND_RECOVERY_SECONDS) + 1)
+	var steps: int = maxi(1, int((now - recovery_at) / maxi(1, int(_rules.get("demand_recovery_seconds", 120)))) + 1)
 	var demand: Dictionary = port.get("market_demand", {})
 	for resource_id in demand:
-		demand[resource_id] = mini(DEMAND_MAX, int(demand[resource_id]) + DEMAND_RECOVERY_AMOUNT * steps)
+		demand[resource_id] = mini(int(_rules.get("demand_max", 60)), int(demand[resource_id]) + int(_rules.get("demand_recovery_amount", 8)) * steps)
 	port["market_demand"] = demand
-	port["market_demand_recovery_at"] = recovery_at + DEMAND_RECOVERY_SECONDS * steps
+	port["market_demand_recovery_at"] = recovery_at + maxi(1, int(_rules.get("demand_recovery_seconds", 120))) * steps
 	GameState.port_state[port_id] = port
 
 func _get_demand(port_id: String, resource_id: String) -> int:
@@ -378,13 +377,17 @@ func _get_demand(port_id: String, resource_id: String) -> int:
 func _set_demand(port_id: String, resource_id: String, amount: int) -> void:
 	var port: Dictionary = GameState.port_state.get(port_id, {})
 	var demand: Dictionary = port.get("market_demand", {})
-	demand[resource_id] = clampi(amount, 0, DEMAND_MAX)
+	demand[resource_id] = clampi(amount, 0, int(_rules.get("demand_max", 60)))
 	port["market_demand"] = demand
 	GameState.port_state[port_id] = port
 
 func _sale_price(port_id: String, resource_id: String) -> float:
-	var demand_factor: float = 0.75 + float(_get_demand(port_id, resource_id)) / 100.0
-	return round(_base_price(resource_id) * 1.25 * demand_factor)
+	var demand_factor: float = float(_rules.get("demand_base_factor", 0.75)) + float(_get_demand(port_id, resource_id)) / maxf(1.0, float(_rules.get("demand_price_scale", 100.0)))
+	var reward_factor: float = 1.0
+	var rewards: Array[Node] = get_tree().get_nodes_in_group("reward_system")
+	if not rewards.is_empty():
+		reward_factor += float(rewards[0].get_bonus_percent("sale")) / 100.0
+	return snappedf(round(_base_price(resource_id) * float(_rules.get("remote_port_sell_multiplier", 1.25)) * demand_factor) * reward_factor, 0.01)
 
 func _base_price(resource_id: String) -> float:
 	return float(_base_prices.get(resource_id, 0.0))

@@ -84,19 +84,7 @@ func _ready() -> void:
 
 
 func _load_config() -> void:
-	var path: String = "res://data/input/input_config.json"
-	var f: FileAccess = FileAccess.open(path, FileAccess.READ)
-	if f == null:
-		push_warning("SensorInput: cannot open %s — using defaults" % path)
-		return
-
-	var parsed: Variant = JSON.parse_string(f.get_as_text())
-	f.close()
-
-	if not parsed is Dictionary:
-		push_warning("SensorInput: invalid JSON in %s — using defaults" % path)
-		return
-
+	var parsed: Dictionary = GameData.read("res://data/input/input_config.json")
 	var tilt: Dictionary = parsed.get("tilt", {})
 	_pitch_sensitivity          = float(tilt.get("pitch_sensitivity",  _pitch_sensitivity))
 	_roll_sensitivity           = float(tilt.get("roll_sensitivity",   _roll_sensitivity))

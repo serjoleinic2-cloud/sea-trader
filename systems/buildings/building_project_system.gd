@@ -2,20 +2,20 @@ extends Node
 
 ## Parallel, material-funded construction projects for home-port buildings.
 
-const MAX_LEVEL: int = 30
-
 var _catalog: Dictionary = {}
+var _rules: Dictionary = {}
 var _goods: Dictionary = {}
 
 func _ready() -> void:
 	add_to_group("building_project_system")
 
 func initialize() -> void:
-	var source: Dictionary = SaveSystem._read_json("res://data/ports/building_catalog.json")
+	_rules = GameData.read("res://data/ports/building_rules.json")
+	var source: Dictionary = GameData.read("res://data/ports/building_catalog.json")
 	for raw_building in source.get("buildings", []):
 		var building: Dictionary = raw_building
 		_catalog[str(building.get("building_id", ""))] = building
-	var goods_catalog: Dictionary = SaveSystem._read_json("res://data/resources/goods_catalog.json")
+	var goods_catalog: Dictionary = GameData.read("res://data/resources/goods_catalog.json")
 	for raw_good in goods_catalog.get("resources", []):
 		var good: Dictionary = raw_good
 		_goods[str(good.get("id", ""))] = str(good.get("display_name", ""))
@@ -73,8 +73,9 @@ func create_project(building_id: String) -> Dictionary:
 	if not existing.is_empty():
 		return {"ok": true, "message": "Проект этого здания уже подготовлен."}
 	var current_level: int = get_building_level(building_id)
-	if current_level >= MAX_LEVEL:
-		return {"ok": false, "message": "Здание уже достигло 30 уровня."}
+	var maximum: int = int(_catalog[building_id].get("max_level", 30))
+	if current_level >= maximum:
+		return {"ok": false, "message": "Здание уже достигло %d уровня." % maximum}
 	var next_level: int = current_level + 1
 	var projects: Array = get_projects()
 	projects.append({
@@ -251,7 +252,7 @@ func _set_projects(projects: Array) -> void:
 	GameState.company_state["building_projects"] = projects
 
 func _get_build_duration(level: int) -> int:
-	return 20 + level * 20
+	return int(_rules.get("duration_base_seconds", 20)) + level * int(_rules.get("duration_per_level_seconds", 20))
 
 func _format_time(seconds: int) -> String:
 	var minutes: int = int(seconds / 60)
@@ -264,47 +265,25 @@ func _get_now_unix() -> int:
 	return int(Time.get_unix_time_from_system())
 
 func _make_requirements(building_id: String, level: int) -> Dictionary:
-	var bases: Dictionary = {
-		"dock": {"resource_timber": 16, "resource_nails": 8, "resource_rope": 5, "resource_paint": 2},
-		"warehouse": {"resource_timber": 20, "resource_nails": 12, "resource_glass": 3, "resource_paint": 3},
-		"workshop": {"resource_timber": 18, "resource_nails": 14, "resource_parts": 5, "resource_varnish": 3},
-		"market": {"resource_timber": 16, "resource_nails": 8, "resource_fabric": 8, "resource_glass": 4},
-		"shipyard": {"resource_timber": 30, "resource_nails": 18, "resource_fabric": 10, "resource_rope": 10, "resource_paint": 5},
-		"harbor_office": {"resource_timber": 14, "resource_nails": 8, "resource_glass": 5, "resource_paint": 4},
-		"fishing_wharf": {"resource_timber": 14, "resource_nails": 7, "resource_rope": 7, "resource_paint": 2},
-		"timber_yard": {"resource_timber": 18, "resource_nails": 9, "resource_rope": 5, "resource_paint": 2}
-	}
-	var raw_base: Variant = bases.get(building_id, {})
-	var base: Dictionary = raw_base if raw_base is Dictionary else {}
-	var multiplier: float = pow(1.0 + 0.12 * float(level - 1), 2.0)
+	var base: Dictionary = _rules.get("base_materials", {}).get(building_id, {})
+	var multiplier: float = pow(1.0 + float(_rules.get("growth_per_level", 0.12)) * float(level - 1), float(_rules.get("growth_exponent", 2.0)))
 	var requirements: Dictionary = {}
 	for resource_id in base:
 		requirements[resource_id] = maxi(1, int(ceil(float(base[resource_id]) * multiplier)))
-	if level >= 6:
-		requirements["resource_fabric"] = int(requirements.get("resource_fabric", 0)) + int(ceil(4.0 * multiplier))
-		requirements["resource_glass"] = int(requirements.get("resource_glass", 0)) + int(ceil(2.0 * multiplier))
-	if level >= 11:
-		requirements["resource_parts"] = int(requirements.get("resource_parts", 0)) + int(ceil(5.0 * multiplier))
-		requirements["resource_varnish"] = int(requirements.get("resource_varnish", 0)) + int(ceil(3.0 * multiplier))
-	if level >= 21:
-		requirements["resource_oil"] = int(requirements.get("resource_oil", 0)) + int(ceil(6.0 * multiplier))
+	for addition in _rules.get("additional_materials", []):
+		if level >= int(addition.from_level):
+			for resource_id in addition.materials:
+				requirements[resource_id] = int(requirements.get(resource_id, 0)) + int(ceil(float(addition.materials[resource_id]) * multiplier))
 	return requirements
 
 func _get_required_rank(level: int) -> int:
-	if level <= 5:
-		return 1
-	if level <= 10:
-		return 10
-	if level <= 15:
-		return 20
-	if level <= 20:
-		return 25
-	if level <= 25:
-		return 32
+	for gate in _rules.get("rank_gates", []):
+		if level <= int(gate.through_level):
+			return int(gate.rank)
 	return 40
 
 func _get_required_ports(level: int) -> int:
-	return 1 + int((level - 1) / 5)
+	return 1 + int((level - 1) / maxi(1, int(_rules.get("ports_per_level_step", 5))))
 
 func _get_command_rank() -> int:
 	var systems: Array[Node] = get_tree().get_nodes_in_group("career_system")
