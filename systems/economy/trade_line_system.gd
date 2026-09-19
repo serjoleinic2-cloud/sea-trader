@@ -61,7 +61,11 @@ func get_market_info(port_id: String, resource_id: String) -> Dictionary:
 	}
 
 func try_sell_to_port(port_id: String, resource_id: String, quantity: int) -> Dictionary:
-	var amount: int = maxi(1, quantity)
+	if quantity <= 0 or not _base_prices.has(resource_id) or not GameState.port_state.has(port_id):
+		return {"ok": false, "message": "Некорректный товар или количество."}
+	if port_id == str(GameState.world_state.get("home_port_id", "")):
+		return {"ok": false, "message": "На своей базе выгружайте товар на склад."}
+	var amount: int = quantity
 	var info: Dictionary = get_market_info(port_id, resource_id)
 	if not bool(info.get("accepted", false)):
 		return {"ok": false, "message": str(info.get("message", "Порт не принимает этот товар."))}
@@ -87,6 +91,9 @@ func create_line(ship_id: String, origin_id: String, destination_id: String, res
 		return {"ok": false, "message": "Корабль должен стоять в начальном порту."}
 	if quantity < 1 or quantity > int(ship.get("cargo_capacity", 0)):
 		return {"ok": false, "message": "Количество не помещается в трюм."}
+	for existing in get_lines():
+		if str(existing.get("ship_id", "")) == ship_id:
+			return {"ok": false, "message": "Корабль уже закреплён за линией. Используйте «Повторить»."}
 	var line_id: String = "line_%03d" % (get_lines().size() + 1)
 	var line: Dictionary = {
 		"id": line_id,
@@ -140,7 +147,7 @@ func _process(_delta: float) -> void:
 				line["status"] = "В пути с обратным грузом" if bool(return_result.get("ok", false)) else "Остановлена"
 			lines[index] = line
 			changed = true
-		elif status == "В пути с обратным грузом" and _ship_arrived(line, str(line.get("origin_id", ""))):
+		elif status in ["В пути с обратным грузом", "Возвращается"] and _ship_arrived(line, str(line.get("origin_id", ""))):
 			var return_resource_id: String = str(line.get("return_resource_id", ""))
 			if return_resource_id != "":
 				var return_sale: Dictionary = _finish_sale(line, str(line.get("origin_id", "")), return_resource_id, true)
@@ -175,50 +182,146 @@ func _start_return(line: Dictionary) -> Dictionary:
 	var origin_id: String = str(line.get("origin_id", ""))
 	var destination_id: String = str(line.get("destination_id", ""))
 	if return_resource_id == "":
-		var empty_freight: Dictionary = {"resource_id": "", "quantity": 0, "reward": 0.0, "line_id": str(line.get("id", ""))}
-		return _fleet_system.start_autopilot(str(line.get("ship_id", "")), _get_route_key(origin_id, destination_id), empty_freight)
+		var rules: Dictionary = SaveSystem._read_json("res://data/economy/logistics_rules.json")
+		var cost: float = float(rules.get("fleet_leg_service_cost", 12.0))
+		if float(GameState.player_state.get("money", 0.0)) < cost:
+			return {"ok": false, "message": "Не хватает денег на обратный рейс: %.0f." % cost}
+		var empty_freight: Dictionary = {"resource_id": "", "quantity": 0, "reward": 0.0, "managed_trade": true, "line_id": str(line.get("id", ""))}
+		var result: Dictionary = _fleet_system.start_autopilot(str(line.get("ship_id", "")), _get_route_key(origin_id, destination_id), empty_freight, false)
+		if bool(result.get("ok", false)):
+			GameState.player_state["money"] = float(GameState.player_state.get("money", 0.0)) - cost
+			line["spent"] = float(line.get("spent", 0.0)) + cost
+		return result
 	return _start_trade_leg(line, destination_id, origin_id, return_resource_id)
 
-func _start_trade_leg(line: Dictionary, source_id: String, target_id: String, resource_id: String) -> Dictionary:
-	if not _port_accepts(target_id, resource_id):
-		return {"ok": false, "message": "Порт назначения не принимает «%s»." % _good_name(resource_id)}
-	var quantity: int = int(line.get("quantity", 0))
-	var demand: int = _get_demand(target_id, resource_id)
-	if demand < quantity:
-		return {"ok": false, "message": "Спрос на «%s» только %d ед. Ожидайте восстановления." % [_good_name(resource_id), demand]}
-	var source: Dictionary = GameState.port_state.get(source_id, {})
-	var stock: Dictionary = source.get("market_stock", {})
-	if int(stock.get(resource_id, 0)) < quantity:
-		return {"ok": false, "message": "В порту-источнике нет «%s» в нужном количестве." % _good_name(resource_id)}
-	var buy_price: float = _base_price(resource_id) * 1.20
-	var sale_price: float = _sale_price(target_id, resource_id)
-	var fuel_reserve: float = 12.0
-	var predicted_profit: float = (sale_price - buy_price) * quantity - fuel_reserve
-	if predicted_profit < float(line.get("min_profit", 0.0)):
-		return {"ok": false, "message": "Прибыль %.0f ниже установленного минимума." % predicted_profit}
-	var purchase_cost: float = buy_price * quantity
-	if float(GameState.player_state.get("money", 0.0)) < purchase_cost:
-		return {"ok": false, "message": "Недостаточно денег для закупки груза."}
-	GameState.player_state["money"] = float(GameState.player_state.get("money", 0.0)) - purchase_cost
-	stock[resource_id] = int(stock.get(resource_id, 0)) - quantity
-	source["market_stock"] = stock
-	GameState.port_state[source_id] = source
-	var freight: Dictionary = {
-		"resource_id": resource_id,
-		"quantity": quantity,
-		"reward": sale_price * quantity,
-		"line_id": str(line.get("id", ""))
-	}
-	return _fleet_system.start_autopilot(str(line.get("ship_id", "")), _get_route_key(source_id, target_id), freight)
+func get_buy_price(port_id: String, resource_id: String) -> float:
+	var port: Dictionary = GameState.port_state.get(port_id, {})
+	return round(_base_price(resource_id) * 1.20 * float(port.get("price_multipliers", {}).get(resource_id, 1.0)))
 
-func _finish_sale(line: Dictionary, target_id: String, resource_id: String, completed_cycle: bool) -> Dictionary:
-	var result: Dictionary = try_sell_to_port(target_id, resource_id, int(line.get("quantity", 0)))
+func get_sell_price(port_id: String, resource_id: String) -> float:
+	return _sale_price(port_id, resource_id)
+
+func start_single_trip(ship_id: String, source_id: String, target_id: String, resource_id: String, quantity: int) -> Dictionary:
+	var plan: Dictionary = {"ship_id": ship_id, "id": "", "quantity": quantity, "min_profit": -INF}
+	var result: Dictionary = _start_trade_leg(plan, source_id, target_id, resource_id)
+	if bool(result.get("ok", false)):
+		SaveSystem.save_game()
+	return result
+
+func _start_trade_leg(line: Dictionary, source_id: String, target_id: String, resource_id: String) -> Dictionary:
+	var quantity: int = int(line.get("quantity", 0))
+	if quantity <= 0 or not _base_prices.has(resource_id):
+		return {"ok": false, "message": "Выберите товар и положительное количество."}
+	var home_id: String = str(GameState.world_state.get("home_port_id", ""))
+	var to_home: bool = target_id == home_id
+	if not to_home:
+		var info: Dictionary = get_market_info(target_id, resource_id)
+		if not bool(info.get("accepted", false)):
+			return {"ok": false, "message": "Порт не принимает «%s»." % _good_name(resource_id)}
+		if int(info.get("demand", 0)) < quantity:
+			return {"ok": false, "message": "Спрос: %d ед. Повторите после восстановления." % int(info.get("demand", 0))}
+	var source: Dictionary = GameState.port_state.get(source_id, {})
+	var stock_key: String = "inventory" if source_id == home_id else "market_stock"
+	var stock: Dictionary = source.get(stock_key, {})
+	if int(stock.get(resource_id, 0)) < quantity:
+		return {"ok": false, "message": "В источнике недостаточно «%s»." % _good_name(resource_id)}
+	var buy_price: float = 0.0 if source_id == home_id else get_buy_price(source_id, resource_id)
+	var sale_price: float = 0.0 if to_home else _sale_price(target_id, resource_id)
+	var rules: Dictionary = SaveSystem._read_json("res://data/economy/logistics_rules.json")
+	var service_cost: float = float(rules.get("fleet_leg_service_cost", 12.0))
+	var predicted_profit: float = (sale_price - buy_price) * quantity - service_cost
+	if not to_home and predicted_profit < float(line.get("min_profit", 0.0)):
+		return {"ok": false, "message": "Ожидаемый результат %.0f ниже минимума." % predicted_profit}
+	var cost: float = buy_price * quantity + service_cost
+	if float(GameState.player_state.get("money", 0.0)) < cost:
+		return {"ok": false, "message": "Не хватает денег на закупку и обслуживание рейса: %.0f." % cost}
+	var freight: Dictionary = {"resource_id": resource_id, "quantity": quantity,
+		"reward": 0.0, "managed_trade": true, "line_id": str(line.get("id", ""))}
+	# Fleet validates crew, cargo and busy state before any purchase is committed.
+	var result: Dictionary = _fleet_system.start_autopilot(str(line.get("ship_id", "")), _get_route_key(source_id, target_id), freight, false)
+	if not bool(result.get("ok", false)):
+		return result
+	GameState.player_state["money"] = float(GameState.player_state.get("money", 0.0)) - cost
+	stock[resource_id] = int(stock.get(resource_id, 0)) - quantity
+	source[stock_key] = stock
+	GameState.port_state[source_id] = source
+	line["spent"] = float(line.get("spent", 0.0)) + cost
+	return result
+
+func settle_freight(ship: Dictionary, freight: Dictionary) -> Dictionary:
+	var resource_id: String = str(freight.get("resource_id", ""))
+	var quantity: int = int(freight.get("quantity", 0))
+	var target_id: String = str(ship.get("current_port_id", ""))
+	if quantity == 0:
+		return {"ok": true, "revenue": 0.0, "message": "Возврат без груза."}
+	var available: int = 0
+	for item in ship.get("cargo", []):
+		if str(item.get("resource_id", "")) == resource_id:
+			available += int(item.get("quantity", 0))
+	if available < quantity:
+		return {"ok": false, "message": "Недостаточно груза в трюме."}
+	var result: Dictionary
+	if target_id == str(GameState.world_state.get("home_port_id", "")):
+		var port: Dictionary = GameState.port_state.get(target_id, {})
+		var inventory: Dictionary = port.get("inventory", {})
+		inventory[resource_id] = int(inventory.get(resource_id, 0)) + quantity
+		port["inventory"] = inventory
+		GameState.port_state[target_id] = port
+		result = {"ok": true, "revenue": 0.0, "message": "Груз выгружен на склад базы."}
+	else:
+		result = try_sell_to_port(target_id, resource_id, quantity)
+	if bool(result.get("ok", false)):
+		ship["cargo"] = []
+		var revenue: float = float(result.get("revenue", 0.0))
+		GameState.player_state["money"] = float(GameState.player_state.get("money", 0.0)) + revenue
+		var stats: Dictionary = GameState.player_state.get("stats", {})
+		stats["total_earned"] = float(stats.get("total_earned", 0.0)) + revenue
+		stats["cargo_units_moved"] = int(stats.get("cargo_units_moved", 0)) + quantity
+		if revenue > 0.0:
+			stats["total_sales"] = int(stats.get("total_sales", 0)) + quantity
+		GameState.player_state["stats"] = stats
+	return result
+
+func _finish_sale(line: Dictionary, _target_id: String, _resource_id: String, completed_cycle: bool) -> Dictionary:
+	var ship: Dictionary = _get_ship(str(line.get("ship_id", "")))
+	var result: Dictionary = ship.get("trade_receipt", {})
+	if result.is_empty():
+		return {"ok": false, "message": "Нет подтверждения продажи; груз не списан повторно."}
 	if not bool(result.get("ok", false)):
 		return result
 	line["earned"] = float(line.get("earned", 0.0)) + float(result.get("revenue", 0.0))
+	ship.erase("trade_receipt")
 	if completed_cycle:
 		line["cycles"] = int(line.get("cycles", 0)) + 1
 	return {"ok": true, "line": line, "message": str(result.get("message", ""))}
+
+func resume_line(line_id: String) -> Dictionary:
+	var lines: Array = get_lines()
+	for line in lines:
+		if str(line.get("id", "")) != line_id:
+			continue
+		var ship: Dictionary = _get_ship(str(line.get("ship_id", "")))
+		if not ship.get("autopilot", {}).is_empty():
+			return {"ok": false, "message": "Дождитесь завершения текущего рейса."}
+		if ship.has("pending_trade"):
+			var receipt: Dictionary = settle_freight(ship, ship["pending_trade"])
+			ship["trade_receipt"] = receipt
+			if not bool(receipt.get("ok", false)):
+				line["last_message"] = str(receipt.get("message", ""))
+				SaveSystem.save_game()
+				return receipt
+			ship.erase("pending_trade")
+		var at_origin: bool = str(ship.get("current_port_id", "")) == str(line.get("origin_id", ""))
+		if ship.has("trade_receipt"):
+			line["status"] = "В пути с обратным грузом" if at_origin else "В пути к покупателю"
+		else:
+			var result: Dictionary = _start_outbound(line) if at_origin else _start_return(line)
+			line["status"] = ("В пути к покупателю" if at_origin else "В пути с обратным грузом") if bool(result.get("ok", false)) else "Остановлена"
+			line["last_message"] = str(result.get("message", ""))
+		_set_lines(lines)
+		SaveSystem.save_game()
+		return {"ok": not str(line["status"]).begins_with("Остановлена"), "message": str(line.get("last_message", ""))}
+	return {"ok": false, "message": "Линия не найдена."}
 
 func _ship_arrived(line: Dictionary, port_id: String) -> bool:
 	var ship: Dictionary = _get_ship(str(line.get("ship_id", "")))

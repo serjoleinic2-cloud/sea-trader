@@ -23,6 +23,8 @@ func after_each() -> void:
 
 func test_discovery_records_both_knowledge_fields_without_geometry() -> void:
 	_system._process(0.016)
+	assert_true(GameState.player_state.discovered_port_ids.is_empty(), "Entering range is not docking")
+	assert_true(_system.dock("test_port"))
 	assert_true(GameState.port_state.test_port.discovered)
 	assert_eq(GameState.player_state.discovered_port_ids, ["test_port"])
 	assert_false(GameState.port_state.test_port.has("position"))
@@ -63,6 +65,7 @@ func test_saved_discovery_emits_entered_and_preserves_progress() -> void:
 
 func test_discovery_save_load() -> void:
 	_system._process(0.016)
+	assert_true(_system.dock("test_port"))
 	GameState.reset_to_defaults()
 	assert_true(SaveSystem.load_game())
 	assert_true(GameState.port_state.test_port.discovered)

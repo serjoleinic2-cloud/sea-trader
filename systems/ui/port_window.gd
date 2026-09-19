@@ -197,7 +197,7 @@ func _process(_delta: float) -> void:
 	elif not is_home:
 		_last_home_port_id = ""
 	_bottom_menu.visible = true
-	_building_list.visible = (is_home and (_current_section == "construction" or _current_section == "resources")) or (not is_home and _current_section == "market")
+	_building_list.visible = (is_home and (_current_section == "construction" or _current_section == "resources")) or (not is_home and _current_section == "market") or _current_section == "management"
 	_plan_button.visible = is_home and _current_section == "construction"
 	_modernization_switches.visible = is_home and _current_section == "modernization"
 	_update_quantity_selector(docked_port, is_home)
@@ -213,6 +213,10 @@ func _refresh_text(port_id: String, is_home: bool) -> void:
 	var ship: Dictionary = GameState.ship_state
 	var port: Dictionary = GameState.port_state.get(port_id, {})
 	var port_name: String = _port_system.get_port_name(port_id)
+	if _current_section == "management":
+		_title.text = "УПРАВЛЕНИЕ: " + port_name
+		_details.text = "Выберите действие. Улучшения зданий находятся в разделе «Строительство»."
+		return
 	if not is_home:
 		if _current_section == "market":
 			_refresh_market_page(port_name, ship, port)
@@ -227,7 +231,7 @@ func _refresh_text(port_id: String, is_home: bool) -> void:
 			+ "Деньги: %.0f\n"
 			+ "Топливо: %.1f / %.0f\n"
 			+ "Корпус: %.0f / 100\n\n"
-			+ "Это обычный порт. Здесь будут торговля, заправка и ремонт."
+			+ "Торговля — в разделе «Рынок». Заправка и ремонт — в «Управление»."
 		) % [
 			int(port.get("level", 1)),
 			float(GameState.player_state.get("money", 0.0)),
@@ -250,27 +254,7 @@ func _refresh_text(port_id: String, is_home: bool) -> void:
 	if _selected_building_id != "":
 		selected_name = _get_building_name(_selected_building_id)
 		selected_state = _get_building_state(port, _selected_building_id)
-	var inventory_text: String = _get_inventory_text(port)
-	var cargo_units: int = _get_cargo_units()
-	var cargo_capacity: int = int(ship.get("cargo_capacity", 0))
-	_details.text = (
-		"Ваша развиваемая база\n"
-		+ "Уровень порта: %d\n"
-		+ "Деньги: %.0f\n"
-		+ "Склад: %s\n"
-		+ "Трюм: %d / %d\n\n"
-		+ "Выбрано: %s\n"
-		+ "Статус: %s\n"
-		+ "%s"
-	) % [
-		int(port.get("level", 1)),
-		float(GameState.player_state.get("money", 0.0)),
-		inventory_text,
-		cargo_units, cargo_capacity,
-		selected_name,
-		selected_state if selected_state != "" else "-",
-		_notice
-	]
+	_details.text = "Выбрано: %s\nСтатус: %s\n%s" % [selected_name, selected_state, _notice]
 
 func _rebuild_building_list(port_id: String) -> void:
 	for child in _building_list.get_children():
@@ -289,39 +273,24 @@ func _rebuild_building_list(port_id: String) -> void:
 func _rebuild_resource_list(port_id: String) -> void:
 	for child in _building_list.get_children():
 		child.queue_free()
-	var port: Dictionary = GameState.port_state.get(port_id, {})
-	var inventory: Dictionary = _get_inventory(port)
-	for raw_recipe in _production_recipes:
-		var recipe: Dictionary = raw_recipe
-		var building_id: String = str(recipe.get("building_id", ""))
-		var resource_id: String = str(recipe.get("resource_id", ""))
+	var inventory: Dictionary = _get_inventory(GameState.port_state.get(port_id, {}))
+	var ids: Array = inventory.keys()
+	for item in GameState.ship_state.get("cargo", []):
+		var id: String = str(item.get("resource_id", ""))
+		if not ids.has(id):
+			ids.append(id)
+	for recipe in _production_recipes:
+		var id: String = str(recipe.get("resource_id", ""))
+		if not ids.has(id):
+			ids.append(id)
+	for resource_id in ids:
 		var button: Button = Button.new()
-		button.custom_minimum_size.y = 42
-		button.text = "%s: %d — %s" % [
-			_get_resource_name(resource_id),
-			int(inventory.get(resource_id, 0)),
-			_get_building_state(port, building_id)
-		]
-		button.pressed.connect(_select_building.bind(building_id))
+		button.custom_minimum_size.y = 44
+		button.text = "%s — склад: %d | трюм: %d" % [_get_resource_name(str(resource_id)), int(inventory.get(resource_id, 0)), _get_cargo_quantity(str(resource_id))]
+		button.pressed.connect(_select_transfer_resource.bind(str(resource_id)))
 		_building_list.add_child(button)
-	var raw_cargo: Variant = GameState.ship_state.get("cargo", [])
-	if raw_cargo is Array:
-		for raw_item in raw_cargo:
-			var cargo_item: Dictionary = raw_item
-			var cargo_resource_id: String = str(cargo_item.get("resource_id", ""))
-			if cargo_resource_id == "" or _get_building_id_for_resource(cargo_resource_id) != "":
-				continue
-			var cargo_button: Button = Button.new()
-			cargo_button.custom_minimum_size.y = 42
-			cargo_button.text = "Из трюма: %s (%d) — выгрузить на склад" % [
-				_get_resource_name(cargo_resource_id),
-				int(cargo_item.get("quantity", 0))
-			]
-			cargo_button.pressed.connect(_select_transfer_resource.bind(cargo_resource_id))
-			_building_list.add_child(cargo_button)
-	if _get_selected_resource_id() == "" and not _production_recipes.is_empty():
-		var first_recipe: Dictionary = _production_recipes[0]
-		_selected_building_id = str(first_recipe.get("building_id", ""))
+	if _get_selected_resource_id() == "" and not ids.is_empty():
+		_selected_market_resource_id = str(ids[0])
 
 func _rebuild_market_list(port_id: String) -> void:
 	for child in _building_list.get_children():
@@ -420,23 +389,13 @@ func _plan_selected_building() -> void:
 
 func _update_load_button(port_id: String, is_home: bool) -> void:
 	var resource_id: String = _get_selected_resource_id()
-	_load_button.visible = is_home and _current_section == "resources" and resource_id != "" and _get_building_id_for_resource(resource_id) != ""
+	_load_button.visible = is_home and _current_section == "resources" and resource_id != ""
 	if not _load_button.visible:
 		return
-	var port: Dictionary = GameState.port_state.get(port_id, {})
-	var inventory: Dictionary = _get_inventory(port)
-	var stock: int = int(inventory.get(resource_id, 0))
-	var cargo_capacity: int = int(GameState.ship_state.get("cargo_capacity", 0))
-	var production_is_active: bool = _is_production_active_for_resource(port, resource_id)
-	var available_space: int = cargo_capacity - _get_cargo_units()
-	var available_stock: int = stock
-	if available_stock <= 0 and production_is_active:
-		available_stock = 1
-	_load_button.disabled = not production_is_active or _selected_quantity > available_stock or _selected_quantity > available_space
-	if stock > 0:
-		_load_button.text = "Загрузить %d ед.: %s (%d)" % [_selected_quantity, _get_resource_name(resource_id), stock]
-	else:
-		_load_button.text = "Подготовить и загрузить %d ед.: %s" % [_selected_quantity, _get_resource_name(resource_id)]
+	var inventory: Dictionary = _get_inventory(GameState.port_state.get(port_id, {}))
+	var free_space: int = int(GameState.ship_state.get("cargo_capacity", 0)) - _get_cargo_units()
+	_load_button.disabled = _selected_quantity > int(inventory.get(resource_id, 0)) or _selected_quantity > free_space
+	_load_button.text = "Загрузить: %s × %d" % [_get_resource_name(resource_id), _selected_quantity]
 
 func _update_quantity_selector(port_id: String, is_home: bool) -> void:
 	var resource_id: String = _get_selected_resource_id()
@@ -484,7 +443,7 @@ func _update_buy_button(port_id: String, is_home: bool) -> void:
 
 func _update_sell_button(is_home: bool) -> void:
 	var resource_id: String = _get_selected_resource_id()
-	_sell_button.visible = not is_home and _current_section == "market" and resource_id != ""
+	_sell_button.visible = not is_home and _current_section == "market" and _market_view != "port" and resource_id != ""
 	if not _sell_button.visible:
 		return
 	var quantity: int = _get_cargo_quantity(resource_id)
@@ -507,19 +466,15 @@ func _load_one_unit() -> void:
 	if port_id == "" or port_id != home_port_id or resource_id == "":
 		return
 	var cargo_capacity: int = int(GameState.ship_state.get("cargo_capacity", 0))
-	if _get_cargo_units() >= cargo_capacity:
+	if _selected_quantity > cargo_capacity - _get_cargo_units():
 		_notice = "Трюм заполнен."
 		return
 	var port: Dictionary = GameState.port_state.get(port_id, {})
 	var inventory: Dictionary = _get_inventory(port)
 	var stock: int = int(inventory.get(resource_id, 0))
 	if stock < _selected_quantity:
-		if stock > 0 or not _is_selected_production_active(port) or _selected_quantity > 1:
-			_notice = "На складе недостаточно товара."
-			return
-		# Fallback for the schematic prototype: the first completed batch is prepared on demand.
-		stock = 1
-		inventory[resource_id] = stock
+		_notice = "На складе недостаточно товара. Дождитесь производства или поставки."
+		return
 	inventory[resource_id] = stock - _selected_quantity
 	port["inventory"] = inventory
 	GameState.port_state[port_id] = port
@@ -536,9 +491,6 @@ func _load_one_unit() -> void:
 	if not was_loaded:
 		cargo.append({"resource_id": resource_id, "quantity": _selected_quantity})
 	GameState.ship_state["cargo"] = cargo
-	var stats: Dictionary = GameState.player_state.get("stats", {})
-	stats["cargo_units_moved"] = int(stats.get("cargo_units_moved", 0)) + _selected_quantity
-	GameState.player_state["stats"] = stats
 	EventBus.cargo_loaded.emit(resource_id, _selected_quantity)
 	_notice = "В трюм загружено: %s × %d." % [_get_resource_name(resource_id), _selected_quantity]
 	SaveSystem.save_game()
@@ -573,11 +525,7 @@ func _create_bottom_menu() -> void:
 	_add_navigation_button(row, "Строительство", "construction")
 	_add_navigation_button(row, "Ресурсы", "resources")
 	_add_navigation_button(row, "Рынок", "market")
-	_add_navigation_button(row, "Модернизация", "modernization")
-	_add_navigation_button(row, "Найм", "hiring")
-	_add_navigation_button(row, "Сервис", "service")
-	_add_navigation_button(row, "Контракты", "contracts")
-	_add_navigation_button(row, "Логистика", "logistics")
+	_add_navigation_button(row, "Управление", "management")
 
 func _add_navigation_button(row: HBoxContainer, label_text: String, section_id: String) -> void:
 	var button: Button = Button.new()
@@ -613,7 +561,16 @@ func _open_section(section_id: String) -> void:
 	_current_section = section_id
 	if port_id == "":
 		return
-	if section_id == "construction":
+	if section_id == "management":
+		for child in _building_list.get_children():
+			child.queue_free()
+		for action in [["Найм персонала", "hiring"], ["Ремонт и заправка", "service"], ["Работа в найм", "contracts"], ["Рейсы и торговые линии", "logistics"]]:
+			var button: Button = Button.new()
+			button.text = action[0]
+			button.custom_minimum_size.y = 48
+			button.pressed.connect(_open_section.bind(str(action[1])))
+			_building_list.add_child(button)
+	elif section_id == "construction":
 		_selected_market_resource_id = ""
 		_rebuild_building_list(port_id)
 	elif section_id == "resources":
@@ -643,18 +600,9 @@ func _select_market_resource(resource_id: String) -> void:
 func _set_modernization_branch(branch_id: String) -> void:
 	_modernization_branch = branch_id
 
-func _refresh_resources_page(port: Dictionary, ship: Dictionary, port_name: String) -> void:
-	_title.text = "РЕСУРСЫ БАЗЫ: " + port_name
-	_details.text = (
-		"Склад: %s\n"
-		+ "Трюм: %d / %d\n\n"
-		+ "Выберите ресурс в списке ниже.\n"
-		+ "Его можно загрузить в трюм или выгрузить обратно на склад."
-	) % [
-		_get_inventory_text(port),
-		_get_cargo_units(),
-		int(ship.get("cargo_capacity", 0))
-	]
+func _refresh_resources_page(_port: Dictionary, ship: Dictionary, port_name: String) -> void:
+	_title.text = "СКЛАД И ТРЮМ: " + port_name
+	_details.text = "Трюм: %d / %d. Выберите товар и количество.\n%s" % [_get_cargo_units(), int(ship.get("cargo_capacity", 0)), _notice]
 
 func _refresh_away_resources_page(ship: Dictionary, port_name: String) -> void:
 	_title.text = "РЕСУРСЫ КОРАБЛЯ: " + port_name
@@ -697,7 +645,7 @@ func _refresh_market_page(port_name: String, ship: Dictionary, port: Dictionary)
 		"Деньги: %.0f\n"
 		+ "Трюм: %d / %d\n\n"
 		+ "%s\n"
-		+ "Другой порт покупает ваш груз. Временная цена выше базовой; позже её заменят спрос и контракты."
+		+ "Продажа зависит от текущего спроса. Непроданный товар остаётся в трюме."
 	) % [
 		float(GameState.player_state.get("money", 0.0)),
 		_get_cargo_units(),
@@ -862,6 +810,9 @@ func _unload_one_unit() -> void:
 		_notice = "В трюме нет этого товара."
 		return
 	var item: Dictionary = cargo[found_index]
+	if _selected_quantity <= 0 or _selected_quantity > int(item.get("quantity", 0)):
+		_notice = "Количество изменилось. Выберите доступный объём груза."
+		return
 	var remaining_quantity: int = int(item.get("quantity", 0)) - _selected_quantity
 	if remaining_quantity <= 0:
 		cargo.remove_at(found_index)
@@ -875,7 +826,9 @@ func _unload_one_unit() -> void:
 	port["inventory"] = inventory
 	GameState.port_state[port_id] = port
 	var stats: Dictionary = GameState.player_state.get("stats", {})
-	stats["cargo_units_moved"] = int(stats.get("cargo_units_moved", 0)) + _selected_quantity
+	var credit: int = mini(_selected_quantity, int(GameState.ship_state.get("delivery_credit_remaining", 0)))
+	GameState.ship_state["delivery_credit_remaining"] = int(GameState.ship_state.get("delivery_credit_remaining", 0)) - credit
+	stats["cargo_units_moved"] = int(stats.get("cargo_units_moved", 0)) + credit
 	GameState.player_state["stats"] = stats
 	EventBus.cargo_delivered.emit(resource_id, _selected_quantity)
 	_notice = "На склад выгружено: %s × %d." % [_get_resource_name(resource_id), _selected_quantity]
@@ -918,6 +871,9 @@ func _get_ship_cargo_text() -> String:
 	return ", ".join(entries)
 
 func _get_sale_price(resource_id: String) -> float:
+	var markets: Array[Node] = get_tree().get_nodes_in_group("trade_line_system")
+	if not markets.is_empty():
+		return markets[0].get_sell_price(str(GameState.ship_state.get("docked_port_id", "")), resource_id)
 	var multiplier: float = float(_market_rules.get("home_port_sell_multiplier", 1.0))
 	var docked_port_id: String = str(GameState.ship_state.get("docked_port_id", ""))
 	var home_port_id: String = str(GameState.world_state.get("home_port_id", ""))

@@ -117,6 +117,16 @@ func _add_active_ship_card() -> void:
 	crew_label.add_theme_font_size_override("font_size", 17)
 	crew_label.text = _get_crew_text(crew)
 	box.add_child(crew_label)
+	var details: Button = Button.new()
+	details.text = "Экипаж: контракты и характеристики"
+	details.custom_minimum_size.y = 44
+	details.pressed.connect(_open_active_crew)
+	box.add_child(details)
+
+func _open_active_crew() -> void:
+	var window: Node = get_parent().get_node_or_null("CrewWindow")
+	if window != null:
+		window.set("_is_open", true)
 
 func _add_auxiliary_ship_card(ship: Dictionary) -> void:
 	var box: VBoxContainer = _create_card()
@@ -193,6 +203,12 @@ func _add_selected_ship_actions() -> void:
 	var current_port_id: String = str(ship.get("current_port_id", ""))
 	var autopilot: Dictionary = ship.get("autopilot", {})
 	if autopilot.is_empty():
+		if not ship.get("pending_trade", {}).is_empty():
+			var retry: Button = Button.new()
+			retry.text = "Повторить продажу оставшегося груза"
+			retry.custom_minimum_size.y = 44
+			retry.pressed.connect(_retry_trade.bind(_selected_ship_id))
+			box.add_child(retry)
 		var routes: Array = _fleet_system.get_routes_from_port(current_port_id)
 		if routes.is_empty():
 			var hint: Label = Label.new()
@@ -213,7 +229,8 @@ func _add_selected_ship_actions() -> void:
 			box.add_child(route_button)
 	else:
 		var stop_button: Button = Button.new()
-		stop_button.text = "Остановить автопилот"
+		stop_button.text = "Корабль завершает рейс"
+		stop_button.disabled = true
 		stop_button.custom_minimum_size.y = 38
 		stop_button.pressed.connect(_stop_autopilot.bind(_selected_ship_id))
 		box.add_child(stop_button)
@@ -284,6 +301,11 @@ func _start_autopilot(ship_id: String, route_key: String) -> void:
 
 func _stop_autopilot(ship_id: String) -> void:
 	var result: Dictionary = _fleet_system.stop_autopilot(ship_id)
+	_notice = str(result.get("message", ""))
+	_refresh()
+
+func _retry_trade(ship_id: String) -> void:
+	var result: Dictionary = _fleet_system.retry_trade(ship_id)
 	_notice = str(result.get("message", ""))
 	_refresh()
 

@@ -12,6 +12,7 @@ const TEST_FILES: Array = [
 	"res://tests/unit/test_sensor_input.gd",
 	"res://tests/unit/test_phase05_ports.gd",
 	"res://tests/unit/test_persistence.gd",
+	"res://tests/unit/test_logistics_regression.gd",
 ]
 
 var _total_pass: int = 0
@@ -32,7 +33,7 @@ func _ready() -> void:
 
 func _run_file(path: String) -> void:
 	var script: GDScript = load(path) as GDScript
-	if script == null:
+	if script == null or not script.can_instantiate():
 		push_error("TestRunner: cannot load " + path)
 		_total_fail += 1
 		return

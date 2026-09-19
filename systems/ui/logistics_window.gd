@@ -161,7 +161,7 @@ func _refresh() -> void:
 		_details.text = str(quote.get("message", "")) + "\n" + _notice
 		_send_button.disabled = true
 		return
-	_details.text = "%s\nТрюм: %d | Топливо: %.0f\n\nЦена покупки: %.0f\nЦена продажи: %.0f\nДистанция: %.0f\nТопливо: %.1f (≈ %.0f)\nРезерв ремонта: %.0f\nВаловая прибыль: %.0f\n\nЧИСТАЯ ПРИБЫЛЬ: %.0f\n\nДля вашего корабля выбранный груз будет продан автоматически при прибытии." % [
+	_details.text = "%s\nТрюм: %d | Топливо: %.0f\n\nЦена покупки: %.0f\nЦена продажи: %.0f\nДистанция: %.0f\nТопливо: %.1f (≈ %.0f)\nРезерв ремонта: %.0f\nТорговая разница: %.0f\n\nОЦЕНКА РЕЗУЛЬТАТА: %.0f" % [
 		str(quote.get("ship_name", "")),
 		int(quote.get("capacity", 0)),
 		float(quote.get("fuel_current", 0.0)),
@@ -174,8 +174,15 @@ func _refresh() -> void:
 		float(quote.get("gross", 0.0)),
 		float(quote.get("net", 0.0))
 	]
-	_details.text += "\n" + _notice
-	_send_button.disabled = false
+	if bool(quote.get("auxiliary", false)):
+		_details.text += "\nДля флота расходы на топливо включены в фиксированное обслуживание рейса."
+	if destination_id == str(GameState.world_state.get("home_port_id", "")):
+		_details.text += "\nНа базе груз поступит на склад без продажи."
+	else:
+		_details.text += "\nПродажа при прибытии зависит от спроса. Если спроса нет, груз останется в трюме."
+	_details.text += "\nОценка учитывает текущие цены; уже загруженный товар повторно не оплачивается."
+	_details.text += "\n" + str(quote.get("start_message", "")) + "\n" + _notice
+	_send_button.disabled = not bool(quote.get("can_start", true))
 
 func _get_selected(select: OptionButton, ids: Array[String]) -> String:
 	var index: int = select.selected

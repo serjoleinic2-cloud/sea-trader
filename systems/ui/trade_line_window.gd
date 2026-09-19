@@ -16,6 +16,7 @@ var _open: bool = false
 var _ship_ids: Array[String] = []
 var _port_ids: Array[String] = []
 var _good_ids: Array[String] = []
+var _notice: String = ""
 
 func _ready() -> void:
 	add_to_group("trade_line_window")
@@ -68,6 +69,11 @@ func _ready() -> void:
 	stop.custom_minimum_size.y = 42
 	stop.pressed.connect(_stop_all)
 	box.add_child(stop)
+	var retry: Button = Button.new()
+	retry.text = "Повторить остановленные линии"
+	retry.custom_minimum_size.y = 42
+	retry.pressed.connect(_retry)
+	box.add_child(retry)
 	_details = Label.new()
 	_details.add_theme_font_size_override("font_size", 18)
 	_details.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -141,7 +147,12 @@ func _process(_delta: float) -> void:
 	_panel.position = (viewport - _panel.size) * 0.5
 	_quantity_label.text = "Количество на каждую сторону: %d" % int(_quantity.value)
 	_profit_label.text = "Минимальная прибыль за рейс: %.0f" % _min_profit.value
-	_details.text = _lines_text()
+	_details.text = _notice + "\n" + _lines_text()
+	var fleets: Array[Node] = get_tree().get_nodes_in_group("fleet_system")
+	if not fleets.is_empty():
+		for ship in fleets[0].get_auxiliary_ships():
+			if str(ship.get("instance_id", "")) == _id(_ship, _ship_ids):
+				_quantity.max_value = maxi(1, int(ship.get("cargo_capacity", 0)))
 
 func _start() -> void:
 	var return_resource_id: String = ""
@@ -156,7 +167,13 @@ func _start() -> void:
 		int(_quantity.value),
 		_min_profit.value
 	)
-	_details.text = str(result.get("message", ""))
+	_notice = str(result.get("message", ""))
+
+func _retry() -> void:
+	for line in _system.get_lines():
+		if str(line.get("status", "")).begins_with("Остановлена"):
+			var result: Dictionary = _system.resume_line(str(line.get("id", "")))
+			_notice = str(result.get("message", ""))
 
 func _stop_all() -> void:
 	for raw_line in _system.get_lines():

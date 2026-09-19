@@ -45,11 +45,29 @@ func assert_false(value: bool, msg: String = "") -> void:
 	assert_true(not value, msg if msg != "" else "expected false")
 
 func assert_eq(a: Variant, b: Variant, msg: String = "") -> void:
-	if a == b:
+	if _equivalent(a, b):
 		passed += 1
 	else:
 		failed += 1
 		_record("assert_eq FAILED [%s != %s]: %s" % [str(a), str(b), msg])
+
+func _equivalent(a: Variant, b: Variant) -> bool:
+	# JSON restores numbers as floats; compare values recursively, not container types.
+	if a is Dictionary and b is Dictionary:
+		if a.size() != b.size():
+			return false
+		for key in a:
+			if not b.has(key) or not _equivalent(a[key], b[key]):
+				return false
+		return true
+	if a is Array and b is Array:
+		if a.size() != b.size():
+			return false
+		for index in range(a.size()):
+			if not _equivalent(a[index], b[index]):
+				return false
+		return true
+	return a == b
 
 func assert_ne(a: Variant, b: Variant, msg: String = "") -> void:
 	if a != b:

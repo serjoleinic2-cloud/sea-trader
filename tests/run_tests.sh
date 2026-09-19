@@ -8,4 +8,11 @@ export XDG_DATA_HOME="$test_data_dir"
 export SEA_TRADER_ISOLATED_TESTS=1
 echo "Isolated test data: $test_data_dir"
 "$engine" --headless --path "$project_dir" --editor --import --quit
-"$engine" --headless --path "$project_dir" res://tests/test_runner.tscn
+for scene in test_runner runtime_smoke; do
+  log="$test_data_dir/$scene.log"
+  "$engine" --headless --path "$project_dir" "res://tests/$scene.tscn" 2>&1 | tee "$log"
+  if grep -qE 'SCRIPT ERROR|Parse Error|SMOKE:' "$log"; then
+    echo "Runtime errors in $log"
+    exit 1
+  fi
+done

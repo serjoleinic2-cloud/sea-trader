@@ -43,6 +43,9 @@ func _physics_process(delta: float) -> void:
 	_sync_visual()
 	_update_hud()
 
+func get_navigation_speed(cruise_speed: float = 110.0) -> float:
+	return cruise_speed * float(_physics.get_max_speed()) / maxf(1.0, float(_ship_data.get("base_speed", 120.0)))
+
 
 # ============================================================================
 # Init

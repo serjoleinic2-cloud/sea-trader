@@ -72,13 +72,25 @@ func evaluate(ship_id: String, origin_port_id: String, destination_port_id: Stri
 		return {"ok": false, "message": "Между этими портами ещё нет известного маршрута."}
 	var buy_price: float = _get_buy_price(origin_port_id, resource_id)
 	var sell_price: float = _get_sell_price(destination_port_id, resource_id)
-	var fuel_needed: float = maxf(1.0, distance / 500.0)
+	var fuel_needed: float = distance * 0.003
+	var ready: Dictionary = {"ok": true, "message": ""}
+	if ship_id == "active_ship":
+		var systems: Array[Node] = get_tree().get_nodes_in_group("active_route_autopilot_system")
+		if not systems.is_empty():
+			fuel_needed = systems[0].fuel_needed(destination_port_id)
+			ready = systems[0].validate_start(destination_port_id, resource_id, quantity)
 	var fuel_cost: float = fuel_needed * 5.0
 	var repair_reserve: float = ceil(distance / 1500.0) * 6.0
+	if ship_id != "active_ship":
+		var rules: Dictionary = SaveSystem._read_json("res://data/economy/logistics_rules.json")
+		fuel_cost = float(rules.get("fleet_leg_service_cost", 12.0))
+		repair_reserve = 0.0
 	var gross: float = (sell_price - buy_price) * amount
 	var net: float = gross - fuel_cost - repair_reserve
 	return {
 		"ok": true,
+		"can_start": bool(ready.get("ok", false)),
+		"start_message": str(ready.get("message", "")),
 		"ship_name": str(ship.get("name", "")),
 		"ship_status": str(ship.get("status", "")),
 		"capacity": capacity,
@@ -89,6 +101,7 @@ func evaluate(ship_id: String, origin_port_id: String, destination_port_id: Stri
 		"fuel_needed": fuel_needed,
 		"fuel_cost": fuel_cost,
 		"repair_reserve": repair_reserve,
+		"auxiliary": ship_id != "active_ship",
 		"gross": gross,
 		"net": net
 	}
@@ -108,7 +121,10 @@ func start_route(ship_id: String, origin_port_id: String, destination_port_id: S
 	var fleets: Array[Node] = get_tree().get_nodes_in_group("fleet_system")
 	if fleets.is_empty():
 		return {"ok": false, "message": "Система флота недоступна."}
-	return fleets[0].start_autopilot(ship_id, route_key)
+	var markets: Array[Node] = get_tree().get_nodes_in_group("trade_line_system")
+	if markets.is_empty():
+		return {"ok": false, "message": "Рынок недоступен."}
+	return markets[0].start_single_trip(ship_id, origin_port_id, destination_port_id, resource_id, quantity)
 
 func _get_route_key(origin_id: String, destination_id: String) -> String:
 	for route_key in GameState.known_routes_state:
@@ -129,11 +145,21 @@ func _get_route_distance(origin_id: String, destination_id: String) -> float:
 	return 0.0
 
 func _get_buy_price(port_id: String, resource_id: String) -> float:
+	if port_id == str(GameState.world_state.get("home_port_id", "")):
+		return 0.0
+	var markets: Array[Node] = get_tree().get_nodes_in_group("trade_line_system")
+	if not markets.is_empty():
+		return markets[0].get_buy_price(port_id, resource_id)
 	var port: Dictionary = GameState.port_state.get(port_id, {})
 	var multipliers: Dictionary = port.get("price_multipliers", {})
 	return round(_get_base_price(resource_id) * 1.20 * float(multipliers.get(resource_id, 1.0)))
 
 func _get_sell_price(port_id: String, resource_id: String) -> float:
+	if port_id == str(GameState.world_state.get("home_port_id", "")):
+		return 0.0
+	var markets: Array[Node] = get_tree().get_nodes_in_group("trade_line_system")
+	if not markets.is_empty():
+		return markets[0].get_sell_price(port_id, resource_id)
 	var port: Dictionary = GameState.port_state.get(port_id, {})
 	var multipliers: Dictionary = port.get("price_multipliers", {})
 	var demand: float = 2.0 - float(multipliers.get(resource_id, 1.0))

@@ -13,7 +13,12 @@ func _ready() -> void:
 	EventBus.building_activated.connect(_on_building_activated)
 	EventBus.production_output_requested.connect(_on_production_output_requested)
 	# Existing working buildings from an older save receive their first visible batch on launch.
-	call_deferred("_produce_cycle")
+	call_deferred("_restore_starter_batches")
+
+func _restore_starter_batches() -> void:
+	var home_id: String = str(GameState.world_state.get("home_port_id", ""))
+	for recipe in _recipes:
+		_issue_starter_batch(home_id, str(recipe.get("building_id", "")))
 
 func _process(delta: float) -> void:
 	_elapsed += delta

@@ -4,23 +4,32 @@ extends CanvasLayer
 
 const PANEL_SIZE := Vector2(390, 370)
 
-var _panel: ColorRect
+var _panel: PanelContainer
 var _label: Label
 var _port_system: Node
 var _goods: Dictionary = {}
 
 func _ready() -> void:
 	layer = 20
-	_panel = ColorRect.new()
+	_panel = PanelContainer.new()
 	_panel.size = PANEL_SIZE
-	_panel.color = Color(0.02, 0.03, 0.04, 1.0)
+	var style: StyleBoxFlat = StyleBoxFlat.new()
+	style.bg_color = Color(0.02, 0.03, 0.04, 1.0)
+	_panel.add_theme_stylebox_override("panel", style)
 	add_child(_panel)
+	var margin: MarginContainer = MarginContainer.new()
+	for side in ["left", "top", "right", "bottom"]:
+		margin.add_theme_constant_override("margin_" + side, 12)
+	_panel.add_child(margin)
+	var scroll: ScrollContainer = ScrollContainer.new()
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	margin.add_child(scroll)
 	_label = Label.new()
-	_label.size = PANEL_SIZE - Vector2(28, 24)
+	_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_label.add_theme_color_override("font_color", Color(0.9, 1.0, 0.9, 1.0))
 	_label.add_theme_font_size_override("font_size", 19)
 	_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	add_child(_label)
+	scroll.add_child(_label)
 
 func initialize(port_system: Node) -> void:
 	_port_system = port_system
@@ -38,7 +47,7 @@ func _process(_delta: float) -> void:
 	var viewport_size: Vector2 = get_viewport().get_visible_rect().size
 	var panel_position: Vector2 = Vector2(maxf(12.0, (viewport_size.x - PANEL_SIZE.x) * 0.5), 12.0)
 	_panel.position = panel_position
-	_label.position = panel_position + Vector2(14, 12)
+	_panel.size = Vector2(minf(PANEL_SIZE.x, viewport_size.x - 24.0), minf(PANEL_SIZE.y, viewport_size.y - 150.0))
 	var ship: Dictionary = GameState.ship_state
 	var cargo_units: int = _get_cargo_units(ship)
 	var docked_port: String = str(ship.get("docked_port_id", ""))

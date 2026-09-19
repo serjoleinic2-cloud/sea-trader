@@ -51,6 +51,8 @@ func get_active_ship_option() -> Dictionary:
 	}
 
 func hire(candidate_id: String, voyages: int) -> Dictionary:
+	if str(GameState.ship_state.get("docked_port_id", "")) == "":
+		return {"ok": false, "message": "Найм доступен в любом порту после швартовки."}
 	if voyages < 1:
 		return {"ok": false, "message": "Выберите число рейсов."}
 	var candidates: Array = get_candidates()
@@ -123,7 +125,7 @@ func _ensure_candidates() -> void:
 		var serial: int = index + refresh_index * 7
 		var role_id: String = roles_order[serial % roles_order.size()]
 		var role: Dictionary = _roles.get(role_id, {})
-		var rank: int = 1 + (serial % 3)
+		var rank: int = 1 + (serial % maxi(3, get_hiring_rank_limit()))
 		var stats: Dictionary = {
 			"speed": -3 + ((serial * 3) % 9),
 			"loading": -3 + ((serial * 5) % 9),

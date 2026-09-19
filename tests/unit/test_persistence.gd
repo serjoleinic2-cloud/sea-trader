@@ -53,7 +53,9 @@ func test_new_game_initializes_and_saves_identity() -> void:
 	assert_ne(GameState.world_state.seed, 0)
 	assert_eq(GameState.world_state.world_gen_version, "1")
 	assert_true(SaveSystem.has_save())
-	assert_true(GameState.port_state.is_empty())
+	assert_true(GameState.player_state.discovered_port_ids.is_empty())
+	for port in GameState.port_state.values():
+		assert_false(bool(port.get("discovered", false)), "Market seeding must not discover ports")
 	assert_true(GameState.known_routes_state.is_empty())
 	assert_false(GameState.voyage_state.active)
 
@@ -85,7 +87,9 @@ func test_real_launch_preserves_knowledge_voyage_and_ship() -> void:
 	assert_eq(GameState.world_state.seed, 42)
 	assert_eq(GameState.world_state.current_position, Vector2(321, 654))
 	assert_eq(GameState.world_state.current_region, "eastern_archipelago")
-	assert_eq(GameState.port_state, ports)
+	for port_id in ports:
+		assert_eq(GameState.port_state.get(port_id, {}), ports[port_id], "Saved port progress survives market initialization")
+	assert_eq(GameState.player_state.discovered_port_ids, ["port_a", "port_b"])
 	assert_eq(GameState.known_routes_state, routes)
 	assert_eq(GameState.voyage_state, voyage)
 	assert_eq(GameState.ship_state, ship, "spawn must not refill fuel, repair or erase velocity")
@@ -102,7 +106,8 @@ func test_empty_saved_knowledge_and_zero_seed_are_valid() -> void:
 	assert_true(_main._world_ready)
 	assert_false(_main._is_new_game)
 	assert_eq(GameState.world_state.seed, 0)
-	assert_true(GameState.port_state.is_empty(), "empty saved knowledge must not be repopulated")
+	for port in GameState.port_state.values():
+		assert_false(bool(port.get("discovered", false)), "Market seeding must not repopulate knowledge")
 	assert_true(GameState.player_state.discovered_port_ids.is_empty())
 
 

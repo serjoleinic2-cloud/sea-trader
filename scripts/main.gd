@@ -95,6 +95,10 @@ func _ready() -> void:
 	_initialize_trade_lines()
 	_initialize_fleet_window()
 	_initialize_shipyard()
+	var window_coordinator: Node = load("res://systems/ui/window_coordinator.gd").new()
+	window_coordinator.name = "WindowCoordinator"
+	add_child(window_coordinator)
+	window_coordinator.initialize(self)
 	_world_ready = true
 	if _is_new_game:
 		SaveSystem.save_game()

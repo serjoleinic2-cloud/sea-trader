@@ -32,7 +32,8 @@ func get_command_progress() -> Dictionary:
 	var raw_stages: Variant = _config.get("stages", [])
 	if not (raw_stages is Array):
 		return result
-	for raw_stage in raw_stages:
+	for index in range(raw_stages.size()):
+		var raw_stage: Variant = raw_stages[index]
 		var stage: Dictionary = raw_stage
 		var first_activity: int = int(stage.get("activity_at_first_rank", 0))
 		if activity < first_activity:
@@ -44,8 +45,13 @@ func get_command_progress() -> Dictionary:
 		result["stage_id"] = str(stage.get("id", "sailor"))
 		result["stage_name"] = str(stage.get("name", "Матрос"))
 		result["rank"] = rank
+		result["stage_level"] = rank - first_rank + 1
+		result["activity"] = activity
 		if rank < last_rank:
 			result["next_activity"] = first_activity + (rank - first_rank + 1) * per_rank
+		elif index + 1 < raw_stages.size():
+			var next_stage: Dictionary = raw_stages[index + 1]
+			result["next_activity"] = int(next_stage.get("activity_at_first_rank", 0))
 		else:
 			result["next_activity"] = 0
 	return result

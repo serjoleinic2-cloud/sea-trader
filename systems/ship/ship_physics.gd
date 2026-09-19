@@ -89,6 +89,13 @@ func apply_control(throttle: float, steering_input: float) -> void:
 
 func physics_tick(delta: float) -> void:
 	"""Main physics update. Call every _physics_process tick."""
+	if bool(GameState.voyage_state.get("active_autopilot", false)):
+		restore_from_state()
+		_throttle = 0.0
+		_steering = 0.0
+		_update_visual_roll(delta)
+		_write_to_game_state()
+		return
 	if str(GameState.ship_state.get("docked_port_id", "")) != "":
 		_speed = 0.0
 		_throttle = 0.0

@@ -117,6 +117,8 @@ func get_dock_candidate() -> String:
 func dock(port_id: String) -> bool:
 	if port_id == "" or get_dock_candidate() != port_id:
 		return false
+	if str(GameState.ship_state.get("docked_port_id", "")) == port_id:
+		return true
 	var previous_port_id: String = str(GameState.world_state.get("last_docked_port_id", ""))
 	if not GameState.port_state.has(port_id):
 		var generated: Dictionary = _world_ports.get(port_id, {})
@@ -133,12 +135,17 @@ func dock(port_id: String) -> bool:
 	if previous_port_id != "" and previous_port_id != port_id and _world_ports.has(previous_port_id):
 		_register_manual_route(previous_port_id, port_id)
 		_consume_active_crew_voyage()
+		GameState.player_state.stats["total_voyages"] = int(GameState.player_state.stats.get("total_voyages", 0)) + 1
+		GameState.player_state.stats["safe_dockings"] = int(GameState.player_state.stats.get("safe_dockings", 0)) + 1
+		var cargo_units: int = 0
+		for item in GameState.ship_state.get("cargo", []):
+			cargo_units += int(item.get("quantity", 0))
+		GameState.ship_state["delivery_credit_remaining"] = cargo_units
 	GameState.world_state["last_docked_port_id"] = port_id
 	GameState.ship_state["docked_port_id"] = port_id
 	if str(GameState.world_state.get("home_port_id", "")) == "":
 		GameState.world_state["home_port_id"] = port_id
 	GameState.ship_state["velocity"] = Vector2.ZERO
-	GameState.player_state.stats["safe_dockings"] = int(GameState.player_state.stats.get("safe_dockings", 0)) + 1
 	return SaveSystem.save_game()
 
 func _consume_active_crew_voyage() -> void:
@@ -185,7 +192,6 @@ func undock() -> bool:
 		return false
 	GameState.ship_state["docked_port_id"] = ""
 	GameState.ship_state["velocity"] = Vector2.ZERO
-	GameState.player_state.stats["total_voyages"] = int(GameState.player_state.stats.get("total_voyages", 0)) + 1
 	return SaveSystem.save_game()
 
 
