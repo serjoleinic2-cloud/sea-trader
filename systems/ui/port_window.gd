@@ -15,6 +15,13 @@ var _unload_button: Button
 var _sell_button: Button
 var _buy_button: Button
 var _supply_order_button: Button
+var _sell_to_merchants_button: Button
+var _asking_price_label: Label
+var _asking_price_slider: HSlider
+var _production_mode_button: Button
+var _production_cap_label: Label
+var _production_cap_slider: HSlider
+var _production_cap_button: Button
 var _market_switches: HBoxContainer
 var _quantity_label: Label
 var _quantity_slider: HSlider
@@ -35,6 +42,7 @@ var _modernization_branch: String = "buildings"
 var _market_view: String = "personal"
 var _selected_market_resource_id: String = ""
 var _selected_quantity: int = 1
+var _selected_asking_price: float = 0.0
 
 func _ready() -> void:
 	layer = 35
@@ -116,6 +124,36 @@ func _ready() -> void:
 	_supply_order_button.custom_minimum_size.y = 42
 	_supply_order_button.pressed.connect(_open_supply_order_window)
 	column.add_child(_supply_order_button)
+	_asking_price_label = Label.new()
+	_asking_price_label.add_theme_font_size_override("font_size", 19)
+	column.add_child(_asking_price_label)
+	_asking_price_slider = HSlider.new()
+	_asking_price_slider.min_value = 1.0
+	_asking_price_slider.max_value = 1.0
+	_asking_price_slider.step = 1.0
+	_asking_price_slider.value_changed.connect(_on_asking_price_changed)
+	column.add_child(_asking_price_slider)
+	_sell_to_merchants_button = Button.new()
+	_sell_to_merchants_button.custom_minimum_size.y = 42
+	_sell_to_merchants_button.pressed.connect(_create_sell_order)
+	column.add_child(_sell_to_merchants_button)
+	_production_mode_button = Button.new()
+	_production_mode_button.custom_minimum_size.y = 42
+	_production_mode_button.pressed.connect(_toggle_production)
+	column.add_child(_production_mode_button)
+	_production_cap_label = Label.new()
+	_production_cap_label.add_theme_font_size_override("font_size", 19)
+	column.add_child(_production_cap_label)
+	_production_cap_slider = HSlider.new()
+	_production_cap_slider.min_value = 1.0
+	_production_cap_slider.max_value = 1.0
+	_production_cap_slider.step = 1.0
+	_production_cap_slider.value_changed.connect(_on_production_cap_changed)
+	column.add_child(_production_cap_slider)
+	_production_cap_button = Button.new()
+	_production_cap_button.custom_minimum_size.y = 42
+	_production_cap_button.pressed.connect(_apply_production_cap)
+	column.add_child(_production_cap_button)
 	_market_switches = HBoxContainer.new()
 	_market_switches.add_theme_constant_override("separation", 8)
 	column.add_child(_market_switches)
@@ -197,7 +235,7 @@ func _process(_delta: float) -> void:
 	elif not is_home:
 		_last_home_port_id = ""
 	_bottom_menu.visible = true
-	_building_list.visible = (is_home and (_current_section == "construction" or _current_section == "resources")) or (not is_home and _current_section == "market") or _current_section == "management"
+	_building_list.visible = (is_home and (_current_section == "construction" or _current_section == "resources" or _current_section == "market")) or (not is_home and _current_section == "market") or _current_section == "management"
 	_plan_button.visible = is_home and _current_section == "construction"
 	_modernization_switches.visible = is_home and _current_section == "modernization"
 	_update_quantity_selector(docked_port, is_home)
@@ -207,6 +245,8 @@ func _process(_delta: float) -> void:
 	_update_buy_button(docked_port, is_home)
 	_market_switches.visible = not is_home and _current_section == "market"
 	_supply_order_button.visible = is_home and _current_section == "market"
+	_update_home_market_controls(docked_port, is_home)
+	_update_production_controls(docked_port, is_home)
 	_refresh_text(docked_port, is_home)
 
 func _refresh_text(port_id: String, is_home: bool) -> void:
@@ -286,7 +326,7 @@ func _rebuild_resource_list(port_id: String) -> void:
 	for resource_id in ids:
 		var button: Button = Button.new()
 		button.custom_minimum_size.y = 44
-		button.text = "%s — склад: %d | трюм: %d" % [_get_resource_name(str(resource_id)), int(inventory.get(resource_id, 0)), _get_cargo_quantity(str(resource_id))]
+		button.text = "%s — склад: %d | трюм: %d%s" % [_get_resource_name(str(resource_id)), int(inventory.get(resource_id, 0)), _get_cargo_quantity(str(resource_id)), _production_text(GameState.port_state.get(port_id, {}), str(resource_id))]
 		button.pressed.connect(_select_transfer_resource.bind(str(resource_id)))
 		_building_list.add_child(button)
 	if _get_selected_resource_id() == "" and not ids.is_empty():
@@ -295,6 +335,36 @@ func _rebuild_resource_list(port_id: String) -> void:
 func _rebuild_market_list(port_id: String) -> void:
 	for child in _building_list.get_children():
 		child.queue_free()
+	if port_id == str(GameState.world_state.get("home_port_id", "")):
+		var port: Dictionary = GameState.port_state.get(port_id, {})
+		var inventory: Dictionary = _get_inventory(port)
+		var merchant: Node = _get_merchant_system()
+		for resource_id in inventory:
+			var reserved: int = int(merchant.get_reserved_quantity(str(resource_id))) if merchant != null else 0
+			var button: Button = Button.new()
+			button.custom_minimum_size.y = 44
+			button.text = "Выставить: %s — свободно %d | резерв %d" % [_get_resource_name(str(resource_id)), maxi(0, int(inventory[resource_id]) - reserved), reserved]
+			button.pressed.connect(_select_market_resource.bind(str(resource_id)))
+			_building_list.add_child(button)
+		if merchant != null:
+			var orders: Array = merchant.get_sell_orders()
+			if not orders.is_empty():
+				var heading: Label = Label.new()
+				heading.text = "АКТИВНЫЕ ЗАЯВКИ"
+				heading.add_theme_font_size_override("font_size", 19)
+				_building_list.add_child(heading)
+				for raw_order in orders:
+					var order: Dictionary = raw_order
+					var cancel: Button = Button.new()
+					cancel.custom_minimum_size.y = 46
+					cancel.text = "Снять: %s %d ед. × %.0f — %s" % [
+						_get_resource_name(str(order.get("resource_id", ""))), int(order.get("quantity_available", 0)), float(order.get("asking_price", 0.0)), str(order.get("last_feedback", ""))
+					]
+					cancel.pressed.connect(_cancel_sell_order.bind(str(order.get("id", ""))))
+					_building_list.add_child(cancel)
+		if _selected_market_resource_id == "" and not inventory.is_empty():
+			_selected_market_resource_id = str(inventory.keys()[0])
+		return
 	if _market_view == "port":
 		var stock: Dictionary = _get_port_market_stock(port_id)
 		for resource_id in stock:
@@ -377,7 +447,11 @@ func _update_load_button(port_id: String, is_home: bool) -> void:
 		return
 	var inventory: Dictionary = _get_inventory(GameState.port_state.get(port_id, {}))
 	var free_space: int = int(GameState.ship_state.get("cargo_capacity", 0)) - _get_cargo_units()
-	_load_button.disabled = _selected_quantity > int(inventory.get(resource_id, 0)) or _selected_quantity > free_space
+	var available: int = int(inventory.get(resource_id, 0))
+	var merchant: Node = _get_merchant_system()
+	if merchant != null:
+		available -= int(merchant.get_reserved_quantity(resource_id))
+	_load_button.disabled = _selected_quantity > available or _selected_quantity > free_space
 	_load_button.text = "Загрузить: %s × %d" % [_get_resource_name(resource_id), _selected_quantity]
 
 func _update_quantity_selector(port_id: String, is_home: bool) -> void:
@@ -391,11 +465,20 @@ func _update_quantity_selector(port_id: String, is_home: bool) -> void:
 	if _current_section == "resources" and is_home:
 		var port: Dictionary = GameState.port_state.get(port_id, {})
 		var stock: int = int(_get_inventory(port).get(resource_id, 0))
+		var merchant: Node = _get_merchant_system()
+		if merchant != null:
+			stock -= int(merchant.get_reserved_quantity(resource_id))
 		var cargo_capacity: int = int(GameState.ship_state.get("cargo_capacity", 0))
 		var free_space: int = cargo_capacity - _get_cargo_units()
 		maximum = maxi(maximum, mini(stock, free_space))
 		if maximum <= 0 and _is_selected_production_active(port) and free_space > 0:
 			maximum = 1
+	elif _current_section == "market" and is_home:
+		var merchant: Node = _get_merchant_system()
+		var available_for_sale: int = int(_get_inventory(GameState.port_state.get(port_id, {})).get(resource_id, 0))
+		if merchant != null:
+			available_for_sale -= int(merchant.get_reserved_quantity(resource_id))
+		maximum = maxi(1, available_for_sale)
 	elif _current_section == "market" and _market_view == "port":
 		var market_stock: Dictionary = _get_port_market_stock(port_id)
 		var available: int = int(market_stock.get(resource_id, 0))
@@ -411,6 +494,119 @@ func _update_quantity_selector(port_id: String, is_home: bool) -> void:
 
 func _on_quantity_changed(value: float) -> void:
 	_selected_quantity = maxi(1, int(round(value)))
+
+func _on_asking_price_changed(value: float) -> void:
+	_selected_asking_price = float(round(value))
+
+func _on_production_cap_changed(_value: float) -> void:
+	# The label is refreshed on the next UI frame; applying is explicit.
+	pass
+
+func _get_merchant_system() -> Node:
+	var systems: Array[Node] = get_tree().get_nodes_in_group("merchant_visit_system")
+	return systems[0] if not systems.is_empty() else null
+
+func _get_production_system() -> Node:
+	var systems: Array[Node] = get_tree().get_nodes_in_group("port_production_system")
+	return systems[0] if not systems.is_empty() else null
+
+func _update_home_market_controls(port_id: String, is_home: bool) -> void:
+	var show: bool = is_home and _current_section == "market" and _get_selected_resource_id() != ""
+	_asking_price_label.visible = show
+	_asking_price_slider.visible = show
+	_sell_to_merchants_button.visible = show
+	if not show:
+		return
+	var resource_id: String = _get_selected_resource_id()
+	var base_price: float = maxf(1.0, float(_goods_prices.get(resource_id, 1.0)))
+	var minimum: float = maxf(1.0, round(base_price * 0.50))
+	var maximum: float = maxf(minimum + 1.0, round(base_price * 1.70))
+	_asking_price_slider.min_value = minimum
+	_asking_price_slider.max_value = maximum
+	if _selected_asking_price < minimum or _selected_asking_price > maximum:
+		_selected_asking_price = round(base_price)
+		_asking_price_slider.value = _selected_asking_price
+	_asking_price_label.text = "Цена заявки: %.0f за единицу (база: %.0f)" % [_selected_asking_price, base_price]
+	var merchant: Node = _get_merchant_system()
+	var available: int = int(_get_inventory(GameState.port_state.get(port_id, {})).get(resource_id, 0))
+	if merchant != null:
+		available -= int(merchant.get_reserved_quantity(resource_id))
+	_sell_to_merchants_button.disabled = merchant == null or _selected_quantity < 1 or _selected_quantity > available
+	_sell_to_merchants_button.text = "Выставить %d ед. торговцам" % _selected_quantity
+
+func _create_sell_order() -> void:
+	var merchant: Node = _get_merchant_system()
+	if merchant == null:
+		_notice = "Система торговцев ещё загружается."
+		return
+	var result: Dictionary = merchant.create_sell_order(_get_selected_resource_id(), _selected_quantity, _selected_asking_price)
+	_notice = str(result.get("message", ""))
+	if bool(result.get("ok", false)):
+		_rebuild_market_list(str(GameState.ship_state.get("docked_port_id", "")))
+
+func _cancel_sell_order(order_id: String) -> void:
+	var merchant: Node = _get_merchant_system()
+	if merchant == null:
+		return
+	var result: Dictionary = merchant.cancel_sell_order(order_id)
+	_notice = str(result.get("message", ""))
+	_rebuild_market_list(str(GameState.ship_state.get("docked_port_id", "")))
+
+func _update_production_controls(_port_id: String, is_home: bool) -> void:
+	var resource_id: String = _get_selected_resource_id()
+	var building_id: String = _get_building_id_for_resource(resource_id)
+	var show: bool = is_home and _current_section == "resources" and building_id != ""
+	var production: Node = _get_production_system()
+	var control: Dictionary = production.get_production_control(building_id) if production != null and show else {}
+	show = show and bool(control.get("active", false))
+	_production_mode_button.visible = show
+	_production_cap_label.visible = show
+	_production_cap_slider.visible = show
+	_production_cap_button.visible = show
+	if not show:
+		return
+	var mode: String = str(control.get("mode", "auto"))
+	var current_stock: int = int(_get_inventory(GameState.port_state.get(str(GameState.world_state.get("home_port_id", "")), {})).get(resource_id, 0))
+	var cap: int = int(control.get("cap", 0))
+	var minimum: int = maxi(1, current_stock)
+	var maximum: int = maxi(minimum + 20, current_stock + 200)
+	_production_cap_slider.min_value = minimum
+	_production_cap_slider.max_value = maximum
+	if _production_cap_slider.value < minimum or _production_cap_slider.value > maximum:
+		_production_cap_slider.value = float(cap if cap > 0 else maximum)
+	var mode_text: String = "остановлено" if mode == "paused" else ("до лимита" if mode == "capped" else "автоматически")
+	_production_mode_button.text = "Запустить производство" if mode == "paused" else "Остановить производство"
+	_production_cap_label.text = "Лимит склада: %d ед. (сейчас %d; режим: %s)" % [int(_production_cap_slider.value), current_stock, mode_text]
+	_production_cap_button.text = "Производить до %d ед." % int(_production_cap_slider.value)
+
+func _toggle_production() -> void:
+	var production: Node = _get_production_system()
+	var building_id: String = _get_building_id_for_resource(_get_selected_resource_id())
+	if production == null or building_id == "":
+		return
+	var control: Dictionary = production.get_production_control(building_id)
+	var result: Dictionary = production.set_production_mode(building_id, "auto" if str(control.get("mode", "auto")) == "paused" else "paused")
+	_notice = str(result.get("message", ""))
+
+func _apply_production_cap() -> void:
+	var production: Node = _get_production_system()
+	var building_id: String = _get_building_id_for_resource(_get_selected_resource_id())
+	if production == null or building_id == "":
+		return
+	var result: Dictionary = production.set_production_mode(building_id, "capped", int(_production_cap_slider.value))
+	_notice = str(result.get("message", ""))
+
+func _production_text(port: Dictionary, resource_id: String) -> String:
+	var building_id: String = _get_building_id_for_resource(resource_id)
+	if not _is_production_active_for_resource(port, resource_id) or building_id == "":
+		return ""
+	var building: Dictionary = port.get("buildings", {}).get(building_id, {})
+	var mode: String = str(building.get("production_mode", "auto"))
+	if mode == "paused":
+		return " | производство: пауза"
+	if mode == "capped":
+		return " | до %d" % int(building.get("production_cap", 0))
+	return " | производство: авто"
 
 func _update_buy_button(port_id: String, is_home: bool) -> void:
 	var resource_id: String = _get_selected_resource_id()
@@ -575,7 +771,7 @@ func _refresh_market_page(port_name: String, ship: Dictionary, port: Dictionary)
 		_details.text = (
 			"Склад базы: %s\n\n"
 			+ "%s\n\n"
-			+ "База не платит сама себе за ваш груз. Выгружайте товар на вкладке «Ресурсы»; рынок базы позже даст обмен излишков на дефицит."
+			+ "База не платит сама себе за груз. Выставляйте свободный товар: торговые корабли выкупают подходящие заявки. Высокую цену могут не принять. Биржа показывает спрос и цены уже посещённых портов."
 		) % [
 			_get_inventory_text(port),
 			_get_base_demand_text(port)

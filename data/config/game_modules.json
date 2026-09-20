@@ -73,6 +73,16 @@
       ]
     },
     {
+      "id": "MarketAnalyticsSystem",
+      "script": "res://systems/economy/market_analytics_system.gd",
+      "bind": "_market_analytics_system",
+      "initialize": "initialize",
+      "args": [
+        "PortSystem",
+        "TradeLineSystem"
+      ]
+    },
+    {
       "id": "BuildingProjectSystem",
       "script": "res://systems/buildings/building_project_system.gd",
       "bind": "_building_project_system",
@@ -356,6 +366,20 @@
         "label": "Челленджи",
         "method": "open",
         "order": 50
+      }
+    },
+    {
+      "id": "MarketAnalyticsWindow",
+      "script": "res://systems/ui/market_analytics_window.gd",
+      "initialize": "initialize",
+      "args": [
+        "MarketAnalyticsSystem"
+      ],
+      "workspace_flag": "_open",
+      "navigation": {
+        "label": "Биржа",
+        "method": "open",
+        "order": 60
       }
     }
   ]

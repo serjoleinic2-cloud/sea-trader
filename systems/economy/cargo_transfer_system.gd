@@ -46,7 +46,10 @@ func execute(action: String, resource_id: String, quantity: int) -> Dictionary:
 	var port: Dictionary = GameState.port_state[port_id]
 	var storage: String = "inventory" if home else "market_stock"
 	var stock: Dictionary = port.get(storage, {})
-	if action in ["load", "buy"] and int(stock.get(resource_id, 0)) < quantity:
+	var available_stock: int = int(stock.get(resource_id, 0))
+	if home and action == "load":
+		available_stock -= _reserved_for_sale(resource_id)
+	if action in ["load", "buy"] and available_stock < quantity:
 		return _failure("В порту недостаточно товара. Дождитесь производства или поставки.")
 	var price: float = buy_price(port_id, resource_id) * quantity if action == "buy" else 0.0
 	if price > float(GameState.player_state.get("money", 0.0)):
@@ -113,3 +116,9 @@ func _restore(snapshot: Dictionary) -> void:
 
 func _failure(message: String) -> Dictionary:
 	return {"ok": false, "message": message}
+
+func _reserved_for_sale(resource_id: String) -> int:
+	var merchants: Array[Node] = get_tree().get_nodes_in_group("merchant_visit_system")
+	if merchants.is_empty():
+		return 0
+	return int(merchants[0].get_reserved_quantity(resource_id))

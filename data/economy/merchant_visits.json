@@ -1,7 +1,8 @@
 {
-  "version": 2,
+  "version": 3,
   "offer_duration_seconds": 1200,
   "next_offer_delay_seconds": 1200,
+  "buyer_price_ceiling_multiplier": 1.15,
   "offers": [
     {"resource_id": "resource_parts", "quantity": 5, "unit_price": 45},
     {"resource_id": "resource_timber", "quantity": 14, "unit_price": 12},
@@ -14,5 +15,5 @@
     {"resource_id": "resource_varnish", "quantity": 8, "unit_price": 42},
     {"resource_id": "resource_glass", "quantity": 10, "unit_price": 30}
   ],
-  "balance_status": "Schematic random visiting merchants; final prices and offer sizes require economy balancing."
+  "balance_status": "Visiting merchants alternate between supply offers and affordable player sell orders; prices and offer sizes require economy balancing."
 }

@@ -16,6 +16,7 @@ const TEST_FILES: Array = [
 	"res://tests/unit/test_project_structure.gd",
 	"res://tests/unit/test_challenges.gd",
 	"res://tests/unit/test_crew_progression.gd",
+	"res://tests/unit/test_home_market.gd",
 ]
 
 var _total_pass: int = 0

@@ -134,6 +134,9 @@ status: String            # "planning" | "sailing" | "intermediary_stop" | "comp
 - `rewards.expedition_tokens[definition_id]`: неторгуемые знаки долгих экспедиций.
 - `rewards.fragments[artifact_id]`: совместимые со старыми сохранениями локальные части; `artifacts`: список локальных реликвий; `equipped_artifact`: ID установленного экземпляра; `artifact_serial`: локальный счётчик.
 - Локальная реликвия: instance_id, definition_id, origin, authority=`offline_prototype`, tradable=false. Это не серверный актив и не источник официального предмета.
+- `merchant.sell_orders[]`: локальная заявка базы на продажу — `id`, `resource_id`, `quantity_total`, `quantity_available`, `asking_price`, `status`, `created_at`, `last_feedback`. Количество резервируется и не может быть загружено на корабль или отправлено торговой линией.
+- `merchant.active_offer`: текущий торговец. `direction=supplier` означает продажу игроку, `direction=buyer` — выкуп активной заявки игрока.
+- `market_history[port_id][resource_id][]`: до 24 локальных измерений `{at, price, demand, stock, accepted}`. Это только сведения о посещённых портах, а не серверная биржа.
 
 Ранние поля экономики (часть остаётся проектной схемой):
 ```

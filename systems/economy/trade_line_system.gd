@@ -73,6 +73,11 @@ func try_sell_to_port(port_id: String, resource_id: String, quantity: int) -> Di
 		return {"ok": false, "message": "Спрос порта: %d ед. Ждите восстановления спроса." % demand}
 	var unit_price: float = _sale_price(port_id, resource_id)
 	_set_demand(port_id, resource_id, demand - amount)
+	var updated_port: Dictionary = GameState.port_state.get(port_id, {})
+	var updated_stock: Dictionary = updated_port.get("market_stock", {})
+	updated_stock[resource_id] = int(updated_stock.get(resource_id, 0)) + amount
+	updated_port["market_stock"] = updated_stock
+	GameState.port_state[port_id] = updated_port
 	return {
 		"ok": true,
 		"unit_price": unit_price,
@@ -222,7 +227,10 @@ func _start_trade_leg(line: Dictionary, source_id: String, target_id: String, re
 	var source: Dictionary = GameState.port_state.get(source_id, {})
 	var stock_key: String = "inventory" if source_id == home_id else "market_stock"
 	var stock: Dictionary = source.get(stock_key, {})
-	if int(stock.get(resource_id, 0)) < quantity:
+	var available_stock: int = int(stock.get(resource_id, 0))
+	if source_id == home_id:
+		available_stock -= _reserved_for_sale(resource_id)
+	if available_stock < quantity:
 		return {"ok": false, "message": "В источнике недостаточно «%s»." % _good_name(resource_id)}
 	var buy_price: float = 0.0 if source_id == home_id else get_buy_price(source_id, resource_id)
 	var sale_price: float = 0.0 if to_home else _sale_price(target_id, resource_id)
@@ -383,11 +391,18 @@ func _set_demand(port_id: String, resource_id: String, amount: int) -> void:
 
 func _sale_price(port_id: String, resource_id: String) -> float:
 	var demand_factor: float = float(_rules.get("demand_base_factor", 0.75)) + float(_get_demand(port_id, resource_id)) / maxf(1.0, float(_rules.get("demand_price_scale", 100.0)))
+	var supply_factor: float = _supply_factor(port_id, resource_id)
 	var reward_factor: float = 1.0
 	var rewards: Array[Node] = get_tree().get_nodes_in_group("reward_system")
 	if not rewards.is_empty():
 		reward_factor += float(rewards[0].get_bonus_percent("sale")) / 100.0
-	return snappedf(round(_base_price(resource_id) * float(_rules.get("remote_port_sell_multiplier", 1.25)) * demand_factor) * reward_factor, 0.01)
+	return snappedf(round(_base_price(resource_id) * float(_rules.get("remote_port_sell_multiplier", 1.25)) * demand_factor * supply_factor) * reward_factor, 0.01)
+
+func _supply_factor(port_id: String, resource_id: String) -> float:
+	var port: Dictionary = GameState.port_state.get(port_id, {})
+	var stock: int = int(port.get("market_stock", {}).get(resource_id, 0))
+	# Empty shelves raise the price moderately; excess stock makes later sales cheaper.
+	return clampf(1.10 - float(stock) / 250.0, 0.72, 1.10)
 
 func _base_price(resource_id: String) -> float:
 	return float(_base_prices.get(resource_id, 0.0))
@@ -400,3 +415,9 @@ func _now() -> int:
 
 func _set_lines(lines: Array) -> void:
 	GameState.economy_state["trade_lines"] = lines
+
+func _reserved_for_sale(resource_id: String) -> int:
+	var merchants: Array[Node] = get_tree().get_nodes_in_group("merchant_visit_system")
+	if merchants.is_empty():
+		return 0
+	return int(merchants[0].get_reserved_quantity(resource_id))

@@ -97,15 +97,17 @@ func _process(_delta: float) -> void:
 	var resource_id: String = str(offer.get("resource_id", ""))
 	var resource_name: String = str(_goods.get(resource_id, resource_id))
 	var unit_price: float = float(offer.get("unit_price", 0.0))
+	var direction: String = str(offer.get("direction", "supplier"))
+	var is_buyer: bool = direction == "buyer"
 	var seconds_left: int = maxi(0, int(offer.get("expires_at", 0)) - int(Time.get_unix_time_from_system()))
 	var merchant_name: String = str(offer.get("merchant_name", "Торговый капитан"))
 	var vessel_name: String = str(offer.get("vessel_name", "Торговое судно"))
 	_label.text = (
-		"ПРИБЫВШИЙ ТОРГОВЕЦ\n"
+		("ТОРГОВЕЦ ПОКУПАЕТ У ВАС\n" if is_buyer else "ПРИБЫВШИЙ ТОРГОВЕЦ\n")
 		+ "%s — %s\n"
-		+ "Товар: %s\n"
-		+ "В наличии: %d\n"
-		+ "Цена за единицу: %.0f\n"
+		+ ("Готов купить: %s\n" if is_buyer else "Товар: %s\n")
+		+ ("Максимум: %d\n" if is_buyer else "В наличии: %d\n")
+		+ ("Ваша цена за единицу: %.0f\n" if is_buyer else "Цена за единицу: %.0f\n")
 		+ "Уедет через: %d:%02d\n"
 		+ "Ваши деньги: %.0f\n"
 		+ "%s"
@@ -120,8 +122,9 @@ func _process(_delta: float) -> void:
 		float(GameState.player_state.get("money", 0.0)),
 		_notice
 	]
-	_quantity_label.text = "Количество: %d | Итого: %.0f" % [_selected_quantity, unit_price * _selected_quantity]
-	_buy_button.disabled = float(GameState.player_state.get("money", 0.0)) < unit_price * _selected_quantity
+	_quantity_label.text = "Количество: %d | %s: %.0f" % [_selected_quantity, "Вы получите" if is_buyer else "Итого", unit_price * _selected_quantity]
+	_buy_button.text = "Продать торговцу" if is_buyer else "Купить"
+	_buy_button.disabled = not is_buyer and float(GameState.player_state.get("money", 0.0)) < unit_price * _selected_quantity
 
 func _toggle_window() -> void:
 	_is_open = not _is_open
@@ -133,7 +136,8 @@ func _on_quantity_changed(value: float) -> void:
 func _purchase() -> void:
 	if _merchant_system == null:
 		return
-	var result: Dictionary = _merchant_system.purchase(_selected_quantity)
+	var offer: Dictionary = _merchant_system.get_active_offer()
+	var result: Dictionary = _merchant_system.sell_to_merchant(_selected_quantity) if str(offer.get("direction", "supplier")) == "buyer" else _merchant_system.purchase(_selected_quantity)
 	_notice = str(result.get("message", ""))
 	if bool(result.get("ok", false)):
 		_selected_quantity = 1

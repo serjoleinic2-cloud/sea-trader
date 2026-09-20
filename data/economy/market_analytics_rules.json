@@ -1,0 +1,6 @@
+{
+  "version": 1,
+  "snapshot_seconds": 30,
+  "max_snapshots_per_good": 24,
+  "description": "Локальная биржевая сводка. Она хранит только цены и запасы уже посещённых портов."
+}
