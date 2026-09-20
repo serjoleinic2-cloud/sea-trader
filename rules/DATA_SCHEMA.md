@@ -131,8 +131,9 @@ status: String            # "planning" | "sailing" | "intermediary_stop" | "comp
 - `rewards.claims[challenge_id]`: отметка однократной выдачи.
 - `rewards.boosts[definition_id]`: количество; `active_boost`: id и seconds_remaining.
 - `rewards.premium_days`: неактивированные дни; `premium_until`: календарный Unix-срок активного премиума.
-- `rewards.fragments[artifact_id]`: количество частей; `artifacts`: список локальных экземпляров; `equipped_artifact`: ID установленного экземпляра; `artifact_serial`: счётчик выпущенных экземпляров.
-- Экземпляр артефакта: instance_id, definition_id, origin, authority=`offline_prototype`, tradable=false. Это не серверный актив.
+- `rewards.expedition_tokens[definition_id]`: неторгуемые знаки долгих экспедиций.
+- `rewards.fragments[artifact_id]`: совместимые со старыми сохранениями локальные части; `artifacts`: список локальных реликвий; `equipped_artifact`: ID установленного экземпляра; `artifact_serial`: локальный счётчик.
+- Локальная реликвия: instance_id, definition_id, origin, authority=`offline_prototype`, tradable=false. Это не серверный актив и не источник официального предмета.
 
 Ранние поля экономики (часть остаётся проектной схемой):
 ```
@@ -174,10 +175,19 @@ expenses_per_day: float   # calculated from employees + fleet + port
 employee_instance_id: String
 role_id: String           # references EmployeeData
 name: String
-salary: float
-hired_timestamp: int
+employment_type: String   # contract | permanent; missing legacy value means contract
+stats: {}                 # generated positive/negative base modifiers
+skill_stats: {}           # bonuses learned by permanent personnel
+mastery_percent: int      # 0..100; permanent only
+experience: int           # completed voyages; permanent only
+skills: []                # { id, progress: 0..100 }
+active_skill_id: String
+contract_voyages_total: int
+contract_voyages_remaining: int # -1 for permanent personnel
 assigned_to: String | null  # ship_id or port_id
 ```
+
+Контрактный персонал имеет фиксированные параметры и не получает опыт профессии или навыка. Постоянный сотрудник остаётся в компании, повышает владение профессией на завершённых межпортовых рейсах, затем развивает по одному выбранному навыку.
 
 ### FleetState
 ```
@@ -216,6 +226,7 @@ sfx_volume: float
 control_sensitivity: float
 control_inversion: bool
 language: String
+ui_scale: float           # 1.0 | 1.25 | 1.5
 ```
 
 ---

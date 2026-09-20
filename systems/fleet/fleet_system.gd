@@ -3,6 +3,7 @@ extends Node
 ## Owns player fleet data and autonomous-route state.
 
 var _port_system: Node
+var _hiring_system: Node
 var _ship_types: Dictionary = {}
 var _requirements: Dictionary = {}
 var _goods_prices: Dictionary = {}
@@ -10,8 +11,9 @@ var _goods_prices: Dictionary = {}
 func _ready() -> void:
 	add_to_group("fleet_system")
 
-func initialize(port_system: Node) -> void:
+func initialize(port_system: Node, hiring_system: Node = null) -> void:
 	_port_system = port_system
+	_hiring_system = hiring_system
 	var raw_types: Variant = GameData.get_ships()
 	if raw_types is Array:
 		for raw_type in raw_types:
@@ -190,6 +192,9 @@ func _is_ship_sailing(ship_id: String) -> bool:
 
 func _consume_crew_voyage(ship: Dictionary) -> void:
 	var crew: Array = ship.get("crew", []).duplicate()
+	if _hiring_system != null:
+		ship["crew"] = _hiring_system.complete_voyage(crew)
+		return
 	var retained: Array = []
 	for employee in GameState.employee_state:
 		var employee_id: String = str(employee.get("employee_instance_id", ""))

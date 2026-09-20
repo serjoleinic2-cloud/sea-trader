@@ -14,14 +14,16 @@ var _world_ports: Dictionary = {}
 var _ports_in_range: Dictionary = {}  # port_id → bool
 
 var _ship_node: Node2D = null
+var _hiring_system: Node = null
 
 
 func _ready() -> void:
 	set_process(true)
 
 
-func initialize(ship: Node2D, world_ports: Dictionary) -> void:
+func initialize(ship: Node2D, world_ports: Dictionary, hiring_system: Node = null) -> void:
 	_ship_node = ship
+	_hiring_system = hiring_system
 	_world_ports = world_ports
 	_ports_in_range.clear()
 	var config: Dictionary = GameData.read("res://data/ports/port_template.json")
@@ -97,7 +99,8 @@ func _get_effective_discovery_radius() -> float:
 			var employee: Dictionary = raw_employee
 			if str(employee.get("employee_instance_id", "")) == str(employee_id):
 				var stats: Dictionary = employee.get("stats", {})
-				navigation_bonus += int(stats.get("navigation", 0))
+				var skill_stats: Dictionary = employee.get("skill_stats", {})
+				navigation_bonus += int(stats.get("navigation", 0)) + int(skill_stats.get("navigation", 0))
 				break
 	return _discovery_radius * maxf(0.55, 1.0 + float(navigation_bonus) / 100.0)
 
@@ -162,6 +165,9 @@ func dock(port_id: String) -> bool:
 func _consume_active_crew_voyage() -> void:
 	var raw_crew: Variant = GameState.ship_state.get("crew", [])
 	var crew_ids: Array = raw_crew if raw_crew is Array else []
+	if _hiring_system != null:
+		GameState.ship_state["crew"] = _hiring_system.complete_voyage(crew_ids)
+		return
 	var retained_employees: Array = []
 	var retained_crew_ids: Array = []
 	for raw_employee in GameState.employee_state:

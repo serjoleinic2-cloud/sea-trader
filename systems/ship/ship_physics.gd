@@ -242,7 +242,8 @@ func _get_crew_stat_total(stat_id: String) -> int:
 			var employee: Dictionary = raw_employee
 			if str(employee.get("employee_instance_id", "")) == str(employee_id):
 				var stats: Dictionary = employee.get("stats", {})
-				total += int(stats.get(stat_id, 0))
+				var skill_stats: Dictionary = employee.get("skill_stats", {})
+				total += int(stats.get(stat_id, 0)) + int(skill_stats.get(stat_id, 0))
 				break
 	return total
 

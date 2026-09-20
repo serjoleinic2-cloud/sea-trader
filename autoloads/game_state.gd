@@ -146,7 +146,8 @@ var settings_state: Dictionary = {
 	"sfx_volume": 0.8,
 	"control_sensitivity": 1.0,
 	"control_inversion": false,
-	"language": "en"
+	"language": "ru",
+	"ui_scale": 1.25
 }
 
 # ============================================================================
@@ -242,7 +243,8 @@ func reset_to_defaults() -> void:
 		"sfx_volume": 0.8,
 		"control_sensitivity": 1.0,
 		"control_inversion": false,
-		"language": "en"
+		"language": "ru",
+		"ui_scale": 1.25
 	}
 	monetization_state = {
 		"no_ads_purchased": false,

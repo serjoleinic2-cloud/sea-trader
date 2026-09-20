@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "authority": "server_only",
+  "display_id_format": "ST-ART-{YEAR}-{EDITION}-{SERIAL}",
+  "transfer_modes": ["gift", "market_sale"],
+  "required_instance_fields": [
+    "asset_id",
+    "definition_id",
+    "edition_id",
+    "serial_number",
+    "owner_account_id",
+    "issued_by_account_id",
+    "issued_at",
+    "transfer_policy",
+    "ledger_version"
+  ],
+  "offline_client_policy": {
+    "may_display_cached_assets": true,
+    "may_mint_assets": false,
+    "may_transfer_assets": false,
+    "gift_requires_server_confirmation": true
+  }
+}

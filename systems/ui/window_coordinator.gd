@@ -6,6 +6,8 @@ var _main: Node
 var _toolbar: HBoxContainer
 var _status: Label
 var _cancel: Button
+var _text_scale_button: Button
+var _accessibility: Node
 
 func initialize(main: Node) -> void:
 	_main = main
@@ -38,6 +40,14 @@ func initialize(main: Node) -> void:
 		button.add_theme_font_size_override("font_size", 20)
 		button.pressed.connect(_open_tool.bind(str(item.node_name), str(item.get("method", ""))))
 		_toolbar.add_child(button)
+	var accessibility_nodes: Array[Node] = get_tree().get_nodes_in_group("ui_accessibility")
+	if not accessibility_nodes.is_empty():
+		_accessibility = accessibility_nodes[0]
+		_text_scale_button = Button.new()
+		_text_scale_button.custom_minimum_size = Vector2(105, 44)
+		_text_scale_button.pressed.connect(_cycle_text_scale)
+		_toolbar.add_child(_text_scale_button)
+		_refresh_text_scale_button()
 	_cancel = Button.new()
 	_cancel.text = "Ручное управление"
 	_cancel.custom_minimum_size.y = 44
@@ -141,7 +151,7 @@ func _process(_delta: float) -> void:
 	_main.get_node("CrewWindow").get("_button").hide()
 	_main.get_node("NavigationHUD").get("_toggle_button").hide()
 	_main.get_node("NavigationHUD").get("_course_label").visible = not has_modal and not docked
-	_toolbar.position = Vector2(maxf(12.0, (viewport.x - _toolbar.size.x) * 0.5), viewport.y - 60.0 if has_modal or not docked else 12.0)
+	_toolbar.position = Vector2(maxf(12.0, (viewport.x - _toolbar.size.x) * 0.5), viewport.y - _toolbar.size.y - 12.0 if has_modal or not docked else 12.0)
 	_cancel.visible = bool(GameState.voyage_state.get("active_autopilot", false))
 	_status.visible = not has_modal and not docked
 	_status.position = Vector2(12, 320)
@@ -156,6 +166,16 @@ func _cancel_voyage() -> void:
 	var systems: Array[Node] = get_tree().get_nodes_in_group("active_route_autopilot_system")
 	if not systems.is_empty():
 		systems[0].cancel()
+
+func _cycle_text_scale() -> void:
+	if _accessibility == null:
+		return
+	_accessibility.cycle_scale()
+	_refresh_text_scale_button()
+
+func _refresh_text_scale_button() -> void:
+	if _text_scale_button != null and _accessibility != null:
+		_text_scale_button.text = "ТЕКСТ %d%%" % int(_accessibility.get_scale_percent())
 
 func _unhandled_key_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:

@@ -2,6 +2,10 @@
   "version": 1,
   "modules": [
     {
+      "id": "UiAccessibility",
+      "script": "res://systems/ui/ui_accessibility.gd"
+    },
+    {
       "id": "RewardSystem",
       "script": "res://systems/rewards/reward_system.gd"
     },
@@ -12,7 +16,8 @@
       "initialize": "initialize",
       "args": [
         "$ship",
-        "$ports"
+        "$ports",
+        "HiringSystem"
       ]
     },
     {
@@ -45,7 +50,8 @@
       "bind": "_fleet_system",
       "initialize": "initialize",
       "args": [
-        "PortSystem"
+        "PortSystem",
+        "HiringSystem"
       ]
     },
     {
@@ -129,9 +135,7 @@
       "script": "res://systems/employees/hiring_system.gd",
       "bind": "_hiring_system",
       "initialize": "initialize",
-      "args": [
-        "PortSystem"
-      ]
+      "args": []
     },
     {
       "id": "ShipyardSystem",
@@ -288,6 +292,10 @@
       "id": "CrewWindow",
       "script": "res://systems/ui/crew_window.gd",
       "bind": "_crew_window",
+      "initialize": "initialize",
+      "args": [
+        "HiringSystem"
+      ],
       "workspace_flag": "_is_open"
     },
     {

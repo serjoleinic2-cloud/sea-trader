@@ -44,7 +44,7 @@ func test_three_tiers_have_expected_duration_and_reward() -> void:
 	assert_lte(board[1].duration_seconds, 172800)
 	assert_eq(board[0].reward.kind, "boost")
 	assert_eq(board[1].reward.kind, "premium_days")
-	assert_eq(board[2].reward.kind, "fragment")
+	assert_eq(board[2].reward.kind, "expedition_token")
 	assert_gt(board[2].duration_seconds, 172800)
 
 func test_baseline_freezes_and_reward_is_claimed_exactly_once() -> void:
@@ -79,13 +79,13 @@ func test_expiry_blocks_late_progress_but_completed_reward_waits() -> void:
 	assert_eq(_rewards.get_state().premium_days, 1)
 	assert_false(_rewards.get_state().has("premium_until"))
 
-func test_reward_inventory_and_claim_ledger_survive_save_load() -> void:
+func test_expedition_tokens_and_claim_ledger_survive_save_load() -> void:
 	_challenges.accept("long")
 	_finish("long")
 	assert_true(_challenges.claim("long").ok)
 	GameState.reset_to_defaults()
 	assert_true(SaveSystem.load_game())
-	assert_eq(_rewards.get_state().fragments.navigator_compass, 1)
+	assert_eq(_rewards.get_state().expedition_tokens.sealed_chart, 1)
 	assert_false(_challenges.claim("long").ok)
 
 func test_boost_changes_real_ship_speed_and_expires_by_play_time() -> void:

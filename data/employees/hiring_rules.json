@@ -1,11 +1,13 @@
 {
-  "version": 1,
+  "version": 2,
   "roles": {
-    "captain": {"name": "Капитан", "base_salary_per_voyage": 36},
-    "sailor": {"name": "Моряк", "base_salary_per_voyage": 14},
-    "navigator": {"name": "Лоцман", "base_salary_per_voyage": 25},
-    "mechanic": {"name": "Механик", "base_salary_per_voyage": 22},
-    "dock_worker": {"name": "Портовый рабочий", "base_salary_per_voyage": 12}
+    "captain": {"name": "Капитан", "base_salary_per_voyage": 36, "permanent_price_multiplier": 14},
+    "sailor": {"name": "Моряк", "base_salary_per_voyage": 14, "permanent_price_multiplier": 11},
+    "navigator": {"name": "Лоцман", "base_salary_per_voyage": 25, "permanent_price_multiplier": 13},
+    "mechanic": {"name": "Механик", "base_salary_per_voyage": 22, "permanent_price_multiplier": 13},
+    "bosun": {"name": "Боцман", "base_salary_per_voyage": 24, "permanent_price_multiplier": 13},
+    "quartermaster": {"name": "Квартирмейстер", "base_salary_per_voyage": 21, "permanent_price_multiplier": 12},
+    "dock_worker": {"name": "Портовый рабочий", "base_salary_per_voyage": 12, "permanent_price_multiplier": 10}
   },
   "stat_labels": {
     "speed": "Скорость",
@@ -13,6 +15,22 @@
     "fuel": "Расход топлива",
     "repair": "Ремонт",
     "navigation": "Навигация"
+  },
+  "employment_types": {
+    "contract": {"name": "Контрактный", "description": "Фиксированные параметры на выбранное число рейсов. Не получает опыт."},
+    "permanent": {"name": "Постоянный", "description": "Остаётся в компании, получает опыт и осваивает выбранные навыки."}
+  },
+  "progression": {
+    "mastery_per_voyage": 4,
+    "skill_progress_per_voyage": 5,
+    "maximum_skill_slots": 3
+  },
+  "skills": {
+    "steady_course": {"name": "Точный курс", "description": "До +5% к скорости", "stat": "speed", "max_bonus": 5},
+    "cargo_rhythm": {"name": "Ритм погрузки", "description": "До +5% к погрузке", "stat": "loading", "max_bonus": 5},
+    "fuel_discipline": {"name": "Экономичный ход", "description": "До +5% экономии топлива", "stat": "fuel", "max_bonus": 5},
+    "field_repair": {"name": "Полевой ремонт", "description": "До +5% к ремонту", "stat": "repair", "max_bonus": 5},
+    "coastal_memory": {"name": "Память берегов", "description": "До +5% к навигации", "stat": "navigation", "max_bonus": 5}
   },
   "balance_status": "Provisional schematic personnel salaries and bonuses."
 }

@@ -20,6 +20,8 @@ func describe(reward: Dictionary) -> String:
 			return "%s × %d" % [str(_catalog.get("boosts", {}).get(str(reward.get("id", "")), {}).get("name", "Буст")), amount]
 		"premium_days":
 			return "Дни премиума: %d (активируете сами)" % amount
+		"expedition_token":
+			return "%s × %d" % [str(_catalog.get("expedition_tokens", {}).get(str(reward.get("id", "")), {}).get("name", "Знак экспедиции")), amount]
 		"fragment":
 			return "Часть артефакта «%s» × %d" % [str(_catalog.get("artifacts", {}).get(str(reward.get("id", "")), {}).get("name", "")), amount]
 	return "Неизвестная награда"
@@ -41,6 +43,10 @@ func grant_once(claim_id: String, reward: Dictionary) -> Dictionary:
 		var boosts: Dictionary = state.get("boosts", {})
 		boosts[id] = int(boosts.get(id, 0)) + amount
 		state["boosts"] = boosts
+	elif kind == "expedition_token" and _catalog.get("expedition_tokens", {}).has(id):
+		var tokens: Dictionary = state.get("expedition_tokens", {})
+		tokens[id] = int(tokens.get(id, 0)) + amount
+		state["expedition_tokens"] = tokens
 	elif kind == "fragment" and _catalog.get("artifacts", {}).has(id):
 		var fragments: Dictionary = state.get("fragments", {})
 		fragments[id] = int(fragments.get(id, 0)) + amount

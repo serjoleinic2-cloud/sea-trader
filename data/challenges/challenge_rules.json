@@ -1,9 +1,9 @@
 {
-  "version": 1,
+  "version": 2,
   "tiers": [
     {"id": "short", "name": "Короткий челлендж", "duration_hours": [1, 2, 3], "renewal_seconds": 3600, "sales_per_capacity": 0.4, "voyages": 2, "distance": 1200, "reward": {"kind": "boost", "id": "fair_wind", "amount": 1}},
     {"id": "daily", "name": "Суточный челлендж", "duration_hours": [24, 48], "renewal_seconds": 86400, "sales_per_capacity": 2.0, "voyages": 6, "distance": 5000, "reward": {"kind": "premium_days", "amount": 1}},
-    {"id": "long", "name": "Экспедиция за артефактом", "duration_hours": [168, 336], "renewal_seconds": 604800, "sales_per_capacity": 8.0, "voyages": 20, "distance": 20000, "reward": {"kind": "fragment", "id": "navigator_compass", "amount": 1}}
+    {"id": "long", "name": "Большая экспедиция", "duration_hours": [168, 336], "renewal_seconds": 604800, "sales_per_capacity": 8.0, "voyages": 20, "distance": 20000, "reward": {"kind": "expedition_token", "id": "sealed_chart", "amount": 1}}
   ],
   "stat_names": {"total_sales": "Продать товаров", "total_voyages": "Завершить переходов между портами", "total_distance": "Пройти расстояние", "ports_discovered": "Открыть портов"},
   "rank_difficulty_step": 0.03,

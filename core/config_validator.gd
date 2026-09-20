@@ -38,7 +38,7 @@ func validate(ships: Dictionary, goods: Dictionary, buildings: Dictionary, produ
 func validate_rewards(challenges: Dictionary, rewards: Dictionary) -> Array[String]:
 	var errors: Array[String] = []
 	var tiers: Dictionary = _index(challenges.get("tiers"), "id", "challenge_rules.tiers", errors)
-	for kind in ["boosts", "artifacts", "premium", "limits"]:
+	for kind in ["boosts", "artifacts", "expedition_tokens", "premium", "limits"]:
 		if not rewards.get(kind) is Dictionary:
 			errors.append("reward_catalog." + kind + ": expected object")
 	if not errors.is_empty():
@@ -70,6 +70,8 @@ func validate_rewards(challenges: Dictionary, rewards: Dictionary) -> Array[Stri
 		if kind == "boost" and rewards.boosts.has(str(reward.get("id", ""))):
 			continue
 		if kind == "fragment" and rewards.artifacts.has(str(reward.get("id", ""))):
+			continue
+		if kind == "expedition_token" and rewards.expedition_tokens.has(str(reward.get("id", ""))):
 			continue
 		if kind != "premium_days":
 			errors.append("challenge_rules." + str(id) + ": unknown reward")

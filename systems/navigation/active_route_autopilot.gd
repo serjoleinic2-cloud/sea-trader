@@ -40,6 +40,7 @@ func _fuel_rate() -> float:
 	for employee in GameState.employee_state:
 		if GameState.ship_state.get("crew", []).has(employee.get("employee_instance_id", "")):
 			bonus += float(employee.get("stats", {}).get("fuel", 0.0))
+			bonus += float(employee.get("skill_stats", {}).get("fuel", 0.0))
 	return float(_rules.get("fuel_per_distance", 0.003)) * maxf(0.25, 1.0 - bonus / 100.0)
 
 func validate_start(destination_id: String, resource_id: String = "", quantity: int = 0) -> Dictionary:

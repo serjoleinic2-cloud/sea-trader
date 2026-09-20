@@ -77,8 +77,12 @@ func _refresh() -> void:
 	var active: Dictionary = state.get("active_boost", {})
 	if float(active.get("seconds_remaining", 0)) > 0:
 		_label("Буст действует ещё %d мин. игрового времени." % int(ceil(float(active.seconds_remaining) / 60.0)))
-	_label("КОЛЛЕКЦИЯ АРТЕФАКТОВ", 24)
-	_label("Одновременно действует один установленный артефакт.")
+	_label("ЗНАКИ ЭКСПЕДИЦИЙ", 24)
+	for id in catalog.get("expedition_tokens", {}):
+		var token: Dictionary = catalog.expedition_tokens[id]
+		_label("%s: %d шт.\n%s" % [str(token.name), int(state.get("expedition_tokens", {}).get(id, 0)), str(token.description)])
+	_label("ИГРОВЫЕ РЕЛИКВИИ", 24)
+	_label("Эти локальные реликвии привязаны к сохранению и не передаются. Официальные редкие артефакты появятся только после подключения аккаунтов и сервера.")
 	for id in catalog.get("artifacts", {}):
 		var artifact: Dictionary = catalog.artifacts[id]
 		var parts: int = int(state.get("fragments", {}).get(id, 0))

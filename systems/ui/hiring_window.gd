@@ -106,10 +106,11 @@ func _rebuild_list() -> void:
 		var candidate: Dictionary = raw_candidate
 		var button: Button = Button.new()
 		button.custom_minimum_size.y = 48
-		button.text = "◉ %s — %s %d ранга" % [
+		button.text = "◉ %s — %s %d ранга | %s" % [
 			str(candidate.get("name", "")),
 			str(candidate.get("role_name", "")),
-			int(candidate.get("rank", 1))
+			int(candidate.get("rank", 1)),
+			str(candidate.get("employment_name", "Контрактный"))
 		]
 		button.pressed.connect(_select_candidate.bind(str(candidate.get("candidate_id", ""))))
 		_list.add_child(button)
@@ -129,21 +130,32 @@ func _refresh_details() -> void:
 		_hire_button.disabled = true
 		return
 	var stats: Dictionary = candidate.get("stats", {})
+	var employment_type: String = str(candidate.get("employment_type", "contract"))
+	var employment_types: Dictionary = _system.get_employment_types()
+	var employment: Dictionary = employment_types.get(employment_type, {})
 	var lines: Array[String] = [
 		"Портрет №%d  |  %s" % [int(candidate.get("portrait_id", 0)) + 1, str(candidate.get("name", ""))],
-		"%s, %d ранг" % [str(candidate.get("role_name", "")), int(candidate.get("rank", 1))],
+		"%s, %d ранг • %s" % [str(candidate.get("role_name", "")), int(candidate.get("rank", 1)), str(candidate.get("employment_name", "Контрактный"))],
+		str(employment.get("description", "")),
 		""
 	]
 	for stat_id in ["speed", "loading", "fuel", "repair", "navigation"]:
 		var value: int = int(stats.get(stat_id, 0))
 		lines.append("%s: %+d%%" % [str(_stat_labels.get(stat_id, stat_id)), value])
-	var salary: float = float(candidate.get("salary_per_voyage", 0.0)) * _selected_voyages
+	var salary: float = float(candidate.get("hire_price", 0.0)) if employment_type == "permanent" else float(candidate.get("salary_per_voyage", 0.0)) * _selected_voyages
 	lines.append("Ваш допуск: сотрудник до %d ранга" % _system.get_hiring_rank_limit())
 	lines.append("")
 	lines.append("Корабль: %s | экипаж %d / %d" % [str(ship.get("name", "")), int(ship.get("crew_count", 0)), int(ship.get("max_crew", 1))])
-	lines.append("Контракт: %d рейс. | зарплата: %.0f" % [_selected_voyages, salary])
+	if employment_type == "permanent":
+		lines.append("Владение профессией: %d%% | стоимость найма: %.0f" % [int(candidate.get("mastery_percent", 0)), salary])
+	else:
+		lines.append("Контракт: %d рейс. | зарплата: %.0f" % [_selected_voyages, salary])
 	lines.append(_notice)
 	_details.text = "\n".join(lines)
+	_voyage_label.visible = employment_type == "contract"
+	_voyage_slider.visible = employment_type == "contract"
+	_voyage_label.text = "Срок контракта: %d рейс." % _selected_voyages
+	_hire_button.text = "Принять навсегда и назначить" if employment_type == "permanent" else "Нанять на %d рейс. и назначить" % _selected_voyages
 	_hire_button.disabled = int(candidate.get("rank", 1)) > _system.get_hiring_rank_limit() or int(ship.get("crew_count", 0)) >= int(ship.get("max_crew", 1)) or float(GameState.player_state.get("money", 0.0)) < salary
 
 func _get_selected_candidate() -> Dictionary:
