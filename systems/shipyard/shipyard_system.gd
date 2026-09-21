@@ -74,7 +74,8 @@ func set_material_amount(resource_id: String, amount: int) -> Dictionary:
 	var home_port_id: String = str(GameState.world_state.get("home_port_id", ""))
 	var port: Dictionary = GameState.port_state.get(home_port_id, {})
 	var inventory: Dictionary = port.get("inventory", {})
-	if delta > int(inventory.get(resource_id, 0)):
+	var economy = preload("res://systems/economy/economy_model.gd").new()
+	if delta > maxi(0, int(inventory.get(resource_id, 0)) - economy.reserved(GameState.economy_state, resource_id)):
 		return {"ok": false, "message": "На складе недостаточно материала."}
 	inventory[resource_id] = int(inventory.get(resource_id, 0)) - delta
 	materials[resource_id] = target

@@ -224,7 +224,7 @@ func _add_selected_ship_actions() -> void:
 				other_port_id = str(route.get("port_a_id", ""))
 			var route_button: Button = Button.new()
 			route_button.custom_minimum_size.y = 38
-			route_button.text = "Автопилот в " + _fleet_system._port_system.get_port_name(other_port_id)
+			route_button.text = "Переход без груза в %s — %.0f" % [_fleet_system._port_system.get_port_name(other_port_id), float(_fleet_system.quote_leg(_selected_ship_id, route_key, 0).get("cash", 0.0))]
 			route_button.pressed.connect(_start_autopilot.bind(_selected_ship_id, route_key))
 			box.add_child(route_button)
 	else:

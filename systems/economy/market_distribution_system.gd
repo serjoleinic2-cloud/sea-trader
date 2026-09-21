@@ -5,6 +5,8 @@ extends Node
 var _port_system: Node
 var _goods: Array = []
 var _last_home_port_id: String = ""
+var _elapsed: float = 0.0
+var _economy = preload("res://systems/economy/economy_model.gd").new()
 
 func _ready() -> void:
 	add_to_group("market_distribution_system")
@@ -17,7 +19,13 @@ func initialize(port_system: Node) -> void:
 		_goods = raw_goods
 	_seed_remote_markets()
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	_elapsed += delta
+	if _elapsed >= 5.0:
+		_elapsed = 0.0
+		for id in GameState.port_state:
+			if str(id) != str(GameState.world_state.get("home_port_id", "")):
+				_economy.refresh(GameState.port_state[id], str(id), int(Time.get_unix_time_from_system()))
 	var home_port_id: String = str(GameState.world_state.get("home_port_id", ""))
 	if home_port_id != _last_home_port_id:
 		_last_home_port_id = home_port_id

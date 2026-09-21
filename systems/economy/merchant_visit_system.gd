@@ -51,7 +51,7 @@ func create_sell_order(resource_id: String, quantity: int, asking_price: float) 
 	var home_id: String = str(GameState.world_state.get("home_port_id", ""))
 	if home_id == "" or str(GameState.ship_state.get("docked_port_id", "")) != home_id:
 		return {"ok": false, "message": "Выставлять товар можно только в своём порту."}
-	if not _goods.has(resource_id) or quantity < 1 or asking_price <= 0.0:
+	if not _goods.has(resource_id) or quantity < 1 or not is_finite(asking_price) or asking_price <= 0.0:
 		return {"ok": false, "message": "Проверьте товар, количество и цену."}
 	if get_available_home_inventory(resource_id) < quantity:
 		return {"ok": false, "message": "Недостаточно свободного товара: часть уже зарезервирована другими заявками."}
@@ -101,6 +101,8 @@ func purchase(quantity: int) -> Dictionary:
 	var home_port_id: String = str(GameState.world_state.get("home_port_id", ""))
 	if str(offer.get("direction", "supplier")) != "supplier" or offer.is_empty() or home_port_id == "" or not GameState.port_state.has(home_port_id):
 		return {"ok": false, "message": "Предложение уже недоступно."}
+	if _now() >= int(offer.get("expires_at", 0)):
+		return {"ok": false, "message": "Торговец уже ушёл."}
 	var available_quantity: int = int(offer.get("quantity_available", 0))
 	var unit_price: float = float(offer.get("unit_price", 0.0))
 	if quantity < 1 or quantity > available_quantity:
@@ -125,7 +127,7 @@ func purchase(quantity: int) -> Dictionary:
 
 func sell_to_merchant(quantity: int) -> Dictionary:
 	var offer: Dictionary = get_active_offer()
-	if str(offer.get("direction", "")) != "buyer":
+	if str(offer.get("direction", "")) != "buyer" or _now() >= int(offer.get("expires_at", 0)):
 		return {"ok": false, "message": "Сейчас торговец ничего не закупает."}
 	var order_id: String = str(offer.get("order_id", ""))
 	var merchant: Dictionary = _merchant_state()
@@ -147,6 +149,14 @@ func sell_to_merchant(quantity: int) -> Dictionary:
 	var resource_id: String = str(order.get("resource_id", ""))
 	if int(inventory.get(resource_id, 0)) < quantity:
 		return {"ok": false, "message": "На складе не хватает зарезервированного товара."}
+	var market: Node = get_tree().get_first_node_in_group("trade_line_system")
+	var destination: String = str(offer.get("destination_port_id", ""))
+	if market == null or destination == "":
+		return {"ok": false, "message": "Нет порта для выкупа заявки. Ожидайте нового торговца."}
+	var demand: Dictionary = market.quote_sale(destination, resource_id, quantity)
+	if not bool(demand.get("ok", false)) or float(demand.get("revenue", 0.0)) < float(offer.get("unit_price", 0.0)) * quantity * 1.15:
+		return {"ok": false, "message": "Спрос покупателя изменился. Снимите заявку или дождитесь следующего торговца."}
+	market.try_sell_to_port(destination, resource_id, quantity)
 	inventory[resource_id] = int(inventory.get(resource_id, 0)) - quantity
 	port["inventory"] = inventory
 	GameState.port_state[home_id] = port
@@ -196,23 +206,23 @@ func _update_offer() -> void:
 	SaveSystem.save_game()
 
 func _find_buyer_order(merchant: Dictionary, offer_index: int) -> Dictionary:
+	var market: Node = get_tree().get_first_node_in_group("trade_line_system")
 	var orders: Array = merchant.get("sell_orders", [])
-	if orders.is_empty():
+	if market == null or orders.is_empty():
 		return {}
-	var start: int = posmod(offer_index, orders.size())
+	var ports: Array = market.get_known_ports()
 	for offset in range(orders.size()):
-		var index: int = posmod(start + offset, orders.size())
-		var order: Dictionary = orders[index]
-		if str(order.get("status", "active")) != "active" or int(order.get("quantity_available", 0)) <= 0:
-			continue
-		var resource_id: String = str(order.get("resource_id", ""))
-		var base_price: float = float(_goods.get(resource_id, {}).get("base_price", 0.0))
-		var ceiling: float = base_price * (_buyer_price_ceiling_multiplier - float(posmod(offer_index + offset, 3)) * 0.05)
-		if float(order.get("asking_price", 0.0)) <= ceiling:
-			return order
-		order["last_feedback"] = "Торговцы считают цену %.0f выше текущего предела %.0f." % [float(order.get("asking_price", 0.0)), ceiling]
-		orders[index] = order
-		merchant["sell_orders"] = orders
+		var order: Dictionary = orders[posmod(offer_index + offset, orders.size())]
+		var id: String = str(order.get("resource_id", ""))
+		var quantity: int = mini(int(order.get("quantity_available", 0)), 6 + posmod(offer_index * 3, 10))
+		for port in ports:
+			if str(port.id) == str(GameState.world_state.get("home_port_id", "")):
+				continue
+			var quote: Dictionary = market.quote_sale(str(port.id), id, quantity)
+			if bool(quote.get("ok", false)) and float(quote.get("revenue", 0.0)) >= float(order.get("asking_price", 0.0)) * quantity * 1.15:
+				order["destination_port_id"] = str(port.id)
+				return order
+		order["last_feedback"] = "Цена или объём не подходят известным рынкам; уменьшите заявку."
 	return {}
 
 func _make_supplier_offer(offer_index: int, now: int) -> Dictionary:
@@ -228,6 +238,7 @@ func _make_buyer_offer(order: Dictionary, offer_index: int, now: int) -> Diction
 	var amount: int = mini(int(order.get("quantity_available", 0)), 6 + posmod(offer_index * 3, 10))
 	return _make_offer_base(offer_index, now, {
 		"direction": "buyer",
+		"destination_port_id": str(order.get("destination_port_id", "")),
 		"order_id": str(order.get("id", "")),
 		"resource_id": str(order.get("resource_id", "")),
 		"quantity_available": amount,

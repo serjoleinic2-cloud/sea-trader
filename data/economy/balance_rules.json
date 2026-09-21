@@ -1,0 +1,40 @@
+{
+  "version": 1,
+  "market": {
+    "tick_seconds": 120,
+    "phase_seconds": 3600,
+    "target_stock": 80,
+    "hub_scale": 12,
+    "consumption_per_tick": 2,
+    "producer_output_per_tick": 5,
+    "bid_floor": 0.08,
+    "bid_peak": 1.6,
+    "spread": 0.25,
+    "max_bonus": 0.15,
+    "catchup_ticks": 720
+  },
+  "fleet": {
+    "port_fee": 4,
+    "fuel_per_distance": 0.0015,
+    "fuel_price": 5,
+    "wear_per_distance": 0.001,
+    "repair_price": 6,
+    "food_per_person": 2,
+    "capacity_scale": 200,
+    "load_factor": 0.3,
+    "minimum_leg_seconds": 45
+  },
+  "production": {
+    "cash_reserve": 100,
+    "default_stock_cap": 100,
+    "warehouse_cap_per_level": 100,
+    "starter_units": 5
+  },
+  "recovery": {
+    "reward": 12,
+    "minimum_seconds": 180,
+    "fuel_reserve": 10,
+    "hull_minimum": 60,
+    "debt_payment": 60
+  }
+}

@@ -4,6 +4,7 @@ extends Node
 
 var _rules: Dictionary = {}
 var _port_system: Node
+var _economy = preload("res://systems/economy/economy_model.gd").new()
 
 func initialize(port_system: Node) -> void:
 	_rules = GameData.read("res://data/ports/service_rules.json")
@@ -34,7 +35,7 @@ func refuel(amount: float) -> Dictionary:
 		var inventory: Dictionary = port.get("inventory", {})
 		var oil_available: int = int(inventory.get("resource_oil", 0))
 		var oil_needed: int = int(ceil(target / maxf(0.01, float(_rules.get("fuel_per_oil", 5.0)))))
-		if oil_available >= oil_needed:
+		if oil_available - _economy.reserved(GameState.economy_state, "resource_oil") >= oil_needed:
 			inventory["resource_oil"] = oil_available - oil_needed
 			port["inventory"] = inventory
 			GameState.port_state[port_id] = port
@@ -65,7 +66,7 @@ func repair(amount: float) -> Dictionary:
 		var inventory: Dictionary = port.get("inventory", {})
 		var parts_available: int = int(inventory.get("resource_parts", 0))
 		var parts_needed: int = int(ceil(target / maxf(0.01, float(_rules.get("hull_per_parts", 10.0)))))
-		if parts_available >= parts_needed:
+		if parts_available - _economy.reserved(GameState.economy_state, "resource_parts") >= parts_needed:
 			inventory["resource_parts"] = parts_available - parts_needed
 			port["inventory"] = inventory
 			GameState.port_state[port_id] = port

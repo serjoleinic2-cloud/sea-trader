@@ -2,19 +2,27 @@ extends "res://tests/test_base.gd"
 
 var _merchant: Node
 var _production: Node
+var _market: Node
+var _destination: String = "buyer_port"
 
 func before_each() -> void:
 	SaveSystem.delete_save()
 	GameState.reset_to_defaults()
 	GameState.world_state["home_port_id"] = "home"
 	GameState.ship_state["docked_port_id"] = "home"
-	GameState.player_state["money"] = 0.0
+	GameState.player_state["money"] = 200.0
 	GameState.port_state = {
 		"home": {
 			"inventory": {"resource_timber": 20, "resource_fish": 0},
 			"buildings": {"fishing_wharf": {"level": 1, "status": "active"}}
 		}
 	}
+	_market = load("res://systems/economy/trade_line_system.gd").new()
+	add_child(_market)
+	_market.initialize(null, null)
+	while not _market._port_accepts(_destination, "resource_timber"):
+		_destination += "x"
+	GameState.port_state[_destination] = {"market_stock": {}}
 	_merchant = load("res://systems/economy/merchant_visit_system.gd").new()
 	add_child(_merchant)
 	_production = load("res://systems/ports/port_production_system.gd").new()
@@ -22,6 +30,7 @@ func before_each() -> void:
 
 func after_each() -> void:
 	_merchant.free()
+	_market.free()
 	_production.free()
 	SaveSystem.delete_save()
 	GameState.reset_to_defaults()
@@ -35,22 +44,25 @@ func test_sell_order_reserves_goods_and_buyer_pays() -> void:
 	var merchant_state: Dictionary = GameState.economy_state["merchant"]
 	merchant_state["active_offer"] = {
 		"direction": "buyer", "order_id": str(order.get("id", "")), "resource_id": "resource_timber",
-		"quantity_available": 5, "unit_price": 10.0
+		"quantity_available": 5, "unit_price": 10.0, "destination_port_id": _destination,
+		"expires_at": int(Time.get_unix_time_from_system()) + 1200
 	}
 	GameState.economy_state["merchant"] = merchant_state
 	var result: Dictionary = _merchant.sell_to_merchant(5)
 	assert_true(bool(result.get("ok", false)))
 	assert_eq(GameState.port_state["home"]["inventory"]["resource_timber"], 15)
-	assert_eq(GameState.player_state["money"], 50.0)
+	assert_eq(GameState.player_state["money"], 250.0)
 	assert_eq(_merchant.get_reserved_quantity("resource_timber"), 3)
 	assert_true(bool(_merchant.cancel_sell_order(str(order.get("id", ""))).get("ok", false)))
 	assert_eq(_merchant.get_reserved_quantity("resource_timber"), 0)
 
 func test_production_pause_and_cap_prevent_overflow() -> void:
 	assert_true(bool(_production.set_production_mode("fishing_wharf", "paused").get("ok", false)))
+	_production._issue_starter_batch("home", "fishing_wharf")
 	_production._produce_cycle()
 	assert_eq(GameState.port_state["home"]["inventory"]["resource_fish"], 0)
 	assert_true(bool(_production.set_production_mode("fishing_wharf", "capped", 2).get("ok", false)))
+	_production._issue_starter_batch("home", "fishing_wharf")
 	_production._produce_cycle()
 	_production._produce_cycle()
 	_production._produce_cycle()

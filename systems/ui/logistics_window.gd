@@ -161,7 +161,7 @@ func _refresh() -> void:
 		_details.text = str(quote.get("message", "")) + "\n" + _notice
 		_send_button.disabled = true
 		return
-	_details.text = "%s\nТрюм: %d | Топливо: %.0f\n\nЦена покупки: %.0f\nЦена продажи: %.0f\nДистанция: %.0f\nТопливо: %.1f (≈ %.0f)\nРезерв ремонта: %.0f\nТорговая разница: %.0f\n\nОЦЕНКА РЕЗУЛЬТАТА: %.0f" % [
+	_details.text = "%s\nТрюм: %d | Топливо: %.0f\n\nЦена покупки: %.0f\nЦена продажи: %.0f\nДистанция: %.0f\nТопливо: %.1f (≈ %.0f)\nРезерв ремонта: %.0f\nТорговая разница: %.0f\n\nОЦЕНКА ОДНОГО ПЛЕЧА: %.0f" % [
 		str(quote.get("ship_name", "")),
 		int(quote.get("capacity", 0)),
 		float(quote.get("fuel_current", 0.0)),
@@ -175,7 +175,7 @@ func _refresh() -> void:
 		float(quote.get("net", 0.0))
 	]
 	if bool(quote.get("auxiliary", false)):
-		_details.text += "\nДля флота расходы на топливо включены в фиксированное обслуживание рейса."
+		_details.text += "\n" + str(quote.get("service_text", ""))
 	if destination_id == str(GameState.world_state.get("home_port_id", "")):
 		_details.text += "\nНа базе груз поступит на склад без продажи."
 	else:

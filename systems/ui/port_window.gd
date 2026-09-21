@@ -576,7 +576,7 @@ func _update_production_controls(_port_id: String, is_home: bool) -> void:
 		_production_cap_slider.value = float(cap if cap > 0 else maximum)
 	var mode_text: String = "остановлено" if mode == "paused" else ("до лимита" if mode == "capped" else "автоматически")
 	_production_mode_button.text = "Запустить производство" if mode == "paused" else "Остановить производство"
-	_production_cap_label.text = "Лимит склада: %d ед. (сейчас %d; режим: %s)" % [int(_production_cap_slider.value), current_stock, mode_text]
+	_production_cap_label.text = "Лимит: %d (запас %d; %s)\n%s" % [int(_production_cap_slider.value), current_stock, mode_text, str(control.get("message", ""))]
 	_production_cap_button.text = "Производить до %d ед." % int(_production_cap_slider.value)
 
 func _toggle_production() -> void:
@@ -615,9 +615,10 @@ func _update_buy_button(port_id: String, is_home: bool) -> void:
 		return
 	var stock: Dictionary = _get_port_market_stock(port_id)
 	var available: int = int(stock.get(resource_id, 0))
-	var unit_price: float = _get_purchase_price(resource_id)
+	var quote: Dictionary = _transfers._market.quote_purchase(port_id, resource_id, _selected_quantity)
+	var unit_price: float = float(quote.get("unit_price", 0.0))
 	var free_space: int = int(GameState.ship_state.get("cargo_capacity", 0)) - _get_cargo_units()
-	_buy_button.disabled = _selected_quantity > available or _selected_quantity > free_space or float(GameState.player_state.get("money", 0.0)) < unit_price * _selected_quantity
+	_buy_button.disabled = not bool(quote.get("ok", false)) or _selected_quantity > available or _selected_quantity > free_space or float(GameState.player_state.get("money", 0.0)) < unit_price * _selected_quantity
 	_buy_button.text = "Купить %d ед.: %s (-%.0f)" % [_selected_quantity, _get_resource_name(resource_id), unit_price * _selected_quantity]
 
 func _update_sell_button(is_home: bool) -> void:
@@ -626,8 +627,9 @@ func _update_sell_button(is_home: bool) -> void:
 	if not _sell_button.visible:
 		return
 	var quantity: int = _get_cargo_quantity(resource_id)
-	_sell_button.disabled = _selected_quantity > quantity
-	_sell_button.text = "Продать %d ед.: %s (+%.0f)" % [_selected_quantity, _get_resource_name(resource_id), _get_sale_price(resource_id) * _selected_quantity]
+	var quote: Dictionary = _transfers._market.quote_sale(str(GameState.ship_state.get("docked_port_id", "")), resource_id, _selected_quantity)
+	_sell_button.disabled = not bool(quote.get("ok", false)) or _selected_quantity > quantity
+	_sell_button.text = "Продать %d ед.: %s (+%.0f)" % [_selected_quantity, _get_resource_name(resource_id), float(quote.get("revenue", 0.0))]
 
 func _update_unload_button(is_home: bool) -> void:
 	var resource_id: String = _get_selected_resource_id()
@@ -791,7 +793,7 @@ func _refresh_market_page(port_name: String, ship: Dictionary, port: Dictionary)
 		"Деньги: %.0f\n"
 		+ "Трюм: %d / %d\n\n"
 		+ "%s\n"
-		+ "Продажа зависит от текущего спроса. Непроданный товар остаётся в трюме."
+		+ "Средняя цена партии снижается по мере насыщения рынка. Непроданный товар остаётся в трюме."
 	) % [
 		float(GameState.player_state.get("money", 0.0)),
 		_get_cargo_units(),
@@ -806,7 +808,7 @@ func _get_port_demand_text(port_id: String, resource_id: String) -> String:
 	var info: Dictionary = market_systems[0].get_market_info(port_id, resource_id)
 	if not bool(info.get("accepted", false)):
 		return "Порт не принимает этот товар."
-	return "Спрос: %d ед. Восстановление через %d сек." % [
+	return "Потребность: %d ед. Следующее потребление через %d сек." % [
 		int(info.get("demand", 0)),
 		int(info.get("restores_in", 0))
 	]

@@ -96,7 +96,7 @@ func _refresh() -> void:
 	_label(_sparkline(history, "demand") + "  " + _trend_text(history, "demand"), 26)
 	_label("ЗАПАС (избыток снижает цену)", 21)
 	_label(_sparkline(history, "stock") + "  " + _trend_text(history, "stock"), 26)
-	_label("Подсказка: покупайте там, где цена ниже, и продавайте в портах с высоким спросом и небольшим запасом. Заявки на выкуп вашего склада создаются на рынке базы.")
+	_label("Цена на графике — за следующую единицу. Большая партия продастся дешевле; точная оценка есть в «Рейсах». Порты потребляют запасы и меняют потребность по часовым периодам.")
 
 func _sparkline(history: Array, key: String) -> String:
 	if history.size() < 2:

@@ -43,6 +43,7 @@ func execute(action: String, resource_id: String, quantity: int) -> Dictionary:
 		return _failure("В трюме недостаточно места.")
 	if action in ["unload", "sell"] and cargo_quantity(resource_id) < quantity:
 		return _failure("В трюме нет выбранного количества товара.")
+	_market.get_market_info(port_id, resource_id)
 	var port: Dictionary = GameState.port_state[port_id]
 	var storage: String = "inventory" if home else "market_stock"
 	var stock: Dictionary = port.get(storage, {})
@@ -51,7 +52,12 @@ func execute(action: String, resource_id: String, quantity: int) -> Dictionary:
 		available_stock -= _reserved_for_sale(resource_id)
 	if action in ["load", "buy"] and available_stock < quantity:
 		return _failure("В порту недостаточно товара. Дождитесь производства или поставки.")
-	var price: float = buy_price(port_id, resource_id) * quantity if action == "buy" else 0.0
+	var price: float = 0.0
+	if action == "buy":
+		var quote: Dictionary = _market.quote_purchase(port_id, resource_id, quantity)
+		if not bool(quote.get("ok", false)):
+			return quote
+		price = float(quote.cost)
 	if price > float(GameState.player_state.get("money", 0.0)):
 		return _failure("Недостаточно денег для покупки.")
 	# Roll back in-memory mutations if sale validation or persistence fails.

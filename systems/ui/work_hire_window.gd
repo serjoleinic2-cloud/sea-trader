@@ -29,7 +29,7 @@ func _ready() -> void:
 	_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	box.add_child(_label)
 	var accept_button: Button = Button.new()
-	accept_button.text = "Взять рейс в найм"
+	accept_button.text = "Взять работу"
 	accept_button.add_theme_font_size_override("font_size", 22)
 	accept_button.custom_minimum_size.y = 54
 	accept_button.pressed.connect(_accept)
@@ -58,14 +58,14 @@ func _process(_delta: float) -> void:
 	_panel.position = (viewport - _panel.size) * 0.5
 	var active: Dictionary = _system.get_contract()
 	if not active.is_empty():
-		_label.text = "РАБОТА В НАЙМ\n\nРейс уже принят.\nПорт назначения: %s\nНаграда: %.0f\n\nТопливо и ремонт выданы авансом.\n%s" % [
+		_label.text = "РАБОТА В НАЙМ\n\nРейс уже принят.\nПорт назначения: %s\nНаграда: %.0f\n\nОплата после швартовки, не раньше 3 минут. Для работы у причала оставайтесь здесь.\n%s" % [
 			str(active.get("target_name", "")),
 			float(active.get("reward", 0.0)),
 			_notice
 		]
 		return
 	var offer: Dictionary = _system.offer()
-	_label.text = "РАБОТА В НАЙМ\n\n%s\nПорт назначения: %s\nНаграда: %.0f\n\nПеред выходом порт бесплатно даст 35 топлива и восстановит 20 корпуса.\n%s" % [
+	_label.text = "РАБОТА В НАЙМ\n\n%s\nПорт назначения: %s\nНаграда: %.0f\n\nДля курьерского рейса порт выделит топливо на маршрут и минимальный ремонт. Работа у причала доступна даже без второго порта.\n%s" % [
 		str(offer.get("message", "Рейс доступен.")),
 		str(offer.get("target_name", "-")),
 		float(offer.get("reward", 0.0)),

@@ -1,19 +1,31 @@
 {
-  "version": 1,
-  "cycle_seconds": 10.0,
+  "version": 2,
+  "cycle_seconds": 10,
   "recipes": [
     {
       "building_id": "fishing_wharf",
       "resource_id": "resource_fish",
       "quantity_per_cycle": 1,
-      "required_building_level": 1
+      "required_building_level": 1,
+      "cash_per_unit": 2,
+      "inputs_from_level": 3,
+      "input_batch_units": 20,
+      "inputs": {
+        "resource_oil": 1
+      }
     },
     {
       "building_id": "timber_yard",
       "resource_id": "resource_timber",
       "quantity_per_cycle": 1,
-      "required_building_level": 1
+      "required_building_level": 1,
+      "cash_per_unit": 3,
+      "inputs_from_level": 3,
+      "input_batch_units": 20,
+      "inputs": {
+        "resource_oil": 1
+      }
     }
   ],
-  "balance_status": "Provisional schematic production rate."
+  "balance_status": "Paid production with automatic stock/cash limits; level 3+ consumes oil per 20 output units."
 }

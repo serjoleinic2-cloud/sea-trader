@@ -70,8 +70,19 @@ func evaluate(ship_id: String, origin_port_id: String, destination_port_id: Stri
 	var distance: float = _get_route_distance(origin_port_id, destination_port_id)
 	if distance <= 0.0:
 		return {"ok": false, "message": "Между этими портами ещё нет известного маршрута."}
-	var buy_price: float = _get_buy_price(origin_port_id, resource_id)
-	var sell_price: float = _get_sell_price(destination_port_id, resource_id)
+	var markets: Array[Node] = get_tree().get_nodes_in_group("trade_line_system")
+	if markets.is_empty():
+		return {"ok": false, "message": "Рынок недоступен."}
+	var purchase: Dictionary = {"ok": true, "cost": 0.0, "unit_price": 0.0}
+	if origin_port_id != str(GameState.world_state.get("home_port_id", "")) and ship_id != "active_ship":
+		purchase = markets[0].quote_purchase(origin_port_id, resource_id, amount)
+	var sale: Dictionary = {"ok": true, "revenue": 0.0, "unit_price": 0.0}
+	if destination_port_id != str(GameState.world_state.get("home_port_id", "")):
+		sale = markets[0].quote_sale(destination_port_id, resource_id, amount)
+	if not bool(purchase.get("ok", false)) or not bool(sale.get("ok", false)):
+		return {"ok": false, "message": str(purchase.get("message", sale.get("message", "")))}
+	var buy_price: float = float(purchase.get("unit_price", 0.0))
+	var sell_price: float = float(sale.get("unit_price", 0.0))
 	var fuel_needed: float = distance * 0.003
 	var ready: Dictionary = {"ok": true, "message": ""}
 	if ship_id == "active_ship":
@@ -82,12 +93,21 @@ func evaluate(ship_id: String, origin_port_id: String, destination_port_id: Stri
 	var services: Dictionary = GameData.read("res://data/ports/service_rules.json")
 	var fuel_cost: float = fuel_needed * float(services.get("price_per_fuel", 5.0))
 	var repair_reserve: float = ceil(distance / 1500.0) * float(services.get("price_per_hull", 6.0))
+	var other_cost: float = 0.0
+	var service_text: String = ""
 	if ship_id != "active_ship":
-		var rules: Dictionary = GameData.read("res://data/economy/logistics_rules.json")
-		fuel_cost = float(rules.get("fleet_leg_service_cost", 12.0))
-		repair_reserve = 0.0
+		var fleet: Node = get_tree().get_first_node_in_group("fleet_system")
+		var quote: Dictionary = fleet.quote_leg(ship_id, _get_route_key(origin_port_id, destination_port_id), amount)
+		if not bool(quote.get("ok", false)):
+			return quote
+		fuel_cost = float(quote.fuel)
+		repair_reserve = float(quote.repair)
+		other_cost = float(quote.food) + float(quote.wages) + float(quote.prepaid_wages) + float(quote.port_fee)
+		service_text = "Питание %.0f; зарплата %.0f (предоплачено %.0f); порт %.0f. Списать за рейс: %.0f." % [float(quote.food), float(quote.wages), float(quote.prepaid_wages), float(quote.port_fee), float(quote.cash)]
+		if float(GameState.player_state.get("money", 0.0)) < float(quote.cash) + float(purchase.cost):
+			ready = {"ok": false, "message": "Не хватает денег на закупку и обслуживание."}
 	var gross: float = (sell_price - buy_price) * amount
-	var net: float = gross - fuel_cost - repair_reserve
+	var net: float = gross - fuel_cost - repair_reserve - other_cost
 	return {
 		"ok": true,
 		"can_start": bool(ready.get("ok", false)),
@@ -103,6 +123,7 @@ func evaluate(ship_id: String, origin_port_id: String, destination_port_id: Stri
 		"fuel_cost": fuel_cost,
 		"repair_reserve": repair_reserve,
 		"auxiliary": ship_id != "active_ship",
+		"service_text": service_text,
 		"gross": gross,
 		"net": net
 	}

@@ -147,7 +147,7 @@ func _refresh_details() -> void:
 	lines.append("")
 	lines.append("Корабль: %s | экипаж %d / %d" % [str(ship.get("name", "")), int(ship.get("crew_count", 0)), int(ship.get("max_crew", 1))])
 	if employment_type == "permanent":
-		lines.append("Владение профессией: %d%% | стоимость найма: %.0f" % [int(candidate.get("mastery_percent", 0)), salary])
+		lines.append("Владение: %d%% | найм: %.0f | зарплата во флоте: %.0f / переход" % [int(candidate.get("mastery_percent", 0)), salary, float(candidate.get("salary_per_voyage", 0.0))])
 	else:
 		lines.append("Контракт: %d рейс. | зарплата: %.0f" % [_selected_voyages, salary])
 	lines.append(_notice)

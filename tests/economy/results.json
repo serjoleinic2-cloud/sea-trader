@@ -1,0 +1,845 @@
+{
+  "days": 180,
+  "decision_step_seconds": 120,
+  "hours_per_day": 2,
+  "invariant_failures": 0,
+  "results": [
+    {
+      "blocked_decisions": 10798,
+      "checkpoints": [
+        {
+          "day": 1,
+          "money": 492.97
+        },
+        {
+          "day": 30,
+          "money": 492.97
+        },
+        {
+          "day": 90,
+          "money": 492.97
+        },
+        {
+          "day": 180,
+          "money": 492.97
+        }
+      ],
+      "final_money": 492.97,
+      "initial_money": 1000.0,
+      "production_and_voyages": 684.08,
+      "recovery_jobs": 0,
+      "scenario": "fixed_1",
+      "seed": 42,
+      "ship_type": "ship_sloop",
+      "ships": 1,
+      "sold_units": 24,
+      "trade_revenue": 177.05
+    },
+    {
+      "blocked_decisions": 32398,
+      "checkpoints": [
+        {
+          "day": 1,
+          "money": 492.97
+        },
+        {
+          "day": 30,
+          "money": 492.97
+        },
+        {
+          "day": 90,
+          "money": 492.97
+        },
+        {
+          "day": 180,
+          "money": 492.97
+        }
+      ],
+      "final_money": 492.97,
+      "initial_money": 1000.0,
+      "production_and_voyages": 684.08,
+      "recovery_jobs": 0,
+      "scenario": "fixed_3",
+      "seed": 42,
+      "ship_type": "ship_sloop",
+      "ships": 3,
+      "sold_units": 24,
+      "trade_revenue": 177.05
+    },
+    {
+      "blocked_decisions": 107998,
+      "checkpoints": [
+        {
+          "day": 1,
+          "money": 492.97
+        },
+        {
+          "day": 30,
+          "money": 492.97
+        },
+        {
+          "day": 90,
+          "money": 492.97
+        },
+        {
+          "day": 180,
+          "money": 492.97
+        }
+      ],
+      "final_money": 492.97,
+      "initial_money": 1000.0,
+      "production_and_voyages": 684.08,
+      "recovery_jobs": 0,
+      "scenario": "fixed_10",
+      "seed": 42,
+      "ship_type": "ship_sloop",
+      "ships": 10,
+      "sold_units": 24,
+      "trade_revenue": 177.05
+    },
+    {
+      "blocked_decisions": 8998,
+      "checkpoints": [
+        {
+          "day": 1,
+          "money": 832.49
+        },
+        {
+          "day": 30,
+          "money": 12124.06
+        },
+        {
+          "day": 90,
+          "money": 35543.86
+        },
+        {
+          "day": 180,
+          "money": 70673.56
+        }
+      ],
+      "final_money": 70673.56,
+      "initial_money": 1000.0,
+      "production_and_voyages": 214196.73,
+      "recovery_jobs": 0,
+      "scenario": "adaptive_1",
+      "seed": 42,
+      "ship_type": "ship_sloop",
+      "ships": 1,
+      "sold_units": 43939,
+      "trade_revenue": 283870.29
+    },
+    {
+      "blocked_decisions": 30594,
+      "checkpoints": [
+        {
+          "day": 1,
+          "money": 467.9
+        },
+        {
+          "day": 30,
+          "money": 11506.42
+        },
+        {
+          "day": 90,
+          "money": 34706.92
+        },
+        {
+          "day": 180,
+          "money": 69507.67
+        }
+      ],
+      "final_money": 69507.67,
+      "initial_money": 1000.0,
+      "production_and_voyages": 213459.19,
+      "recovery_jobs": 3,
+      "scenario": "adaptive_3",
+      "seed": 42,
+      "ship_type": "ship_sloop",
+      "ships": 3,
+      "sold_units": 43358,
+      "trade_revenue": 281930.86
+    },
+    {
+      "blocked_decisions": 106195,
+      "checkpoints": [
+        {
+          "day": 1,
+          "money": 467.9
+        },
+        {
+          "day": 30,
+          "money": 9375.09
+        },
+        {
+          "day": 90,
+          "money": 27710.73
+        },
+        {
+          "day": 180,
+          "money": 55214.19
+        }
+      ],
+      "final_money": 55214.19,
+      "initial_money": 1000.0,
+      "production_and_voyages": 210122.73,
+      "recovery_jobs": 3,
+      "scenario": "adaptive_10",
+      "seed": 42,
+      "ship_type": "ship_sloop",
+      "ships": 10,
+      "sold_units": 41850,
+      "trade_revenue": 264300.92
+    },
+    {
+      "blocked_decisions": 30958,
+      "checkpoints": [
+        {
+          "day": 1,
+          "money": 590.28
+        },
+        {
+          "day": 30,
+          "money": 3854.05
+        },
+        {
+          "day": 90,
+          "money": 10581.85
+        },
+        {
+          "day": 180,
+          "money": 20673.55
+        }
+      ],
+      "final_money": 20673.55,
+      "initial_money": 1000.0,
+      "production_and_voyages": 228384.4,
+      "recovery_jobs": 1,
+      "scenario": "schooner_3",
+      "seed": 42,
+      "ship_type": "ship_schooner",
+      "ships": 3,
+      "sold_units": 37288,
+      "trade_revenue": 248045.95
+    },
+    {
+      "blocked_decisions": 10800,
+      "checkpoints": [
+        {
+          "day": 1,
+          "money": 500.0
+        },
+        {
+          "day": 30,
+          "money": 500.0
+        },
+        {
+          "day": 90,
+          "money": 500.0
+        },
+        {
+          "day": 180,
+          "money": 500.0
+        }
+      ],
+      "final_money": 500.0,
+      "initial_money": 1000.0,
+      "production_and_voyages": 500.0,
+      "recovery_jobs": 0,
+      "scenario": "tanker_1",
+      "seed": 42,
+      "ship_type": "ship_tanker",
+      "ships": 1,
+      "sold_units": 0,
+      "trade_revenue": 0.0
+    },
+    {
+      "blocked_decisions": 9004,
+      "checkpoints": [
+        {
+          "day": 1,
+          "money": 113.43
+        },
+        {
+          "day": 30,
+          "money": 11388.03
+        },
+        {
+          "day": 90,
+          "money": 34807.83
+        },
+        {
+          "day": 180,
+          "money": 69937.53
+        }
+      ],
+      "final_money": 69937.53,
+      "initial_money": 0.0,
+      "production_and_voyages": 213063.37,
+      "recovery_jobs": 40,
+      "scenario": "poor_1",
+      "seed": 42,
+      "ship_type": "ship_sloop",
+      "ships": 1,
+      "sold_units": 43679,
+      "trade_revenue": 282520.9
+    },
+    {
+      "blocked_decisions": 10788,
+      "checkpoints": [
+        {
+          "day": 1,
+          "money": 871.41
+        },
+        {
+          "day": 30,
+          "money": 871.41
+        },
+        {
+          "day": 90,
+          "money": 871.41
+        },
+        {
+          "day": 180,
+          "money": 871.41
+        }
+      ],
+      "final_money": 871.41,
+      "initial_money": 1000.0,
+      "production_and_voyages": 1567.94,
+      "recovery_jobs": 0,
+      "scenario": "fixed_1",
+      "seed": 137,
+      "ship_type": "ship_sloop",
+      "ships": 1,
+      "sold_units": 132,
+      "trade_revenue": 1439.35
+    },
+    {
+      "blocked_decisions": 32384,
+      "checkpoints": [
+        {
+          "day": 1,
+          "money": 663.09
+        },
+        {
+          "day": 30,
+          "money": 663.09
+        },
+        {
+          "day": 90,
+          "money": 663.09
+        },
+        {
+          "day": 180,
+          "money": 663.09
+        }
+      ],
+      "final_money": 663.09,
+      "initial_money": 1000.0,
+      "production_and_voyages": 1789.94,
+      "recovery_jobs": 0,
+      "scenario": "fixed_3",
+      "seed": 137,
+      "ship_type": "ship_sloop",
+      "ships": 3,
+      "sold_units": 132,
+      "trade_revenue": 1453.03
+    },
+    {
+      "blocked_decisions": 107984,
+      "checkpoints": [
+        {
+          "day": 1,
+          "money": 663.09
+        },
+        {
+          "day": 30,
+          "money": 663.09
+        },
+        {
+          "day": 90,
+          "money": 663.09
+        },
+        {
+          "day": 180,
+          "money": 663.09
+        }
+      ],
+      "final_money": 663.09,
+      "initial_money": 1000.0,
+      "production_and_voyages": 1789.94,
+      "recovery_jobs": 0,
+      "scenario": "fixed_10",
+      "seed": 137,
+      "ship_type": "ship_sloop",
+      "ships": 10,
+      "sold_units": 132,
+      "trade_revenue": 1453.03
+    },
+    {
+      "blocked_decisions": 0,
+      "checkpoints": [
+        {
+          "day": 1,
+          "money": 5663.25
+        },
+        {
+          "day": 30,
+          "money": 129794.85
+        },
+        {
+          "day": 90,
+          "money": 386618.85
+        },
+        {
+          "day": 180,
+          "money": 771854.85
+        }
+      ],
+      "final_money": 771854.85,
+      "initial_money": 1000.0,
+      "production_and_voyages": 865060.32,
+      "recovery_jobs": 0,
+      "scenario": "adaptive_1",
+      "seed": 137,
+      "ship_type": "ship_sloop",
+      "ships": 1,
+      "sold_units": 129696,
+      "trade_revenue": 1635915.17
+    },
+    {
+      "blocked_decisions": 10789,
+      "checkpoints": [
+        {
+          "day": 1,
+          "money": 1997.99
+        },
+        {
+          "day": 30,
+          "money": 31560.59
+        },
+        {
+          "day": 90,
+          "money": 92724.59
+        },
+        {
+          "day": 180,
+          "money": 184470.59
+        }
+      ],
+      "final_money": 184470.59,
+      "initial_money": 1000.0,
+      "production_and_voyages": 1465144.44,
+      "recovery_jobs": 0,
+      "scenario": "adaptive_3",
+      "seed": 137,
+      "ship_type": "ship_sloop",
+      "ships": 3,
+      "sold_units": 129720,
+      "trade_revenue": 1648615.03
+    },
+    {
+      "blocked_decisions": 86385,
+      "checkpoints": [
+        {
+          "day": 1,
+          "money": 1785.69
+        },
+        {
+          "day": 30,
+          "money": 31348.29
+        },
+        {
+          "day": 90,
+          "money": 92512.29
+        },
+        {
+          "day": 180,
+          "money": 184258.29
+        }
+      ],
+      "final_money": 184258.29,
+      "initial_money": 1000.0,
+      "production_and_voyages": 1465366.44,
+      "recovery_jobs": 0,
+      "scenario": "adaptive_10",
+      "seed": 137,
+      "ship_type": "ship_sloop",
+      "ships": 10,
+      "sold_units": 129720,
+      "trade_revenue": 1648624.73
+    },
+    {
+      "blocked_decisions": 21593,
+      "checkpoints": [
+        {
+          "day": 1,
+          "money": 2792.73
+        },
+        {
+          "day": 30,
+          "money": 64188.63
+        },
+        {
+          "day": 90,
+          "money": 191214.63
+        },
+        {
+          "day": 180,
+          "money": 381753.63
+        }
+      ],
+      "final_money": 381753.63,
+      "initial_money": 1000.0,
+      "production_and_voyages": 1255095.21,
+      "recovery_jobs": 0,
+      "scenario": "schooner_3",
+      "seed": 137,
+      "ship_type": "ship_schooner",
+      "ships": 3,
+      "sold_units": 129684,
+      "trade_revenue": 1635848.84
+    },
+    {
+      "blocked_decisions": 5398,
+      "checkpoints": [
+        {
+          "day": 1,
+          "money": 1933.63
+        },
+        {
+          "day": 30,
+          "money": 33767.8
+        },
+        {
+          "day": 90,
+          "money": 99631.6
+        },
+        {
+          "day": 180,
+          "money": 198427.3
+        }
+      ],
+      "final_money": 198427.3,
+      "initial_money": 1000.0,
+      "production_and_voyages": 1414151.12,
+      "recovery_jobs": 0,
+      "scenario": "tanker_1",
+      "seed": 137,
+      "ship_type": "ship_tanker",
+      "ships": 1,
+      "sold_units": 129720,
+      "trade_revenue": 1611578.42
+    },
+    {
+      "blocked_decisions": 69,
+      "checkpoints": [
+        {
+          "day": 1,
+          "money": 55.98
+        },
+        {
+          "day": 30,
+          "money": 121871.29
+        },
+        {
+          "day": 90,
+          "money": 378695.29
+        },
+        {
+          "day": 180,
+          "money": 763931.29
+        }
+      ],
+      "final_money": 763931.29,
+      "initial_money": 0.0,
+      "production_and_voyages": 858931.16,
+      "recovery_jobs": 33,
+      "scenario": "poor_1",
+      "seed": 137,
+      "ship_type": "ship_sloop",
+      "ships": 1,
+      "sold_units": 128612,
+      "trade_revenue": 1622466.45
+    },
+    {
+      "blocked_decisions": 10798,
+      "checkpoints": [
+        {
+          "day": 1,
+          "money": 564.91
+        },
+        {
+          "day": 30,
+          "money": 564.91
+        },
+        {
+          "day": 90,
+          "money": 564.91
+        },
+        {
+          "day": 180,
+          "money": 564.91
+        }
+      ],
+      "final_money": 564.91,
+      "initial_money": 1000.0,
+      "production_and_voyages": 726.2,
+      "recovery_jobs": 0,
+      "scenario": "fixed_1",
+      "seed": 991,
+      "ship_type": "ship_sloop",
+      "ships": 1,
+      "sold_units": 24,
+      "trade_revenue": 291.11
+    },
+    {
+      "blocked_decisions": 32398,
+      "checkpoints": [
+        {
+          "day": 1,
+          "money": 564.91
+        },
+        {
+          "day": 30,
+          "money": 564.91
+        },
+        {
+          "day": 90,
+          "money": 564.91
+        },
+        {
+          "day": 180,
+          "money": 564.91
+        }
+      ],
+      "final_money": 564.91,
+      "initial_money": 1000.0,
+      "production_and_voyages": 726.2,
+      "recovery_jobs": 0,
+      "scenario": "fixed_3",
+      "seed": 991,
+      "ship_type": "ship_sloop",
+      "ships": 3,
+      "sold_units": 24,
+      "trade_revenue": 291.11
+    },
+    {
+      "blocked_decisions": 107998,
+      "checkpoints": [
+        {
+          "day": 1,
+          "money": 564.91
+        },
+        {
+          "day": 30,
+          "money": 564.91
+        },
+        {
+          "day": 90,
+          "money": 564.91
+        },
+        {
+          "day": 180,
+          "money": 564.91
+        }
+      ],
+      "final_money": 564.91,
+      "initial_money": 1000.0,
+      "production_and_voyages": 726.2,
+      "recovery_jobs": 0,
+      "scenario": "fixed_10",
+      "seed": 991,
+      "ship_type": "ship_sloop",
+      "ships": 10,
+      "sold_units": 24,
+      "trade_revenue": 291.11
+    },
+    {
+      "blocked_decisions": 8278,
+      "checkpoints": [
+        {
+          "day": 1,
+          "money": 983.29
+        },
+        {
+          "day": 30,
+          "money": 16353.63
+        },
+        {
+          "day": 90,
+          "money": 48269.43
+        },
+        {
+          "day": 180,
+          "money": 96143.13
+        }
+      ],
+      "final_money": 96143.13,
+      "initial_money": 1000.0,
+      "production_and_voyages": 300190.62,
+      "recovery_jobs": 0,
+      "scenario": "adaptive_1",
+      "seed": 991,
+      "ship_type": "ship_sloop",
+      "ships": 1,
+      "sold_units": 62623,
+      "trade_revenue": 395333.75
+    },
+    {
+      "blocked_decisions": 29864,
+      "checkpoints": [
+        {
+          "day": 1,
+          "money": 543.32
+        },
+        {
+          "day": 30,
+          "money": 14492.01
+        },
+        {
+          "day": 90,
+          "money": 45614.61
+        },
+        {
+          "day": 180,
+          "money": 92298.51
+        }
+      ],
+      "final_money": 92298.51,
+      "initial_money": 1000.0,
+      "production_and_voyages": 301224.99,
+      "recovery_jobs": 2,
+      "scenario": "adaptive_3",
+      "seed": 991,
+      "ship_type": "ship_sloop",
+      "ships": 3,
+      "sold_units": 62644,
+      "trade_revenue": 392499.5
+    },
+    {
+      "blocked_decisions": 104758,
+      "checkpoints": [
+        {
+          "day": 1,
+          "money": 543.32
+        },
+        {
+          "day": 30,
+          "money": 680.24
+        },
+        {
+          "day": 90,
+          "money": 889.04
+        },
+        {
+          "day": 180,
+          "money": 1202.24
+        }
+      ],
+      "final_money": 1202.24,
+      "initial_money": 1000.0,
+      "production_and_voyages": 331463.39,
+      "recovery_jobs": 4,
+      "scenario": "adaptive_10",
+      "seed": 991,
+      "ship_type": "ship_sloop",
+      "ships": 10,
+      "sold_units": 58352,
+      "trade_revenue": 331617.63
+    },
+    {
+      "blocked_decisions": 30238,
+      "checkpoints": [
+        {
+          "day": 1,
+          "money": 610.39
+        },
+        {
+          "day": 30,
+          "money": 6405.75
+        },
+        {
+          "day": 90,
+          "money": 18396.15
+        },
+        {
+          "day": 180,
+          "money": 36381.75
+        }
+      ],
+      "final_money": 36381.75,
+      "initial_money": 1000.0,
+      "production_and_voyages": 348712.19,
+      "recovery_jobs": 1,
+      "scenario": "schooner_3",
+      "seed": 991,
+      "ship_type": "ship_schooner",
+      "ships": 3,
+      "sold_units": 59066,
+      "trade_revenue": 384081.94
+    },
+    {
+      "blocked_decisions": 10800,
+      "checkpoints": [
+        {
+          "day": 1,
+          "money": 500.0
+        },
+        {
+          "day": 30,
+          "money": 500.0
+        },
+        {
+          "day": 90,
+          "money": 500.0
+        },
+        {
+          "day": 180,
+          "money": 500.0
+        }
+      ],
+      "final_money": 500.0,
+      "initial_money": 1000.0,
+      "production_and_voyages": 500.0,
+      "recovery_jobs": 0,
+      "scenario": "tanker_1",
+      "seed": 991,
+      "ship_type": "ship_tanker",
+      "ships": 1,
+      "sold_units": 0,
+      "trade_revenue": 0.0
+    },
+    {
+      "blocked_decisions": 8294,
+      "checkpoints": [
+        {
+          "day": 1,
+          "money": 112.1
+        },
+        {
+          "day": 30,
+          "money": 15056.04
+        },
+        {
+          "day": 90,
+          "money": 46971.84
+        },
+        {
+          "day": 180,
+          "money": 94845.54
+        }
+      ],
+      "final_money": 94845.54,
+      "initial_money": 0.0,
+      "production_and_voyages": 297740.42,
+      "recovery_jobs": 42,
+      "scenario": "poor_1",
+      "seed": 991,
+      "ship_type": "ship_sloop",
+      "ships": 1,
+      "sold_units": 62063,
+      "trade_revenue": 392081.96
+    }
+  ]
+}

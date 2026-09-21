@@ -33,7 +33,7 @@ func before_each() -> void:
 	GameState.player_state["discovered_port_ids"] = ["home", _destination]
 	GameState.known_routes_state = {"route": {"port_a_id": "home", "port_b_id": _destination, "distance": 400.0}}
 	GameState.port_state = {"home": {"inventory": {"resource_timber": 50}, "buildings": {}},
-		_destination: {"market_stock": {"resource_timber": 50}, "market_demand": {"resource_timber": 60}, "buildings": {}}}
+		_destination: {"market_stock": {"resource_timber": 0}, "market_demand": {"resource_timber": 60}, "buildings": {}}}
 	_pilot = load("res://systems/navigation/active_route_autopilot.gd").new()
 	add_child(_pilot)
 	_pilot.initialize(_ship, _ports)
@@ -137,15 +137,16 @@ func test_failed_fleet_departure_does_not_charge_or_remove_stock() -> void:
 
 func test_fleet_settles_once_at_actual_market_price() -> void:
 	_add_fleet()
-	var unit_price: float = _market.get_sell_price(_destination, "resource_timber")
+	var revenue: float = float(_market.quote_sale(_destination, "resource_timber", 5).revenue)
+	var cost: float = float(_fleet.quote_leg("aux", "route", 5).cash)
 	assert_true(_market.start_single_trip("aux", "home", _destination, "resource_timber", 5).ok)
-	assert_eq(GameState.player_state.money, 988.0)
+	assert_eq(GameState.player_state.money, 1000.0 - float(_fleet.quote_leg("aux", "route", 5).cash))
 	assert_eq(GameState.port_state.home.inventory.resource_timber, 45)
 	assert_false(_market.start_single_trip("aux", "home", _destination, "resource_timber", 5).ok)
-	assert_eq(GameState.player_state.money, 988.0)
+	assert_almost_eq(GameState.player_state.money, 1000.0 - float(_fleet.quote_leg("aux", "route", 5).cash), 0.001)
 	_arrive_fleet()
-	assert_eq(GameState.player_state.money, 988.0 + unit_price * 5)
-	assert_eq(GameState.port_state[_destination].market_demand.resource_timber, 55)
+	assert_eq(GameState.player_state.money, 1000.0 - cost + revenue)
+	assert_eq(GameState.port_state[_destination].market_stock.resource_timber, 5)
 	var money: float = GameState.player_state.money
 	_fleet._process(1.0)
 	assert_eq(GameState.player_state.money, money)
@@ -154,16 +155,16 @@ func test_fleet_settles_once_at_actual_market_price() -> void:
 func test_demand_disappeared_keeps_cargo_without_payment() -> void:
 	_add_fleet()
 	assert_true(_market.start_single_trip("aux", "home", _destination, "resource_timber", 5).ok)
-	GameState.port_state[_destination]["market_demand"]["resource_timber"] = 0
+	GameState.port_state[_destination]["market_stock"]["resource_timber"] = 100000
 	_arrive_fleet()
-	assert_eq(GameState.player_state.money, 988.0)
+	assert_almost_eq(GameState.player_state.money, 1000.0 - float(_fleet.quote_leg("aux", "route", 5).cash), 0.001)
 	assert_eq(GameState.fleet_state[0].cargo[0].quantity, 5)
 	assert_false(GameState.fleet_state[0].trade_receipt.ok)
 	assert_false(_market.try_sell_to_port(_destination, "resource_timber", -1).ok)
-	GameState.port_state[_destination]["market_demand"]["resource_timber"] = 60
+	GameState.port_state[_destination]["market_stock"]["resource_timber"] = 0
 	assert_true(_fleet.retry_trade("aux").ok)
 	var money: float = GameState.player_state.money
-	assert_gt(money, 988.0)
+	assert_gt(money, 1000.0 - float(_fleet.quote_leg("aux", "route", 5).cash))
 	assert_false(_fleet.retry_trade("aux").ok)
 	assert_eq(GameState.player_state.money, money)
 	assert_eq(GameState.employee_state[0].contract_voyages_remaining, 9)
@@ -236,12 +237,13 @@ func test_shared_cargo_service_rejects_invalid_transfers_without_mutation() -> v
 func test_repeating_line_charges_both_legs_and_stops_without_teleport() -> void:
 	_add_fleet()
 	assert_true(_market.create_line("aux", "home", _destination, "resource_timber", "", 5, 0.0).ok)
-	var revenue: float = _market.get_sell_price(_destination, "resource_timber") * 5
+	var revenue: float = float(_market.quote_sale(_destination, "resource_timber", 5).revenue)
+	var round_cost: float = float(_fleet.quote_leg("aux", "route", 5).cash) + float(_fleet.quote_leg("aux", "route", 0).cash)
 	_arrive_fleet()
 	_market._process(0.1)
-	assert_eq(GameState.player_state.money, 1000.0 - 24.0 + revenue)
+	assert_almost_eq(GameState.player_state.money, 1000.0 - round_cost + revenue, 0.001)
 	assert_eq(_market.get_lines()[0].earned, revenue)
-	assert_eq(_market.get_lines()[0].spent, 24.0)
+	assert_almost_eq(_market.get_lines()[0].spent, round_cost, 0.001)
 	_market.stop_line(_market.get_lines()[0].id)
 	assert_eq(GameState.fleet_state[0].current_port_id, _destination)
 	assert_false(GameState.fleet_state[0].autopilot.is_empty())
@@ -254,3 +256,13 @@ func test_repeating_line_charges_both_legs_and_stops_without_teleport() -> void:
 	assert_eq(_market.get_lines()[0].cycles, 1)
 	assert_false(GameState.fleet_state[0].autopilot.is_empty())
 	assert_eq(GameState.employee_state[0].contract_voyages_remaining, 8)
+
+func test_unplanned_autopilot_is_paid_empty_repositioning_without_reward() -> void:
+	_add_fleet()
+	var cost: float = float(_fleet.quote_leg("aux", "route", 0).cash)
+	assert_true(_fleet.start_autopilot("aux", "route").ok)
+	assert_true(GameState.fleet_state[0].cargo.is_empty())
+	assert_almost_eq(GameState.player_state.money, 1000.0 - cost, 0.001)
+	_arrive_fleet()
+	assert_almost_eq(GameState.player_state.money, 1000.0 - cost, 0.001)
+	assert_true(GameState.fleet_state[0].cargo.is_empty())

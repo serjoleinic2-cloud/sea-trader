@@ -86,6 +86,14 @@ port_id:
 > `WorldGenerator` provides the static world data (position, name, island_id).
 > `PortSystem` manages `PortState` (discovery, level, buildings).
 
+Новые поля экономики порта (сохранение сохраняет старые деньги, товары и здания):
+- `economy_tick`: последний обработанный 120-секундный интервал; инициализируется текущим временем без подарочного пополнения.
+- `market_stock`: общий реальный запас для ручной торговли, флота, поставок и выкупа торговцами.
+- Старые `market_demand` и `market_demand_recovery_at` больше не определяют спрос.
+- В здании: `production_mode`, `production_cap`, `production_units` (накопленный выпуск для расходников), `production_notice`.
+- Во флоте: `last_service` — оплаченная разбивка последнего плеча; новые расходы применяются при следующем отправлении.
+- В контракте работы: `ready_at`, `local`, `target_port_id`. Старый контракт получает минимальную задержку и требует швартовки.
+
 ### KnownRoutesState
 ```
 # [PLAYER KNOWLEDGE] Dictionary: route_key → KnownRoute

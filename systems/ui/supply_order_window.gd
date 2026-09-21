@@ -125,6 +125,7 @@ func _refresh_quote() -> void:
 	if _slider.value > _slider.max_value:
 		_slider.value = _slider.max_value
 	var quantity: int = int(_slider.value)
+	quote = _system.get_quote(resource_id, quantity)
 	var total: float = float(quote.get("delivery_price", 0.0)) * quantity
 	_label.text = "Товар: %s\nПоставщик: %s\nЦена у поставщика: %.0f\nДоставка: +50%%\nПрибытие: %d сек.\nВаши деньги: %.0f\n%s\n%s" % [
 		_resource_select.get_item_text(_resource_select.selected),

@@ -59,12 +59,21 @@ func validate() -> Array[String]:
 	errors.append_array(validator.validate_rewards(read("res://data/challenges/challenge_rules.json"), read("res://data/rewards/reward_catalog.json")))
 	errors.append_array(validator.validate_building_rules(read("res://data/ports/building_rules.json"), read("res://data/ports/building_catalog.json"), read(GOODS)))
 	var required_positive: Dictionary = {
-		"res://data/economy/market_rules.json": ["remote_port_buy_multiplier", "remote_port_sell_multiplier", "demand_max", "demand_recovery_seconds", "demand_recovery_amount", "demand_price_scale", "delivery_seconds"],
+		"res://data/economy/market_rules.json": ["delivery_surcharge", "delivery_seconds"],
 		"res://data/ports/service_rules.json": ["fuel_per_oil", "hull_per_parts", "price_per_fuel", "price_per_hull", "minimum_price_factor"],
-		"res://data/economy/logistics_rules.json": ["autopilot_speed", "fuel_per_distance", "arrival_distance", "fleet_leg_service_cost"]
+		"res://data/economy/logistics_rules.json": ["autopilot_speed", "fuel_per_distance", "arrival_distance"]
 	}
 	for path in required_positive:
 		var config: Dictionary = read(str(path))
 		for field in required_positive[path]:
 			validator.check_positive(config, str(field), str(path), errors)
+	var balance: Dictionary = read("res://data/economy/balance_rules.json")
+	for section in ["market", "fleet", "production", "recovery"]:
+		if not balance.get(section) is Dictionary:
+			errors.append("balance_rules: missing " + str(section))
+			continue
+		for field in balance[section]:
+			validator.check_positive(balance[section], str(field), "balance_rules." + str(section), errors)
+	if balance.has("market") and float(balance.market.get("bid_peak", 0)) <= float(balance.market.get("bid_floor", 0)):
+		errors.append("balance_rules: bid_peak must exceed bid_floor")
 	return errors

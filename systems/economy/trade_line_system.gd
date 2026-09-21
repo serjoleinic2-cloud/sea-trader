@@ -3,6 +3,7 @@ extends Node
 ## Repeating fleet trade lines with demand, return cargo and clear stop reasons.
 
 var _rules: Dictionary = {}
+var _economy = preload("res://systems/economy/economy_model.gd").new()
 
 var _port_system: Node
 var _fleet_system: Node
@@ -47,43 +48,36 @@ func get_goods() -> Array:
 
 func get_market_info(port_id: String, resource_id: String) -> Dictionary:
 	_refresh_demand(port_id)
-	if not _port_accepts(port_id, resource_id):
-		return {"accepted": false, "demand": 0, "restores_in": 0, "message": "Порт не принимает этот товар."}
 	var port: Dictionary = GameState.port_state.get(port_id, {})
-	var recovery_at: int = int(port.get("market_demand_recovery_at", 0))
-	var restores_in: int = maxi(0, recovery_at - _now())
-	return {
-		"accepted": true,
-		"demand": _get_demand(port_id, resource_id),
-		"restores_in": restores_in,
-		"message": "Спрос восстановится через %d сек." % restores_in
-	}
+	var profile: Dictionary = _economy.profile(port_id, resource_id, _now())
+	return {"accepted": profile.accepted, "demand": _get_demand(port_id, resource_id),
+		"restores_in": int(_economy.rules.market.tick_seconds) - posmod(_now(), int(_economy.rules.market.tick_seconds)),
+		"target": profile.target, "phase_seconds": profile.phase_seconds,
+		"message": "Спрос зависит от запаса и потребления порта."}
+
+func quote_sale(port_id: String, resource_id: String, quantity: int) -> Dictionary:
+	_refresh_demand(port_id)
+	return _economy.sale_quote(GameState.port_state.get(port_id, {}), port_id, resource_id, quantity, _now(), _sale_bonus())
+
+func quote_purchase(port_id: String, resource_id: String, quantity: int) -> Dictionary:
+	_refresh_demand(port_id)
+	return _economy.purchase_quote(GameState.port_state.get(port_id, {}), port_id, resource_id, quantity, _now())
 
 func try_sell_to_port(port_id: String, resource_id: String, quantity: int) -> Dictionary:
-	if quantity <= 0 or not _base_prices.has(resource_id) or not GameState.port_state.has(port_id):
-		return {"ok": false, "message": "Некорректный товар или количество."}
 	if port_id == str(GameState.world_state.get("home_port_id", "")):
 		return {"ok": false, "message": "На своей базе выгружайте товар на склад."}
-	var amount: int = quantity
-	var info: Dictionary = get_market_info(port_id, resource_id)
-	if not bool(info.get("accepted", false)):
-		return {"ok": false, "message": str(info.get("message", "Порт не принимает этот товар."))}
-	var demand: int = int(info.get("demand", 0))
-	if demand < amount:
-		return {"ok": false, "message": "Спрос порта: %d ед. Ждите восстановления спроса." % demand}
-	var unit_price: float = _sale_price(port_id, resource_id)
-	_set_demand(port_id, resource_id, demand - amount)
-	var updated_port: Dictionary = GameState.port_state.get(port_id, {})
-	var updated_stock: Dictionary = updated_port.get("market_stock", {})
-	updated_stock[resource_id] = int(updated_stock.get(resource_id, 0)) + amount
-	updated_port["market_stock"] = updated_stock
-	GameState.port_state[port_id] = updated_port
-	return {
-		"ok": true,
-		"unit_price": unit_price,
-		"revenue": unit_price * amount,
-		"message": "Продано по цене %.0f за ед." % unit_price
-	}
+	if not GameState.port_state.has(port_id):
+		return {"ok": false, "message": "Неизвестный порт."}
+	var quote: Dictionary = quote_sale(port_id, resource_id, quantity)
+	if not bool(quote.get("ok", false)):
+		return quote
+	var port: Dictionary = GameState.port_state[port_id]
+	var stock: Dictionary = port.get("market_stock", {})
+	stock[resource_id] = int(stock.get(resource_id, 0)) + quantity
+	port["market_stock"] = stock
+	GameState.port_state[port_id] = port
+	quote["message"] = "Продано по средней цене %.2f за ед." % float(quote.unit_price)
+	return quote
 
 func create_line(ship_id: String, origin_id: String, destination_id: String, resource_id: String, return_resource_id: String, quantity: int, min_profit: float) -> Dictionary:
 	if ship_id == "active_ship":
@@ -186,21 +180,19 @@ func _start_return(line: Dictionary) -> Dictionary:
 	var origin_id: String = str(line.get("origin_id", ""))
 	var destination_id: String = str(line.get("destination_id", ""))
 	if return_resource_id == "":
-		var rules: Dictionary = GameData.read("res://data/economy/logistics_rules.json")
-		var cost: float = float(rules.get("fleet_leg_service_cost", 12.0))
+		var cost: float = float(_fleet_system.quote_leg(str(line.get("ship_id", "")), _get_route_key(origin_id, destination_id), 0).get("cash", 0.0))
 		if float(GameState.player_state.get("money", 0.0)) < cost:
 			return {"ok": false, "message": "Не хватает денег на обратный рейс: %.0f." % cost}
 		var empty_freight: Dictionary = {"resource_id": "", "quantity": 0, "reward": 0.0, "managed_trade": true, "line_id": str(line.get("id", ""))}
 		var result: Dictionary = _fleet_system.start_autopilot(str(line.get("ship_id", "")), _get_route_key(origin_id, destination_id), empty_freight, false)
 		if bool(result.get("ok", false)):
-			GameState.player_state["money"] = float(GameState.player_state.get("money", 0.0)) - cost
 			line["spent"] = float(line.get("spent", 0.0)) + cost
 		return result
 	return _start_trade_leg(line, destination_id, origin_id, return_resource_id)
 
 func get_buy_price(port_id: String, resource_id: String) -> float:
-	var port: Dictionary = GameState.port_state.get(port_id, {})
-	return round(_base_price(resource_id) * float(_rules.get("remote_port_buy_multiplier", 1.20)) * float(port.get("price_multipliers", {}).get(resource_id, 1.0)))
+	var quote: Dictionary = quote_purchase(port_id, resource_id, 1)
+	return float(quote.get("unit_price", 0.0))
 
 func get_sell_price(port_id: String, resource_id: String) -> float:
 	return _sale_price(port_id, resource_id)
@@ -224,6 +216,8 @@ func _start_trade_leg(line: Dictionary, source_id: String, target_id: String, re
 			return {"ok": false, "message": "Порт не принимает «%s»." % _good_name(resource_id)}
 		if int(info.get("demand", 0)) < quantity:
 			return {"ok": false, "message": "Спрос: %d ед. Повторите после восстановления." % int(info.get("demand", 0))}
+	if source_id != home_id:
+		_refresh_demand(source_id)
 	var source: Dictionary = GameState.port_state.get(source_id, {})
 	var stock_key: String = "inventory" if source_id == home_id else "market_stock"
 	var stock: Dictionary = source.get(stock_key, {})
@@ -232,23 +226,41 @@ func _start_trade_leg(line: Dictionary, source_id: String, target_id: String, re
 		available_stock -= _reserved_for_sale(resource_id)
 	if available_stock < quantity:
 		return {"ok": false, "message": "В источнике недостаточно «%s»." % _good_name(resource_id)}
-	var buy_price: float = 0.0 if source_id == home_id else get_buy_price(source_id, resource_id)
-	var sale_price: float = 0.0 if to_home else _sale_price(target_id, resource_id)
-	var rules: Dictionary = GameData.read("res://data/economy/logistics_rules.json")
-	var service_cost: float = float(rules.get("fleet_leg_service_cost", 12.0))
-	var predicted_profit: float = (sale_price - buy_price) * quantity - service_cost
+	var purchase: Dictionary = {"ok": true, "cost": 0.0}
+	if source_id != home_id:
+		purchase = quote_purchase(source_id, resource_id, quantity)
+	if not bool(purchase.get("ok", false)):
+		return purchase
+	var sale: Dictionary = {"ok": true, "revenue": 0.0}
+	if not to_home:
+		sale = quote_sale(target_id, resource_id, quantity)
+	if not bool(sale.get("ok", false)):
+		return sale
+	var route_key: String = _get_route_key(source_id, target_id)
+	var service: Dictionary = _fleet_system.quote_leg(str(line.get("ship_id", "")), route_key, quantity)
+	if not bool(service.get("ok", false)):
+		return service
+	var return_cost: float = 0.0
+	if str(line.get("id", "")) != "" and source_id == str(line.get("origin_id", "")):
+		return_cost = float(_fleet_system.quote_leg(str(line.get("ship_id", "")), route_key, 0).get("economic_cost", 0.0))
+	var production_cost: float = 0.0
+	if source_id == home_id:
+		for recipe in GameData.read("res://data/ports/production_recipes.json").get("recipes", []):
+			if str(recipe.resource_id) == resource_id:
+				production_cost = float(recipe.get("cash_per_unit", 0.0)) * quantity
+	var predicted_profit: float = float(sale.get("revenue", 0.0)) - float(purchase.cost) - float(service.economic_cost) - return_cost - production_cost
 	if not to_home and predicted_profit < float(line.get("min_profit", 0.0)):
-		return {"ok": false, "message": "Ожидаемый результат %.0f ниже минимума." % predicted_profit}
-	var cost: float = buy_price * quantity + service_cost
+		return {"ok": false, "message": "Результат с расходами и возвратом %.0f ниже минимума." % predicted_profit}
+	var cost: float = float(purchase.cost) + float(service.cash)
 	if float(GameState.player_state.get("money", 0.0)) < cost:
-		return {"ok": false, "message": "Не хватает денег на закупку и обслуживание рейса: %.0f." % cost}
+		return {"ok": false, "message": "Не хватает денег на товар и рейс: %.0f." % cost}
 	var freight: Dictionary = {"resource_id": resource_id, "quantity": quantity,
 		"reward": 0.0, "managed_trade": true, "line_id": str(line.get("id", ""))}
 	# Fleet validates crew, cargo and busy state before any purchase is committed.
 	var result: Dictionary = _fleet_system.start_autopilot(str(line.get("ship_id", "")), _get_route_key(source_id, target_id), freight, false)
 	if not bool(result.get("ok", false)):
 		return result
-	GameState.player_state["money"] = float(GameState.player_state.get("money", 0.0)) - cost
+	GameState.player_state["money"] = float(GameState.player_state.get("money", 0.0)) - float(purchase.cost)
 	stock[resource_id] = int(stock.get(resource_id, 0)) - quantity
 	source[stock_key] = stock
 	GameState.port_state[source_id] = source
@@ -352,57 +364,26 @@ func _get_route_key(origin_id: String, destination_id: String) -> String:
 	return ""
 
 func _port_accepts(port_id: String, resource_id: String) -> bool:
-	return posmod(hash(port_id + resource_id), 5) != 0
+	return bool(_economy.profile(port_id, resource_id, _now()).accepted)
 
 func _refresh_demand(port_id: String) -> void:
-	var port: Dictionary = GameState.port_state.get(port_id, {})
-	var now: int = _now()
-	var recovery_at: int = int(port.get("market_demand_recovery_at", 0))
-	if recovery_at == 0:
-		port["market_demand_recovery_at"] = now + maxi(1, int(_rules.get("demand_recovery_seconds", 120)))
-		GameState.port_state[port_id] = port
+	if not GameState.port_state.has(port_id):
 		return
-	if now < recovery_at:
-		return
-	var steps: int = maxi(1, int((now - recovery_at) / maxi(1, int(_rules.get("demand_recovery_seconds", 120)))) + 1)
-	var demand: Dictionary = port.get("market_demand", {})
-	for resource_id in demand:
-		demand[resource_id] = mini(int(_rules.get("demand_max", 60)), int(demand[resource_id]) + int(_rules.get("demand_recovery_amount", 8)) * steps)
-	port["market_demand"] = demand
-	port["market_demand_recovery_at"] = recovery_at + maxi(1, int(_rules.get("demand_recovery_seconds", 120))) * steps
+	var port: Dictionary = GameState.port_state[port_id]
+	_economy.refresh(port, port_id, _now())
 	GameState.port_state[port_id] = port
 
 func _get_demand(port_id: String, resource_id: String) -> int:
 	_refresh_demand(port_id)
-	var port: Dictionary = GameState.port_state.get(port_id, {})
-	var demand: Dictionary = port.get("market_demand", {})
-	if not demand.has(resource_id):
-		demand[resource_id] = 30 + posmod(hash(port_id + resource_id), 31)
-		port["market_demand"] = demand
-		GameState.port_state[port_id] = port
-	return int(demand.get(resource_id, 0))
+	return _economy.demand(GameState.port_state.get(port_id, {}), port_id, resource_id, _now())
 
-func _set_demand(port_id: String, resource_id: String, amount: int) -> void:
-	var port: Dictionary = GameState.port_state.get(port_id, {})
-	var demand: Dictionary = port.get("market_demand", {})
-	demand[resource_id] = clampi(amount, 0, int(_rules.get("demand_max", 60)))
-	port["market_demand"] = demand
-	GameState.port_state[port_id] = port
+func _sale_bonus() -> float:
+	var rewards: Array[Node] = get_tree().get_nodes_in_group("reward_system")
+	return float(rewards[0].get_bonus_percent("sale")) / 100.0 if not rewards.is_empty() else 0.0
 
 func _sale_price(port_id: String, resource_id: String) -> float:
-	var demand_factor: float = float(_rules.get("demand_base_factor", 0.75)) + float(_get_demand(port_id, resource_id)) / maxf(1.0, float(_rules.get("demand_price_scale", 100.0)))
-	var supply_factor: float = _supply_factor(port_id, resource_id)
-	var reward_factor: float = 1.0
-	var rewards: Array[Node] = get_tree().get_nodes_in_group("reward_system")
-	if not rewards.is_empty():
-		reward_factor += float(rewards[0].get_bonus_percent("sale")) / 100.0
-	return snappedf(round(_base_price(resource_id) * float(_rules.get("remote_port_sell_multiplier", 1.25)) * demand_factor * supply_factor) * reward_factor, 0.01)
-
-func _supply_factor(port_id: String, resource_id: String) -> float:
-	var port: Dictionary = GameState.port_state.get(port_id, {})
-	var stock: int = int(port.get("market_stock", {}).get(resource_id, 0))
-	# Empty shelves raise the price moderately; excess stock makes later sales cheaper.
-	return clampf(1.10 - float(stock) / 250.0, 0.72, 1.10)
+	var quote: Dictionary = quote_sale(port_id, resource_id, 1)
+	return float(quote.get("unit_price", 0.0))
 
 func _base_price(resource_id: String) -> float:
 	return float(_base_prices.get(resource_id, 0.0))

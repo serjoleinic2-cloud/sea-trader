@@ -42,7 +42,7 @@ func get_available_goods() -> Array:
 func get_goods_name(resource_id: String) -> String:
 	return str(_goods_names.get(resource_id, resource_id))
 
-func get_quote(resource_id: String) -> Dictionary:
+func get_quote(resource_id: String, quantity: int = 1) -> Dictionary:
 	if not _goods_prices.has(resource_id):
 		return {"ok": false, "message": "Неизвестный товар."}
 	var home_port_id: String = str(GameState.world_state.get("home_port_id", ""))
@@ -54,7 +54,10 @@ func get_quote(resource_id: String) -> Dictionary:
 	var markets: Array[Node] = get_tree().get_nodes_in_group("trade_line_system")
 	if markets.is_empty():
 		return {"ok": false, "message": "Рынок недоступен."}
-	var source_price: float = float(markets[0].get_buy_price(source_port_id, resource_id))
+	var purchase: Dictionary = markets[0].quote_purchase(source_port_id, resource_id, quantity)
+	if not bool(purchase.get("ok", false)):
+		return purchase
+	var source_price: float = float(purchase.unit_price)
 	return {
 		"ok": true,
 		"resource_id": resource_id,
@@ -80,7 +83,7 @@ func place_order(resource_id: String, quantity: int) -> Dictionary:
 	var capacity: int = get_delivery_capacity()
 	if orders.size() >= capacity:
 		return {"ok": false, "message": "Все %d торговых места заняты. Улучшите рынок или причал." % capacity}
-	var quote: Dictionary = get_quote(resource_id)
+	var quote: Dictionary = get_quote(resource_id, quantity)
 	if not bool(quote.get("ok", false)):
 		return quote
 	var source_port_id: String = str(quote.get("source_port_id", ""))

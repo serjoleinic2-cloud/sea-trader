@@ -5,6 +5,7 @@ extends Node
 var _cycle_seconds: float = 10.0
 var _elapsed: float = 0.0
 var _recipes: Array = []
+var _economy = preload("res://systems/economy/economy_model.gd").new()
 
 func _ready() -> void:
 	add_to_group("port_production_system")
@@ -40,6 +41,7 @@ func get_production_control(building_id: String) -> Dictionary:
 	return {
 		"mode": str(building.get("production_mode", "auto")),
 		"cap": int(building.get("production_cap", 0)),
+		"message": str(building.get("production_notice", "")),
 		"active": int(building.get("level", 0)) >= 1 and str(building.get("status", "")) == "active"
 	}
 
@@ -64,7 +66,7 @@ func set_production_mode(building_id: String, mode: String, cap: int = 0) -> Dic
 	port["buildings"] = buildings
 	GameState.port_state[home_id] = port
 	SaveSystem.save_game()
-	var text: String = "Производство остановлено." if mode == "paused" else ("Производство идёт до запаса %d." % cap if mode == "capped" else "Производство работает без лимита.")
+	var text: String = "Производство остановлено." if mode == "paused" else ("Производство идёт до запаса %d." % cap if mode == "capped" else "Производство работает до вместимости склада с резервом денег.")
 	return {"ok": true, "message": text}
 
 func _issue_starter_batch(port_id: String, building_id: String) -> void:
@@ -83,7 +85,7 @@ func _issue_starter_batch(port_id: String, building_id: String) -> void:
 		return
 	if int(building.get("level", 0)) < 1 or str(building.get("status", "")) != "active":
 		return
-	if not _can_produce(port, recipe_for_building(building_id)):
+	if str(building.get("production_mode", "auto")) == "paused":
 		return
 	for raw_recipe in _recipes:
 		var recipe: Dictionary = raw_recipe
@@ -91,7 +93,14 @@ func _issue_starter_batch(port_id: String, building_id: String) -> void:
 			building["starter_batch_issued"] = true
 			buildings[building_id] = building
 			port["buildings"] = buildings
-			port = _add_recipe_output(port, recipe)
+			var inventory: Dictionary = port.get("inventory", {})
+			var id: String = str(recipe.resource_id)
+			var cap: int = int(_economy.rules.production.default_stock_cap) + int(buildings.get("warehouse", {}).get("level", 0)) * int(_economy.rules.production.warehouse_cap_per_level)
+			if str(building.get("production_mode", "auto")) == "capped":
+				cap = mini(cap, int(building.get("production_cap", cap)))
+			var quantity: int = mini(int(_economy.rules.production.starter_units), maxi(0, cap - int(inventory.get(id, 0))))
+			inventory[id] = int(inventory.get(id, 0)) + quantity
+			port["inventory"] = inventory
 			GameState.port_state[port_id] = port
 			SaveSystem.save_game()
 			return
@@ -116,22 +125,21 @@ func _produce_cycle() -> void:
 			continue
 		if str(building.get("status", "")) != "active":
 			continue
-		if not _can_produce(port, recipe):
-			continue
 		port = _add_recipe_output(port, recipe)
 	GameState.port_state[home_port_id] = port
 
 func _add_recipe_output(port: Dictionary, recipe: Dictionary) -> Dictionary:
-	var raw_inventory: Variant = port.get("inventory", {})
-	var inventory: Dictionary = raw_inventory if raw_inventory is Dictionary else {}
-	var resource_id: String = str(recipe.get("resource_id", ""))
-	var building_id: String = str(recipe.get("building_id", ""))
-	var buildings: Dictionary = port.get("buildings", {})
-	var building: Dictionary = buildings.get(building_id, {})
-	var quantity: int = int(recipe.get("quantity_per_cycle", 0)) * maxi(1, int(building.get("level", 1)))
-	if resource_id == "" or quantity <= 0:
+	var quote: Dictionary = _economy.production_quote(port, recipe, float(GameState.player_state.get("money", 0.0)), GameState.economy_state)
+	var building: Dictionary = port.get("buildings", {}).get(str(recipe.building_id), {})
+	building["production_notice"] = str(quote.get("message", "Работает; расходы %.0f / ед." % float(recipe.get("cash_per_unit", 0.0))))
+	if not bool(quote.get("ok", false)):
 		return port
-	inventory[resource_id] = int(inventory.get(resource_id, 0)) + quantity
+	var inventory: Dictionary = port.get("inventory", {})
+	for id in quote.inputs:
+		inventory[id] = int(inventory.get(id, 0)) - int(quote.inputs[id])
+	inventory[str(recipe.resource_id)] = int(inventory.get(str(recipe.resource_id), 0)) + int(quote.quantity)
+	GameState.player_state["money"] = float(GameState.player_state.get("money", 0.0)) - float(quote.cost)
+	building["production_units"] = int(building.get("production_units", 0)) + int(quote.quantity)
 	port["inventory"] = inventory
 	return port
 
@@ -141,17 +149,3 @@ func recipe_for_building(building_id: String) -> Dictionary:
 		if str(recipe.get("building_id", "")) == building_id:
 			return recipe
 	return {}
-
-func _can_produce(port: Dictionary, recipe: Dictionary) -> bool:
-	if recipe.is_empty():
-		return false
-	var building_id: String = str(recipe.get("building_id", ""))
-	var building: Dictionary = port.get("buildings", {}).get(building_id, {})
-	var mode: String = str(building.get("production_mode", "auto"))
-	if mode == "paused":
-		return false
-	if mode != "capped":
-		return true
-	var inventory: Dictionary = port.get("inventory", {})
-	var resource_id: String = str(recipe.get("resource_id", ""))
-	return int(inventory.get(resource_id, 0)) < int(building.get("production_cap", 0))
