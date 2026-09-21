@@ -266,3 +266,23 @@ func test_unplanned_autopilot_is_paid_empty_repositioning_without_reward() -> vo
 	_arrive_fleet()
 	assert_almost_eq(GameState.player_state.money, 1000.0 - cost, 0.001)
 	assert_true(GameState.fleet_state[0].cargo.is_empty())
+
+func test_auxiliary_voyage_status_has_saved_route_progress_and_cargo() -> void:
+	_add_fleet()
+	assert_true(_fleet.start_autopilot("aux", "route", {"resource_id": "resource_timber", "quantity": 5}).ok)
+	var started_at: float = float(GameState.fleet_state[0].autopilot.started_at)
+	var duration: float = float(GameState.fleet_state[0].autopilot.duration_seconds)
+	var status: Dictionary = _fleet.get_auxiliary_voyage_status("aux", started_at + duration * 0.5)
+	assert_true(status.found)
+	assert_true(status.in_transit)
+	assert_eq(status.origin_port_id, "home")
+	assert_eq(status.destination_port_id, _destination)
+	assert_almost_eq(float(status.progress), 0.5, 0.01)
+	assert_eq(status.cargo_units, 5)
+
+func test_next_hull_unlocks_after_previous_career_stage() -> void:
+	GameState.player_state.stats = {"total_sales": 135}
+	assert_false(_fleet.get_ship_access("ship_barque").ok)
+	GameState.player_state.stats = {"total_sales": 150}
+	assert_true(_fleet.get_ship_access("ship_barque").ok)
+	assert_false(_fleet.get_ship_access("ship_schooner").ok)

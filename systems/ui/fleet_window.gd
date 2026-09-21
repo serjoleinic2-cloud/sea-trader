@@ -132,20 +132,32 @@ func _add_auxiliary_ship_card(ship: Dictionary) -> void:
 	var box: VBoxContainer = _create_card()
 	var ship_id: String = str(ship.get("instance_id", ""))
 	var crew: Array = ship.get("crew", [])
-	var current_port_id: String = str(ship.get("current_port_id", ""))
-	var location: String = _fleet_system._port_system.get_port_name(current_port_id)
-	var autopilot: Dictionary = ship.get("autopilot", {})
-	var status: String = str(ship.get("status", "В порту"))
-	if not autopilot.is_empty():
-		var now: float = Time.get_unix_time_from_system()
-		var elapsed: float = now - float(autopilot.get("started_at", now))
-		var duration: float = maxf(1.0, float(autopilot.get("duration_seconds", 1.0)))
-		var progress: int = int(clampf(elapsed / duration, 0.0, 1.0) * 100.0)
-		status = "В пути к " + _fleet_system._port_system.get_port_name(str(autopilot.get("destination_port_id", ""))) + " — " + str(progress) + "%"
+	var voyage: Dictionary = _fleet_system.get_auxiliary_voyage_status(ship_id)
 	var title: Label = Label.new()
 	title.add_theme_font_size_override("font_size", 19)
-	title.text = "%s | %s | порт: %s | экипаж: %d" % [str(ship.get("name", "Корабль")), status, location, crew.size()]
+	title.text = str(ship.get("name", "Корабль")).to_upper()
 	box.add_child(title)
+	var route_label: Label = Label.new()
+	route_label.add_theme_font_size_override("font_size", 17)
+	if bool(voyage.get("in_transit", false)):
+		var origin: String = _fleet_system._port_system.get_port_name(str(voyage.get("origin_port_id", "")))
+		var destination: String = _fleet_system._port_system.get_port_name(str(voyage.get("destination_port_id", "")))
+		route_label.text = "В ПУТИ: %s → %s | %d%% | прибытие через %s" % [
+			origin, destination, int(float(voyage.get("progress", 0.0)) * 100.0),
+			_format_duration(float(voyage.get("remaining_seconds", 0.0)))
+		]
+	else:
+		route_label.text = "%s | у причала: %s" % [
+			str(voyage.get("status", "У причала")),
+			_fleet_system._port_system.get_port_name(str(voyage.get("current_port_id", "")))
+		]
+	box.add_child(route_label)
+	var cargo_label: Label = Label.new()
+	cargo_label.add_theme_font_size_override("font_size", 17)
+	cargo_label.text = "Груз: %d / %d | Экипаж: %d" % [
+		int(voyage.get("cargo_units", 0)), int(ship.get("cargo_capacity", 0)), crew.size()
+	]
+	box.add_child(cargo_label)
 	var crew_label: Label = Label.new()
 	crew_label.add_theme_font_size_override("font_size", 17)
 	crew_label.text = _get_crew_text(crew)
@@ -155,6 +167,17 @@ func _add_auxiliary_ship_card(ship: Dictionary) -> void:
 	select_button.custom_minimum_size.y = 36
 	select_button.pressed.connect(_select_ship.bind(ship_id))
 	box.add_child(select_button)
+
+func _format_duration(seconds: float) -> String:
+	var total: int = maxi(0, int(ceil(seconds)))
+	var hours: int = total / 3600
+	var minutes: int = (total % 3600) / 60
+	var remainder: int = total % 60
+	if hours > 0:
+		return "%d ч %02d мин" % [hours, minutes]
+	if minutes > 0:
+		return "%d мин %02d сек" % [minutes, remainder]
+	return "%d сек" % remainder
 
 func _add_build_section(home_port_id: String, docked_port_id: String) -> void:
 	var box: VBoxContainer = _create_card()
@@ -175,12 +198,16 @@ func _add_build_section(home_port_id: String, docked_port_id: String) -> void:
 	box.add_child(hint)
 	for raw_type in _fleet_system.get_ship_types():
 		var ship_type: Dictionary = raw_type
+		var access: Dictionary = _fleet_system.get_ship_access(str(ship_type.get("id", "")))
 		var button: Button = Button.new()
 		button.custom_minimum_size.y = 38
-		button.text = "Открыть проект: %s (допуск %d)" % [
+		button.text = "Открыть проект: %s (допуск %d)%s" % [
 			str(ship_type.get("name", "Корабль")),
-			int(ship_type.get("command_rank_required", 1))
+			int(ship_type.get("command_rank_required", 1)),
+			"" if bool(access.get("ok", false)) else " — закрыто"
 		]
+		button.disabled = not bool(access.get("ok", false))
+		button.tooltip_text = str(access.get("message", ""))
 		button.pressed.connect(_open_shipyard.bind(str(ship_type.get("id", ""))))
 		box.add_child(button)
 

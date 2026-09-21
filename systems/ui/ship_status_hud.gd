@@ -58,6 +58,13 @@ E: выйти из порта"
 	elif _port_system != null and _port_system.has_method("get_dock_candidate") and _port_system.get_dock_candidate() != "":
 		dock_hint = "
 E: пришвартоваться"
+	var autopilot_text: String = ""
+	if bool(GameState.voyage_state.get("active_autopilot", false)) and _port_system != null:
+		var destination_id: String = str(GameState.voyage_state.get("autopilot_destination_id", ""))
+		var distance_left: float = ship.get("position", Vector2.ZERO).distance_to(_port_system.get_port_position(destination_id))
+		var speed: float = ship.get("velocity", Vector2.ZERO).length()
+		var eta: String = "—" if speed <= 0.1 else "%d сек" % int(ceil(distance_left / speed))
+		autopilot_text = "\nАВТОПИЛОТ: %s\nДо порта: %.0f | прибытие: %s" % [_port_system.get_port_name(destination_id), distance_left, eta]
 	_label.text = (
 		"КОРАБЛЬ
 "
@@ -78,6 +85,7 @@ E: пришвартоваться"
 "
 		+ "Стоянка: %s"
 		+ "%s"
+		+ "%s"
 	) % [
 		float(GameState.player_state.get("money", 0.0)),
 		ship.get("velocity", Vector2.ZERO).length(),
@@ -86,7 +94,7 @@ E: пришвартоваться"
 		cargo_units, int(ship.get("cargo_capacity", 0)),
 		_get_cargo_text(ship),
 		int(ship.get("position", Vector2.ZERO).x), int(ship.get("position", Vector2.ZERO).y),
-		docked_port if docked_port != "" else "в море", dock_hint
+		docked_port if docked_port != "" else "в море", dock_hint, autopilot_text
 	]
 
 func _get_cargo_units(ship: Dictionary) -> int:

@@ -36,6 +36,41 @@ func get_ship_types() -> Array:
 func get_auxiliary_ships() -> Array:
 	return GameState.fleet_state
 
+## A presentation-safe snapshot for the map and fleet UI. The journey itself
+## remains time based, so it survives closing the application.
+func get_auxiliary_voyage_status(ship_id: String, now: float = -1.0) -> Dictionary:
+	var index: int = _find_auxiliary_index(ship_id)
+	if index < 0:
+		return {"found": false}
+	if now < 0.0:
+		now = Time.get_unix_time_from_system()
+	var ship: Dictionary = GameState.fleet_state[index]
+	var autopilot: Dictionary = ship.get("autopilot", {})
+	var cargo_units: int = 0
+	for raw_item in ship.get("cargo", []):
+		var item: Dictionary = raw_item
+		cargo_units += int(item.get("quantity", 0))
+	if autopilot.is_empty():
+		return {
+			"found": true,
+			"in_transit": false,
+			"current_port_id": str(ship.get("current_port_id", "")),
+			"cargo_units": cargo_units,
+			"status": str(ship.get("status", "У причала"))
+		}
+	var duration: float = maxf(1.0, float(autopilot.get("duration_seconds", 1.0)))
+	var elapsed: float = maxf(0.0, now - float(autopilot.get("started_at", now)))
+	return {
+		"found": true,
+		"in_transit": true,
+		"origin_port_id": str(autopilot.get("origin_port_id", "")),
+		"destination_port_id": str(autopilot.get("destination_port_id", "")),
+		"progress": clampf(elapsed / duration, 0.0, 1.0),
+		"remaining_seconds": maxf(0.0, duration - elapsed),
+		"cargo_units": cargo_units,
+		"status": "В пути"
+	}
+
 func get_ship_type(ship_type_id: String) -> Dictionary:
 	return _ship_types.get(ship_type_id, {})
 
@@ -44,6 +79,24 @@ func get_command_progress() -> Dictionary:
 	if systems.is_empty():
 		return {"stage_name": "Матрос", "rank": 1, "next_activity": 15}
 	return systems[0].get_command_progress()
+
+func get_ship_access(ship_type_id: String) -> Dictionary:
+	var ship_type: Dictionary = get_ship_type(ship_type_id)
+	if ship_type.is_empty():
+		return {"ok": false, "message": "Проект корабля не найден."}
+	var progress: Dictionary = get_command_progress()
+	var current_rank: int = int(progress.get("rank", 1))
+	var required_rank: int = int(ship_type.get("command_rank_required", 1))
+	if current_rank >= required_rank:
+		return {"ok": true, "required_rank": required_rank, "message": "Допуск открыт."}
+	return {
+		"ok": false,
+		"required_rank": required_rank,
+		"message": "Для проекта «%s» нужен ранг %d. Сейчас: %s, ранг %d." % [
+			str(ship_type.get("name", "корабль")), required_rank,
+			str(progress.get("stage_name", "Матрос")), current_rank
+		]
+	}
 
 func build_ship(_ship_type_id: String) -> Dictionary:
 	return {"ok": false, "message": "Корабли строятся через проект верфи из материалов склада."}
@@ -55,9 +108,9 @@ func complete_ship_from_shipyard(ship_type_id: String, ship_name: String) -> Dic
 	var ship_type: Dictionary = get_ship_type(ship_type_id)
 	if ship_type.is_empty():
 		return {"ok": false, "message": "Неизвестный проект корабля."}
-	var required_rank: int = int(ship_type.get("command_rank_required", 1))
-	if int(get_command_progress().get("rank", 1)) < required_rank:
-		return {"ok": false, "message": "Недостаточный допуск для этого корабля."}
+	var access: Dictionary = get_ship_access(ship_type_id)
+	if not bool(access.get("ok", false)):
+		return access
 	var instance_id: String = "fleet_ship_%03d" % (GameState.fleet_state.size() + 1)
 	var clean_name: String = ship_name.strip_edges()
 	if clean_name == "":

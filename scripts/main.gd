@@ -8,6 +8,7 @@ extends Node2D
 
 var _world_generator: Node
 var _trader_traffic: Node2D
+var _fleet_traffic: Node2D
 var _ship: Node2D
 var _world_data: Dictionary = {}
 var _is_new_game: bool = false
@@ -124,6 +125,7 @@ func _initialize_world() -> bool:
 	if _world_renderer.has_method("setup"):
 		_world_renderer.setup(world_data)
 	_initialize_trader_traffic(world_data)
+	_initialize_fleet_traffic(world_data)
 	if _world_renderer.has_method("set_camera"):
 		_world_renderer.set_camera(null)
 
@@ -140,6 +142,12 @@ func _initialize_trader_traffic(world_data: Dictionary) -> void:
 	_trader_traffic.name = "TraderTraffic"
 	_world.add_child(_trader_traffic)
 	_trader_traffic.initialize(world_data)
+
+func _initialize_fleet_traffic(world_data: Dictionary) -> void:
+	_fleet_traffic = load("res://systems/world/fleet_traffic_renderer.gd").new()
+	_fleet_traffic.name = "FleetTraffic"
+	_world.add_child(_fleet_traffic)
+	_fleet_traffic.initialize(world_data)
 
 func _load_or_create_state() -> bool:
 	_is_new_game = false

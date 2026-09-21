@@ -42,7 +42,7 @@
       "tier": 2,
       "base_speed": 132,
       "cargo_capacity": 55,
-      "command_rank_required": 10,
+      "command_rank_required": 11,
       "min_crew": 2,
       "max_crew": 2,
       "build_materials": {
@@ -61,7 +61,7 @@
       "tier": 3,
       "base_speed": 138,
       "cargo_capacity": 130,
-      "command_rank_required": 20,
+      "command_rank_required": 21,
       "min_crew": 3,
       "max_crew": 4,
       "build_materials": {
@@ -80,7 +80,7 @@
       "tier": 4,
       "base_speed": 108,
       "cargo_capacity": 380,
-      "command_rank_required": 30,
+      "command_rank_required": 31,
       "min_crew": 5,
       "max_crew": 8,
       "build_materials": {
@@ -99,7 +99,7 @@
       "tier": 5,
       "base_speed": 90,
       "cargo_capacity": 900,
-      "command_rank_required": 40,
+      "command_rank_required": 41,
       "min_crew": 8,
       "max_crew": 14,
       "build_materials": {

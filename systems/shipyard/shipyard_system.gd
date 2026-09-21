@@ -30,9 +30,9 @@ func create_project(ship_type_id: String) -> Dictionary:
 	var ship_type: Dictionary = _fleet_system.get_ship_type(ship_type_id)
 	if ship_type.is_empty() or not _recipes.has(ship_type_id):
 		return {"ok": false, "message": "Проект корабля не найден."}
-	var required_rank: int = int(ship_type.get("command_rank_required", 1))
-	if int(_fleet_system.get_command_progress().get("rank", 1)) < required_rank:
-		return {"ok": false, "message": "Нужен допуск капитана %d ранга." % required_rank}
+	var access: Dictionary = _fleet_system.get_ship_access(ship_type_id)
+	if not bool(access.get("ok", false)):
+		return {"ok": false, "message": str(access.get("message", "Недостаточный допуск к проекту."))}
 	var old_project: Dictionary = get_project()
 	if not old_project.is_empty() and str(old_project.get("ship_type_id", "")) != ship_type_id:
 		return {"ok": false, "message": "Сначала достройте или отмените текущий проект."}
