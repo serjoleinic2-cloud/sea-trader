@@ -41,7 +41,7 @@ func _process(_delta: float) -> void:
 		+ "Главный порт: %s\n"
 		+ "Кабинет капитана: M"
 	) % [
-		GameState.player_state.get("discovered_port_ids", []).size(),
+		GameState.player_state.get("visited_port_ids", []).size(),
 		GameState.known_routes_state.size(),
 		nearest,
 		home_name

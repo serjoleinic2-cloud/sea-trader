@@ -13,6 +13,7 @@ var player_state: Dictionary = {
 	"level": 1,
 	"reputation": 50.0,
 	"discovered_port_ids": [],
+	"visited_port_ids": [],
 	"achievements": [],
 	"stats": {
 		"total_deliveries": 0,
@@ -171,6 +172,7 @@ func reset_to_defaults() -> void:
 		"level": 1,
 		"reputation": 50.0,
 		"discovered_port_ids": [],
+		"visited_port_ids": [],
 		"achievements": [],
 		"stats": {
 			"total_deliveries": 0,

@@ -146,7 +146,12 @@ func _serialize_game_state() -> Dictionary:
 
 func _deserialize_game_state(data: Dictionary) -> void:
 	GameState.reset_to_defaults()
-	GameState.player_state.merge(data.get("player_state", {}).duplicate(true), true)
+	var saved_player: Dictionary = data.get("player_state", {}).duplicate(true)
+	GameState.player_state.merge(saved_player, true)
+	# A pre-exploration save may have every generated port in its old discovery
+	# list. PortSystem reconstructs only verified visits after startup.
+	if not saved_player.has("visited_port_ids"):
+		GameState.player_state.erase("visited_port_ids")
 	GameState.world_state.merge(_deserialize_vector_dict(data.get("world_state", {})), true)
 	GameState.world_state.seed = int(GameState.world_state.seed)
 	GameState.ship_state.merge(_deserialize_vector_dict(data.get("ship_state", {})), true)

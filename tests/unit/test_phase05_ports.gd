@@ -27,6 +27,7 @@ func test_discovery_records_both_knowledge_fields_without_geometry() -> void:
 	assert_true(_system.dock("test_port"))
 	assert_true(GameState.port_state.test_port.discovered)
 	assert_eq(GameState.player_state.discovered_port_ids, ["test_port"])
+	assert_eq(GameState.player_state.visited_port_ids, ["test_port"])
 	assert_false(GameState.port_state.test_port.has("position"))
 	assert_false(GameState.port_state.test_port.has("x"))
 	assert_true(GameState.known_routes_state.is_empty(), "discovery is not a known route")
@@ -35,6 +36,7 @@ func test_discovery_records_both_knowledge_fields_without_geometry() -> void:
 func test_initialize_does_not_populate_empty_saved_knowledge() -> void:
 	assert_true(GameState.port_state.is_empty())
 	assert_true(GameState.player_state.discovered_port_ids.is_empty())
+	assert_true(GameState.player_state.visited_port_ids.is_empty())
 
 func test_outside_range_does_not_discover() -> void:
 	_ship.global_position = Vector2(900, 900)
@@ -45,6 +47,7 @@ func test_saved_discovery_emits_entered_and_preserves_progress() -> void:
 	GameState.port_state.test_port = {"discovered": true, "level": 4,
 		"buildings": {"dock": {"level": 3, "damage_hp": 65}}}
 	GameState.player_state.discovered_port_ids = ["test_port"]
+	GameState.player_state.visited_port_ids = ["test_port"]
 	var snapshot: Dictionary = GameState.port_state.duplicate(true)
 	var signals_received: Array = []
 	var on_discovered := func(id: String): signals_received.append("discovered:" + id)
@@ -62,6 +65,15 @@ func test_saved_discovery_emits_entered_and_preserves_progress() -> void:
 	EventBus.port_exited.disconnect(on_exited)
 	assert_eq(signals_received, ["entered:test_port", "exited:test_port"])
 	assert_eq(GameState.port_state, snapshot)
+
+func test_legacy_all_ports_are_hidden_until_a_verified_visit() -> void:
+	GameState.player_state.erase("visited_port_ids")
+	GameState.player_state["discovered_port_ids"] = ["test_port"]
+	GameState.port_state["test_port"] = {"discovered": true}
+	_system.initialize(_ship, _world_ports)
+	assert_true(GameState.player_state.visited_port_ids.is_empty())
+	assert_true(GameState.player_state.discovered_port_ids.is_empty())
+	assert_eq(_system.get_port_name("test_port"), "Неисследованный остров")
 
 func test_discovery_save_load() -> void:
 	_system._process(0.016)

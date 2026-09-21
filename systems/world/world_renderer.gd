@@ -90,23 +90,19 @@ func _draw_island(island: Dictionary) -> void:
 	draw_circle(pos, radius, island_color)
 	# Border
 	draw_arc(pos, radius, 0.0, TAU, 64, island_border_color, 3.0)
-	# ID label (small)
-	draw_string(
-		ThemeDB.fallback_font,
-		pos + Vector2(-20, 5),
-		island.id,
-		HORIZONTAL_ALIGNMENT_CENTER,
-		-1,
-		12,
-		Color("ffffff", 0.5)
-	)
 
 
 func _draw_port(port: Dictionary) -> void:
 	# Geometry comes from the generator; visibility comes from saved knowledge.
-	if not GameState.port_state.get(port.id, {}).get("discovered", false):
-		return
 	var pos: Vector2 = Vector2(port.position)
+	var known: bool = GameState.player_state.get("visited_port_ids", []).has(port.id)
+	if not known:
+		# A neutral marker tells the player where exploration is possible but leaks
+		# neither the port name nor economic information.
+		draw_circle(pos, 8.0, Color(0.40, 0.45, 0.50, 0.72))
+		draw_arc(pos, 8.0, 0.0, TAU, 16, Color(0.68, 0.72, 0.76, 0.88), 1.5)
+		draw_string(ThemeDB.fallback_font, pos + Vector2(-4, 5), "?", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color.WHITE)
+		return
 	var radius: float = 12.0
 	# Port circle
 	draw_circle(pos, radius, port_color)
