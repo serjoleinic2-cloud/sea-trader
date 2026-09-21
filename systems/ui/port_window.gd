@@ -701,6 +701,11 @@ func _open_section(section_id: String) -> void:
 		if not contract_windows.is_empty():
 			contract_windows[0].open()
 		return
+	if section_id == "transport_contracts":
+		var transport_windows: Array[Node] = get_tree().get_nodes_in_group("transport_contract_window")
+		if not transport_windows.is_empty():
+			transport_windows[0].open()
+		return
 	if section_id == "logistics":
 		var logistics_windows: Array[Node] = get_tree().get_nodes_in_group("logistics_window")
 		if not logistics_windows.is_empty():
@@ -712,7 +717,7 @@ func _open_section(section_id: String) -> void:
 	if section_id == "management":
 		for child in _building_list.get_children():
 			child.queue_free()
-		for action in [["Найм персонала", "hiring"], ["Ремонт и заправка", "service"], ["Работа в найм", "contracts"], ["Рейсы и торговые линии", "logistics"]]:
+		for action in [["Заказы на перевозку", "transport_contracts"], ["Найм персонала", "hiring"], ["Ремонт и заправка", "service"], ["Работа в найм", "contracts"], ["Рейсы и торговые линии", "logistics"]]:
 			var button: Button = Button.new()
 			button.text = action[0]
 			button.custom_minimum_size.y = 48

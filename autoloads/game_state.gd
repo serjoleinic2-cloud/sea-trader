@@ -91,7 +91,9 @@ var economy_state: Dictionary = {
 	"market": {},
 	"last_market_update": 0,
 	"active_contracts": [],
-	"completed_contract_ids": []
+	"completed_contract_ids": [],
+	"transport_contract": {},
+	"transport_completed": {}
 }
 
 # ============================================================================
@@ -212,7 +214,9 @@ func reset_to_defaults() -> void:
 		"market": {},
 		"last_market_update": 0,
 		"active_contracts": [],
-		"completed_contract_ids": []
+		"completed_contract_ids": [],
+		"transport_contract": {},
+		"transport_completed": {}
 	}
 	company_state = {
 		"founded": false,

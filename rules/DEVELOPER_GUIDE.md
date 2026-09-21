@@ -26,6 +26,7 @@
 | Производство | `data/ports/production_recipes.json` | Здание, ресурс, выпуск, минимальный уровень, `cycle_seconds` |
 | Товары и базовая цена | `data/resources/goods_catalog.json` | `id`, `display_name`, `category`, `base_price` |
 | Доставка | `data/economy/market_rules.json` | `delivery_surcharge`, `delivery_seconds` |
+| Заказы на перевозку | `data/contracts/transport_contract_rules.json` | дневной лимит, размер груза, награда |
 | Заправка и ремонт | `data/ports/service_rules.json` | Цены услуг, выход топлива/ремонта из материалов, скидка мастерской |
 | Активный автопилот | `data/economy/logistics_rules.json` | Скорость, расход на расстояние, радиус прибытия |
 | Карьера | `data/progression/career_ladder.json` | Профессии, пороги, веса активности |

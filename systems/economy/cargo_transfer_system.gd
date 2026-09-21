@@ -17,6 +17,22 @@ func cargo_quantity(resource_id: String) -> int:
 			amount += int(item.get("quantity", 0))
 	return amount
 
+func _ordinary_cargo_quantity(resource_id: String) -> int:
+	var amount: int = 0
+	for raw_item in GameState.ship_state.get("cargo", []):
+		var item: Dictionary = raw_item
+		if str(item.get("resource_id", "")) == resource_id and str(item.get("contract_id", "")) == "":
+			amount += int(item.get("quantity", 0))
+	return amount
+
+func _sealed_cargo_quantity(resource_id: String) -> int:
+	var amount: int = 0
+	for raw_item in GameState.ship_state.get("cargo", []):
+		var item: Dictionary = raw_item
+		if str(item.get("resource_id", "")) == resource_id and str(item.get("contract_id", "")) != "":
+			amount += int(item.get("quantity", 0))
+	return amount
+
 func cargo_total() -> int:
 	var amount: int = 0
 	for item in GameState.ship_state.get("cargo", []):
@@ -41,7 +57,9 @@ func execute(action: String, resource_id: String, quantity: int) -> Dictionary:
 		return _failure("На базе используйте склад. Покупка и продажа доступны в других портах.")
 	if action in ["load", "buy"] and quantity > int(GameState.ship_state.get("cargo_capacity", 0)) - cargo_total():
 		return _failure("В трюме недостаточно места.")
-	if action in ["unload", "sell"] and cargo_quantity(resource_id) < quantity:
+	if action in ["unload", "sell"] and _ordinary_cargo_quantity(resource_id) < quantity:
+		if _sealed_cargo_quantity(resource_id) > 0:
+			return _failure("Этот товар опечатан для заказа и не может быть продан или выгружен.")
 		return _failure("В трюме нет выбранного количества товара.")
 	_market.get_market_info(port_id, resource_id)
 	var port: Dictionary = GameState.port_state[port_id]
@@ -105,11 +123,12 @@ func execute(action: String, resource_id: String, quantity: int) -> Dictionary:
 
 func _change_cargo(resource_id: String, delta: int) -> void:
 	var cargo: Array = GameState.ship_state.get("cargo", [])
-	# Merge duplicate legacy stacks while retaining unrelated cargo.
-	var amount: int = cargo_quantity(resource_id) + delta
+	# Contract stacks stay sealed even if their resource matches ordinary cargo.
+	var amount: int = _ordinary_cargo_quantity(resource_id) + delta
 	var retained: Array = []
-	for item in cargo:
-		if str(item.get("resource_id", "")) != resource_id:
+	for raw_item in cargo:
+		var item: Dictionary = raw_item
+		if str(item.get("resource_id", "")) != resource_id or str(item.get("contract_id", "")) != "":
 			retained.append(item)
 	if amount > 0:
 		retained.append({"resource_id": resource_id, "quantity": amount})

@@ -234,6 +234,12 @@ func test_shared_cargo_service_rejects_invalid_transfers_without_mutation() -> v
 	assert_true(GameState.ship_state.cargo.is_empty())
 	assert_eq(GameState.port_state.home.inventory.resource_timber, 55)
 
+func test_sealed_contract_cargo_cannot_be_sold_or_unloaded() -> void:
+	GameState.ship_state["cargo"] = [{"resource_id": "resource_timber", "quantity": 5, "contract_id": "sealed"}]
+	var result: Dictionary = _transfers.execute("unload", "resource_timber", 1)
+	assert_false(bool(result.ok))
+	assert_true(str(result.message).contains("опечатан"))
+
 func test_repeating_line_charges_both_legs_and_stops_without_teleport() -> void:
 	_add_fleet()
 	assert_true(_market.create_line("aux", "home", _destination, "resource_timber", "", 5, 0.0).ok)

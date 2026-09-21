@@ -132,6 +132,14 @@
       ]
     },
     {
+      "id": "TransportContractSystem",
+      "script": "res://systems/contracts/transport_contract_system.gd",
+      "initialize": "initialize",
+      "args": [
+        "PortSystem"
+      ]
+    },
+    {
       "id": "LogisticsSystem",
       "script": "res://systems/economy/logistics_system.gd",
       "bind": "_logistics_system",
@@ -255,6 +263,15 @@
       "initialize": "initialize",
       "args": [
         "WorkHireSystem"
+      ],
+      "workspace_flag": "_open"
+    },
+    {
+      "id": "TransportContractWindow",
+      "script": "res://systems/ui/transport_contract_window.gd",
+      "initialize": "initialize",
+      "args": [
+        "TransportContractSystem"
       ],
       "workspace_flag": "_open"
     },

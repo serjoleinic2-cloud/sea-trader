@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "daily_limit": 3,
+  "min_quantity": 3,
+  "max_quantity": 8,
+  "base_reward": 18,
+  "reward_per_unit": 4,
+  "reward_per_1000_distance": 7
+}

@@ -66,6 +66,9 @@ func validate_start(destination_id: String, resource_id: String = "", quantity: 
 		return {"ok": false, "message": "Перед выходом требуется ремонт корабля."}
 	if quantity < 0 or (quantity > 0 and (resource_id == "" or _get_cargo_quantity(resource_id) < quantity)):
 		return {"ok": false, "message": "Выбранный груз ещё не загружен в трюм. Откройте «Ресурсы»."}
+	var contract: Dictionary = GameState.economy_state.get("transport_contract", {})
+	if bool(contract.get("loaded", false)):
+		return {"ok": false, "message": "Опечатанный груз по заказу нужно довезти вручную."}
 	return {"ok": true, "message": ""}
 
 func start(destination_port_id: String, resource_id: String = "", quantity: int = 0) -> Dictionary:
