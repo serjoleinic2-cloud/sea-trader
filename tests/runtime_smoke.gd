@@ -90,11 +90,14 @@ func _ready() -> void:
 	main._active_route_autopilot.cancel()
 	var coordinator: Node = main.get_node("WindowCoordinator")
 	var challenge_window: Node = main.get_module("ChallengeWindow")
-	for button in coordinator._toolbar.get_children():
+	_check(not coordinator._more_panel.visible, "Additional navigation is closed by default")
+	_check(not coordinator._more_list.get_node("More_FleetWindow").visible, "Fleet stays out of early navigation with one ship")
+	coordinator._more_button.pressed.emit()
+	for button in coordinator._more_list.get_children():
 		if button is Button and button.text == "Челленджи":
 			button.pressed.emit()
 	await _frames()
-	_check(challenge_window._open, "Manifest registers challenge navigation button")
+	_check(challenge_window._open, "More menu opens challenge navigation")
 	var accepted: bool = false
 	for button in challenge_window._content.get_children():
 		if button is Button and button.text == "Принять задание":
