@@ -7,9 +7,10 @@ var _main: Node
 var _panel: PanelContainer
 var _text: Label
 var _action: Button
+var _last_phase: String = ""
 
 func _ready() -> void:
-	layer = 26
+	layer = 55
 	_panel = PanelContainer.new()
 	var style: StyleBoxFlat = StyleBoxFlat.new()
 	style.bg_color = Color(0.035, 0.055, 0.075, 0.96)
@@ -60,7 +61,11 @@ func _process(_delta: float) -> void:
 	if _panel == null:
 		return
 	var state: Dictionary = get_guide_state()
-	_panel.visible = str(state.phase) != "complete"
+	var phase: String = str(state.phase)
+	if phase == "accept" and _last_phase != phase and str(GameState.ship_state.get("docked_port_id", "")) != "":
+		_open_contract_window()
+	_last_phase = phase
+	_panel.visible = phase != "complete"
 	if not _panel.visible:
 		return
 	var viewport: Vector2 = get_viewport().get_visible_rect().size
@@ -72,8 +77,8 @@ func _process(_delta: float) -> void:
 			_action.text = "КУРС К БЛИЖАЙШЕМУ ?"
 			_action.disabled = _ports == null or _ports.get_nearest_undiscovered_port_id() == ""
 		"accept":
-			_text.text = "ПОРТ ОТКРЫТ\nВозьмите первый заказ на перевозку: Управление → Заказы на перевозку."
-			_action.text = "ОТКРЫТЬ УПРАВЛЕНИЕ"
+			_text.text = "ПОРТ ОТКРЫТ\nОкно первого заказа уже открыто. Нажмите «ПРИНЯТЬ ЗАКАЗ»."
+			_action.text = "ОТКРЫТЬ ЗАКАЗ"
 			_action.disabled = str(GameState.ship_state.get("docked_port_id", "")) == ""
 		"load":
 			_text.text = "ЗАКАЗ ПРИНЯТ\nОткройте заказ и загрузите опечатанный груз."
@@ -94,12 +99,13 @@ func _perform_action() -> void:
 		"explore":
 			_ports.set_exploration_destination(_ports.get_nearest_undiscovered_port_id())
 		"accept":
-			var port_window: Node = _main.get_node_or_null("PortWindow") if _main != null else null
-			if port_window != null:
-				port_window._open_section("management")
+			_open_contract_window()
 		"load", "complete_contract":
-			var windows: Array[Node] = get_tree().get_nodes_in_group("transport_contract_window")
-			if not windows.is_empty():
-				windows[0].open()
+			_open_contract_window()
 		"deliver":
 			_ports.select_destination(str(state.get("destination_port_id", "")))
+
+func _open_contract_window() -> void:
+	var windows: Array[Node] = get_tree().get_nodes_in_group("transport_contract_window")
+	if not windows.is_empty():
+		windows[0].open()

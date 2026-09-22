@@ -70,8 +70,15 @@ func _process(_delta: float) -> void:
 		str(active.origin_name), str(active.destination_name), str(active.resource_name), int(active.quantity), float(active.reward), _notice
 	]
 	if not bool(active.get("loaded", false)):
-		_action.text = "ЗАГРУЗИТЬ ОПЕЧАТАННЫЙ ГРУЗ"
-		_action.disabled = str(GameState.ship_state.get("docked_port_id", "")) != str(active.origin_port_id)
+		var free_space: int = _free_space()
+		var needed: int = int(active.get("quantity", 0))
+		_label.text += "\nСвободно в трюме: %d из %d" % [free_space, int(GameState.ship_state.get("cargo_capacity", 0))]
+		if free_space < needed:
+			_action.text = "ОСВОБОДИТЬ ТРЮМ — НУЖНО %d" % [needed - free_space]
+			_action.disabled = false
+		else:
+			_action.text = "ЗАГРУЗИТЬ ОПЕЧАТАННЫЙ ГРУЗ"
+			_action.disabled = str(GameState.ship_state.get("docked_port_id", "")) != str(active.origin_port_id)
 	elif str(GameState.ship_state.get("docked_port_id", "")) == str(active.destination_port_id):
 		_action.text = "СДАТЬ ЗАКАЗ И ПОЛУЧИТЬ НАГРАДУ"
 		_action.disabled = false
@@ -81,5 +88,23 @@ func _process(_delta: float) -> void:
 
 func _act() -> void:
 	var active: Dictionary = _system.get_active()
+	if not active.is_empty() and not bool(active.get("loaded", false)) and _free_space() < int(active.get("quantity", 0)):
+		_open_cargo_clearance()
+		return
 	var result: Dictionary = _system.accept() if active.is_empty() else (_system.load() if not bool(active.get("loaded", false)) else _system.complete())
 	_notice = str(result.get("message", ""))
+
+func _free_space() -> int:
+	var used: int = 0
+	for raw_item in GameState.ship_state.get("cargo", []):
+		var item: Dictionary = raw_item
+		used += int(item.get("quantity", 0))
+	return maxi(0, int(GameState.ship_state.get("cargo_capacity", 0)) - used)
+
+func _open_cargo_clearance() -> void:
+	var ports: Array[Node] = get_tree().get_nodes_in_group("port_window")
+	if ports.is_empty():
+		_notice = "Не найдено окно трюма."
+		return
+	_open = false
+	ports[0].open_cargo_clearance()

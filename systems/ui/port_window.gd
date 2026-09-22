@@ -45,6 +45,7 @@ var _selected_quantity: int = 1
 var _selected_asking_price: float = 0.0
 
 func _ready() -> void:
+	add_to_group("port_window")
 	layer = 35
 	_root = Control.new()
 	_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -732,6 +733,25 @@ func _open_section(section_id: String) -> void:
 	elif section_id == "market":
 		_market_view = "personal"
 		_selected_market_resource_id = ""
+		_rebuild_market_list(port_id)
+
+func open_cargo_clearance() -> void:
+	var selected: String = ""
+	for raw_item in GameState.ship_state.get("cargo", []):
+		var item: Dictionary = raw_item
+		if str(item.get("contract_id", "")) == "":
+			selected = str(item.get("resource_id", ""))
+			_selected_quantity = int(item.get("quantity", 1))
+			break
+	if selected == "":
+		return
+	var is_home: bool = str(GameState.ship_state.get("docked_port_id", "")) == str(GameState.world_state.get("home_port_id", ""))
+	_open_section("resources" if is_home else "market")
+	_selected_market_resource_id = selected
+	var port_id: String = str(GameState.ship_state.get("docked_port_id", ""))
+	if is_home:
+		_rebuild_resource_list(port_id)
+	else:
 		_rebuild_market_list(port_id)
 
 func _open_supply_order_window() -> void:
