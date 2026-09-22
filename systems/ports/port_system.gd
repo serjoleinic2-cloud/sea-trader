@@ -135,6 +135,30 @@ func select_destination(port_id: String) -> bool:
 	EventBus.navigation_destination_set.emit(port_id)
 	return true
 
+func set_exploration_destination(port_id: String) -> bool:
+	if not _world_ports.has(port_id) or is_port_discovered(port_id):
+		return false
+	GameState.world_state["destination_port_id"] = port_id
+	if not SaveSystem.save_game():
+		return false
+	EventBus.navigation_destination_set.emit(port_id)
+	return true
+
+func get_nearest_undiscovered_port_id() -> String:
+	if _ship_node == null:
+		return ""
+	var nearest_id: String = ""
+	var nearest_distance: float = INF
+	for raw_port_id in _world_ports:
+		var port_id: String = str(raw_port_id)
+		if is_port_discovered(port_id):
+			continue
+		var distance: float = _ship_node.global_position.distance_to(Vector2(_world_ports[port_id].position))
+		if distance < nearest_distance:
+			nearest_distance = distance
+			nearest_id = port_id
+	return nearest_id
+
 func get_dock_candidate() -> String:
 	if _ship_node == null:
 		return ""

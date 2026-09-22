@@ -276,6 +276,16 @@
       "workspace_flag": "_open"
     },
     {
+      "id": "FirstVoyageGuide",
+      "script": "res://systems/ui/first_voyage_guide.gd",
+      "initialize": "initialize",
+      "args": [
+        "PortSystem",
+        "TransportContractSystem",
+        "$main"
+      ]
+    },
+    {
       "id": "LogisticsWindow",
       "script": "res://systems/ui/logistics_window.gd",
       "bind": "_logistics_window",
