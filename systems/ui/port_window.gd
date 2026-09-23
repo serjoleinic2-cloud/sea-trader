@@ -23,6 +23,8 @@ var _production_cap_label: Label
 var _production_cap_slider: HSlider
 var _production_cap_button: Button
 var _market_switches: HBoxContainer
+var _cargo_tabs: HBoxContainer
+var _cargo_action: String = "load"
 var _quantity_label: Label
 var _quantity_slider: HSlider
 var _modernization_switches: HBoxContainer
@@ -76,6 +78,21 @@ func _ready() -> void:
 	_details.add_theme_font_size_override("font_size", 19)
 	_details.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	column.add_child(_details)
+	_cargo_tabs = HBoxContainer.new()
+	_cargo_tabs.add_theme_constant_override("separation", 8)
+	var load_tab: Button = Button.new()
+	load_tab.text = "ПОГРУЗИТЬ НА КОРАБЛЬ"
+	load_tab.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	load_tab.custom_minimum_size.y = 42
+	load_tab.pressed.connect(_set_cargo_action.bind("load"))
+	_cargo_tabs.add_child(load_tab)
+	var unload_tab: Button = Button.new()
+	unload_tab.text = "ВЫГРУЗИТЬ НА СКЛАД"
+	unload_tab.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	unload_tab.custom_minimum_size.y = 42
+	unload_tab.pressed.connect(_set_cargo_action.bind("unload"))
+	_cargo_tabs.add_child(unload_tab)
+	column.add_child(_cargo_tabs)
 	var scroll: ScrollContainer = ScrollContainer.new()
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	scroll.custom_minimum_size.y = 225
@@ -237,6 +254,7 @@ func _process(_delta: float) -> void:
 		_last_home_port_id = ""
 	_bottom_menu.visible = true
 	_building_list.visible = (is_home and (_current_section == "construction" or _current_section == "resources" or _current_section == "market")) or (not is_home and _current_section == "market") or _current_section == "management"
+	_cargo_tabs.visible = is_home and _current_section == "resources"
 	_plan_button.visible = is_home and _current_section == "construction"
 	_modernization_switches.visible = is_home and _current_section == "modernization"
 	_update_quantity_selector(docked_port, is_home)
@@ -315,23 +333,60 @@ func _rebuild_resource_list(port_id: String) -> void:
 	for child in _building_list.get_children():
 		child.queue_free()
 	var inventory: Dictionary = _get_inventory(GameState.port_state.get(port_id, {}))
-	var ids: Array = inventory.keys()
-	for item in GameState.ship_state.get("cargo", []):
-		var id: String = str(item.get("resource_id", ""))
-		if not ids.has(id):
-			ids.append(id)
-	for recipe in _production_recipes:
-		var id: String = str(recipe.get("resource_id", ""))
-		if not ids.has(id):
-			ids.append(id)
-	for resource_id in ids:
-		var button: Button = Button.new()
-		button.custom_minimum_size.y = 44
-		button.text = "%s — склад: %d | трюм: %d%s" % [_get_resource_name(str(resource_id)), int(inventory.get(resource_id, 0)), _get_cargo_quantity(str(resource_id)), _production_text(GameState.port_state.get(port_id, {}), str(resource_id))]
-		button.pressed.connect(_select_transfer_resource.bind(str(resource_id)))
-		_building_list.add_child(button)
+	var ids: Array = inventory.keys() if _cargo_action == "load" else []
+	if _cargo_action == "unload":
+		for raw_item in GameState.ship_state.get("cargo", []):
+			var cargo_item: Dictionary = raw_item
+			var cargo_id: String = str(cargo_item.get("resource_id", ""))
+			if cargo_id != "" and not ids.has(cargo_id):
+				ids.append(cargo_id)
+	for raw_id in ids:
+		var resource_id: String = str(raw_id)
+		var available: int = int(inventory.get(resource_id, 0)) if _cargo_action == "load" else _get_cargo_quantity(resource_id)
+		if available <= 0:
+			continue
+		var row: VBoxContainer = VBoxContainer.new()
+		row.add_theme_constant_override("separation", 4)
+		var info: Label = Label.new()
+		info.add_theme_font_size_override("font_size", 18)
+		info.text = ("Товар: %s | На складе: %d | В трюме: %d" % [_get_resource_name(resource_id), int(inventory.get(resource_id, 0)), _get_cargo_quantity(resource_id)]) if _cargo_action == "load" else ("Товар: %s | В трюме: %d" % [_get_resource_name(resource_id), available])
+		row.add_child(info)
+		var action_button: Button = Button.new()
+		action_button.custom_minimum_size.y = 42
+		action_button.add_theme_font_size_override("font_size", 18)
+		action_button.text = "ЗАГРУЗИТЬ В ТРЮМ" if _cargo_action == "load" else "ВЫГРУЗИТЬ НА СКЛАД"
+		action_button.pressed.connect(_transfer_cargo_item.bind(_cargo_action, resource_id))
+		row.add_child(action_button)
+		_building_list.add_child(row)
 	if _get_selected_resource_id() == "" and not ids.is_empty():
 		_selected_market_resource_id = str(ids[0])
+	if _building_list.get_child_count() == 0:
+		var empty: Label = Label.new()
+		empty.add_theme_font_size_override("font_size", 18)
+		empty.text = "Нет доступных товаров в этом разделе."
+		_building_list.add_child(empty)
+
+func _set_cargo_action(action: String) -> void:
+	_cargo_action = action
+	_selected_market_resource_id = ""
+	_selected_quantity = 1
+	var port_id: String = str(GameState.ship_state.get("docked_port_id", ""))
+	if port_id != "":
+		_rebuild_resource_list(port_id)
+
+func _transfer_cargo_item(action: String, resource_id: String) -> void:
+	_selected_market_resource_id = resource_id
+	var available: int = _get_cargo_quantity(resource_id) if action == "unload" else int(_get_inventory(GameState.port_state.get(str(GameState.ship_state.get("docked_port_id", "")), {})).get(resource_id, 0))
+	var quantity: int = mini(_selected_quantity, available)
+	if action == "load":
+		quantity = mini(quantity, int(GameState.ship_state.get("cargo_capacity", 0)) - _get_cargo_units())
+	if quantity <= 0:
+		_notice = "Недостаточно свободного места или товара."
+		return
+	var result: Dictionary = _transfers.execute(action, resource_id, quantity)
+	_notice = str(result.get("message", ""))
+	if bool(result.get("ok", false)):
+		_rebuild_resource_list(str(GameState.ship_state.get("docked_port_id", "")))
 
 func _rebuild_market_list(port_id: String) -> void:
 	for child in _building_list.get_children():
@@ -443,7 +498,7 @@ func _plan_selected_building() -> void:
 
 func _update_load_button(port_id: String, is_home: bool) -> void:
 	var resource_id: String = _get_selected_resource_id()
-	_load_button.visible = is_home and _current_section == "resources" and resource_id != ""
+	_load_button.visible = is_home and _current_section == "resources" and resource_id != "" and _cargo_action != "load"
 	if not _load_button.visible:
 		return
 	var inventory: Dictionary = _get_inventory(GameState.port_state.get(port_id, {}))
@@ -491,7 +546,7 @@ func _update_quantity_selector(port_id: String, is_home: bool) -> void:
 		_selected_quantity = maximum
 	_quantity_slider.max_value = float(maximum)
 	_quantity_slider.value = float(_selected_quantity)
-	_quantity_label.text = "Количество: %d" % _selected_quantity
+	_quantity_label.text = "Количество операции: %d" % _selected_quantity
 
 func _on_quantity_changed(value: float) -> void:
 	_selected_quantity = maxi(1, int(round(value)))
@@ -634,7 +689,7 @@ func _update_sell_button(is_home: bool) -> void:
 
 func _update_unload_button(is_home: bool) -> void:
 	var resource_id: String = _get_selected_resource_id()
-	_unload_button.visible = is_home and _current_section == "resources" and resource_id != ""
+	_unload_button.visible = is_home and _current_section == "resources" and resource_id != "" and _cargo_action != "unload"
 	if not _unload_button.visible:
 		return
 	var quantity: int = _get_cargo_quantity(resource_id)
@@ -775,7 +830,7 @@ func _set_modernization_branch(branch_id: String) -> void:
 
 func _refresh_resources_page(_port: Dictionary, ship: Dictionary, port_name: String) -> void:
 	_title.text = "СКЛАД И ТРЮМ: " + port_name
-	_details.text = "Трюм: %d / %d. Выберите товар и количество.\n%s" % [_get_cargo_units(), int(ship.get("cargo_capacity", 0)), _notice]
+	_details.text = "Трюм: %d / %d\nВыберите вкладку и товар. Ползунок задаёт количество операции.\n%s" % [_get_cargo_units(), int(ship.get("cargo_capacity", 0)), _notice]
 
 func _refresh_away_resources_page(ship: Dictionary, port_name: String) -> void:
 	_title.text = "РЕСУРСЫ КОРАБЛЯ: " + port_name
