@@ -6,6 +6,7 @@ var _system: Node
 var _panel: PanelContainer
 var _legs_box: VBoxContainer
 var _details: Label
+var _empty_notice: Label
 var _ship: OptionButton
 var _min_profit: HSlider
 var _profit_label: Label
@@ -48,6 +49,9 @@ func _ready() -> void:
 	hint.add_theme_font_size_override("font_size", 17)
 	box.add_child(hint)
 	_ship = _select(box, "Корабль линии")
+	_empty_notice = _label(box)
+	_empty_notice.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_empty_notice.add_theme_color_override("font_color", Color(0.95, 0.78, 0.35, 1.0))
 	var header: Label = Label.new()
 	header.text = "ОТКУДА → ДЕЙСТВИЕ / ТОВАР → КУДА → КОЛИЧЕСТВО"
 	header.add_theme_font_size_override("font_size", 18)
@@ -162,6 +166,7 @@ func _fill() -> void:
 			var second: Dictionary = _leg_rows[1]
 			second["target"].select(first["source"].selected)
 			_on_leg_changed(0, second)
+	_empty_notice.text = "" if not _ship_ids.is_empty() else "Нет дополнительных кораблей. Постройте второй корабль во вкладке «Флот и верфь», чтобы создать постоянную линию. Текущий корабль отправляется через «Начать рейс»."
 
 func _add_leg_row() -> void:
 	if _legs_box == null or _port_ids.is_empty():
@@ -262,6 +267,9 @@ func _process(_delta: float) -> void:
 	_details.text = _notice + ("\n" if _notice != "" else "") + _lines_text()
 
 func _start() -> void:
+	if _ship_ids.is_empty():
+		_notice = "Сначала постройте дополнительный корабль."
+		return
 	var legs: Array = []
 	for data in _leg_rows:
 		legs.append({"source_id": _selected_id(data["source"], _port_ids),
@@ -285,6 +293,8 @@ func _stop_all() -> void:
 
 func _lines_text() -> String:
 	var lines: Array[String] = ["ЛИНИИ:"]
+	if _system.get_lines().is_empty():
+		return "ЛИНИИ:\nПока нет созданных линий. Добавьте переходы выше и нажмите «Запустить линию»."
 	for raw_line in _system.get_lines():
 		var line: Dictionary = raw_line
 		var route_text: String = ""
