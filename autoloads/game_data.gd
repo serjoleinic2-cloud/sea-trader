@@ -3,6 +3,7 @@ extends Node
 ## Read-only static definitions. Disk access remains in SaveSystem.
 ## Returned dictionaries are copies: consumers cannot mutate cached definitions.
 const SHIPS: String = "res://data/ships/ship_catalog.json"
+const PREMIUM_SHIPS: String = "res://data/ships/premium_ship_pool.json"
 const GOODS: String = "res://data/resources/goods_catalog.json"
 var _cache: Dictionary = {}
 
@@ -25,6 +26,11 @@ func get_ships() -> Array:
 		var ship: Dictionary = catalog.get("defaults", {}).duplicate(true)
 		ship.merge(raw_ship, true)
 		result.append(ship)
+	var premium_catalog: Dictionary = read(PREMIUM_SHIPS)
+	for raw_premium in premium_catalog.get("ships", []):
+		var premium_ship: Dictionary = catalog.get("defaults", {}).duplicate(true)
+		premium_ship.merge(raw_premium, true)
+		result.append(premium_ship)
 	return result
 
 func get_ship(ship_id: String) -> Dictionary:
@@ -42,6 +48,8 @@ func get_crew_requirements() -> Dictionary:
 func get_ship_recipes() -> Dictionary:
 	var result: Dictionary = {}
 	for ship in get_ships():
+		if bool(ship.get("premium", false)):
+			continue
 		result[str(ship.id)] = {"materials": ship.build_materials.duplicate(true), "default_name": str(ship.name)}
 	return result
 

@@ -21,6 +21,8 @@
     {
       "id": "ship_sloop",
       "name": "Лодка",
+      "era": "Парусная эпоха",
+      "role": "Стартовая торговля",
       "tier": 1,
       "base_speed": 120,
       "cargo_capacity": 50,
@@ -39,6 +41,8 @@
     {
       "id": "ship_barque",
       "name": "Баркас",
+      "era": "Парусная эпоха",
+      "role": "Прибрежная торговля",
       "tier": 2,
       "base_speed": 132,
       "cargo_capacity": 55,
@@ -58,6 +62,8 @@
     {
       "id": "ship_schooner",
       "name": "Шхуна",
+      "era": "Парусная эпоха",
+      "role": "Дальние маршруты",
       "tier": 3,
       "base_speed": 138,
       "cargo_capacity": 130,
@@ -77,6 +83,8 @@
     {
       "id": "ship_freighter",
       "name": "Грузовое судно",
+      "era": "Переходная эпоха",
+      "role": "Массовая торговля",
       "tier": 4,
       "base_speed": 108,
       "cargo_capacity": 380,
@@ -96,6 +104,8 @@
     {
       "id": "ship_tanker",
       "name": "Танкер",
+      "era": "Индустриальная эпоха",
+      "role": "Магистральные поставки",
       "tier": 5,
       "base_speed": 90,
       "cargo_capacity": 900,

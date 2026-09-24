@@ -29,7 +29,16 @@ func initialize(port_system: Node, hiring_system: Node = null) -> void:
 func get_ship_types() -> Array:
 	var result: Array = []
 	for type_id in _ship_types:
-		result.append(_ship_types[type_id])
+		if not bool(_ship_types[type_id].get("premium", false)):
+			result.append(_ship_types[type_id])
+	result.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return int(a.get("tier", 0)) < int(b.get("tier", 0)))
+	return result
+
+func get_premium_ship_types() -> Array:
+	var result: Array = []
+	for type_id in _ship_types:
+		if bool(_ship_types[type_id].get("premium", false)):
+			result.append(_ship_types[type_id])
 	result.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return int(a.get("tier", 0)) < int(b.get("tier", 0)))
 	return result
 
@@ -108,6 +117,8 @@ func complete_ship_from_shipyard(ship_type_id: String, ship_name: String) -> Dic
 	var ship_type: Dictionary = get_ship_type(ship_type_id)
 	if ship_type.is_empty():
 		return {"ok": false, "message": "Неизвестный проект корабля."}
+	if bool(ship_type.get("premium", false)):
+		return {"ok": false, "message": "Премиальные корабли приобретаются через магазин."}
 	var access: Dictionary = get_ship_access(ship_type_id)
 	if not bool(access.get("ok", false)):
 		return access

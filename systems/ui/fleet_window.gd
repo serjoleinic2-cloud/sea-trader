@@ -210,6 +210,24 @@ func _add_build_section(home_port_id: String, docked_port_id: String) -> void:
 		button.tooltip_text = str(access.get("message", ""))
 		button.pressed.connect(_open_shipyard.bind(str(ship_type.get("id", ""))))
 		box.add_child(button)
+	var premium_title: Label = Label.new()
+	premium_title.text = "ПРЕМИАЛЬНЫЙ ФЛОТ — ОСОБЫЕ РОЛИ"
+	premium_title.add_theme_font_size_override("font_size", 20)
+	box.add_child(premium_title)
+	var premium_hint: Label = Label.new()
+	premium_hint.text = "Особые корабли появятся в магазине. Они меняют стиль игры, но не заменяют развитие капитана."
+	premium_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	premium_hint.add_theme_font_size_override("font_size", 17)
+	box.add_child(premium_hint)
+	for raw_premium in _fleet_system.get_premium_ship_types():
+		var premium: Dictionary = raw_premium
+		var premium_button: Button = Button.new()
+		premium_button.custom_minimum_size.y = 48
+		premium_button.text = "%s  | %s\n%s" % [str(premium.get("name", "Корабль")),
+			str(premium.get("role", "Особая роль")), str(premium.get("perk_text", ""))]
+		premium_button.tooltip_text = "Магазин будет подключён позже: " + str(premium.get("store_sku", ""))
+		premium_button.disabled = true
+		box.add_child(premium_button)
 
 func _open_shipyard(ship_type_id: String) -> void:
 	var windows: Array[Node] = get_tree().get_nodes_in_group("shipyard_window")
