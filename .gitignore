@@ -4,4 +4,4 @@ dist/
 *.apk
 *.aab
 *.log
-
+*.uid
