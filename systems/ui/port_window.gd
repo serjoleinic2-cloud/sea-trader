@@ -377,6 +377,10 @@ func _set_cargo_action(action: String) -> void:
 func _transfer_cargo_item(action: String, resource_id: String) -> void:
 	_selected_market_resource_id = resource_id
 	var available: int = _get_cargo_quantity(resource_id) if action == "unload" else int(_get_inventory(GameState.port_state.get(str(GameState.ship_state.get("docked_port_id", "")), {})).get(resource_id, 0))
+	if action == "load":
+		var merchant: Node = _get_merchant_system()
+		if merchant != null:
+			available -= int(merchant.get_reserved_quantity(resource_id))
 	var quantity: int = mini(_selected_quantity, available)
 	if action == "load":
 		quantity = mini(quantity, int(GameState.ship_state.get("cargo_capacity", 0)) - _get_cargo_units())

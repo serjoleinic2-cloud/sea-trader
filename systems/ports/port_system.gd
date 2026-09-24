@@ -210,6 +210,11 @@ func dock(port_id: String) -> bool:
 	if str(GameState.world_state.get("home_port_id", "")) == "":
 		GameState.world_state["home_port_id"] = port_id
 	GameState.ship_state["velocity"] = Vector2.ZERO
+	# A fuel warning from an interrupted voyage must not remain as the current
+	# navigation state after the player has manually reached a port.
+	# Autopilot arrival writes its own final message immediately after docking.
+	if not bool(GameState.voyage_state.get("active_autopilot", false)):
+		GameState.world_state["autopilot_notice"] = "Пришвартован в %s." % get_port_name(port_id)
 	var saved: bool = SaveSystem.save_game()
 	if saved and newly_visible:
 		EventBus.port_discovered.emit(port_id)

@@ -106,9 +106,16 @@ func _physics_process(delta: float) -> void:
 	var target: Vector2 = _port_system.get_port_position(_destination_port_id)
 	var current: Vector2 = GameState.ship_state.get("position", _ship.global_position)
 	var distance: float = current.distance_to(target)
-	if distance <= float(_rules.get("arrival_distance", 2.0)):
+	var arrival_distance: float = float(_rules.get("arrival_distance", 2.0))
+	var rate: float = _fuel_rate()
+	# Treat the discovery/docking radius as the final approach. This prevents
+	# floating-point rounding from stopping a valid voyage at 0 fuel a few
+	# pixels before the pier.
+	var can_reach_dock: bool = fuel > 0.0 and fuel / maxf(rate, 0.000001) + arrival_distance >= distance
+	if distance <= arrival_distance or can_reach_dock:
 		_ship.global_position = target
 		GameState.ship_state["position"] = target
+		GameState.ship_state["fuel"] = maxf(0.0, fuel - distance * rate)
 		if not _port_system.dock(_destination_port_id):
 			_stop("Швартовка не подтверждена. Груз остался в трюме.")
 			return
@@ -124,7 +131,6 @@ func _physics_process(delta: float) -> void:
 	if speed <= 0.0:
 		_stop("Рейс остановлен: двигатель не работает.")
 		return
-	var rate: float = _fuel_rate()
 	var next: Vector2 = current.move_toward(target, minf(speed * delta, fuel / maxf(rate, 0.000001)))
 	var traveled: float = current.distance_to(next)
 	GameState.ship_state["position"] = next
