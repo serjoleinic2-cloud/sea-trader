@@ -14,27 +14,29 @@
       "min_crew": 4,
       "max_crew": 5,
       "premium": true,
+      "acquisition": "shop_rotation",
       "store_sku": "sea_trader_golden_clipper",
-      "perk_text": "+8% к скорости, повышенные расходы на обслуживание"
+      "perk_text": "+8% к скорости; обслуживание дороже"
     },
     {
-      "id": "premium_explorer_yacht",
-      "name": "Яхта первооткрывателя",
+      "id": "premium_sea_swallow",
+      "name": "Морская ласточка",
       "era": "Парусная эпоха",
-      "role": "Исследование и навигация",
+      "role": "Экономичное содержание",
       "tier": 2,
-      "base_speed": 140,
-      "cargo_capacity": 75,
+      "base_speed": 128,
+      "cargo_capacity": 90,
       "command_rank_required": 11,
       "min_crew": 2,
       "max_crew": 3,
       "premium": true,
-      "store_sku": "sea_trader_explorer_yacht",
-      "perk_text": "+5% к навигации и открытию маршрутов"
+      "acquisition": "shop_rotation",
+      "store_sku": "sea_trader_sea_swallow",
+      "perk_text": "Низкие расходы на обслуживание"
     },
     {
       "id": "premium_salvage_schooner",
-      "name": "Шхуна «Искатель глубин»",
+      "name": "Искатель глубин",
       "era": "Переходная эпоха",
       "role": "Артефакты и экспедиции",
       "tier": 3,
@@ -44,8 +46,25 @@
       "min_crew": 4,
       "max_crew": 6,
       "premium": true,
+      "acquisition": "shop_rotation",
       "store_sku": "sea_trader_salvage_schooner",
-      "perk_text": "+5% к шансу экспедиционной находки"
+      "perk_text": "Повышенный шанс найти артефакт"
+    },
+    {
+      "id": "premium_royal_schooner",
+      "name": "Королевская шхуна",
+      "era": "Парусная эпоха",
+      "role": "Дипломатия и контракты",
+      "tier": 3,
+      "base_speed": 132,
+      "cargo_capacity": 120,
+      "command_rank_required": 21,
+      "min_crew": 4,
+      "max_crew": 6,
+      "premium": true,
+      "acquisition": "shop_rotation",
+      "store_sku": "sea_trader_royal_schooner",
+      "perk_text": "Лучшие условия портовых контрактов"
     },
     {
       "id": "premium_steam_freighter",
@@ -59,23 +78,56 @@
       "min_crew": 6,
       "max_crew": 10,
       "premium": true,
+      "acquisition": "shop_rotation",
       "store_sku": "sea_trader_northern_steamer",
-      "perk_text": "−8% к расходу топлива, дорогой экипаж"
+      "perk_text": "Надёжнее работает в плохую погоду"
     },
     {
-      "id": "premium_ocean_tanker",
-      "name": "Императорский танкер",
+      "id": "premium_trade_giant",
+      "name": "Торговый гигант",
       "era": "Индустриальная эпоха",
-      "role": "Магистральные поставки",
+      "role": "Большой трюм",
       "tier": 5,
       "base_speed": 94,
-      "cargo_capacity": 980,
+      "cargo_capacity": 1100,
       "command_rank_required": 41,
       "min_crew": 10,
       "max_crew": 16,
       "premium": true,
-      "store_sku": "sea_trader_imperial_tanker",
-      "perk_text": "+9% к вместимости, максимальные расходы на содержание"
+      "acquisition": "shop_rotation",
+      "store_sku": "sea_trader_trade_giant",
+      "perk_text": "Очень большой трюм; дорогое содержание"
+    },
+    {
+      "id": "premium_ghost_frigate",
+      "name": "Призрачный фрегат",
+      "era": "Переходная эпоха",
+      "role": "Редкая награда события",
+      "tier": 4,
+      "base_speed": 143,
+      "cargo_capacity": 175,
+      "command_rank_required": 31,
+      "min_crew": 6,
+      "max_crew": 8,
+      "premium": true,
+      "acquisition": "event_reward",
+      "perk_text": "Редкая награда за особые события"
+    },
+    {
+      "id": "premium_imperial_yacht",
+      "name": "Императорская яхта",
+      "era": "Индустриальная эпоха",
+      "role": "Престиж и пассажирские контракты",
+      "tier": 4,
+      "base_speed": 137,
+      "cargo_capacity": 145,
+      "command_rank_required": 31,
+      "min_crew": 5,
+      "max_crew": 8,
+      "premium": true,
+      "acquisition": "shop_rotation",
+      "store_sku": "sea_trader_imperial_yacht",
+      "perk_text": "Доступ к дорогим пассажирским контрактам"
     }
   ]
 }

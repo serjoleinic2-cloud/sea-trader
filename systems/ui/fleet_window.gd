@@ -225,7 +225,12 @@ func _add_build_section(home_port_id: String, docked_port_id: String) -> void:
 		premium_button.custom_minimum_size.y = 48
 		premium_button.text = "%s  | %s\n%s" % [str(premium.get("name", "Корабль")),
 			str(premium.get("role", "Особая роль")), str(premium.get("perk_text", ""))]
-		premium_button.tooltip_text = "Магазин будет подключён позже: " + str(premium.get("store_sku", ""))
+		if str(premium.get("acquisition", "shop_rotation")) == "event_reward":
+			premium_button.text += "  | НАГРАДА СОБЫТИЯ"
+			premium_button.tooltip_text = "Доступен за редкое игровое событие."
+		else:
+			premium_button.text += "  | СКОРО В МАГАЗИНЕ"
+			premium_button.tooltip_text = "Покупка будет подключена после появления серверного магазина."
 		premium_button.disabled = true
 		box.add_child(premium_button)
 
