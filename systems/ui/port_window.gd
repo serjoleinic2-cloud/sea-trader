@@ -187,6 +187,9 @@ func _ready() -> void:
 	port_market_button.custom_minimum_size.y = 40
 	port_market_button.pressed.connect(_set_market_view.bind("port"))
 	_market_switches.add_child(port_market_button)
+	# Market mode is the first decision in this screen. Keep the tabs above the
+	# product list so the selected operation never gets buried below controls.
+	column.move_child(_market_switches, 1)
 	_modernization_switches = HBoxContainer.new()
 	_modernization_switches.add_theme_constant_override("separation", 8)
 	column.add_child(_modernization_switches)
@@ -428,6 +431,8 @@ func _rebuild_market_list(port_id: String) -> void:
 	if _market_view == "port":
 		var stock: Dictionary = _get_port_market_stock(port_id)
 		for resource_id in stock:
+			if int(stock[resource_id]) <= 0:
+				continue
 			var button: Button = Button.new()
 			button.custom_minimum_size.y = 42
 			button.text = "Купить: %s (%d) — цена %.0f" % [
@@ -437,22 +442,38 @@ func _rebuild_market_list(port_id: String) -> void:
 			]
 			button.pressed.connect(_select_market_resource.bind(str(resource_id)))
 			_building_list.add_child(button)
+		if _building_list.get_child_count() == 0:
+			var empty_buy: Label = Label.new()
+			empty_buy.text = "В этом порту сейчас нечего покупать."
+			empty_buy.add_theme_font_size_override("font_size", 19)
+			_building_list.add_child(empty_buy)
 		return
+	var cargo_ids: Array[String] = []
+	var cargo_quantities: Dictionary = {}
 	var raw_cargo: Variant = GameState.ship_state.get("cargo", [])
-	if not (raw_cargo is Array) or raw_cargo.is_empty():
+	if raw_cargo is Array:
+		for raw_item in raw_cargo:
+			var item: Dictionary = raw_item
+			if str(item.get("contract_id", "")) != "":
+				continue
+			var cargo_id: String = str(item.get("resource_id", ""))
+			if cargo_id == "":
+				continue
+			if not cargo_ids.has(cargo_id):
+				cargo_ids.append(cargo_id)
+			cargo_quantities[cargo_id] = int(cargo_quantities.get(cargo_id, 0)) + int(item.get("quantity", 0))
+	if cargo_ids.is_empty():
 		var empty_label: Label = Label.new()
-		empty_label.text = "В трюме нет товара для продажи."
+		empty_label.text = "В трюме нет свободного товара для продажи."
 		empty_label.add_theme_font_size_override("font_size", 19)
 		_building_list.add_child(empty_label)
 		return
-	for raw_item in raw_cargo:
-		var item: Dictionary = raw_item
-		var resource_id: String = str(item.get("resource_id", ""))
+	for resource_id in cargo_ids:
 		var button: Button = Button.new()
 		button.custom_minimum_size.y = 42
 		button.text = "Продать: %s (%d) — цена %.0f" % [
 			_get_resource_name(resource_id),
-			int(item.get("quantity", 0)),
+			int(cargo_quantities.get(resource_id, 0)),
 			_get_sale_price(resource_id)
 		]
 		button.pressed.connect(_select_market_resource.bind(resource_id))
@@ -686,7 +707,7 @@ func _update_sell_button(is_home: bool) -> void:
 	_sell_button.visible = not is_home and _current_section == "market" and _market_view != "port" and resource_id != ""
 	if not _sell_button.visible:
 		return
-	var quantity: int = _get_cargo_quantity(resource_id)
+	var quantity: int = _get_sellable_cargo_quantity(resource_id)
 	var quote: Dictionary = _transfers._market.quote_sale(str(GameState.ship_state.get("docked_port_id", "")), resource_id, _selected_quantity)
 	_sell_button.disabled = not bool(quote.get("ok", false)) or _selected_quantity > quantity
 	_sell_button.text = "Продать %d ед.: %s (+%.0f)" % [_selected_quantity, _get_resource_name(resource_id), float(quote.get("revenue", 0.0))]
@@ -868,21 +889,24 @@ func _refresh_market_page(port_name: String, ship: Dictionary, port: Dictionary)
 	if resource_id != "":
 		selected_text = "%s: в трюме %d, цена продажи %.0f.\n%s" % [
 			_get_resource_name(resource_id),
-			_get_cargo_quantity(resource_id),
+			_get_sellable_cargo_quantity(resource_id) if _market_view != "port" else _get_cargo_quantity(resource_id),
 			_get_sale_price(resource_id),
 			_get_port_demand_text(docked_port_id, resource_id)
 		]
 	_title.text = "РЫНОК: " + port_name
 	_details.text = (
-		"Деньги: %.0f\n"
+		"Вкладка: %s\n"
+		+ "Деньги: %.0f\n"
 		+ "Трюм: %d / %d\n\n"
 		+ "%s\n"
-		+ "Средняя цена партии снижается по мере насыщения рынка. Непроданный товар остаётся в трюме."
+		+ "Выберите товар ниже — затем задайте количество и нажмите одну кнопку операции.\n%s"
 	) % [
+		"Я покупаю" if _market_view == "port" else "Я продаю",
 		float(GameState.player_state.get("money", 0.0)),
 		_get_cargo_units(),
 		int(ship.get("cargo_capacity", 0)),
-		selected_text
+		selected_text,
+		_notice
 	]
 
 func _get_port_demand_text(port_id: String, resource_id: String) -> String:
@@ -998,6 +1022,17 @@ func _get_cargo_quantity(resource_id: String) -> int:
 		if str(item.get("resource_id", "")) == resource_id:
 			return int(item.get("quantity", 0))
 	return 0
+
+func _get_sellable_cargo_quantity(resource_id: String) -> int:
+	var raw_cargo: Variant = GameState.ship_state.get("cargo", [])
+	if not (raw_cargo is Array):
+		return 0
+	var total: int = 0
+	for raw_item in raw_cargo:
+		var item: Dictionary = raw_item
+		if str(item.get("resource_id", "")) == resource_id and str(item.get("contract_id", "")) == "":
+			total += int(item.get("quantity", 0))
+	return total
 
 func _get_selected_resource_id() -> String:
 	if _selected_market_resource_id != "":
