@@ -116,6 +116,62 @@ func create_line(ship_id: String, origin_id: String, destination_id: String, res
 	SaveSystem.save_game()
 	return result
 
+## Creates a closed route made of ordered cargo legs.
+## Each leg means: load/buy one good at source, sail to target,
+## then sell there or unload at the home base. The last leg must return
+## to the first source, so the line can repeat without hidden routing.
+func create_route_line(ship_id: String, legs: Array, min_profit: float = 0.0) -> Dictionary:
+	if ship_id == "active_ship":
+		return {"ok": false, "message": "Постоянные линии выполняют дополнительные корабли."}
+	if legs.size() < 2:
+		return {"ok": false, "message": "Добавьте минимум два перехода в линию."}
+	var ship: Dictionary = _get_ship(ship_id)
+	if ship.is_empty():
+		return {"ok": false, "message": "Корабль не найден."}
+	if not ship.get("autopilot", {}).is_empty():
+		return {"ok": false, "message": "Корабль уже выполняет рейс."}
+	for existing in get_lines():
+		if str(existing.get("ship_id", "")) == ship_id:
+			return {"ok": false, "message": "Корабль уже закреплён за линией."}
+	var normalized: Array = []
+	var capacity: int = int(ship.get("cargo_capacity", 0))
+	var current_port: String = str(ship.get("current_port_id", ""))
+	for index in range(legs.size()):
+		var raw_leg: Dictionary = legs[index] if legs[index] is Dictionary else {}
+		var source_id: String = str(raw_leg.get("source_id", ""))
+		var target_id: String = str(raw_leg.get("target_id", ""))
+		var resource_id: String = str(raw_leg.get("resource_id", ""))
+		var quantity: int = int(raw_leg.get("quantity", 0))
+		if source_id == "" or target_id == "" or source_id == target_id:
+			return {"ok": false, "message": "В строке %d выберите разные порты." % (index + 1)}
+		if not _base_prices.has(resource_id):
+			return {"ok": false, "message": "В строке %d не выбран товар." % (index + 1)}
+		if quantity < 1 or quantity > capacity:
+			return {"ok": false, "message": "В строке %d количество не помещается в трюм." % (index + 1)}
+		if index == 0 and source_id != current_port:
+			return {"ok": false, "message": "Первая строка должна начинаться в текущем порту корабля."}
+		if index > 0 and source_id != str(normalized[index - 1].get("target_id", "")):
+			return {"ok": false, "message": "Порт отправления строки %d не совпадает с предыдущим прибытием." % (index + 1)}
+		if _get_route_key(source_id, target_id) == "":
+			return {"ok": false, "message": "Сначала изучите маршрут: %s → %s." % [source_id, target_id]}
+		normalized.append({"source_id": source_id, "target_id": target_id,
+			"resource_id": resource_id, "quantity": quantity})
+	if str(normalized.back().get("target_id", "")) != str(normalized.front().get("source_id", "")):
+		return {"ok": false, "message": "Последняя строка должна вернуть корабль в начальный порт."}
+	var line_id: String = "line_%03d" % (get_lines().size() + 1)
+	var line: Dictionary = {"id": line_id, "ship_id": ship_id, "mode": "multi_stop",
+		"legs": normalized, "leg_index": 0, "min_profit": min_profit,
+		"status": "Подготовка", "cycles": 0, "earned": 0.0, "spent": 0.0,
+		"last_message": ""}
+	var result: Dictionary = _start_multi_stop_leg(line)
+	line["last_message"] = str(result.get("message", ""))
+	line["status"] = "В пути" if bool(result.get("ok", false)) else "Остановлена"
+	var lines: Array = get_lines()
+	lines.append(line)
+	_set_lines(lines)
+	SaveSystem.save_game()
+	return result
+
 func stop_line(line_id: String) -> void:
 	var lines: Array = get_lines()
 	for index in range(lines.size()):
@@ -132,6 +188,14 @@ func _process(_delta: float) -> void:
 	var changed: bool = false
 	for index in range(lines.size()):
 		var line: Dictionary = lines[index]
+		if str(line.get("mode", "")) == "multi_stop":
+			if str(line.get("status", "")).begins_with("Остановлена"):
+				continue
+			var multi_result: Dictionary = _process_multi_stop_line(line)
+			if bool(multi_result.get("changed", false)):
+				lines[index] = multi_result.get("line", line)
+				changed = true
+			continue
 		var status: String = str(line.get("status", ""))
 		if status == "В пути к покупателю" and _ship_arrived(line, str(line.get("destination_id", ""))):
 			var sale_result: Dictionary = _finish_sale(line, str(line.get("destination_id", "")), str(line.get("resource_id", "")), false)
@@ -174,6 +238,61 @@ func _start_outbound(line: Dictionary) -> Dictionary:
 		str(line.get("destination_id", "")),
 		str(line.get("resource_id", ""))
 	)
+
+func _start_multi_stop_leg(line: Dictionary) -> Dictionary:
+	var legs: Array = line.get("legs", [])
+	var index: int = int(line.get("leg_index", 0))
+	if index < 0 or index >= legs.size():
+		return {"ok": false, "message": "У линии нет следующего перехода."}
+	var leg: Dictionary = legs[index]
+	line["quantity"] = int(leg.get("quantity", 0))
+	return _start_trade_leg(line, str(leg.get("source_id", "")),
+		str(leg.get("target_id", "")), str(leg.get("resource_id", "")))
+
+func _process_multi_stop_line(line: Dictionary) -> Dictionary:
+	var ship: Dictionary = _get_ship(str(line.get("ship_id", "")))
+	if ship.is_empty():
+		line["status"] = "Остановлена"
+		line["last_message"] = "Корабль линии не найден."
+		return {"changed": true, "line": line}
+	if not ship.get("autopilot", {}).is_empty():
+		return {"changed": false, "line": line}
+	if ship.has("pending_trade"):
+		var pending_receipt: Dictionary = settle_freight(ship, ship["pending_trade"])
+		ship["trade_receipt"] = pending_receipt
+		if bool(pending_receipt.get("ok", false)):
+			ship.erase("pending_trade")
+		else:
+			line["status"] = "Остановлена"
+			line["last_message"] = str(pending_receipt.get("message", "Груз не принят."))
+			return {"changed": true, "line": line}
+	if ship.has("trade_receipt"):
+		var receipt: Dictionary = ship.get("trade_receipt", {})
+		if not bool(receipt.get("ok", false)):
+			line["status"] = "Остановлена"
+			line["last_message"] = str(receipt.get("message", "Груз не принят."))
+			return {"changed": true, "line": line}
+		line["earned"] = float(line.get("earned", 0.0)) + float(receipt.get("revenue", 0.0))
+		line["last_message"] = str(receipt.get("message", "Переход завершён."))
+		ship.erase("trade_receipt")
+		var legs: Array = line.get("legs", [])
+		var next_index: int = int(line.get("leg_index", 0)) + 1
+		if next_index >= legs.size():
+			next_index = 0
+			line["cycles"] = int(line.get("cycles", 0)) + 1
+		line["leg_index"] = next_index
+		line["status"] = "Подготовка"
+	var current_legs: Array = line.get("legs", [])
+	var current_index: int = int(line.get("leg_index", 0))
+	if current_index < 0 or current_index >= current_legs.size():
+		return {"changed": true, "line": line}
+	var current_leg: Dictionary = current_legs[current_index]
+	if str(ship.get("current_port_id", "")) != str(current_leg.get("source_id", "")):
+		return {"changed": true, "line": line}
+	var result: Dictionary = _start_multi_stop_leg(line)
+	line["last_message"] = str(result.get("message", ""))
+	line["status"] = "В пути" if bool(result.get("ok", false)) else "Остановлена"
+	return {"changed": true, "line": line}
 
 func _start_return(line: Dictionary) -> Dictionary:
 	var return_resource_id: String = str(line.get("return_resource_id", ""))
@@ -316,12 +435,22 @@ func _finish_sale(line: Dictionary, _target_id: String, _resource_id: String, co
 
 func resume_line(line_id: String) -> Dictionary:
 	var lines: Array = get_lines()
-	for line in lines:
+	for line_index in range(lines.size()):
+		var line: Dictionary = lines[line_index]
 		if str(line.get("id", "")) != line_id:
 			continue
 		var ship: Dictionary = _get_ship(str(line.get("ship_id", "")))
 		if not ship.get("autopilot", {}).is_empty():
 			return {"ok": false, "message": "Дождитесь завершения текущего рейса."}
+		if str(line.get("mode", "")) == "multi_stop":
+			line["status"] = "Подготовка"
+			var multi_result: Dictionary = _process_multi_stop_line(line)
+			line = multi_result.get("line", line)
+			lines[line_index] = line
+			_set_lines(lines)
+			SaveSystem.save_game()
+			return {"ok": not str(line.get("status", "")).begins_with("Остановлена"),
+				"message": str(line.get("last_message", ""))}
 		if ship.has("pending_trade"):
 			var receipt: Dictionary = settle_freight(ship, ship["pending_trade"])
 			ship["trade_receipt"] = receipt
@@ -337,6 +466,7 @@ func resume_line(line_id: String) -> Dictionary:
 			var result: Dictionary = _start_outbound(line) if at_origin else _start_return(line)
 			line["status"] = ("В пути к покупателю" if at_origin else "В пути с обратным грузом") if bool(result.get("ok", false)) else "Остановлена"
 			line["last_message"] = str(result.get("message", ""))
+		lines[line_index] = line
 		_set_lines(lines)
 		SaveSystem.save_game()
 		return {"ok": not str(line["status"]).begins_with("Остановлена"), "message": str(line.get("last_message", ""))}
