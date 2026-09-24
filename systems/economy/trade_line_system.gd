@@ -156,7 +156,9 @@ func create_route_line(ship_id: String, legs: Array, min_profit: float = 0.0) ->
 			return {"ok": false, "message": "Сначала изучите маршрут: %s → %s." % [source_id, target_id]}
 		normalized.append({"source_id": source_id, "target_id": target_id,
 			"resource_id": resource_id, "quantity": quantity})
-	if str(normalized.back().get("target_id", "")) != str(normalized.front().get("source_id", "")):
+	var last_leg: Dictionary = normalized[normalized.size() - 1]
+	var first_leg: Dictionary = normalized[0]
+	if str(last_leg.get("target_id", "")) != str(first_leg.get("source_id", "")):
 		return {"ok": false, "message": "Последняя строка должна вернуть корабль в начальный порт."}
 	var line_id: String = "line_%03d" % (get_lines().size() + 1)
 	var line: Dictionary = {"id": line_id, "ship_id": ship_id, "mode": "multi_stop",
