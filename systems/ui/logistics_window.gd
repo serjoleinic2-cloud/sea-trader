@@ -34,7 +34,7 @@ func _ready() -> void:
 	box.add_theme_constant_override("separation", 10)
 	margin.add_child(box)
 	var title: Label = Label.new()
-	title.text = "ЛОГИСТИКА И ПРИБЫЛЬ"
+	title.text = "ПЛАН РЕЙСА"
 	title.add_theme_font_size_override("font_size", 28)
 	box.add_child(title)
 	_ship = _add_select(box, "Корабль")
@@ -52,6 +52,8 @@ func _ready() -> void:
 	_quantity.value = 10.0
 	_quantity.value_changed.connect(_on_changed)
 	box.add_child(_quantity)
+	_quantity_label.visible = false
+	_quantity.visible = false
 	_details = Label.new()
 	_details.add_theme_font_size_override("font_size", 20)
 	_details.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -63,7 +65,7 @@ func _ready() -> void:
 	_send_button.pressed.connect(_start_route)
 	box.add_child(_send_button)
 	var lines_button: Button = Button.new()
-	lines_button.text = "ПОСТОЯННЫЕ ТОРГОВЫЕ ЛИНИИ"
+	lines_button.text = "ТОРГОВЫЕ ЛИНИИ"
 	lines_button.add_theme_font_size_override("font_size", 20)
 	lines_button.custom_minimum_size.y = 46
 	lines_button.pressed.connect(_open_trade_lines)
@@ -122,6 +124,8 @@ func _fill_options() -> void:
 		var good: Dictionary = raw_good
 		_good_ids.append(str(good.get("id", "")))
 		_goods.add_item(str(good.get("display_name", "")))
+	if _goods.item_count > 0:
+		_goods.select(-1)
 	_sync_ship_origin()
 
 func _process(_delta: float) -> void:
@@ -133,10 +137,13 @@ func _process(_delta: float) -> void:
 	_panel.position = (viewport - _panel.size) * 0.5
 	var ship: Dictionary = _system.get_ship(_get_selected(_ship, _ship_ids))
 	var capacity: int = maxi(1, int(ship.get("cargo_capacity", 1)))
+	var has_good: bool = _get_selected(_goods, _good_ids) != ""
+	_quantity_label.visible = has_good
+	_quantity.visible = has_good
 	_quantity.max_value = float(capacity)
 	if _quantity.value > _quantity.max_value:
 		_quantity.value = _quantity.max_value
-	_quantity_label.text = "Количество: %d / трюм %d" % [int(_quantity.value), capacity]
+	_quantity_label.text = "Сколько погрузить: %d / трюм %d" % [int(_quantity.value), capacity]
 	_refresh()
 
 func _sync_ship_origin() -> void:
@@ -156,31 +163,44 @@ func _refresh() -> void:
 	var origin_id: String = _get_selected(_origin, _port_ids)
 	var destination_id: String = _get_selected(_destination, _port_ids)
 	var good_id: String = _get_selected(_goods, _good_ids)
+	if good_id == "":
+		_details.text = "Сначала выберите товар.\nПосле этого появится количество груза и расчёт рейса."
+		_send_button.disabled = true
+		return
 	var quote: Dictionary = _system.evaluate(ship_id, origin_id, destination_id, good_id, int(_quantity.value))
 	if not bool(quote.get("ok", false)):
 		_details.text = str(quote.get("message", "")) + "\n" + _notice
 		_send_button.disabled = true
 		return
-	_details.text = "%s\nТрюм: %d | Топливо: %.0f\n\nЦена покупки: %.0f\nЦена продажи: %.0f\nДистанция: %.0f\nТопливо: %.1f (≈ %.0f)\nРезерв ремонта: %.0f\nТорговая разница: %.0f\n\nОЦЕНКА ОДНОГО ПЛЕЧА: %.0f" % [
+	var quantity: int = int(_quantity.value)
+	var sale_total: float = float(quote.get("sell_price", 0.0)) * quantity
+	var purchase_total: float = float(quote.get("buy_price", 0.0)) * quantity
+	var voyage_cost: float = float(quote.get("fuel_cost", 0.0)) + float(quote.get("repair_reserve", 0.0))
+	voyage_cost += float(quote.get("food", 0.0)) + float(quote.get("wages", 0.0)) + float(quote.get("port_fee", 0.0))
+	var total_spent: float = purchase_total + voyage_cost
+	var money_left: float = sale_total - total_spent
+	_details.text = (
+		"Корабль: %s\n"
+		+ "Погружу: %d ед. — %s\n\n"
+		+ "Заработаю: %.0f\n"
+		+ "Потрачу на рейс: %.0f\n"
+		+ "Останется: %.0f\n\n"
+		+ "Топлива сейчас: %.0f"
+	) % [
 		str(quote.get("ship_name", "")),
-		int(quote.get("capacity", 0)),
-		float(quote.get("fuel_current", 0.0)),
-		float(quote.get("buy_price", 0.0)),
-		float(quote.get("sell_price", 0.0)),
-		float(quote.get("distance", 0.0)),
-		float(quote.get("fuel_needed", 0.0)),
-		float(quote.get("fuel_cost", 0.0)),
-		float(quote.get("repair_reserve", 0.0)),
-		float(quote.get("gross", 0.0)),
-		float(quote.get("net", 0.0))
+		quantity,
+		_get_good_name(good_id),
+		sale_total,
+		total_spent,
+		money_left,
+		float(quote.get("fuel_current", 0.0))
 	]
 	if bool(quote.get("auxiliary", false)):
-		_details.text += "\n" + str(quote.get("service_text", ""))
+		_details.text += "\nДополнительные расходы экипажа уже включены."
 	if destination_id == str(GameState.world_state.get("home_port_id", "")):
-		_details.text += "\nНа базе груз поступит на склад без продажи."
+		_details.text += "\nГруз поступит на базу, без продажи."
 	else:
-		_details.text += "\nПродажа при прибытии зависит от спроса. Если спроса нет, груз останется в трюме."
-	_details.text += "\nОценка учитывает текущие цены; уже загруженный товар повторно не оплачивается."
+		_details.text += "\nПродажа зависит от спроса порта. Если спроса нет, груз останется в трюме."
 	_details.text += "\n" + str(quote.get("start_message", "")) + "\n" + _notice
 	_send_button.disabled = not bool(quote.get("can_start", true))
 
@@ -189,6 +209,13 @@ func _get_selected(select: OptionButton, ids: Array[String]) -> String:
 	if index < 0 or index >= ids.size():
 		return ""
 	return ids[index]
+
+func _get_good_name(good_id: String) -> String:
+	for raw_good in _system.get_goods():
+		var good: Dictionary = raw_good
+		if str(good.get("id", "")) == good_id:
+			return str(good.get("name", good_id))
+	return good_id
 
 func _on_changed(_value: float = 0.0, _unused: float = 0.0) -> void:
 	pass
