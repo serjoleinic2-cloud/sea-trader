@@ -162,6 +162,8 @@ func _update_island(island: Dictionary) -> void:
 	var radius: float = clampf(map_radius * MAP_TO_METERS, 2.5, 9.0)
 	_add_cylinder(_island_root, radius, radius * 0.78, 1.55, Vector3(0.0, 0.62, 0.0), Color("b99a69"))
 	_add_cylinder(_island_root, radius * 0.79, radius * 0.73, 0.5, Vector3(0.0, 1.58, 0.0), Color("4f7851"))
+	_add_cylinder(_island_root, radius * 0.34, 0.0, 2.9, Vector3(-radius * 0.18, 3.0, -radius * 0.08), Color("607d4c"))
+	_add_cylinder(_island_root, radius * 0.24, 0.0, 2.1, Vector3(radius * 0.28, 2.65, radius * 0.12), Color("71865a"))
 
 	var random_seed: int = abs(hash(current_id))
 	for index in range(7):
@@ -171,9 +173,58 @@ func _update_island(island: Dictionary) -> void:
 		_add_cylinder(_island_root, 0.10, 0.08, 1.2, tree_at + Vector3(0.0, 0.55, 0.0), Color("73553b"))
 		_add_cylinder(_island_root, 0.85, 0.04, 1.45, tree_at + Vector3(0.0, 1.7, 0.0), Color("326747"))
 
-	var lighthouse_position := Vector3(radius * 0.48, 1.8, -radius * 0.32)
-	_add_cylinder(_island_root, 0.7, 0.42, 2.4, lighthouse_position + Vector3(0.0, 1.1, 0.0), Color("e6dfc9"))
-	_add_cylinder(_island_root, 0.46, 0.46, 0.3, lighthouse_position + Vector3(0.0, 2.45, 0.0), Color("a74935"))
+	var port: Dictionary = _find_port_for_island(current_id)
+	if not port.is_empty():
+		_build_port(port, Vector2(island.get("position", Vector2.ZERO)), radius)
+	else:
+		# Uninhabited islands get a small exposed rock outcrop instead of port buildings.
+		_add_cylinder(_island_root, radius * 0.16, radius * 0.05, 1.5, Vector3(radius * 0.42, 2.1, -radius * 0.35), Color("8a8272"))
+
+
+func _find_port_for_island(island_id: String) -> Dictionary:
+	for raw_port in _world_data.get("ports", {}).values():
+		var port: Dictionary = raw_port
+		if str(port.get("island_id", "")) == island_id:
+			return port
+	return {}
+
+
+func _build_port(port: Dictionary, island_position: Vector2, island_radius: float) -> void:
+	var port_position: Vector2 = Vector2(port.get("position", island_position))
+	var local_port: Vector2 = (port_position - island_position) * MAP_TO_METERS
+	var outward_2d: Vector2 = local_port.normalized()
+	if outward_2d.length_squared() < 0.01:
+		outward_2d = Vector2.RIGHT
+	var outward := Vector3(outward_2d.x, 0.0, outward_2d.y)
+	var pier_yaw: float = atan2(outward.x, outward.z)
+	var pier_right := Vector3(outward.z, 0.0, -outward.x)
+	var dock_start: Vector3 = Vector3(local_port.x, 0.12, local_port.y) + outward * 1.1
+	var pier := _add_box(_island_root, Vector3(1.45, 0.24, 7.2), dock_start + outward * 3.2, _material(Color("765238"), 0.95))
+	pier.rotation.y = pier_yaw
+	for side_value in [-1.0, 1.0]:
+		var side: float = float(side_value)
+		for distance_value in [0.8, 3.5, 6.1]:
+			var distance: float = float(distance_value)
+			var piling_at: Vector3 = dock_start + outward * distance + pier_right * side * 0.58 + Vector3(0.0, -0.12, 0.0)
+			_add_cylinder(_island_root, 0.12, 0.12, 0.95, piling_at, Color("4b3829"))
+
+	# Warehouses and small port buildings sit between the beach and the pier.
+	var landward: Vector3 = -outward
+	var settlement_center: Vector3 = Vector3(local_port.x, 0.0, local_port.y) + landward * 1.8
+	var wall := _material(Color("d8c8a0"), 0.93)
+	var roof := _material(Color("9c4939"), 0.9)
+	_add_box(_island_root, Vector3(2.6, 1.25, 1.7), settlement_center + Vector3(0.0, 0.85, 0.0), wall)
+	var warehouse_roof := _add_box(_island_root, Vector3(2.9, 0.2, 1.95), settlement_center + Vector3(0.0, 1.57, 0.0), roof)
+	warehouse_roof.rotation.z = deg_to_rad(-4.0)
+	_add_box(_island_root, Vector3(0.85, 0.7, 0.7), settlement_center + landward * 2.0 + Vector3(0.0, 0.55, 0.0), wall)
+	_add_box(_island_root, Vector3(1.0, 0.16, 0.85), settlement_center + landward * 2.0 + Vector3(0.0, 0.98, 0.0), _material(Color("bd7650"), 0.92))
+
+	# A low-poly lighthouse marks the harbour approach; its body is built from
+	# alternating painted sections so it remains recognizable at phone scale.
+	var lighthouse_at: Vector3 = settlement_center + landward * (island_radius * 0.12)
+	_add_cylinder(_island_root, 0.58, 0.38, 2.5, lighthouse_at + Vector3(0.0, 1.4, 0.0), Color("e6dfc9"))
+	_add_cylinder(_island_root, 0.43, 0.43, 0.35, lighthouse_at + Vector3(0.0, 2.75, 0.0), Color("a74935"))
+	_add_cylinder(_island_root, 0.38, 0.34, 0.22, lighthouse_at + Vector3(0.0, 3.02, 0.0), Color("f2d789"))
 
 
 func _update_camera(ship_position: Vector2, island_position: Vector2, close_factor: float, delta: float) -> void:
