@@ -16,13 +16,22 @@ extends Node2D
 var _world_data: Dictionary = {}
 var _camera: Camera2D
 var _last_home_port_id: String = ""
+var _wave_redraw_timer: float = 0.0
+var _wave_clock: float = 0.0
 
 
 func _ready() -> void:
 	EventBus.port_discovered.connect(_on_port_discovered)
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	_wave_clock += delta
+	_wave_redraw_timer += delta
+	if _wave_redraw_timer >= 0.12:
+		_wave_redraw_timer = 0.0
+		queue_redraw()
+	if _camera == null or not is_instance_valid(_camera):
+		_camera = get_viewport().get_camera_2d()
 	var home_port_id: String = str(GameState.world_state.get("home_port_id", ""))
 	if home_port_id != _last_home_port_id:
 		_last_home_port_id = home_port_id
