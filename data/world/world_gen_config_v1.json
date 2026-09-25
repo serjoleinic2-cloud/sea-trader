@@ -1,5 +1,5 @@
 {
-  "version": 2,
+  "version": 1,
   "world_size": [
     4096,
     4096
@@ -8,8 +8,7 @@
   "island_count_max": 15,
   "island_min_radius": 80,
   "island_max_radius": 250,
-  "island_min_distance": 650,
-  "island_min_coast_distance": 320,
+  "island_min_distance": 300,
   "port_per_island_chance": 0.6,
   "port_min_distance": 200,
   "starting_region": {
@@ -17,12 +16,12 @@
     "bounds": [
       0,
       0,
-      2048,
-      2048
-    ],
-    "center": [
       1024,
       1024
+    ],
+    "center": [
+      512,
+      512
     ],
     "resources": [
       "resource_timber",
@@ -34,14 +33,14 @@
     {
       "id": "starting_region",
       "bounds": [
-      0,
-      0,
-      2048,
-      2048
+        0,
+        0,
+        1024,
+        1024
       ],
       "center": [
-      1024,
-      1024
+        512,
+        512
       ],
       "resources": [
         "resource_timber",
@@ -52,14 +51,14 @@
     {
       "id": "eastern_archipelago",
       "bounds": [
-      2048,
-      0,
-      2048,
-      2048
+        1024,
+        0,
+        2048,
+        1024
       ],
       "center": [
-      3072,
-      1024
+        1536,
+        512
       ],
       "resources": [
         "resource_timber",
@@ -70,38 +69,20 @@
     {
       "id": "southern_storm_sea",
       "bounds": [
-      0,
-      2048,
-      2048,
-      2048
+        0,
+        1024,
+        2048,
+        2048
       ],
       "center": [
-      1024,
-      3072
+        1024,
+        1536
       ],
       "resources": [
         "resource_fish",
         "resource_fuel"
       ],
       "hazard_density": 0.2
-    },
-    {
-      "id": "outer_ocean",
-      "bounds": [
-        2048,
-        2048,
-        2048,
-        2048
-      ],
-      "center": [
-        3072,
-        3072
-      ],
-      "resources": [
-        "resource_iron",
-        "resource_fuel"
-      ],
-      "hazard_density": 0.3
     }
   ],
   "noise_scale": 0.003,

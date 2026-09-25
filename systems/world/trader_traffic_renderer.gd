@@ -8,8 +8,8 @@ var _ports: Dictionary = {}
 
 func initialize(world_data: Dictionary) -> void:
 	var raw_size: Variant = world_data.get("world_size", Vector2(4096, 4096))
-	if raw_size is Vector2:
-		_world_size = raw_size
+	if raw_size is Vector2 or raw_size is Vector2i:
+		_world_size = Vector2(raw_size)
 	var raw_ports: Variant = world_data.get("ports", {})
 	if raw_ports is Dictionary:
 		_ports = raw_ports
@@ -55,12 +55,49 @@ func _process(delta: float) -> void:
 		else:
 			vessel["position"] = position.move_toward(destination, speed * delta)
 		_vessels[index] = vessel
-	queue_redraw()
+	if is_visible_in_tree():
+		queue_redraw()
 
 func _draw() -> void:
 	for vessel in _vessels:
 		_draw_ambient_vessel(vessel)
 	_draw_visiting_merchant()
+
+
+func get_vessel_snapshots() -> Array[Dictionary]:
+	var snapshots: Array[Dictionary] = []
+	for index in range(_vessels.size()):
+		var vessel: Dictionary = _vessels[index]
+		var position: Vector2 = Vector2(vessel.get("position", Vector2.ZERO))
+		var destination: Vector2 = Vector2(vessel.get("destination", position + Vector2.UP))
+		var direction: Vector2 = (destination - position).normalized()
+		if direction.length_squared() < 0.001:
+			direction = Vector2.UP
+		snapshots.append({
+			"id": "ambient_%02d" % index,
+			"position": position,
+			"heading": direction,
+			"length": float(vessel.get("size", 8.0)) * 2.0,
+			"color": vessel.get("color", Color.WHITE),
+			"kind": "merchant"
+		})
+	var merchant: Dictionary = GameState.economy_state.get("merchant", {})
+	var offer: Dictionary = merchant.get("active_offer", {})
+	var home_port_id: String = str(GameState.world_state.get("home_port_id", ""))
+	if not offer.is_empty() and int(offer.get("quantity_available", 0)) > 0 and _ports.has(home_port_id):
+		var port: Dictionary = _ports[home_port_id]
+		var port_position: Vector2 = Vector2(port.get("position", Vector2.ZERO))
+		var visitor_index: int = int(offer.get("visitor_index", 0))
+		var size: float = 17.0 + float(visitor_index % 3) * 4.0
+		snapshots.append({
+			"id": "visiting_merchant",
+			"position": port_position + Vector2(42.0, -38.0 + sin(float(Time.get_ticks_msec()) / 550.0) * 2.0),
+			"heading": Vector2(1.0, 0.25).normalized(),
+			"length": size * 2.0,
+			"color": Color(0.18, 0.86, 0.38, 1.0),
+			"kind": "visiting_merchant"
+		})
+	return snapshots
 
 func _draw_ambient_vessel(vessel: Dictionary) -> void:
 	var position: Vector2 = vessel.get("position", Vector2.ZERO)

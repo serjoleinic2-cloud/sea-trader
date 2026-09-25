@@ -13,6 +13,7 @@ var _ship: Node2D
 var _approach_view: Node
 var _world_data: Dictionary = {}
 var _is_new_game: bool = false
+var _world_migrated: bool = false
 var _world_ready: bool = false
 var startup_error: String = ""
 var _modules: RefCounted = preload("res://core/module_loader.gd").new()
@@ -88,14 +89,17 @@ func _ready() -> void:
 	_approach_view = load("res://systems/rendering/approach_3d_view.gd").new()
 	_approach_view.name = "Approach3DView"
 	add_child(_approach_view)
-	_approach_view.call("initialize", _world_data, _world_renderer, _ship)
+	_approach_view.call("initialize", _world_data, _world_renderer, _ship, _trader_traffic, _fleet_traffic)
 	_modules.start(self, {"$ship": _ship, "$ports": _world_data.ports, "$main": self})
+	var world_size: Vector2 = Vector2(_world_data.get("world_size", Vector2i(4096, 4096)))
+	if _ship_status_hud != null and _ship_status_hud.has_method("set_world_size"):
+		_ship_status_hud.call("set_world_size", world_size)
 	var window_coordinator: Node = load("res://systems/ui/window_coordinator.gd").new()
 	window_coordinator.name = "WindowCoordinator"
 	add_child(window_coordinator)
 	window_coordinator.initialize(self)
 	_world_ready = true
-	if _is_new_game:
+	if _is_new_game or _world_migrated:
 		SaveSystem.save_game()
 
 
@@ -114,11 +118,37 @@ func _initialize_world() -> bool:
 	var generation_version: String = _world_generator.get_generation_version()
 	if _is_new_game:
 		GameState.world_state.world_gen_version = generation_version
-	elif GameState.world_state.get("world_gen_version", "") != generation_version:
-		startup_error = "World generation version is unsupported. Loading stopped."
-		return false
-	var world_data: Dictionary = _world_generator.generate(world_seed)
-	_world_data = world_data
+		_world_data = _world_generator.generate(world_seed, int(generation_version))
+	else:
+		var saved_version: String = str(GameState.world_state.get("world_gen_version", "1"))
+		if saved_version == "":
+			saved_version = "1"
+		if not _world_generator.supports_generation_version(saved_version):
+			startup_error = "World generation version is unsupported. Loading stopped."
+			return false
+		if saved_version != generation_version:
+			var migration: Dictionary = _world_generator.migrate_world_to_current(
+				world_seed,
+				int(saved_version),
+				Vector2(GameState.ship_state.get("position", Vector2.ZERO))
+			)
+			if not bool(migration.get("ok", false)):
+				startup_error = str(migration.get("message", "Не удалось перенести карту."))
+				return false
+			_world_data = migration.get("world_data", {})
+			var migrated_ship_position: Vector2 = Vector2(migration.get("ship_position", Vector2.ZERO))
+			var docked_port_id: String = str(GameState.ship_state.get("docked_port_id", ""))
+			if docked_port_id != "" and _world_data.ports.has(docked_port_id):
+				migrated_ship_position = Vector2(_world_data.ports[docked_port_id].get("position", migrated_ship_position))
+			GameState.ship_state["position"] = migrated_ship_position
+			GameState.world_state["current_position"] = GameState.ship_state.position
+			GameState.world_state["current_region"] = _world_generator.get_region_for_position(GameState.ship_state.position)
+			GameState.world_state["world_gen_version"] = generation_version
+			_world_migrated = true
+			_migrate_known_route_distances(_world_data.ports)
+		else:
+			_world_data = _world_generator.generate(world_seed, int(saved_version))
+	var world_data: Dictionary = _world_data
 
 	if _is_new_game:
 		GameState.ship_state.position = Vector2(world_data.world_size) * 0.25
@@ -140,6 +170,17 @@ func _initialize_world() -> bool:
 		world_data.hazard_zones.size()
 	])
 	return true
+
+
+func _migrate_known_route_distances(ports: Dictionary) -> void:
+	for route_key in GameState.known_routes_state:
+		var route: Dictionary = GameState.known_routes_state[route_key]
+		var port_a: Dictionary = ports.get(str(route.get("port_a_id", "")), {})
+		var port_b: Dictionary = ports.get(str(route.get("port_b_id", "")), {})
+		if port_a.is_empty() or port_b.is_empty():
+			continue
+		route["distance"] = Vector2(port_a.get("position", Vector2.ZERO)).distance_to(Vector2(port_b.get("position", Vector2.ZERO)))
+		GameState.known_routes_state[route_key] = route
 
 
 func _initialize_trader_traffic(world_data: Dictionary) -> void:

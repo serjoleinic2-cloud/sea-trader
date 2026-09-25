@@ -13,7 +13,46 @@ func initialize(world_data: Dictionary) -> void:
 	queue_redraw()
 
 func _process(_delta: float) -> void:
-	queue_redraw()
+	if is_visible_in_tree():
+		queue_redraw()
+
+
+func get_vessel_snapshots() -> Array[Dictionary]:
+	var snapshots: Array[Dictionary] = []
+	var fleet: Node = get_tree().get_first_node_in_group("fleet_system")
+	if fleet == null:
+		return snapshots
+	var now: float = Time.get_unix_time_from_system()
+	for raw_ship in GameState.fleet_state:
+		var ship: Dictionary = raw_ship
+		var ship_id: String = str(ship.get("instance_id", ""))
+		var voyage: Dictionary = fleet.get_auxiliary_voyage_status(ship_id, now)
+		if not bool(voyage.get("found", false)):
+			continue
+		var in_transit: bool = bool(voyage.get("in_transit", false))
+		var position: Vector2
+		var heading: Vector2 = Vector2.UP
+		if in_transit:
+			var origin: Vector2 = _port_position(str(voyage.get("origin_port_id", "")))
+			var destination: Vector2 = _port_position(str(voyage.get("destination_port_id", "")))
+			position = origin.lerp(destination, float(voyage.get("progress", 0.0)))
+			heading = (destination - origin).normalized()
+			if heading.length_squared() <= 0.001:
+				heading = Vector2.UP
+		else:
+			position = _port_position(str(voyage.get("current_port_id", "")))
+			var berth_angle: float = float(posmod(abs(hash(ship_id)), 5)) * 1.1
+			position += Vector2(cos(berth_angle), sin(berth_angle)) * 24.0
+		var tier: int = int(GameData.get_ship(str(ship.get("ship_type_id", ""))).get("tier", 1))
+		snapshots.append({
+			"id": ship_id,
+			"position": position,
+			"heading": heading,
+			"length": 24.0 + float(tier) * 9.0,
+			"color": Color(0.25, 0.88, 1.0, 1.0) if in_transit else Color(0.45, 0.76, 0.92, 1.0),
+			"kind": "fleet"
+		})
+	return snapshots
 
 func _draw() -> void:
 	var fleet: Node = get_tree().get_first_node_in_group("fleet_system")
