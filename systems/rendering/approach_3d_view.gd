@@ -22,6 +22,7 @@ var _island_nodes: Dictionary = {}
 var _hazard_nodes: Dictionary = {}
 var _rendered_island_data: Dictionary = {}
 var _traffic_models: Dictionary = {}
+var _asset_catalog: Dictionary = {}
 var _transition_factor: float = 0.0
 var _chunk_size: float = 4096.0
 var _camera_initialized: bool = false
@@ -30,12 +31,14 @@ var _camera_initialized: bool = false
 func _ready() -> void:
 	# Render the shared 3D world beneath the strategic map and the game UI.
 	layer = -1
+	_asset_catalog = GameData.read("res://data/world/world_asset_catalog.json")
 	_build_viewport()
 	_build_scene()
 
 
 func initialize(world_data: Dictionary, map_world: CanvasItem, map_ship: CanvasItem, trader_traffic: Node = null, fleet_traffic: Node = null) -> void:
 	_world_data = world_data
+	_asset_catalog = GameData.read("res://data/world/world_asset_catalog.json")
 	_chunk_size = float(world_data.get("chunk_size", 4096.0))
 	_map_world = map_world
 	_map_ship = map_ship
@@ -164,6 +167,11 @@ func _add_water() -> void:
 
 
 func _make_ship() -> Node3D:
+	var ship_id: String = str(GameState.ship_state.get("ship_id", "ship_sloop"))
+	var registered_ship: Node3D = _attach_catalog_scene(_scene_root, "ships", ship_id, 3.48)
+	if registered_ship != null:
+		registered_ship.name = "CloseViewShip"
+		return registered_ship
 	var ship := Node3D.new()
 	ship.name = "CloseViewShip"
 	var hull_material := _material(Color("503629"), 0.72)
@@ -275,27 +283,74 @@ func _build_island(island_root: Node3D, island: Dictionary) -> void:
 	var current_id: String = str(island.get("id", ""))
 	var map_radius: float = float(island.get("radius", 90.0))
 	var radius: float = map_radius * MAP_TO_METERS
-	# Match the map radius and center exactly; the shallow beach ring keeps the
-	# 3D island footprint from looking smaller or more crowded from overhead.
-	_add_cylinder(island_root, radius, radius * 0.94, 1.55, Vector3(0.0, 0.62, 0.0), Color("b99a69"))
-	_add_cylinder(island_root, radius * 0.94, radius * 0.84, 0.5, Vector3(0.0, 1.58, 0.0), Color("4f7851"))
-	_add_cylinder(island_root, radius * 0.34, 0.0, 2.9, Vector3(-radius * 0.18, 3.0, -radius * 0.08), Color("607d4c"))
-	_add_cylinder(island_root, radius * 0.24, 0.0, 2.1, Vector3(radius * 0.28, 2.65, radius * 0.12), Color("71865a"))
-
-	var random_seed: int = abs(hash(current_id))
-	for index in range(7):
-		var angle: float = TAU * float(index) / 7.0 + float(random_seed % 31) * 0.01
-		var distance: float = radius * (0.23 + float(index % 3) * 0.13)
-		var tree_at := Vector3(cos(angle) * distance, 1.9, sin(angle) * distance)
-		_add_cylinder(island_root, 0.10, 0.08, 1.2, tree_at + Vector3(0.0, 0.55, 0.0), Color("73553b"))
-		_add_cylinder(island_root, 0.85, 0.04, 1.45, tree_at + Vector3(0.0, 1.7, 0.0), Color("326747"))
+	var landform: String = str(island.get("landform", "small_island"))
+	var custom_model: Node3D = _attach_catalog_scene(island_root, "islands", current_id, radius * 2.0)
+	if custom_model == null:
+		# Schematic coast footprint stays aligned to navigation coordinates.
+		_add_cylinder(island_root, radius, radius * 0.94, 1.55, Vector3(0.0, 0.62, 0.0), Color("b99a69"))
+		_add_cylinder(island_root, radius * 0.94, radius * 0.84, 0.5, Vector3(0.0, 1.58, 0.0), Color("4f7851"))
+		if landform == "great_island":
+			var peak_seed: int = abs(hash(current_id))
+			for peak_index in range(11):
+				var peak_angle: float = TAU * float(peak_index) / 11.0 + float(peak_seed % 79) * 0.01
+				var peak_distance: float = radius * (0.18 + float((peak_index * 7 + peak_seed) % 48) / 100.0)
+				var peak_height: float = 8.0 + float((peak_index * 13 + peak_seed) % 150) / 10.0
+				var peak_radius: float = radius * (0.07 + float(peak_index % 4) * 0.018)
+				var peak_at := Vector3(cos(peak_angle) * peak_distance, peak_height * 0.5, sin(peak_angle) * peak_distance)
+				_add_cylinder(island_root, peak_radius, peak_radius * 0.06, peak_height, peak_at, Color("718269") if peak_index % 3 else Color("797c75"))
+			_add_cylinder(island_root, radius * 0.20, 0.0, 28.0, Vector3(-radius * 0.14, 14.0, -radius * 0.12), Color("747e70"))
+		else:
+			_add_cylinder(island_root, radius * 0.34, 0.0, 2.9, Vector3(-radius * 0.18, 3.0, -radius * 0.08), Color("607d4c"))
+			_add_cylinder(island_root, radius * 0.24, 0.0, 2.1, Vector3(radius * 0.28, 2.65, radius * 0.12), Color("71865a"))
+		var random_seed: int = abs(hash(current_id))
+		var tree_count: int = 5 if landform == "great_island" else 7
+		for index in range(tree_count):
+			var angle: float = TAU * float(index) / float(tree_count) + float(random_seed % 31) * 0.01
+			var distance: float = radius * (0.23 + float(index % 3) * 0.13)
+			var tree_at := Vector3(cos(angle) * distance, 1.9, sin(angle) * distance)
+			_add_cylinder(island_root, 0.10, 0.08, 1.2, tree_at + Vector3(0.0, 0.55, 0.0), Color("73553b"))
+			_add_cylinder(island_root, 0.85, 0.04, 1.45, tree_at + Vector3(0.0, 1.7, 0.0), Color("326747"))
 
 	var port: Dictionary = _find_port_for_island(current_id)
 	if not port.is_empty():
 		_build_port(island_root, port, Vector2(island.get("position", Vector2.ZERO)), radius)
-	else:
-		# Uninhabited islands get a small exposed rock outcrop instead of port buildings.
+	elif custom_model == null:
 		_add_cylinder(island_root, radius * 0.16, radius * 0.05, 1.5, Vector3(radius * 0.42, 2.1, -radius * 0.35), Color("8a8272"))
+
+
+
+func _attach_catalog_scene(parent: Node3D, category: String, identity: String, target_size_m: float) -> Node3D:
+	var categories: Dictionary = _asset_catalog.get("categories", {})
+	var entries: Array = categories.get(category, [])
+	if entries.is_empty() or identity == "":
+		return null
+	var available: Array[Dictionary] = []
+	for raw_entry in entries:
+		if not (raw_entry is Dictionary):
+			continue
+		var entry: Dictionary = raw_entry
+		var scene_path: String = str(entry.get("scene", ""))
+		if scene_path != "" and ResourceLoader.exists(scene_path):
+			available.append(entry)
+	if available.is_empty():
+		return null
+	var chosen: Dictionary = available[posmod(abs(hash("%d:%s" % [int(GameState.world_state.get("seed", 0)), identity])), available.size())]
+	var packed_scene: PackedScene = load(str(chosen.get("scene", ""))) as PackedScene
+	if packed_scene == null:
+		return null
+	var instance: Node = packed_scene.instantiate()
+	var wrapper := Node3D.new()
+	wrapper.name = "Asset_" + identity.replace("/", "_").replace(":", "_")
+	parent.add_child(wrapper)
+	wrapper.add_child(instance)
+	var reference_size: float = maxf(0.01, float(chosen.get("reference_size_m", target_size_m)))
+	var asset_scale: float = target_size_m / reference_size * float(chosen.get("scale", 1.0))
+	wrapper.scale = Vector3.ONE * asset_scale
+	wrapper.rotation_degrees.y = float(chosen.get("rotation_y_degrees", 0.0))
+	var offset: Array = chosen.get("offset_m", [0.0, 0.0, 0.0])
+	if offset.size() >= 3:
+		wrapper.position = Vector3(float(offset[0]), float(offset[1]), float(offset[2]))
+	return wrapper
 
 
 func _find_port_for_island(island_id: String) -> Dictionary:
@@ -309,12 +364,29 @@ func _find_port_for_island(island_id: String) -> Dictionary:
 func _build_port(island_root: Node3D, port: Dictionary, island_position: Vector2, island_radius: float) -> void:
 	var port_position: Vector2 = Vector2(port.get("position", island_position))
 	var local_port: Vector2 = (port_position - island_position) * MAP_TO_METERS
-	var outward_2d: Vector2 = local_port.normalized()
+	var outward_2d: Vector2 = Vector2.from_angle(float(port.get("harbor_angle", local_port.angle())))
 	if outward_2d.length_squared() < 0.01:
 		outward_2d = Vector2.RIGHT
 	var outward := Vector3(outward_2d.x, 0.0, outward_2d.y)
+	var registered_port: Node3D = _attach_catalog_scene(island_root, "ports", str(port.get("id", "port")), 8.0)
+	if registered_port != null:
+		registered_port.position += Vector3(local_port.x, 0.0, local_port.y)
+		registered_port.rotation.y = atan2(outward.x, outward.z)
+		return
 	var pier_yaw: float = atan2(outward.x, outward.z)
 	var pier_right := Vector3(outward.z, 0.0, -outward.x)
+	var bay_radius: float = maxf(2.0, float(port.get("harbor_radius", island_radius * 0.18)) * MAP_TO_METERS)
+	var bay_water := CylinderMesh.new()
+	bay_water.top_radius = bay_radius
+	bay_water.bottom_radius = bay_radius
+	bay_water.height = 0.035
+	bay_water.radial_segments = 32
+	var bay_surface := MeshInstance3D.new()
+	bay_surface.name = "NaturalHarborWater"
+	bay_surface.mesh = bay_water
+	bay_surface.material_override = _material(Color("247b91"), 0.35)
+	bay_surface.position = Vector3(local_port.x, 0.05, local_port.y)
+	island_root.add_child(bay_surface)
 	var dock_start: Vector3 = Vector3(local_port.x, 0.12, local_port.y) + outward * 1.1
 	var pier := _add_box(island_root, Vector3(1.45, 0.24, 7.2), dock_start + outward * 3.2, _material(Color("765238"), 0.95))
 	pier.rotation.y = pier_yaw
@@ -328,13 +400,17 @@ func _build_port(island_root: Node3D, port: Dictionary, island_position: Vector2
 	# Warehouses and small port buildings sit between the beach and the pier.
 	var landward: Vector3 = -outward
 	var settlement_center: Vector3 = Vector3(local_port.x, 0.0, local_port.y) + landward * 1.8
-	var wall := _material(Color("d8c8a0"), 0.93)
-	var roof := _material(Color("9c4939"), 0.9)
-	_add_box(island_root, Vector3(2.6, 1.25, 1.7), settlement_center + Vector3(0.0, 2.46, 0.0), wall)
-	var warehouse_roof := _add_box(island_root, Vector3(2.9, 0.2, 1.95), settlement_center + Vector3(0.0, 3.18, 0.0), roof)
-	warehouse_roof.rotation.z = deg_to_rad(-4.0)
-	_add_box(island_root, Vector3(0.85, 0.7, 0.7), settlement_center + landward * 2.0 + Vector3(0.0, 2.18, 0.0), wall)
-	_add_box(island_root, Vector3(1.0, 0.16, 0.85), settlement_center + landward * 2.0 + Vector3(0.0, 2.61, 0.0), _material(Color("bd7650"), 0.92))
+	var registered_building: Node3D = _attach_catalog_scene(island_root, "buildings", str(port.get("id", "port")) + "_warehouse", 2.6)
+	if registered_building != null:
+		registered_building.position += settlement_center + landward * 2.0 + Vector3(0.0, 1.0, 0.0)
+	else:
+		var wall := _material(Color("d8c8a0"), 0.93)
+		var roof := _material(Color("9c4939"), 0.9)
+		_add_box(island_root, Vector3(2.6, 1.25, 1.7), settlement_center + Vector3(0.0, 2.46, 0.0), wall)
+		var warehouse_roof := _add_box(island_root, Vector3(2.9, 0.2, 1.95), settlement_center + Vector3(0.0, 3.18, 0.0), roof)
+		warehouse_roof.rotation.z = deg_to_rad(-4.0)
+		_add_box(island_root, Vector3(0.85, 0.7, 0.7), settlement_center + landward * 2.0 + Vector3(0.0, 2.18, 0.0), wall)
+		_add_box(island_root, Vector3(1.0, 0.16, 0.85), settlement_center + landward * 2.0 + Vector3(0.0, 2.61, 0.0), _material(Color("bd7650"), 0.92))
 
 	# A low-poly lighthouse marks the harbour approach; its body is built from
 	# alternating painted sections so it remains recognizable at phone scale.
