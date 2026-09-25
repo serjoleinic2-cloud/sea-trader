@@ -217,11 +217,11 @@ func _build_port(port: Dictionary, island_position: Vector2, island_radius: floa
 	var settlement_center: Vector3 = Vector3(local_port.x, 0.0, local_port.y) + landward * 1.8
 	var wall := _material(Color("d8c8a0"), 0.93)
 	var roof := _material(Color("9c4939"), 0.9)
-	_add_box(_island_root, Vector3(2.6, 1.25, 1.7), settlement_center + Vector3(0.0, 0.85, 0.0), wall)
-	var warehouse_roof := _add_box(_island_root, Vector3(2.9, 0.2, 1.95), settlement_center + Vector3(0.0, 1.57, 0.0), roof)
+	_add_box(_island_root, Vector3(2.6, 1.25, 1.7), settlement_center + Vector3(0.0, 2.46, 0.0), wall)
+	var warehouse_roof := _add_box(_island_root, Vector3(2.9, 0.2, 1.95), settlement_center + Vector3(0.0, 3.18, 0.0), roof)
 	warehouse_roof.rotation.z = deg_to_rad(-4.0)
-	_add_box(_island_root, Vector3(0.85, 0.7, 0.7), settlement_center + landward * 2.0 + Vector3(0.0, 0.55, 0.0), wall)
-	_add_box(_island_root, Vector3(1.0, 0.16, 0.85), settlement_center + landward * 2.0 + Vector3(0.0, 0.98, 0.0), _material(Color("bd7650"), 0.92))
+	_add_box(_island_root, Vector3(0.85, 0.7, 0.7), settlement_center + landward * 2.0 + Vector3(0.0, 2.18, 0.0), wall)
+	_add_box(_island_root, Vector3(1.0, 0.16, 0.85), settlement_center + landward * 2.0 + Vector3(0.0, 2.61, 0.0), _material(Color("bd7650"), 0.92))
 
 	# A low-poly lighthouse marks the harbour approach; its body is built from
 	# alternating painted sections so it remains recognizable at phone scale.
