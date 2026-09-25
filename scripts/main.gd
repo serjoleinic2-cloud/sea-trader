@@ -10,6 +10,7 @@ var _world_generator: Node
 var _trader_traffic: Node2D
 var _fleet_traffic: Node2D
 var _ship: Node2D
+var _approach_view: Node
 var _world_data: Dictionary = {}
 var _is_new_game: bool = false
 var _world_ready: bool = false
@@ -84,6 +85,10 @@ func _ready() -> void:
 		_show_startup_error("В каталоге нет сохранённого корабля: " + saved_ship_id)
 		return
 	_spawn_ship()
+	_approach_view = load("res://systems/rendering/approach_3d_view.gd").new()
+	_approach_view.name = "Approach3DView"
+	add_child(_approach_view)
+	_approach_view.call("initialize", _world_data)
 	_modules.start(self, {"$ship": _ship, "$ports": _world_data.ports, "$main": self})
 	var window_coordinator: Node = load("res://systems/ui/window_coordinator.gd").new()
 	window_coordinator.name = "WindowCoordinator"
