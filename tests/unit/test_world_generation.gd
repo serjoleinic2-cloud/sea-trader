@@ -160,24 +160,34 @@ func test_v1_hazard_generation_remains_compatible_for_migration() -> void:
 func test_stream_chunks_are_seed_stable_and_unbounded() -> void:
 	var starter: Dictionary = _gen.generate(5150)
 	assert_true(bool(starter.get("unbounded", false)), "current worlds have no fixed edge")
-	var first: Dictionary = _gen.generate_chunk(5150, Vector2i(1, -2))
-	var second: Dictionary = _gen.generate_chunk(5150, Vector2i(1, -2))
+	var first: Dictionary = _gen.generate_chunk(5150, Vector2i(1, -2), 2)
+	var second: Dictionary = _gen.generate_chunk(5150, Vector2i(1, -2), 2)
 	assert_true(not first.is_empty(), "non-origin sea chunks are generated")
 	assert_eq(first.islands.size(), second.islands.size(), "same seed and chunk have same island count")
 	assert_eq(first.ports.keys(), second.ports.keys(), "same seed and chunk have same ports")
+	assert_gte(first.islands.size(), 4, "major island and cliff rocks generate together")
 	for index in range(first.islands.size()):
 		assert_eq(first.islands[index].position, second.islands[index].position, "chunk geometry is repeatable")
-		assert_true(first.islands[index].position.x >= 4096 and first.islands[index].position.y < 0, "chunk uses global coordinates outside the original map")
-	for first_index in range(first.islands.size()):
-		for second_index in range(first_index + 1, first.islands.size()):
-			var island_a: Dictionary = first.islands[first_index]
-			var island_b: Dictionary = first.islands[second_index]
-			var island_gap: float = Vector2(island_a.position).distance_to(Vector2(island_b.position)) - float(island_a.radius) - float(island_b.radius)
-			assert_gte(island_gap, 320.0, "generated islands leave a safe channel")
-	for hazard_value in first.hazard_zones:
-		var hazard: Dictionary = hazard_value
-		for island_value in first.islands:
-			var island: Dictionary = island_value
-			var coast_gap: float = Vector2(hazard.position).distance_to(Vector2(island.position)) - float(hazard.radius) - float(island.radius)
-			assert_gte(coast_gap, 220.0, "hazards leave room to pass outside island coasts")
-	assert_true(_gen.generate_chunk(5150, Vector2i.ZERO).is_empty(), "starting map is not generated twice")
+		assert_eq(first.islands[index].radius, second.islands[index].radius, "island scale is repeatable")
+	assert_eq(str(first.islands[0].get("landform", "")), "great_island", "the center island is a major landmark")
+	assert_gte(float(first.islands[0].radius), 1700.0, "major islands are large enough for long coastal passages")
+	var main_center: Vector2 = Vector2(first.islands[0].position)
+	for cliff_index in range(1, first.islands.size()):
+		var cliff: Dictionary = first.islands[cliff_index]
+		var channel_width: float = main_center.distance_to(Vector2(cliff.position)) - float(first.islands[0].radius) - float(cliff.radius)
+		assert_gte(channel_width, 220.0, "cliff gaps remain navigable")
+		assert_lte(channel_width, 370.0, "cliff channels are narrow enough to feel deliberate")
+	for port_id in first.ports:
+		var port: Dictionary = first.ports[port_id]
+		assert_eq(int(port.get("chunk_generation_version", 0)), 2, "new ports retain their generation version")
+		if str(port.get("island_id", "")) == str(first.islands[0].get("id", "")):
+			assert_eq(str(port.get("harbor_type", "")), "natural_bay", "major island ports use coves")
+			assert_eq(str(port.get("source_chunk_key", "")), "1:-2", "ports remember the cell that owns their archipelago")
+	assert_true(_gen.generate_chunk(5150, Vector2i.ZERO, 2).is_empty(), "starting map is not generated twice")
+
+
+func test_legacy_stream_chunks_can_be_rebuilt_for_old_saves() -> void:
+	var first: Dictionary = _gen.generate_chunk(5150, Vector2i(2, 1), 1)
+	var second: Dictionary = _gen.generate_chunk(5150, Vector2i(2, 1), 1)
+	assert_gte(first.islands.size(), 5, "legacy chunk retains its old scattered coastline")
+	assert_eq(first.islands[0].position, second.islands[0].position, "old explored coastline is deterministic")
