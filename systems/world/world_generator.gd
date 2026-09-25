@@ -60,8 +60,7 @@ func generate(world_seed: int, requested_version: int = -1) -> Dictionary:
 		"ports": {},
 		"hazard_zones": [],
 		"regions": {},
-		"unbounded": true,
-		"chunk_size": 4096
+		"unbounded": true
 	}
 
 	world_data.regions = _generate_regions()
