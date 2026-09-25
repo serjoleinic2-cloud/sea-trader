@@ -238,10 +238,16 @@ func dock(port_id: String) -> bool:
 			cargo_units += int(item.get("quantity", 0))
 		GameState.ship_state["delivery_credit_remaining"] = cargo_units
 	var dock_position: Vector2 = Vector2(_world_ports.get(port_id, {}).get("position", Vector2.ZERO))
-	var dock_chunk: String = "%d:%d" % [
-		floori(dock_position.x / _port_chunk_size),
-		floori(dock_position.y / _port_chunk_size)
-	]
+	var dock_port: Dictionary = _world_ports.get(port_id, {})
+	var dock_chunk_version: int = int(dock_port.get("chunk_generation_version", 1))
+	var dock_chunk: String = str(dock_port.get("source_chunk_key", ""))
+	if dock_chunk == "":
+		dock_chunk = "%d:%d" % [
+			floori(dock_position.x / _port_chunk_size),
+			floori(dock_position.y / _port_chunk_size)
+		]
+	if dock_chunk_version > 1:
+		dock_chunk += ":%d" % dock_chunk_version
 	var known_port_chunks: Array = GameState.world_state.get("known_port_chunks", [])
 	if not known_port_chunks.has(dock_chunk):
 		known_port_chunks.append(dock_chunk)
