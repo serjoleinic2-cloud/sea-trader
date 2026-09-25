@@ -25,10 +25,20 @@ var _visual_roll: float = 0.0    # current visual roll in degrees
 
 # Reference to the ship visual node (set by ShipScene on ready)
 var ship_node: Node2D = null
+var _collision_data_provider: Callable = Callable()
+const COLLISION_CLEARANCE: float = 30.0
 
 # ============================================================================
 # Public API
 # ============================================================================
+
+func set_collision_data_provider(provider: Callable) -> void:
+	_collision_data_provider = provider
+
+
+func is_navigation_move_blocked(current_pos: Vector2, proposed_pos: Vector2) -> bool:
+	return _resolve_navigation_collisions(current_pos, proposed_pos).distance_to(proposed_pos) > 0.01
+
 
 func setup(ship_data: Dictionary, initialize_state: bool = true) -> void:
 	"""Initialize from ShipData JSON. Call once before first physics tick."""
@@ -167,12 +177,53 @@ func _update_position(delta: float) -> void:
 
 	var current_pos: Vector2 = GameState.ship_state.get("position", Vector2.ZERO)
 	var new_pos: Vector2 = current_pos + displacement
-
+	new_pos = _resolve_navigation_collisions(current_pos, new_pos)
 
 	var traveled_distance: float = current_pos.distance_to(new_pos)
 	GameState.ship_state["position"] = new_pos
-	GameState.ship_state["velocity"] = direction * _speed
+	GameState.ship_state["velocity"] = direction * _speed if new_pos != current_pos else Vector2.ZERO
 	GameState.player_state.stats["total_distance"] = float(GameState.player_state.stats.get("total_distance", 0.0)) + traveled_distance
+
+
+
+func _resolve_navigation_collisions(current_pos: Vector2, proposed_pos: Vector2) -> Vector2:
+	if not _collision_data_provider.is_valid():
+		return proposed_pos
+	var collision_data: Variant = _collision_data_provider.call()
+	if not (collision_data is Dictionary):
+		return proposed_pos
+	var data: Dictionary = collision_data
+	for raw_island in data.get("islands", []):
+		if not (raw_island is Dictionary):
+			continue
+		var island: Dictionary = raw_island
+		var center: Vector2 = Vector2(island.get("position", Vector2.ZERO))
+		var radius: float = float(island.get("radius", 0.0))
+		if radius <= 0.0 or proposed_pos.distance_to(center) >= radius + COLLISION_CLEARANCE:
+			continue
+		# A natural-bay mouth is the one safe opening through the coastline.
+		var bay_angle: float = float(island.get("bay_angle", 1000.0))
+		var bay_width: float = float(island.get("bay_width", 0.0))
+		var offset: Vector2 = proposed_pos - center
+		var in_bay: bool = bay_angle < 900.0 and absf(wrapf(offset.angle() - bay_angle, -PI, PI)) <= bay_width and offset.length() >= radius * 0.72
+		if in_bay:
+			continue
+		if current_pos.distance_to(center) > radius + COLLISION_CLEARANCE:
+			_speed = 0.0
+			return current_pos
+	for raw_vessel in data.get("vessels", []):
+		if not (raw_vessel is Dictionary):
+			continue
+		var vessel: Dictionary = raw_vessel
+		var vessel_pos: Vector2 = Vector2(vessel.get("position", Vector2.ZERO))
+		var vessel_id: String = str(vessel.get("id", ""))
+		if vessel_id == "visiting_merchant" and str(GameState.ship_state.get("docked_port_id", "")) != "":
+			continue
+		var vessel_clearance: float = maxf(28.0, float(vessel.get("length", 16.0)) * 0.28) + COLLISION_CLEARANCE
+		if proposed_pos.distance_to(vessel_pos) < vessel_clearance and current_pos.distance_to(vessel_pos) >= vessel_clearance:
+			_speed = 0.0
+			return current_pos
+	return proposed_pos
 
 
 func setup_world_bounds(_w: float, _h: float) -> void:
