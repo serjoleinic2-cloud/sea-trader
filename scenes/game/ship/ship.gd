@@ -43,6 +43,15 @@ func _physics_process(delta: float) -> void:
 	_sync_visual()
 	_update_hud()
 
+func set_navigation_collision_provider(provider: Callable) -> void:
+	if _physics != null and _physics.has_method("set_collision_data_provider"):
+		_physics.call("set_collision_data_provider", provider)
+
+
+func is_navigation_move_blocked(current_pos: Vector2, proposed_pos: Vector2) -> bool:
+	return bool(_physics.call("is_navigation_move_blocked", current_pos, proposed_pos)) if _physics != null else false
+
+
 func get_navigation_speed(cruise_speed: float = 110.0) -> float:
 	return cruise_speed * float(_physics.get_max_speed()) / maxf(1.0, float(_ship_data.get("base_speed", 120.0)))
 
