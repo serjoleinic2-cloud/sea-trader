@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "selection": "stable_by_world_seed_and_instance_id",
+  "categories": {
+    "islands": [],
+    "ports": [],
+    "ships": [],
+    "buildings": [],
+    "sea_objects": []
+  },
+  "entry_fields": {
+    "id": "Уникальный ключ модели",
+    "scene": "Путь res:// к сцене Godot или импортированной модели GLB",
+    "reference_size_m": "Размер модели в метрах, используемый для нормализации масштаба",
+    "scale": "Необязательный дополнительный множитель масштаба",
+    "rotation_y_degrees": "Необязательный поворот модели",
+    "offset_m": "Необязательный локальный сдвиг [x, y, z]"
+  }
+}
