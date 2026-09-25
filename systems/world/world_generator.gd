@@ -75,10 +75,21 @@ func generate(world_seed: int, requested_version: int = -1) -> Dictionary:
 
 
 ## Builds one stable area of the endless sea. Area (0, 0) is the original starting map.
-func generate_chunk(world_seed: int, chunk_coord: Vector2i) -> Dictionary:
+## Generates a deterministic ocean region. Version 1 preserves old discovered areas;
+## version 2 places a large island chain once per 3x3 sea cells.
+func generate_chunk(world_seed: int, chunk_coord: Vector2i, generation_version: int = -1) -> Dictionary:
 	_load_config()
 	if chunk_coord == Vector2i.ZERO:
 		return {}
+	var requested_version: int = generation_version
+	if requested_version < 1:
+		requested_version = int(_config.get("streaming", {}).get("version", 1))
+	if requested_version <= 1:
+		return _generate_legacy_stream_chunk(world_seed, chunk_coord)
+	return _generate_large_island_chunk(world_seed, chunk_coord)
+
+
+func _generate_legacy_stream_chunk(world_seed: int, chunk_coord: Vector2i) -> Dictionary:
 	var saved_config: Dictionary = _config
 	var saved_rng: RandomNumberGenerator = _rng
 	var saved_seed: int = _world_seed
@@ -91,82 +102,151 @@ func generate_chunk(world_seed: int, chunk_coord: Vector2i) -> Dictionary:
 	var region_id: String = "outer_ocean"
 	if not templates.is_empty():
 		var region_index: int = posmod(hash("%d:biome:%d:%d" % [world_seed, chunk_coord.x, chunk_coord.y]), templates.size())
-		var region_template: Dictionary = templates[region_index]
-		region_id = str(region_template.get("id", region_id))
-	var stream_config: Dictionary = _config.get("streaming", {})
-	var chunk_size: int = int(stream_config.get("chunk_size", STREAM_CHUNK_SIZE))
+		region_id = str(templates[region_index].get("id", region_id))
+	var chunk_size: int = int(_config.get("streaming", {}).get("chunk_size", STREAM_CHUNK_SIZE))
 	var origin := chunk_coord * chunk_size
-	var margin: int = int(stream_config.get("edge_margin", 520))
-	var count_min: int = int(stream_config.get("island_count_min", 5))
-	var count_max: int = int(stream_config.get("island_count_max", 8))
-	var island_count: int = _rng.randi_range(count_min, count_max)
 	var islands: Array = []
+	var island_count: int = _rng.randi_range(5, 8)
 	var attempts: int = 0
 	while islands.size() < island_count and attempts < island_count * 40:
 		attempts += 1
-		var position := origin + Vector2i(
-			_rng.randi_range(margin, chunk_size - margin),
-			_rng.randi_range(margin, chunk_size - margin)
-		)
-		var radius: int = _rng.randi_range(
-			int(_config.get("island_min_radius", 80)),
-			int(_config.get("island_max_radius", 250))
-		)
+		var position := origin + Vector2i(_rng.randi_range(520, chunk_size - 520), _rng.randi_range(520, chunk_size - 520))
+		var radius: int = _rng.randi_range(80, 250)
 		var too_close: bool = false
 		for existing_value in islands:
 			var existing: Dictionary = existing_value
 			var coast_gap: float = position.distance_to(Vector2i(existing.get("position", Vector2i.ZERO))) - float(existing.get("radius", 0)) - float(radius)
-			if coast_gap < float(_config.get("island_min_coast_distance", 320)):
+			if coast_gap < 320.0:
 				too_close = true
 				break
 		if too_close:
 			continue
-		var index: int = islands.size()
-		islands.append({
-			"id": "island_c%d_%d_%02d" % [chunk_coord.x, chunk_coord.y, index],
-			"position": position,
-			"radius": radius,
-			"region": region_id
-		})
+		islands.append({"id": "island_c%d_%d_%02d" % [chunk_coord.x, chunk_coord.y, islands.size()], "position": position, "radius": radius, "region": region_id, "landform": "small_island", "chunk_generation_version": 1})
 	var ports: Dictionary = _generate_ports(islands)
 	var hazards: Array = []
-	var hazard_min: int = int(stream_config.get("hazard_count_min", 1))
-	var hazard_max: int = int(stream_config.get("hazard_count_max", 3))
-	var target_hazard_count: int = _rng.randi_range(hazard_min, hazard_max)
+	var target_hazard_count: int = _rng.randi_range(1, 3)
 	var hazard_attempts: int = 0
 	while hazards.size() < target_hazard_count and hazard_attempts < target_hazard_count * 30:
 		hazard_attempts += 1
-		var position := origin + Vector2i(
-			_rng.randi_range(margin, chunk_size - margin),
-			_rng.randi_range(margin, chunk_size - margin)
-		)
-		var radius: int = _rng.randi_range(
-			int(_config.get("hazard_zone_min_radius", 150)),
-			int(_config.get("hazard_zone_max_radius", 400))
-		)
+		var position := origin + Vector2i(_rng.randi_range(520, chunk_size - 520), _rng.randi_range(520, chunk_size - 520))
+		var radius: int = _rng.randi_range(150, 400)
 		var fair_clearance: bool = true
 		for island_value in islands:
 			var island: Dictionary = island_value
-			var coast_gap: float = position.distance_to(Vector2i(island.get("position", Vector2i.ZERO))) - float(island.get("radius", 0)) - float(radius)
-			if coast_gap < 220.0:
+			if position.distance_to(Vector2i(island.get("position", Vector2i.ZERO))) - float(island.get("radius", 0)) - float(radius) < 220.0:
 				fair_clearance = false
 				break
 		for hazard_value in hazards:
 			var existing_hazard: Dictionary = hazard_value
-			var sea_gap: float = position.distance_to(Vector2i(existing_hazard.get("position", Vector2i.ZERO))) - float(existing_hazard.get("radius", 0)) - float(radius)
-			if sea_gap < 260.0:
+			if position.distance_to(Vector2i(existing_hazard.get("position", Vector2i.ZERO))) - float(existing_hazard.get("radius", 0)) - float(radius) < 260.0:
 				fair_clearance = false
 				break
 		if not fair_clearance:
 			continue
 		var supported_types: Array = _config.get("hazard_types", ["storm", "pirate"])
 		var hazard_type: String = str(supported_types[_rng.randi_range(0, supported_types.size() - 1)]) if not supported_types.is_empty() else "storm"
-		var hazard_index: int = hazards.size()
+		hazards.append({"id": "hazard_c%d_%d_%02d" % [chunk_coord.x, chunk_coord.y, hazards.size()], "position": position, "radius": radius, "type": hazard_type, "active": true})
+	var result := {"chunk": chunk_coord, "islands": islands, "ports": ports, "hazard_zones": hazards}
+	_config = saved_config
+	_rng = saved_rng
+	_world_seed = saved_seed
+	return result
+
+
+func _generate_large_island_chunk(world_seed: int, chunk_coord: Vector2i) -> Dictionary:
+	var cell_span: int = maxi(2, int(_config.get("streaming", {}).get("archipelago_cells", 3)))
+	var super_x: int = floori(float(chunk_coord.x) / float(cell_span))
+	var super_y: int = floori(float(chunk_coord.y) / float(cell_span))
+	var anchor := Vector2i(super_x * cell_span + cell_span / 2, super_y * cell_span + cell_span / 2)
+	if chunk_coord != anchor:
+		return {"chunk": chunk_coord, "islands": [], "ports": {}, "hazard_zones": []}
+	var saved_config: Dictionary = _config
+	var saved_rng: RandomNumberGenerator = _rng
+	var saved_seed: int = _world_seed
+	_config = GameData.read(CONFIG_PATH)
+	var chunk_size: int = int(_config.get("streaming", {}).get("chunk_size", STREAM_CHUNK_SIZE))
+	var seed_text: String = "%d:archipelago:v2:%d:%d" % [world_seed, super_x, super_y]
+	var chunk_rng := RandomNumberGenerator.new()
+	chunk_rng.seed = hash(seed_text)
+	_rng = chunk_rng
+	_world_seed = world_seed
+	var templates: Array = _config.get("regions", [])
+	var region_id: String = "outer_ocean"
+	if not templates.is_empty():
+		var region_index: int = posmod(hash("%s:biome" % seed_text), templates.size())
+		region_id = str(templates[region_index].get("id", region_id))
+	var origin := anchor * chunk_size
+	var center := origin + Vector2i(chunk_size / 2, chunk_size / 2)
+	var stream_config: Dictionary = _config.get("streaming", {})
+	var main_radius: int = _rng.randi_range(int(stream_config.get("major_island_radius_min", 1700)), int(stream_config.get("major_island_radius_max", 2400)))
+	var islands: Array = [{
+		"id": "island_great_c%d_%d" % [super_x, super_y],
+		"position": center,
+		"radius": main_radius,
+		"region": region_id,
+		"landform": "great_island",
+		"bay_angle": _rng.randf_range(-PI, PI),
+		"bay_width": 0.24,
+		"chunk_generation_version": 2
+	}]
+	# Tall offshore rocks form narrow but navigable channels and sheltered water.
+	var cliff_count: int = _rng.randi_range(maxi(1, int(stream_config.get("island_count_min", 4)) - 1), maxi(1, int(stream_config.get("island_count_max", 6)) - 1))
+	var cliff_phase: float = _rng.randf_range(0.0, TAU)
+	for cliff_index in range(cliff_count):
+		var cliff_radius: int = _rng.randi_range(150, 290)
+		var bearing: float = cliff_phase + TAU * float(cliff_index) / float(cliff_count)
+		var gap: float = _rng.randf_range(float(stream_config.get("channel_width_min", 230)), float(stream_config.get("channel_width_max", 360)))
+		var distance: float = float(main_radius + cliff_radius) + gap
+		var rock_position := center + Vector2i(roundi(cos(bearing) * distance), roundi(sin(bearing) * distance))
+		islands.append({
+			"id": "cliff_c%d_%d_%02d" % [super_x, super_y, cliff_index],
+			"position": rock_position,
+			"radius": cliff_radius,
+			"region": region_id,
+			"landform": "sea_cliff",
+			"chunk_generation_version": 2
+		})
+	var ports: Dictionary = _generate_ports(islands)
+	var main_island_id: String = str(islands[0].get("id", ""))
+	var main_port_id: String = "port_" + main_island_id
+	if not ports.has(main_port_id):
+		var fallback_bay_angle: float = float(islands[0].get("bay_angle", 0.0))
+		islands[0]["bay_angle"] = fallback_bay_angle
+		ports[main_port_id] = {
+			"id": main_port_id,
+			"name": "Большая бухта",
+			"position": Vector2i(Vector2(islands[0].get("position", Vector2.ZERO)) + Vector2.from_angle(fallback_bay_angle) * float(main_radius) * 0.82),
+			"region": region_id,
+			"level": 1,
+			"island_id": main_island_id,
+			"harbor_angle": fallback_bay_angle,
+			"harbor_type": "natural_bay",
+			"harbor_radius": float(main_radius) * 0.18,
+			"buildings": {
+				"dock": {"level": 1, "damage_hp": 100},
+				"warehouse": {"level": 1, "damage_hp": 100}
+			}
+		}
+	for port_id in ports:
+		var port: Dictionary = ports[port_id]
+		port["chunk_generation_version"] = 2
+		port["source_chunk_key"] = "%d:%d" % [anchor.x, anchor.y]
+		if str(islands[0].get("id", "")) == str(port.get("island_id", "")):
+			port["harbor_type"] = "natural_bay"
+			port["harbor_angle"] = float(islands[0].get("bay_angle", 0.0))
+			port["harbor_width"] = float(islands[0].get("bay_width", 0.24))
+		ports[port_id] = port
+	var hazards: Array = []
+	var hazard_types: Array = _config.get("hazard_types", ["storm", "pirate"])
+	var hazard_count: int = _rng.randi_range(int(stream_config.get("hazard_count_min", 1)), int(stream_config.get("hazard_count_max", 2)))
+	for hazard_index in range(hazard_count):
+		var bearing: float = _rng.randf_range(-PI, PI)
+		var distance: float = float(main_radius) + _rng.randi_range(2200, 3400)
 		hazards.append({
-			"id": "hazard_c%d_%d_%02d" % [chunk_coord.x, chunk_coord.y, hazard_index],
-			"position": position,
-			"radius": radius,
-			"type": hazard_type,
+			"id": "hazard_great_c%d_%d_%02d" % [super_x, super_y, hazard_index],
+			"position": center + Vector2i(roundi(cos(bearing) * distance), roundi(sin(bearing) * distance)),
+			"radius": _rng.randi_range(220, 520),
+			"type": str(hazard_types[_rng.randi_range(0, hazard_types.size() - 1)]) if not hazard_types.is_empty() else "storm",
 			"active": true
 		})
 	var result := {"chunk": chunk_coord, "islands": islands, "ports": ports, "hazard_zones": hazards}
@@ -446,7 +526,11 @@ func _generate_ports(islands: Array) -> Dictionary:
 		name_index += 1
 
 		var angle: float = _rng.randf() * TAU
-		var offset: Vector2 = Vector2(cos(angle), sin(angle)) * (island.radius * 0.7)
+		var harbor_factor: float = 0.82 if str(island.get("landform", "")) == "great_island" else 0.7
+		if harbor_factor > 0.8:
+			island["bay_angle"] = angle
+			island["bay_width"] = float(island.get("bay_width", 0.24))
+		var offset: Vector2 = Vector2(cos(angle), sin(angle)) * (island.radius * harbor_factor)
 		var port_pos: Vector2i = Vector2i(island.position.x + int(offset.x), island.position.y + int(offset.y))
 
 		ports[port_id] = {
@@ -456,6 +540,9 @@ func _generate_ports(islands: Array) -> Dictionary:
 			"region": island.region,
 			"level": 1,
 			"island_id": island.id,
+			"harbor_angle": angle,
+			"harbor_type": "natural_bay" if harbor_factor > 0.8 else "coastal",
+			"harbor_radius": float(island.radius) * 0.18 if harbor_factor > 0.8 else 180.0,
 			"buildings": {
 				"dock": {"level": 1, "damage_hp": 100},
 				"warehouse": {"level": 1, "damage_hp": 100}
