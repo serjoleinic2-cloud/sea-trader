@@ -17,9 +17,13 @@ var _camera: Camera3D
 var _ship: Node3D
 var _trader_traffic: Node
 var _fleet_traffic: Node
-var _world_size: Vector2 = Vector2(4096.0, 4096.0)
+var _water: MeshInstance3D
+var _island_nodes: Dictionary = {}
+var _hazard_nodes: Dictionary = {}
+var _rendered_island_data: Dictionary = {}
 var _traffic_models: Dictionary = {}
 var _transition_factor: float = 0.0
+var _chunk_size: float = 4096.0
 var _camera_initialized: bool = false
 
 
@@ -32,11 +36,11 @@ func _ready() -> void:
 
 func initialize(world_data: Dictionary, map_world: CanvasItem, map_ship: CanvasItem, trader_traffic: Node = null, fleet_traffic: Node = null) -> void:
 	_world_data = world_data
+	_chunk_size = float(world_data.get("chunk_size", 4096.0))
 	_map_world = map_world
 	_map_ship = map_ship
 	_trader_traffic = trader_traffic
 	_fleet_traffic = fleet_traffic
-	_world_size = Vector2(world_data.get("world_size", Vector2i(4096, 4096)))
 	# The strategy view is 3D from the start. Keep the 2D camera active so zoom
 	# and movement still use the existing systems; traffic markers remain above it.
 	_map_world.visible = false
@@ -55,9 +59,7 @@ func initialize(world_data: Dictionary, map_world: CanvasItem, map_ship: CanvasI
 	if _fleet_traffic != null:
 		_fleet_traffic.set_process(false)
 	_subviewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
-	_build_world_islands()
-	_build_world_hazards()
-	_build_world_boundary()
+	_sync_generated_world(_world_data)
 
 
 func _process(delta: float) -> void:
@@ -76,6 +78,9 @@ func _process(delta: float) -> void:
 	var close_factor: float = 1.0 - smoothstep(TRANSITION_CLOSE_GAP, TRANSITION_START_GAP, coast_gap)
 	_set_transition(close_factor, delta)
 	_update_camera(ship_position, _transition_factor, delta)
+	if _water != null:
+		_water.position.x = ship_position.x * MAP_TO_METERS
+		_water.position.z = ship_position.y * MAP_TO_METERS
 	_sync_traffic(_trader_traffic, "trader")
 	_sync_traffic(_fleet_traffic, "fleet")
 
@@ -148,14 +153,14 @@ func _add_water() -> void:
 		METALLIC = 0.08;
 	}
 	"""
-	var water := MeshInstance3D.new()
-	water.name = "AnimatedOcean"
-	water.mesh = plane
+	_water = MeshInstance3D.new()
+	_water.name = "AnimatedOcean"
+	_water.mesh = plane
 	var water_material := ShaderMaterial.new()
 	water_material.shader = shader
-	water.material_override = water_material
-	water.position.y = -0.18
-	_scene_root.add_child(water)
+	_water.material_override = water_material
+	_water.position.y = -0.18
+	_scene_root.add_child(_water)
 
 
 func _make_ship() -> Node3D:
@@ -186,43 +191,57 @@ func _add_sail(parent: Node3D, sail_size: Vector2, at: Vector3, material: Standa
 	parent.add_child(sail)
 
 
-func _build_world_islands() -> void:
-	for raw_island in _world_data.get("islands", []):
+func sync_generated_world(world_data: Dictionary) -> void:
+	_world_data = world_data
+	_sync_generated_world(_world_data)
+
+func _sync_generated_world(world_data: Dictionary) -> void:
+	var ship_position: Vector2 = Vector2(GameState.ship_state.get("position", Vector2.ZERO))
+	var center_chunk := Vector2i(floori(ship_position.x / _chunk_size), floori(ship_position.y / _chunk_size))
+	var keep_islands: Dictionary = {}
+	var visible_islands: Dictionary = {}
+	for raw_island in world_data.get("islands", []):
 		var island: Dictionary = raw_island
+		var map_position: Vector2 = Vector2(island.get("position", Vector2.ZERO))
+		var chunk_x: int = floori(map_position.x / _chunk_size)
+		var chunk_y: int = floori(map_position.y / _chunk_size)
+		if abs(chunk_x - center_chunk.x) > 1 or abs(chunk_y - center_chunk.y) > 1:
+			continue
+		var island_id: String = str(island.get("id", ""))
+		if island_id == "":
+			continue
+		keep_islands[island_id] = true
+		visible_islands[island_id] = island
+		if _island_nodes.has(island_id):
+			continue
 		var island_root := Node3D.new()
-		island_root.name = str(island.get("id", "Island"))
-		var island_position: Vector2 = Vector2(island.get("position", Vector2.ZERO))
-		island_root.position = Vector3(island_position.x * MAP_TO_METERS, 0.0, island_position.y * MAP_TO_METERS)
+		island_root.name = island_id
+		island_root.position = Vector3(map_position.x * MAP_TO_METERS, 0.0, map_position.y * MAP_TO_METERS)
 		_scene_root.add_child(island_root)
 		_build_island(island_root, island)
+		_island_nodes[island_id] = island_root
+	_rendered_island_data = visible_islands
+	for island_id in _island_nodes.keys():
+		if keep_islands.has(island_id):
+			continue
+		(_island_nodes[island_id] as Node3D).queue_free()
+		_island_nodes.erase(island_id)
 
-
-func _build_world_boundary() -> void:
-	# The playable chart ends in a visible storm belt. Physics already stops the
-	# ship at this rectangle; the 3D marker makes that limit readable at sea.
-	var world_width: float = _world_size.x * MAP_TO_METERS
-	var world_depth: float = _world_size.y * MAP_TO_METERS
-	var belt_width: float = 80.0 * MAP_TO_METERS
-	var belt_center: float = 120.0 * MAP_TO_METERS
-	var belt_material := _material(Color(0.17, 0.32, 0.38, 0.72), 0.45)
-	belt_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	belt_material.emission_enabled = true
-	belt_material.emission = Color(0.04, 0.13, 0.16)
-	var edge_material := _material(Color(0.55, 0.76, 0.78, 0.9), 0.35)
-	for side in [-1.0, 1.0]:
-		var offset: float = float(side)
-		var z: float = belt_center if offset > 0.0 else world_depth - belt_center
-		_add_box(_scene_root, Vector3(world_width, 0.08, belt_width), Vector3(world_width * 0.5, 0.14, z), belt_material)
-		_add_box(_scene_root, Vector3(world_width, 0.06, 0.10), Vector3(world_width * 0.5, 0.19, z + offset * belt_width * 0.5), edge_material)
-		var x: float = belt_center if offset > 0.0 else world_width - belt_center
-		_add_box(_scene_root, Vector3(belt_width, 0.08, world_depth), Vector3(x, 0.14, world_depth * 0.5), belt_material)
-		_add_box(_scene_root, Vector3(0.10, 0.06, world_depth), Vector3(x + offset * belt_width * 0.5, 0.19, world_depth * 0.5), edge_material)
-
-
-func _build_world_hazards() -> void:
-	for raw_zone in _world_data.get("hazard_zones", []):
+	var keep_hazards: Dictionary = {}
+	for raw_zone in world_data.get("hazard_zones", []):
 		var zone: Dictionary = raw_zone
 		if not bool(zone.get("active", false)):
+			continue
+		var map_position: Vector2 = Vector2(zone.get("position", Vector2.ZERO))
+		var chunk_x: int = floori(map_position.x / _chunk_size)
+		var chunk_y: int = floori(map_position.y / _chunk_size)
+		if abs(chunk_x - center_chunk.x) > 1 or abs(chunk_y - center_chunk.y) > 1:
+			continue
+		var hazard_id: String = str(zone.get("id", ""))
+		if hazard_id == "":
+			continue
+		keep_hazards[hazard_id] = true
+		if _hazard_nodes.has(hazard_id):
 			continue
 		var zone_type: String = str(zone.get("type", "storm"))
 		var color: Color = Color("4a9fae")
@@ -230,8 +249,6 @@ func _build_world_hazards() -> void:
 			"tornado": color = Color("e67935")
 			"pirate": color = Color("a43d49")
 			"anomaly": color = Color("935ed6")
-			_: color = Color("4a9fae")
-		var map_position: Vector2 = Vector2(zone.get("position", Vector2.ZERO))
 		var radius: float = maxf(2.0, float(zone.get("radius", 150.0)) * MAP_TO_METERS)
 		var disk := CylinderMesh.new()
 		disk.top_radius = radius
@@ -239,7 +256,7 @@ func _build_world_hazards() -> void:
 		disk.height = 0.025
 		disk.radial_segments = 48
 		var marker := MeshInstance3D.new()
-		marker.name = "Hazard_" + str(zone.get("id", zone_type))
+		marker.name = "Hazard_" + hazard_id
 		marker.mesh = disk
 		marker.position = Vector3(map_position.x * MAP_TO_METERS, 0.015, map_position.y * MAP_TO_METERS)
 		var material := _material(Color(color.r, color.g, color.b, 0.22), 0.4)
@@ -247,93 +264,12 @@ func _build_world_hazards() -> void:
 		material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 		marker.material_override = material
 		_scene_root.add_child(marker)
-
-
-func _sync_traffic(renderer: Node, group_id: String) -> void:
-	if renderer == null or not renderer.has_method("get_vessel_snapshots"):
-		_remove_missing_vessels(group_id, {})
-		return
-	var snapshots: Array = renderer.call("get_vessel_snapshots")
-	var active_ids: Dictionary = {}
-	for raw_snapshot in snapshots:
-		var snapshot: Dictionary = raw_snapshot
-		var vessel_id: String = group_id + ":" + str(snapshot.get("id", ""))
-		active_ids[vessel_id] = true
-		var model_value: Variant = _traffic_models.get(vessel_id)
-		var model: Node3D = model_value as Node3D
-		var color: Color = snapshot.get("color", Color.WHITE)
-		var map_length: float = float(snapshot.get("length", 24.0))
-		if model == null:
-			model = _make_traffic_vessel(map_length, color)
-			model.name = vessel_id.replace(":", "_")
-			_scene_root.add_child(model)
-			_traffic_models[vessel_id] = model
-		var position: Vector2 = Vector2(snapshot.get("position", Vector2.ZERO))
-		var heading: Vector2 = Vector2(snapshot.get("heading", Vector2.UP))
-		if heading.length_squared() < 0.001:
-			heading = Vector2.UP
-		model.position = Vector3(position.x * MAP_TO_METERS, 0.04, position.y * MAP_TO_METERS)
-		model.rotation.y = -heading.angle() - PI * 0.5
-		var deck: MeshInstance3D = model.get_node("Deck") as MeshInstance3D
-		var material: StandardMaterial3D = deck.material_override as StandardMaterial3D
-		material.albedo_color = color
-	_remove_missing_vessels(group_id, active_ids)
-
-
-func _remove_missing_vessels(group_id: String, active_ids: Dictionary) -> void:
-	for raw_id in _traffic_models.keys():
-		var vessel_id: String = str(raw_id)
-		if not vessel_id.begins_with(group_id + ":") or active_ids.has(vessel_id):
+		_hazard_nodes[hazard_id] = marker
+	for hazard_id in _hazard_nodes.keys():
+		if keep_hazards.has(hazard_id):
 			continue
-		var stale_model: Node3D = _traffic_models[vessel_id] as Node3D
-		if is_instance_valid(stale_model):
-			stale_model.queue_free()
-		_traffic_models.erase(vessel_id)
-
-
-func _make_traffic_vessel(map_length: float, color: Color) -> Node3D:
-	var vessel := Node3D.new()
-	var length: float = maxf(0.6, map_length * MAP_TO_METERS)
-	var width: float = length * 0.34
-	var hull_material: StandardMaterial3D = _material(Color("302a25"), 0.75)
-	var deck_material: StandardMaterial3D = _material(color, 0.82)
-	var hull := _add_box(vessel, Vector3(width * 0.76, length * 0.12, length * 0.72), Vector3(0.0, 0.10, length * 0.03), hull_material)
-	hull.name = "Hull"
-	var points: PackedVector3Array = PackedVector3Array([
-		Vector3(0.0, 0.19, -length * 0.5),
-		Vector3(width * 0.5, 0.19, -length * 0.22),
-		Vector3(width * 0.44, 0.19, length * 0.32),
-		Vector3(0.0, 0.19, length * 0.5),
-		Vector3(-width * 0.44, 0.19, length * 0.32),
-		Vector3(-width * 0.5, 0.19, -length * 0.22)
-	])
-	var vertices := PackedVector3Array()
-	var normals := PackedVector3Array()
-	for index in range(points.size()):
-		var next_index: int = (index + 1) % points.size()
-		vertices.append(Vector3(0.0, 0.19, 0.0))
-		vertices.append(points[index])
-		vertices.append(points[next_index])
-		normals.append(Vector3.UP)
-		normals.append(Vector3.UP)
-		normals.append(Vector3.UP)
-	var arrays: Array = []
-	arrays.resize(Mesh.ARRAY_MAX)
-	arrays[Mesh.ARRAY_VERTEX] = vertices
-	arrays[Mesh.ARRAY_NORMAL] = normals
-	var deck_mesh := ArrayMesh.new()
-	deck_mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
-	var deck := MeshInstance3D.new()
-	deck.name = "Deck"
-	deck.mesh = deck_mesh
-	deck.material_override = deck_material
-	deck_material.cull_mode = BaseMaterial3D.CULL_DISABLED
-	vessel.add_child(deck)
-	var cabin_size := Vector3(width * 0.48, length * 0.20, length * 0.22)
-	_add_box(vessel, cabin_size, Vector3(0.0, 0.31, length * 0.16), _material(Color("d8c49c"), 0.9))
-	_add_cylinder(vessel, length * 0.025, length * 0.025, length * 0.32, Vector3(0.0, 0.43, -length * 0.02), Color("725a3d"))
-	return vessel
-
+		(_hazard_nodes[hazard_id] as Node3D).queue_free()
+		_hazard_nodes.erase(hazard_id)
 
 func _build_island(island_root: Node3D, island: Dictionary) -> void:
 	var current_id: String = str(island.get("id", ""))
@@ -445,7 +381,7 @@ func _update_camera(ship_position: Vector2, close_factor: float, delta: float) -
 func _find_nearest_island(ship_position: Vector2) -> Dictionary:
 	var closest: Dictionary = {}
 	var best_gap: float = INF
-	for island in _world_data.get("islands", []):
+	for island in _rendered_island_data.values():
 		var island_position: Vector2 = Vector2(island.get("position", Vector2.ZERO))
 		var radius: float = float(island.get("radius", 0.0))
 		var gap: float = maxf(0.0, ship_position.distance_to(island_position) - radius)

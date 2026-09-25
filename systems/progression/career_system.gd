@@ -12,11 +12,16 @@ func get_activity_score() -> int:
 	var stats: Dictionary = GameState.player_state.get("stats", {})
 	var weights: Dictionary = _config.get("activity_weights", {})
 	var score: float = 0.0
-	score += float(stats.get("total_sales", 0)) * float(weights.get("total_sales", 0.0))
+	# Sale and cargo totals are units, not actions. Diminishing returns prevent
+	# a single large hold from skipping several career ranks.
+	var bulk_scaling: Dictionary = weights.get("bulk_scaling", {})
+	var sold_units: float = maxf(0.0, float(stats.get("total_sales", 0)))
+	var moved_units: float = maxf(0.0, float(stats.get("cargo_units_moved", 0)))
+	score += log(1.0 + sold_units) * float(bulk_scaling.get("sales_log_scale", 6.0)) * float(weights.get("total_sales", 0.0))
 	score += float(stats.get("total_deliveries", 0)) * float(weights.get("total_deliveries", 0.0))
 	score += floor(float(stats.get("total_distance", 0.0)) / maxf(1.0, float(weights.get("distance_unit", 1000.0)))) * float(weights.get("distance_weight", 0.0))
 	score += float(stats.get("total_voyages", 0)) * float(weights.get("total_voyages", 0.0))
-	score += float(stats.get("cargo_units_moved", 0)) * float(weights.get("cargo_units_moved", 0.0))
+	score += sqrt(moved_units) * float(bulk_scaling.get("cargo_sqrt_scale", 2.0)) * float(weights.get("cargo_units_moved", 0.0))
 	score += float(stats.get("safe_dockings", 0)) * float(weights.get("safe_dockings", 0.0))
 	score += float(stats.get("ports_discovered", 0)) * float(weights.get("ports_discovered", 0.0))
 	return int(score)

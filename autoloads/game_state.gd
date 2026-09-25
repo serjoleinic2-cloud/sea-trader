@@ -38,7 +38,10 @@ var world_state: Dictionary = {
 	"explored_region_ids": [],
 	"destination_port_id": null,
 	"home_port_id": "",
-	"last_session_timestamp": 0
+	"last_session_timestamp": 0,
+	"known_port_chunks": [],
+		"chunk_generation_version": 1,
+	"chunk_generation_version": 1
 }
 
 # ============================================================================
@@ -193,7 +196,8 @@ func reset_to_defaults() -> void:
 		"explored_region_ids": [],
 		"destination_port_id": null,
 		"home_port_id": "",
-		"last_session_timestamp": 0
+		"last_session_timestamp": 0,
+		"known_port_chunks": []
 	}
 	ship_state = {
 		"ship_id": "",

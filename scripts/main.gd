@@ -21,6 +21,9 @@ var _modules: RefCounted = preload("res://core/module_loader.gd").new()
 const CAMERA_ZOOM_STEP: float = 0.08
 const CAMERA_ZOOM_MIN: float = 0.15
 const CAMERA_ZOOM_MAX: float = 2.0
+var _chunk_size: float = 4096.0
+var _loaded_chunks: Dictionary = {}
+var _last_stream_center: Vector2i = Vector2i(2147483647, 2147483647)
 
 # Phase 05
 var _port_system: Node = null
@@ -58,6 +61,61 @@ var _shipyard_system: Node = null
 var _shipyard_window: CanvasLayer = null
 
 
+func _process(_delta: float) -> void:
+	if _world_ready:
+		_ensure_streamed_world()
+
+func _ensure_streamed_world() -> void:
+	if _world_generator == null or _world_data.is_empty():
+		return
+	var ship_position: Vector2 = Vector2(GameState.ship_state.get("position", Vector2.ZERO))
+	var center := Vector2i(
+		floori(ship_position.x / _chunk_size),
+		floori(ship_position.y / _chunk_size)
+	)
+	if center == _last_stream_center:
+		return
+	_last_stream_center = center
+	var changed: bool = false
+	for chunk_y in range(center.y - 1, center.y + 2):
+		for chunk_x in range(center.x - 1, center.x + 2):
+			if _load_stream_chunk(Vector2i(chunk_x, chunk_y)):
+				changed = true
+	if not changed:
+		return
+	if _approach_view != null and _approach_view.has_method("sync_generated_world"):
+		_approach_view.call("sync_generated_world", _world_data)
+	if _active_route_autopilot != null and _active_route_autopilot.has_method("set_hazard_zones"):
+		_active_route_autopilot.call("set_hazard_zones", _world_data.get("hazard_zones", []))
+	if _fleet_system != null and _fleet_system.has_method("set_hazard_zones"):
+		_fleet_system.call("set_hazard_zones", _world_data.get("hazard_zones", []))
+	if _world_event_system != null and _world_event_system.has_method("set_world_data"):
+		_world_event_system.call("set_world_data", _world_data)
+
+func _load_stream_chunk(coordinate: Vector2i) -> bool:
+	var key: String = "%d:%d" % [coordinate.x, coordinate.y]
+	if coordinate == Vector2i.ZERO or _loaded_chunks.has(key):
+		return false
+	var chunk: Dictionary = _world_generator.call(
+		"generate_chunk", int(GameState.world_state.get("seed", 0)), coordinate
+	)
+	if chunk.is_empty():
+		return false
+	_loaded_chunks[key] = true
+	var islands: Array = _world_data.get("islands", [])
+	islands.append_array(chunk.get("islands", []))
+	_world_data["islands"] = islands
+	var hazards: Array = _world_data.get("hazard_zones", [])
+	hazards.append_array(chunk.get("hazard_zones", []))
+	_world_data["hazard_zones"] = hazards
+	var ports: Dictionary = chunk.get("ports", {})
+	var all_ports: Dictionary = _world_data.get("ports", {})
+	all_ports.merge(ports, true)
+	_world_data["ports"] = all_ports
+	if _port_system != null and _port_system.has_method("register_world_ports"):
+		_port_system.call("register_world_ports", ports)
+	return true
+
 func _ready() -> void:
 	print("Sea Trader — modular runtime")
 	assert(GameState != null, "GameState autoload missing")
@@ -86,8 +144,6 @@ func _ready() -> void:
 		_show_startup_error("В каталоге нет сохранённого корабля: " + saved_ship_id)
 		return
 	_spawn_ship()
-	var world_size: Vector2 = Vector2(_world_data.get("world_size", Vector2i(4096, 4096)))
-	_ship.call("set_world_bounds", world_size)
 	_approach_view = load("res://systems/rendering/approach_3d_view.gd").new()
 	_approach_view.name = "Approach3DView"
 	add_child(_approach_view)
@@ -99,8 +155,6 @@ func _ready() -> void:
 		_fleet_system.call("set_hazard_zones", _world_data.get("hazard_zones", []))
 	if _world_event_system != null and _world_event_system.has_method("initialize"):
 		_world_event_system.call("initialize", _ship, _world_data)
-	if _ship_status_hud != null and _ship_status_hud.has_method("set_world_size"):
-		_ship_status_hud.call("set_world_size", world_size)
 	var window_coordinator: Node = load("res://systems/ui/window_coordinator.gd").new()
 	window_coordinator.name = "WindowCoordinator"
 	add_child(window_coordinator)
@@ -156,6 +210,17 @@ func _initialize_world() -> bool:
 		else:
 			_world_data = _world_generator.generate(world_seed, int(saved_version))
 	var world_data: Dictionary = _world_data
+	_chunk_size = float(world_data.get("chunk_size", 4096.0))
+	_loaded_chunks.clear()
+	_loaded_chunks["0:0"] = true
+	if not GameState.world_state.has("chunk_generation_version"):
+		GameState.world_state["chunk_generation_version"] = 1
+	var saved_chunks: Variant = GameState.world_state.get("known_port_chunks", [])
+	if saved_chunks is Array:
+		for raw_key in saved_chunks:
+			var coordinates: PackedStringArray = str(raw_key).split(":")
+			if coordinates.size() == 2:
+				_load_stream_chunk(Vector2i(int(coordinates[0]), int(coordinates[1])))
 
 	if _is_new_game:
 		GameState.ship_state.position = Vector2(world_data.world_size) * 0.25

@@ -6,6 +6,7 @@
 | --- | --- | --- |
 | Запуск | Main → GameData/ModuleLoader → SaveSystem → WorldGenerator → Ship → модули | Восстановленные разделы GameState |
 | Ручное управление | SensorInput/InputAdapter → ShipControl → ShipPhysics | ship_state, world_state |
+| Исследование океана | Main → WorldGenerator.generate_chunk → PortSystem / Approach3DView | Seed-карта, известные области и текущая 3D-геометрия |
 | Швартовка и маршрут | Main → PortSystem | ship_state, port_state, known_routes_state, player_state |
 | Покупка, продажа, погрузка | PortWindow → CargoTransferSystem → TradeLineSystem при продаже | ship_state.cargo, port_state, деньги/статистика |
 | Рейс основного судна | LogisticsWindow → LogisticsSystem → ActiveRouteAutopilot → PortSystem → CargoTransferSystem | voyage_state, ship_state, рынок/склад |

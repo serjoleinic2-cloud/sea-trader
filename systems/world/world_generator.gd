@@ -6,6 +6,7 @@ extends Node
 
 const CONFIG_PATH: String = "res://data/world/world_gen_config.json"
 const LEGACY_V1_CONFIG_PATH: String = "res://data/world/world_gen_config_v1.json"
+const STREAM_CHUNK_SIZE: int = 4096
 
 var _config: Dictionary = {}
 var _legacy_v1_config: Dictionary = {}
@@ -50,6 +51,7 @@ func generate(world_seed: int, requested_version: int = -1) -> Dictionary:
 
 	var world_data: Dictionary = {
 		"seed": world_seed,
+		"chunk_size": int(_config.get("streaming", {}).get("chunk_size", STREAM_CHUNK_SIZE)),
 		"world_size": Vector2i(
 			_config.world_size[0],
 			_config.world_size[1]
@@ -57,7 +59,9 @@ func generate(world_seed: int, requested_version: int = -1) -> Dictionary:
 		"islands": [],
 		"ports": {},
 		"hazard_zones": [],
-		"regions": {}
+		"regions": {},
+		"unbounded": true,
+		"chunk_size": 4096
 	}
 
 	world_data.regions = _generate_regions()
@@ -67,6 +71,109 @@ func generate(world_seed: int, requested_version: int = -1) -> Dictionary:
 
 	_config = current_config
 	return world_data
+
+
+
+## Builds one stable area of the endless sea. Area (0, 0) is the original starting map.
+func generate_chunk(world_seed: int, chunk_coord: Vector2i) -> Dictionary:
+	_load_config()
+	if chunk_coord == Vector2i.ZERO:
+		return {}
+	var saved_config: Dictionary = _config
+	var saved_rng: RandomNumberGenerator = _rng
+	var saved_seed: int = _world_seed
+	_config = GameData.read(CONFIG_PATH)
+	var chunk_rng := RandomNumberGenerator.new()
+	chunk_rng.seed = hash("%d:sea:%d:%d" % [world_seed, chunk_coord.x, chunk_coord.y])
+	_rng = chunk_rng
+	_world_seed = world_seed
+	var templates: Array = _config.get("regions", [])
+	var region_id: String = "outer_ocean"
+	if not templates.is_empty():
+		var region_index: int = posmod(hash("%d:biome:%d:%d" % [world_seed, chunk_coord.x, chunk_coord.y]), templates.size())
+		var region_template: Dictionary = templates[region_index]
+		region_id = str(region_template.get("id", region_id))
+	var stream_config: Dictionary = _config.get("streaming", {})
+	var chunk_size: int = int(stream_config.get("chunk_size", STREAM_CHUNK_SIZE))
+	var origin := chunk_coord * chunk_size
+	var margin: int = int(stream_config.get("edge_margin", 520))
+	var count_min: int = int(stream_config.get("island_count_min", 5))
+	var count_max: int = int(stream_config.get("island_count_max", 8))
+	var island_count: int = _rng.randi_range(count_min, count_max)
+	var islands: Array = []
+	var attempts: int = 0
+	while islands.size() < island_count and attempts < island_count * 40:
+		attempts += 1
+		var position := origin + Vector2i(
+			_rng.randi_range(margin, chunk_size - margin),
+			_rng.randi_range(margin, chunk_size - margin)
+		)
+		var radius: int = _rng.randi_range(
+			int(_config.get("island_min_radius", 80)),
+			int(_config.get("island_max_radius", 250))
+		)
+		var too_close: bool = false
+		for existing_value in islands:
+			var existing: Dictionary = existing_value
+			var coast_gap: float = position.distance_to(Vector2i(existing.get("position", Vector2i.ZERO))) - float(existing.get("radius", 0)) - float(radius)
+			if coast_gap < float(_config.get("island_min_coast_distance", 320)):
+				too_close = true
+				break
+		if too_close:
+			continue
+		var index: int = islands.size()
+		islands.append({
+			"id": "island_c%d_%d_%02d" % [chunk_coord.x, chunk_coord.y, index],
+			"position": position,
+			"radius": radius,
+			"region": region_id
+		})
+	var ports: Dictionary = _generate_ports(islands)
+	var hazards: Array = []
+	var hazard_min: int = int(stream_config.get("hazard_count_min", 1))
+	var hazard_max: int = int(stream_config.get("hazard_count_max", 3))
+	var target_hazard_count: int = _rng.randi_range(hazard_min, hazard_max)
+	var hazard_attempts: int = 0
+	while hazards.size() < target_hazard_count and hazard_attempts < target_hazard_count * 30:
+		hazard_attempts += 1
+		var position := origin + Vector2i(
+			_rng.randi_range(margin, chunk_size - margin),
+			_rng.randi_range(margin, chunk_size - margin)
+		)
+		var radius: int = _rng.randi_range(
+			int(_config.get("hazard_zone_min_radius", 150)),
+			int(_config.get("hazard_zone_max_radius", 400))
+		)
+		var fair_clearance: bool = true
+		for island_value in islands:
+			var island: Dictionary = island_value
+			var coast_gap: float = position.distance_to(Vector2i(island.get("position", Vector2i.ZERO))) - float(island.get("radius", 0)) - float(radius)
+			if coast_gap < 220.0:
+				fair_clearance = false
+				break
+		for hazard_value in hazards:
+			var existing_hazard: Dictionary = hazard_value
+			var sea_gap: float = position.distance_to(Vector2i(existing_hazard.get("position", Vector2i.ZERO))) - float(existing_hazard.get("radius", 0)) - float(radius)
+			if sea_gap < 260.0:
+				fair_clearance = false
+				break
+		if not fair_clearance:
+			continue
+		var supported_types: Array = _config.get("hazard_types", ["storm", "pirate"])
+		var hazard_type: String = str(supported_types[_rng.randi_range(0, supported_types.size() - 1)]) if not supported_types.is_empty() else "storm"
+		var hazard_index: int = hazards.size()
+		hazards.append({
+			"id": "hazard_c%d_%d_%02d" % [chunk_coord.x, chunk_coord.y, hazard_index],
+			"position": position,
+			"radius": radius,
+			"type": hazard_type,
+			"active": true
+		})
+	var result := {"chunk": chunk_coord, "islands": islands, "ports": ports, "hazard_zones": hazards}
+	_config = saved_config
+	_rng = saved_rng
+	_world_seed = saved_seed
+	return result
 
 
 func regenerate_from_state() -> Dictionary:
@@ -308,7 +415,16 @@ func _get_region_for_position(pos: Vector2i) -> String:
 		var rect: Rect2i = Rect2i(bounds[0], bounds[1], bounds[2], bounds[3])
 		if rect.has_point(pos):
 			return region_data.id
-	return "unknown"
+	var templates: Array = _config.get("regions", [])
+	if templates.is_empty():
+		return "outer_ocean"
+	var stream_config: Dictionary = _config.get("streaming", {})
+	var chunk_size: float = float(stream_config.get("chunk_size", STREAM_CHUNK_SIZE))
+	var chunk_x: int = floori(float(pos.x) / chunk_size)
+	var chunk_y: int = floori(float(pos.y) / chunk_size)
+	var region_index: int = posmod(hash("%d:biome:%d:%d" % [_world_seed, chunk_x, chunk_y]), templates.size())
+	var region_template: Dictionary = templates[region_index]
+	return str(region_template.get("id", "outer_ocean"))
 
 
 # ============================================================================

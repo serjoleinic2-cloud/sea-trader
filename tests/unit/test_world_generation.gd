@@ -156,3 +156,28 @@ func test_v1_hazard_generation_remains_compatible_for_migration() -> void:
 	assert_true(world.hazard_zones.size() > 0, "legacy seed should retain its generated hazards")
 	for zone in world.hazard_zones:
 		assert_eq(zone.get("active", true), false, "v1 generator data must stay unchanged")
+
+func test_stream_chunks_are_seed_stable_and_unbounded() -> void:
+	var starter: Dictionary = _gen.generate(5150)
+	assert_true(bool(starter.get("unbounded", false)), "current worlds have no fixed edge")
+	var first: Dictionary = _gen.generate_chunk(5150, Vector2i(1, -2))
+	var second: Dictionary = _gen.generate_chunk(5150, Vector2i(1, -2))
+	assert_true(not first.is_empty(), "non-origin sea chunks are generated")
+	assert_eq(first.islands.size(), second.islands.size(), "same seed and chunk have same island count")
+	assert_eq(first.ports.keys(), second.ports.keys(), "same seed and chunk have same ports")
+	for index in range(first.islands.size()):
+		assert_eq(first.islands[index].position, second.islands[index].position, "chunk geometry is repeatable")
+		assert_true(first.islands[index].position.x >= 4096 and first.islands[index].position.y < 0, "chunk uses global coordinates outside the original map")
+	for first_index in range(first.islands.size()):
+		for second_index in range(first_index + 1, first.islands.size()):
+			var island_a: Dictionary = first.islands[first_index]
+			var island_b: Dictionary = first.islands[second_index]
+			var island_gap: float = Vector2(island_a.position).distance_to(Vector2(island_b.position)) - float(island_a.radius) - float(island_b.radius)
+			assert_gte(island_gap, 320.0, "generated islands leave a safe channel")
+	for hazard_value in first.hazard_zones:
+		var hazard: Dictionary = hazard_value
+		for island_value in first.islands:
+			var island: Dictionary = island_value
+			var coast_gap: float = Vector2(hazard.position).distance_to(Vector2(island.position)) - float(hazard.radius) - float(island.radius)
+			assert_gte(coast_gap, 220.0, "hazards leave room to pass outside island coasts")
+	assert_true(_gen.generate_chunk(5150, Vector2i.ZERO).is_empty(), "starting map is not generated twice")

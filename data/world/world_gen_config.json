@@ -34,14 +34,14 @@
     {
       "id": "starting_region",
       "bounds": [
-      0,
-      0,
-      2048,
-      2048
+        0,
+        0,
+        2048,
+        2048
       ],
       "center": [
-      1024,
-      1024
+        1024,
+        1024
       ],
       "resources": [
         "resource_timber",
@@ -52,14 +52,14 @@
     {
       "id": "eastern_archipelago",
       "bounds": [
-      2048,
-      0,
-      2048,
-      2048
+        2048,
+        0,
+        2048,
+        2048
       ],
       "center": [
-      3072,
-      1024
+        3072,
+        1024
       ],
       "resources": [
         "resource_timber",
@@ -70,14 +70,14 @@
     {
       "id": "southern_storm_sea",
       "bounds": [
-      0,
-      2048,
-      2048,
-      2048
+        0,
+        2048,
+        2048,
+        2048
       ],
       "center": [
-      1024,
-      3072
+        1024,
+        3072
       ],
       "resources": [
         "resource_fish",
@@ -133,5 +133,14 @@
     "Northreach",
     "Dawnbreak",
     "Ironclad Port"
-  ]
+  ],
+  "streaming": {
+    "chunk_size": 4096,
+    "island_count_min": 5,
+    "island_count_max": 8,
+    "edge_margin": 520,
+    "hazard_count_min": 1,
+    "hazard_count_max": 3,
+    "version": 1
+  }
 }

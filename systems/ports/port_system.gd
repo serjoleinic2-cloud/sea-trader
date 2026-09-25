@@ -9,6 +9,8 @@ extends Node
 
 var _discovery_radius: float = 0.0
 var _world_ports: Dictionary = {}
+var _port_ids_by_chunk: Dictionary = {}
+var _port_chunk_size: float = 4096.0
 
 # Набор id портов, в радиусе которых корабль находится прямо сейчас
 var _ports_in_range: Dictionary = {}  # port_id → bool
@@ -25,10 +27,43 @@ func initialize(ship: Node2D, world_ports: Dictionary, hiring_system: Node = nul
 	_ship_node = ship
 	_hiring_system = hiring_system
 	_world_ports = world_ports
+	_port_ids_by_chunk.clear()
+	var world_config: Dictionary = GameData.read("res://data/world/world_gen_config.json")
+	_port_chunk_size = float(world_config.get("streaming", {}).get("chunk_size", 4096.0))
+	for port_id in _world_ports:
+		_index_port_in_chunk(str(port_id), _world_ports[port_id])
 	_ports_in_range.clear()
 	var config: Dictionary = GameData.read("res://data/ports/port_template.json")
 	_discovery_radius = float(config.get("discovery_radius", 0.0))
 	_upgrade_legacy_port_knowledge()
+
+func register_world_ports(ports: Dictionary) -> void:
+	for port_id in ports:
+		_world_ports[str(port_id)] = ports[port_id]
+		_index_port_in_chunk(str(port_id), ports[port_id])
+
+func _index_port_in_chunk(port_id: String, raw_port: Variant) -> void:
+	if not (raw_port is Dictionary):
+		return
+	var port: Dictionary = raw_port
+	var position: Vector2 = Vector2(port.get("position", Vector2.ZERO))
+	var chunk_key: String = "%d:%d" % [
+		floori(position.x / _port_chunk_size),
+		floori(position.y / _port_chunk_size)
+	]
+	var ids: Array = _port_ids_by_chunk.get(chunk_key, [])
+	if not ids.has(port_id):
+		ids.append(port_id)
+	_port_ids_by_chunk[chunk_key] = ids
+
+func _get_nearby_port_ids(position: Vector2) -> Array:
+	var center_x: int = floori(position.x / _port_chunk_size)
+	var center_y: int = floori(position.y / _port_chunk_size)
+	var nearby: Array = []
+	for y in range(center_y - 1, center_y + 2):
+		for x in range(center_x - 1, center_x + 2):
+			nearby.append_array(_port_ids_by_chunk.get("%d:%d" % [x, y], []))
+	return nearby
 
 func _upgrade_legacy_port_knowledge() -> void:
 	# Older prototype saves marked every generated port as discovered. Keep only
@@ -51,32 +86,30 @@ func _upgrade_legacy_port_knowledge() -> void:
 
 
 func _process(_delta: float) -> void:
-	if _ship_node == null:
+	if _ship_node == null or GameState.port_state == null:
 		return
-	if GameState.port_state == null:
-		return
-
 	var ship_pos: Vector2 = _ship_node.global_position
-
-	for port_id in _world_ports:
+	var nearby_ids: Array = _get_nearby_port_ids(ship_pos)
+	for raw_id in _ports_in_range.keys():
+		var old_id: String = str(raw_id)
+		if bool(_ports_in_range.get(old_id, false)) and not nearby_ids.has(old_id):
+			_ports_in_range.erase(old_id)
+			EventBus.emit_signal("port_exited", old_id)
+	for raw_id in nearby_ids:
+		var port_id: String = str(raw_id)
+		if not _world_ports.has(port_id):
+			continue
 		var port: Dictionary = GameState.port_state.get(port_id, {})
-		var port_pos := Vector2(_world_ports[port_id].position)
-		var radius: float = _get_effective_discovery_radius()
-		var dist: float = ship_pos.distance_to(port_pos)
-		var in_range: bool = dist <= radius
+		var port_pos: Vector2 = Vector2(_world_ports[port_id].get("position", Vector2.ZERO))
+		var in_range: bool = ship_pos.distance_to(port_pos) <= _get_effective_discovery_radius()
 		var was_in_range: bool = _ports_in_range.get(port_id, false)
-
 		if in_range and not was_in_range:
-			# Вошли в зону
 			_ports_in_range[port_id] = true
 			_on_enter_port_range(port_id, port)
 		elif not in_range and was_in_range:
-			# Вышли из зоны
-			_ports_in_range[port_id] = false
+			_ports_in_range.erase(port_id)
 			EventBus.emit_signal("port_exited", port_id)
-
 	_update_nearest_port_debug(ship_pos)
-
 
 func _on_enter_port_range(port_id: String, _port: Dictionary) -> void:
 	# Seeing a port is not a visit. Player knowledge is recorded only after docking.
@@ -93,21 +126,20 @@ var total_port_count: int = 0
 func _update_nearest_port_debug(ship_pos: Vector2) -> void:
 	nearest_port_name = ""
 	discovered_count = 0
-	total_port_count = 0
-
-	var best_dist := INF
-	for port_id in _world_ports:
-		var port: Dictionary = GameState.port_state.get(port_id, {})
-		total_port_count += 1
-		if is_port_discovered(port_id):
-			discovered_count += 1
-		var port_pos := Vector2(_world_ports[port_id].position)
-		var radius: float = _get_effective_discovery_radius()
-		var dist := ship_pos.distance_to(port_pos)
-		if dist <= radius and dist < best_dist:
+	total_port_count = _world_ports.size()
+	var visited: Variant = GameState.player_state.get("visited_port_ids", [])
+	if visited is Array:
+		discovered_count = visited.size()
+	var best_dist: float = INF
+	for raw_id in _get_nearby_port_ids(ship_pos):
+		var port_id: String = str(raw_id)
+		if not _world_ports.has(port_id):
+			continue
+		var port_pos: Vector2 = Vector2(_world_ports[port_id].get("position", Vector2.ZERO))
+		var dist: float = ship_pos.distance_to(port_pos)
+		if dist <= _get_effective_discovery_radius() and dist < best_dist:
 			best_dist = dist
 			nearest_port_name = get_port_name(port_id)
-
 
 func _get_effective_discovery_radius() -> float:
 	var raw_crew: Variant = GameState.ship_state.get("crew", [])
@@ -205,6 +237,15 @@ func dock(port_id: String) -> bool:
 		for item in GameState.ship_state.get("cargo", []):
 			cargo_units += int(item.get("quantity", 0))
 		GameState.ship_state["delivery_credit_remaining"] = cargo_units
+	var dock_position: Vector2 = Vector2(_world_ports.get(port_id, {}).get("position", Vector2.ZERO))
+	var dock_chunk: String = "%d:%d" % [
+		floori(dock_position.x / _port_chunk_size),
+		floori(dock_position.y / _port_chunk_size)
+	]
+	var known_port_chunks: Array = GameState.world_state.get("known_port_chunks", [])
+	if not known_port_chunks.has(dock_chunk):
+		known_port_chunks.append(dock_chunk)
+		GameState.world_state["known_port_chunks"] = known_port_chunks
 	GameState.world_state["last_docked_port_id"] = port_id
 	GameState.ship_state["docked_port_id"] = port_id
 	if str(GameState.world_state.get("home_port_id", "")) == "":

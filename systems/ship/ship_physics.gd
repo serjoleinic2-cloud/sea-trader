@@ -168,14 +168,6 @@ func _update_position(delta: float) -> void:
 	var current_pos: Vector2 = GameState.ship_state.get("position", Vector2.ZERO)
 	var new_pos: Vector2 = current_pos + displacement
 
-	# Clamp to world bounds
-	var world_size: Vector2 = Vector2(
-		_ship_data.get("_world_w", 4096.0),
-		_ship_data.get("_world_h", 4096.0)
-	)
-	# World size injected via setup_world_bounds if available; otherwise use default
-	new_pos.x = clampf(new_pos.x, 0.0, world_size.x)
-	new_pos.y = clampf(new_pos.y, 0.0, world_size.y)
 
 	var traveled_distance: float = current_pos.distance_to(new_pos)
 	GameState.ship_state["position"] = new_pos
@@ -183,10 +175,9 @@ func _update_position(delta: float) -> void:
 	GameState.player_state.stats["total_distance"] = float(GameState.player_state.stats.get("total_distance", 0.0)) + traveled_distance
 
 
-func setup_world_bounds(w: float, h: float) -> void:
-	"""Inject world size for clamping. Called by scene init."""
-	_ship_data["_world_w"] = w
-	_ship_data["_world_h"] = h
+func setup_world_bounds(_w: float, _h: float) -> void:
+	"""Legacy API kept for old scenes; the generated sea has no edge."""
+	pass
 
 
 # ============================================================================

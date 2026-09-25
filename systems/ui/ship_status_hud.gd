@@ -69,13 +69,6 @@ E: пришвартоваться"
 		var speed: float = ship.get("velocity", Vector2.ZERO).length()
 		var eta: String = "—" if speed <= 0.1 else "%d сек" % int(ceil(distance_left / speed))
 		autopilot_text = "\nАВТОПИЛОТ: %s\nДо порта: %.0f | прибытие: %s" % [_port_system.get_port_name(destination_id), distance_left, eta]
-	var position: Vector2 = Vector2(ship.get("position", Vector2.ZERO))
-	var edge_distance: float = minf(minf(position.x, position.y), minf(_world_size.x - position.x, _world_size.y - position.y))
-	var boundary_text: String = ""
-	if edge_distance <= 240.0:
-		boundary_text = "\\nШтормовой пояс: за краем пока нельзя пройти."
-	elif edge_distance <= 420.0:
-		boundary_text = "\\nДо штормового пояса: %.0f" % edge_distance
 	_label.text = (
 		"КОРАБЛЬ
 "
@@ -97,7 +90,6 @@ E: пришвартоваться"
 		+ "Стоянка: %s"
 		+ "%s"
 		+ "%s"
-		+ "%s"
 	) % [
 		float(GameState.player_state.get("money", 0.0)),
 		ship.get("velocity", Vector2.ZERO).length(),
@@ -106,7 +98,7 @@ E: пришвартоваться"
 		cargo_units, int(ship.get("cargo_capacity", 0)),
 		_get_cargo_text(ship),
 		int(ship.get("position", Vector2.ZERO).x), int(ship.get("position", Vector2.ZERO).y),
-		docked_port if docked_port != "" else "в море", dock_hint, autopilot_text, boundary_text
+		docked_port if docked_port != "" else "в море", dock_hint, autopilot_text
 	]
 
 func _get_cargo_units(ship: Dictionary) -> int:
