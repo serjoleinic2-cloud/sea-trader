@@ -92,12 +92,14 @@ func _ensure_streamed_world() -> void:
 	if _world_event_system != null and _world_event_system.has_method("set_world_data"):
 		_world_event_system.call("set_world_data", _world_data)
 
-func _load_stream_chunk(coordinate: Vector2i) -> bool:
+func _load_stream_chunk(coordinate: Vector2i, requested_generation_version: int = -1) -> bool:
 	var key: String = "%d:%d" % [coordinate.x, coordinate.y]
 	if coordinate == Vector2i.ZERO or _loaded_chunks.has(key):
 		return false
+	var current_generation_version: int = int(GameData.read("res://data/world/world_gen_config.json").get("streaming", {}).get("version", 1))
+	var generation_version: int = requested_generation_version if requested_generation_version > 0 else current_generation_version
 	var chunk: Dictionary = _world_generator.call(
-		"generate_chunk", int(GameState.world_state.get("seed", 0)), coordinate
+		"generate_chunk", int(GameState.world_state.get("seed", 0)), coordinate, generation_version
 	)
 	if chunk.is_empty():
 		return false
@@ -219,8 +221,9 @@ func _initialize_world() -> bool:
 	if saved_chunks is Array:
 		for raw_key in saved_chunks:
 			var coordinates: PackedStringArray = str(raw_key).split(":")
-			if coordinates.size() == 2:
-				_load_stream_chunk(Vector2i(int(coordinates[0]), int(coordinates[1])))
+			if coordinates.size() >= 2:
+				var saved_chunk_version: int = int(coordinates[2]) if coordinates.size() >= 3 else 1
+				_load_stream_chunk(Vector2i(int(coordinates[0]), int(coordinates[1])), saved_chunk_version)
 
 	if _is_new_game:
 		GameState.ship_state.position = Vector2(world_data.world_size) * 0.25
@@ -299,6 +302,8 @@ func _spawn_ship() -> void:
 	var ship_scene: PackedScene = preload("res://scenes/game/ship/ship.tscn")
 	_ship = ship_scene.instantiate()
 	add_child(_ship)
+	if _ship.has_method("set_navigation_collision_provider"):
+		_ship.call("set_navigation_collision_provider", Callable(self, "_get_navigation_collision_data"))
 
 	var old_cam: Node = get_node_or_null("Camera2D")
 	if old_cam != null:
@@ -306,6 +311,17 @@ func _spawn_ship() -> void:
 
 	print("Ship spawned at: %s" % str(GameState.ship_state.get("position", Vector2.ZERO)))
 
+
+
+func _get_navigation_collision_data() -> Dictionary:
+	var vessels: Array[Dictionary] = []
+	for renderer in [_trader_traffic, _fleet_traffic]:
+		if renderer != null and renderer.has_method("get_vessel_snapshots"):
+			var snapshots: Array = renderer.call("get_vessel_snapshots")
+			for snapshot in snapshots:
+				if snapshot is Dictionary:
+					vessels.append(snapshot)
+	return {"islands": _world_data.get("islands", []), "vessels": vessels}
 
 func get_module(module_id: String) -> Node:
 	return _modules.services.get(module_id)
