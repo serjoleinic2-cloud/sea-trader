@@ -88,7 +88,7 @@ func _ready() -> void:
 	_approach_view = load("res://systems/rendering/approach_3d_view.gd").new()
 	_approach_view.name = "Approach3DView"
 	add_child(_approach_view)
-	_approach_view.call("initialize", _world_data)
+	_approach_view.call("initialize", _world_data, _world, _ship)
 	_modules.start(self, {"$ship": _ship, "$ports": _world_data.ports, "$main": self})
 	var window_coordinator: Node = load("res://systems/ui/window_coordinator.gd").new()
 	window_coordinator.name = "WindowCoordinator"
