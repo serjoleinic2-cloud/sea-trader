@@ -1,7 +1,7 @@
 extends CanvasLayer
 
-## Renders the same world coordinates as the strategic map. On approach, the
-## map fades and this camera lowers behind the 3D ship.
+## Renders the strategic map and the close view from one shared 3D world.
+## On approach, only the camera moves from overhead to behind the ship.
 
 const MAP_TO_METERS: float = 0.04
 const TRANSITION_START_GAP: float = 560.0
@@ -30,6 +30,16 @@ func initialize(world_data: Dictionary, map_world: CanvasItem, map_ship: CanvasI
 	_world_data = world_data
 	_map_world = map_world
 	_map_ship = map_ship
+	# The strategy view is 3D from the start. Keep the 2D camera active so zoom
+	# and movement still use the existing systems; traffic markers remain above it.
+	_map_world.visible = false
+	var ship_sprite: CanvasItem = _map_ship.get_node_or_null("ShipVisual") as CanvasItem
+	if ship_sprite != null:
+		ship_sprite.visible = false
+	var procedural_visual: CanvasItem = _map_ship.get_node_or_null("ProceduralShipVisual") as CanvasItem
+	if procedural_visual != null:
+		procedural_visual.visible = false
+	_subviewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 	_build_world_islands()
 
 
@@ -56,8 +66,7 @@ func _build_viewport() -> void:
 	_viewport_container.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_viewport_container.stretch = true
 	_viewport_container.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	# This same 3D scene sits behind the 2D map from startup. Only the map
-	# overlay fades; the 3D world itself is never swapped in as another picture.
+	# Keep the shared 3D world below HUD CanvasLayers.
 	_viewport_container.modulate.a = 1.0
 	add_child(_viewport_container)
 
@@ -173,8 +182,10 @@ func _build_island(island_root: Node3D, island: Dictionary) -> void:
 	var current_id: String = str(island.get("id", ""))
 	var map_radius: float = float(island.get("radius", 90.0))
 	var radius: float = map_radius * MAP_TO_METERS
-	_add_cylinder(island_root, radius, radius * 0.78, 1.55, Vector3(0.0, 0.62, 0.0), Color("b99a69"))
-	_add_cylinder(island_root, radius * 0.79, radius * 0.73, 0.5, Vector3(0.0, 1.58, 0.0), Color("4f7851"))
+	# Match the map radius and center exactly; the shallow beach ring keeps the
+	# 3D island footprint from looking smaller or more crowded from overhead.
+	_add_cylinder(island_root, radius, radius * 0.94, 1.55, Vector3(0.0, 0.62, 0.0), Color("b99a69"))
+	_add_cylinder(island_root, radius * 0.94, radius * 0.84, 0.5, Vector3(0.0, 1.58, 0.0), Color("4f7851"))
 	_add_cylinder(island_root, radius * 0.34, 0.0, 2.9, Vector3(-radius * 0.18, 3.0, -radius * 0.08), Color("607d4c"))
 	_add_cylinder(island_root, radius * 0.24, 0.0, 2.1, Vector3(radius * 0.28, 2.65, radius * 0.12), Color("71865a"))
 
@@ -289,15 +300,9 @@ func _find_nearest_island(ship_position: Vector2) -> Dictionary:
 
 func _set_transition(target: float, delta: float) -> void:
 	_transition_factor = lerpf(_transition_factor, target, 1.0 - exp(-delta * 1.7))
-	if _map_world != null:
-		var world_modulate: Color = _map_world.modulate
-		world_modulate.a = 1.0 - _transition_factor
-		_map_world.modulate = world_modulate
-	if _map_ship != null:
-		var ship_modulate: Color = _map_ship.modulate
-		ship_modulate.a = 1.0 - _transition_factor
-		_map_ship.modulate = ship_modulate
-	_subviewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS if target > 0.001 or _transition_factor > 0.001 else SubViewport.UPDATE_DISABLED
+	# The transition changes only the camera: both the map view and close view
+	# are rendered from this same 3D scene at the same world coordinates.
+	_subviewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 
 
 func _add_box(parent: Node3D, size: Vector3, at: Vector3, material: Material) -> MeshInstance3D:
