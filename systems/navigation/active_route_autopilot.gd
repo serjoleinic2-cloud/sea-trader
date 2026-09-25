@@ -144,6 +144,9 @@ func _physics_process(delta: float) -> void:
 		_stop("Рейс остановлен: двигатель не работает.")
 		return
 	var next: Vector2 = current.move_toward(target, minf(speed * delta, fuel / maxf(rate, 0.000001)))
+	if _ship.has_method("is_navigation_move_blocked") and bool(_ship.call("is_navigation_move_blocked", current, next)):
+		_stop("Автопилот остановлен: впереди берег или корабль. Обойди его вручную и запусти рейс снова.")
+		return
 	var traveled: float = current.distance_to(next)
 	GameState.ship_state["position"] = next
 	GameState.ship_state["velocity"] = (next - current) / maxf(delta, 0.001)
