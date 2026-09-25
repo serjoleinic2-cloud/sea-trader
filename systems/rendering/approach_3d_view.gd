@@ -15,6 +15,8 @@ var _camera: Camera3D
 var _ship: Node3D
 var _island_root: Node3D
 var _island_id: String = ""
+var _transition_factor: float = 0.0
+var _camera_initialized: bool = false
 func _ready() -> void:
 	layer = 1
 	_build_viewport()
@@ -41,7 +43,7 @@ func _process(delta: float) -> void:
 	var close_factor: float = 1.0 - smoothstep(TRANSITION_CLOSE_GAP, TRANSITION_START_GAP, coast_gap)
 	_set_transition(close_factor, delta)
 	_update_island(nearest)
-	_update_camera(ship_position, island_position, close_factor, delta)
+	_update_camera(ship_position, island_position, _transition_factor, delta)
 
 
 func _build_viewport() -> void:
@@ -91,7 +93,7 @@ func _build_scene() -> void:
 
 func _add_water() -> void:
 	var plane := PlaneMesh.new()
-	plane.size = Vector2(700.0, 700.0)
+	plane.size = Vector2(2400.0, 2400.0)
 	plane.subdivide_width = 80
 	plane.subdivide_depth = 80
 	var shader := Shader.new()
@@ -128,8 +130,10 @@ func _make_ship() -> Node3D:
 	var deck_material := _material(Color("b58955"), 0.82)
 	var sail_material := _material(Color("eee3c8"), 0.9)
 
-	_add_box(ship, Vector3(1.55, 0.62, 4.8), Vector3(0.0, 0.15, 0.15), hull_material)
-	_add_box(ship, Vector3(1.28, 0.18, 3.55), Vector3(0.0, 0.54, 0.2), deck_material)
+	# The map hull is 87 world units long; at MAP_TO_METERS this hull is the
+	# same apparent size when the camera crosses from the map into 3D.
+	_add_box(ship, Vector3(1.04, 0.50, 3.48), Vector3(0.0, 0.15, 0.12), hull_material)
+	_add_box(ship, Vector3(0.90, 0.16, 2.84), Vector3(0.0, 0.49, 0.14), deck_material)
 	_add_box(ship, Vector3(0.72, 0.52, 0.82), Vector3(0.0, 0.82, 1.25), _material(Color("d7c49c"), 0.88))
 	_add_cylinder(ship, 0.09, 0.09, 4.0, Vector3(0.0, 2.3, -0.25), Color("594434"))
 	_add_sail(ship, Vector2(1.55, 2.65), Vector3(0.0, 2.1, -0.2), sail_material)
@@ -159,7 +163,7 @@ func _update_island(island: Dictionary) -> void:
 	_scene_root.add_child(_island_root)
 
 	var map_radius: float = float(island.get("radius", 90.0))
-	var radius: float = clampf(map_radius * MAP_TO_METERS, 2.5, 9.0)
+	var radius: float = map_radius * MAP_TO_METERS
 	_add_cylinder(_island_root, radius, radius * 0.78, 1.55, Vector3(0.0, 0.62, 0.0), Color("b99a69"))
 	_add_cylinder(_island_root, radius * 0.79, radius * 0.73, 0.5, Vector3(0.0, 1.58, 0.0), Color("4f7851"))
 	_add_cylinder(_island_root, radius * 0.34, 0.0, 2.9, Vector3(-radius * 0.18, 3.0, -radius * 0.08), Color("607d4c"))
@@ -229,17 +233,33 @@ func _build_port(port: Dictionary, island_position: Vector2, island_radius: floa
 
 func _update_camera(ship_position: Vector2, island_position: Vector2, close_factor: float, delta: float) -> void:
 	var velocity: Vector2 = Vector2(GameState.ship_state.get("velocity", Vector2.ZERO))
-	var heading: float = velocity.angle() if velocity.length_squared() > 1.0 else  -PI * 0.5
-	var yaw: float = heading + PI * 0.5
+	var heading: float = velocity.angle() if velocity.length_squared() > 1.0 else -PI * 0.5
+	# Godot's 3D ship points along local -Z. This yaw maps that nose to the same
+	# direction as the 2D velocity vector (x right, y down).
+	var yaw: float = -heading - PI * 0.5
 	_ship.rotation.y = lerp_angle(_ship.rotation.y, yaw, 1.0 - exp(-delta * 5.0))
 
 	var forward := Vector3(cos(heading), 0.0, sin(heading))
-	var camera_back: float = lerpf(5.0, 14.0, close_factor)
-	var camera_height: float = lerpf(18.0, 4.4, close_factor)
+	var map_zoom: Vector2 = Vector2.ONE
+	var map_camera: Camera2D = get_viewport().get_camera_2d()
+	if map_camera != null:
+		map_zoom = map_camera.zoom
+	var map_view_height: float = get_viewport_rect().size.y / maxf(map_zoom.y, 0.01) * MAP_TO_METERS
+	var start_fov: float = 18.0
+	var top_down_height: float = map_view_height / (2.0 * tan(deg_to_rad(start_fov * 0.5)))
+	var camera_back: float = lerpf(0.0, 14.0, close_factor)
+	var camera_height: float = lerpf(top_down_height, 4.4, close_factor)
 	var desired_camera_position: Vector3 = -forward * camera_back + Vector3.UP * camera_height
-	_camera.position = _camera.position.lerp(desired_camera_position, 1.0 - exp(-delta * 3.5))
-	var look_distance: float = lerpf(1.0, 7.0, close_factor)
-	_camera.look_at(forward * look_distance + Vector3.UP * 0.8, Vector3.UP)
+	if _camera_initialized:
+		_camera.position = _camera.position.lerp(desired_camera_position, 1.0 - exp(-delta * 3.5))
+	else:
+		_camera.position = desired_camera_position
+		_camera_initialized = true
+	var look_distance: float = lerpf(0.0, 7.0, close_factor)
+	var focus: Vector3 = forward * look_distance + Vector3.UP * (0.8 * close_factor)
+	var map_up := Vector3(0.0, 0.0, -1.0)
+	_camera.look_at(focus, map_up.lerp(Vector3.UP, close_factor).normalized())
+	_camera.fov = lerpf(start_fov, 58.0, close_factor)
 
 	var island_offset: Vector2 = island_position - ship_position
 	_island_root.position = Vector3(island_offset.x * MAP_TO_METERS, 0.0, island_offset.y * MAP_TO_METERS)
@@ -259,8 +279,9 @@ func _find_nearest_island(ship_position: Vector2) -> Dictionary:
 
 
 func _set_transition(target: float, delta: float) -> void:
-	var current: float = _viewport_container.modulate.a
-	_viewport_container.modulate.a = lerpf(current, target, 1.0 - exp(-delta * 2.4))
+	_transition_factor = lerpf(_transition_factor, target, 1.0 - exp(-delta * 1.7))
+	_viewport_container.modulate.a = _transition_factor
+	_subviewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS if target > 0.001 or _transition_factor > 0.001 else SubViewport.UPDATE_DISABLED
 
 
 func _add_box(parent: Node3D, size: Vector3, at: Vector3, material: Material) -> MeshInstance3D:
