@@ -62,6 +62,7 @@ func setup(ship_data: Dictionary, initialize_state: bool = true) -> void:
 	GameState.ship_state["fuel_max"] = float(ship_data.get("fuel_capacity", 100))
 	GameState.ship_state["cargo_capacity"] = int(ship_data.get("cargo_capacity", 50))
 	GameState.ship_state["velocity"] = Vector2.ZERO
+	GameState.ship_state["reverse_gear"] = false
 
 
 func apply_control(throttle: float, steering_input: float) -> void:
@@ -86,6 +87,7 @@ func physics_tick(delta: float) -> void:
 		_throttle = 0.0
 		_steering = 0.0
 		GameState.ship_state["velocity"] = Vector2.ZERO
+		GameState.ship_state["reverse_gear"] = false
 		return
 	_update_speed(delta)
 	_update_heading(delta)
@@ -262,10 +264,10 @@ func _update_visual_roll(delta: float) -> void:
 # ============================================================================
 
 func _update_fuel(delta: float) -> void:
-	if _speed < 0.5:
+	if absf(_speed) < 0.5:
 		return
 
-	var speed_ratio: float = _speed / maxf(get_max_speed(), 1.0)
+	var speed_ratio: float = absf(_speed) / maxf(get_max_speed(), 1.0)
 	var crew_fuel_bonus: float = float(_get_crew_stat_total("fuel")) / 100.0
 	var consumption: float = float(_ship_data.get("fuel_per_second", 0.5)) * speed_ratio * delta * maxf(0.25, 1.0 - crew_fuel_bonus)
 
