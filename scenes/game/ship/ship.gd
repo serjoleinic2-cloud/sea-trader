@@ -8,6 +8,7 @@ extends Node2D
 
 # Child nodes (assigned in _ready from scene tree)
 @onready var _sprite: Polygon2D = $ShipVisual
+@onready var _procedural_visual: Node2D = $ProceduralShipVisual
 @onready var _camera: Camera2D = $Camera2D
 @onready var _hud: CanvasLayer = $DebugHUD
 @onready var _hud_label: Label = $DebugHUD/HUDLabel
@@ -68,7 +69,7 @@ func _init_systems() -> void:
 	_physics = preload("res://systems/ship/ship_physics.gd").new()
 	add_child(_physics)
 	_physics.setup(_ship_data, GameState.ship_state.get("ship_id", "") == "")
-	_physics.ship_node = _sprite
+	_physics.ship_node = _procedural_visual
 
 	# ShipControl
 	_control = preload("res://systems/ship/ship_control.gd").new()
@@ -105,6 +106,9 @@ func _sync_visual() -> void:
 	# Move ship node to match physics position
 	var pos: Vector2 = GameState.ship_state.get("position", Vector2.ZERO)
 	global_position = pos
+	if _procedural_visual.has_method("set_sailing_speed"):
+		var velocity: Vector2 = GameState.ship_state.get("velocity", Vector2.ZERO)
+		_procedural_visual.set_sailing_speed(velocity.length())
 
 	# Rotation + visual roll applied inside ShipPhysics._update_visual_roll
 	# via ship_node reference — nothing extra needed here

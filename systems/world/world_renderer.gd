@@ -57,6 +57,7 @@ func _draw() -> void:
 
 	# Ocean background
 	draw_rect(Rect2(Vector2.ZERO, Vector2(world_size)), ocean_color, true)
+	_draw_waves(world_size)
 
 	# Grid lines (light, for orientation)
 	_draw_grid(world_size)
@@ -73,6 +74,41 @@ func _draw() -> void:
 	for port_id in _world_data.get("ports", {}):
 		var port: Dictionary = _world_data.ports[port_id]
 		_draw_port(port)
+
+
+
+func _draw_waves(world_size: Vector2i) -> void:
+	# Only animate the camera view to keep the sea light enough for mobile.
+	var center: Vector2 = Vector2(GameState.ship_state.get("position", Vector2.ZERO))
+	var zoom: Vector2 = Vector2.ONE
+	if _camera != null and is_instance_valid(_camera):
+		center = _camera.get_screen_center_position()
+		zoom = _camera.zoom
+	var view_size: Vector2 = get_viewport_rect().size / Vector2(maxf(zoom.x, 0.01), maxf(zoom.y, 0.01))
+	var view_rect := Rect2(center - view_size * 0.65, view_size * 1.3)
+	view_rect = view_rect.intersection(Rect2(Vector2.ZERO, Vector2(world_size)))
+	if view_rect.size.x <= 0.0 or view_rect.size.y <= 0.0:
+		return
+	var spacing: float = 118.0
+	var first_x: int = floori(view_rect.position.x / spacing)
+	var last_x: int = ceili(view_rect.end.x / spacing)
+	var first_y: int = floori(view_rect.position.y / spacing)
+	var last_y: int = ceili(view_rect.end.y / spacing)
+	for row in range(first_y, last_y + 1):
+		for column in range(first_x, last_x + 1):
+			var seed_value: float = sin(float(column * 127 + row * 311) * 12.9898) * 43758.5453
+			var random_value: float = seed_value - floor(seed_value)
+			if random_value < 0.28:
+				continue
+			var base_x: float = float(column) * spacing + random_value * 68.0
+			var base_y: float = float(row) * spacing + fposmod(random_value * 137.0, spacing)
+			var slide: float = sin(_wave_clock * 0.8 + float(row) * 0.73 + float(column)) * 7.0
+			var start := Vector2(base_x + slide, base_y)
+			var length: float = 18.0 + random_value * 31.0
+			var wave_color := Color(0.62, 0.82, 0.91, 0.10 + random_value * 0.07)
+			draw_line(start, start + Vector2(length, -2.0 - random_value * 3.0), wave_color, 1.5, true)
+			var secondary_color := Color(wave_color.r, wave_color.g, wave_color.b, wave_color.a * 0.55)
+			draw_line(start + Vector2(5.0, 4.0), start + Vector2(length * 0.67, 3.0), secondary_color, 1.0, true)
 
 
 func _draw_grid(world_size: Vector2i) -> void:
