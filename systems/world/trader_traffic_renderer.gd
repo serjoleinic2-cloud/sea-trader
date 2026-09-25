@@ -46,14 +46,29 @@ func _process(delta: float) -> void:
 		var position: Vector2 = vessel.get("position", Vector2.ZERO)
 		var destination: Vector2 = vessel.get("destination", Vector2.ZERO)
 		var speed: float = float(vessel.get("speed", 20.0))
-		if position.distance_to(destination) <= speed * delta:
+		var candidate: Vector2 = position.move_toward(destination, speed * delta)
+		var player_position: Vector2 = Vector2(GameState.ship_state.get("position", Vector2.ZERO))
+		var clearance: float = float(vessel.get("size", 8.0)) * 0.9 + 30.0
+		var blocked: bool = candidate.distance_to(player_position) < clearance
+		for other_index in range(_vessels.size()):
+			if other_index == index:
+				continue
+			var other: Dictionary = _vessels[other_index]
+			var other_position: Vector2 = Vector2(other.get("position", Vector2.ZERO))
+			var other_clearance: float = (float(vessel.get("size", 8.0)) + float(other.get("size", 8.0))) * 0.55
+			if candidate.distance_to(other_position) < other_clearance:
+				blocked = true
+				break
+		if blocked:
+			vessel["position"] = position
+		elif position.distance_to(destination) <= speed * delta:
 			vessel["position"] = destination
 			vessel["destination"] = Vector2(
 				fposmod(destination.x + 1177.0 + index * 73.0, _world_size.x),
 				fposmod(destination.y + 809.0 + index * 131.0, _world_size.y)
 			)
 		else:
-			vessel["position"] = position.move_toward(destination, speed * delta)
+			vessel["position"] = candidate
 		_vessels[index] = vessel
 	if is_visible_in_tree():
 		queue_redraw()
