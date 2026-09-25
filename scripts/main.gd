@@ -86,12 +86,19 @@ func _ready() -> void:
 		_show_startup_error("В каталоге нет сохранённого корабля: " + saved_ship_id)
 		return
 	_spawn_ship()
+	var world_size: Vector2 = Vector2(_world_data.get("world_size", Vector2i(4096, 4096)))
+	_ship.call("set_world_bounds", world_size)
 	_approach_view = load("res://systems/rendering/approach_3d_view.gd").new()
 	_approach_view.name = "Approach3DView"
 	add_child(_approach_view)
 	_approach_view.call("initialize", _world_data, _world_renderer, _ship, _trader_traffic, _fleet_traffic)
 	_modules.start(self, {"$ship": _ship, "$ports": _world_data.ports, "$main": self})
-	var world_size: Vector2 = Vector2(_world_data.get("world_size", Vector2i(4096, 4096)))
+	if _active_route_autopilot != null and _active_route_autopilot.has_method("set_hazard_zones"):
+		_active_route_autopilot.call("set_hazard_zones", _world_data.get("hazard_zones", []))
+	if _fleet_system != null and _fleet_system.has_method("set_hazard_zones"):
+		_fleet_system.call("set_hazard_zones", _world_data.get("hazard_zones", []))
+	if _world_event_system != null and _world_event_system.has_method("initialize"):
+		_world_event_system.call("initialize", _ship, _world_data)
 	if _ship_status_hud != null and _ship_status_hud.has_method("set_world_size"):
 		_ship_status_hud.call("set_world_size", world_size)
 	var window_coordinator: Node = load("res://systems/ui/window_coordinator.gd").new()

@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "reentry_cooldown_seconds": 300,
+  "notice_seconds": 15,
+  "types": {
+    "storm": {
+      "name": "Штормовая зона",
+      "hull_damage": 3
+    },
+    "tornado": {
+      "name": "Смерч",
+      "hull_damage": 9,
+      "steering_damage": 5
+    },
+    "pirate": {
+      "name": "Пиратская зона",
+      "hull_damage": 4,
+      "steal_one_cargo": true
+    },
+    "anomaly": {
+      "name": "Аномальная зона",
+      "engine_damage": 6
+    }
+  }
+}

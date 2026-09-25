@@ -83,6 +83,10 @@ func test_missing_cargo_and_unknown_route_are_rejected() -> void:
 
 func test_real_ship_physics_cannot_cancel_autopilot() -> void:
 	assert_true(_pilot.start(_destination, "resource_timber", 5).ok)
+	_advance()
+	assert_gt(GameState.ship_state.position.x, 100.0)
+	assert_lt(GameState.ship_state.position.x, 500.0, "the ship must travel instead of instantly appearing at the destination")
+	assert_eq(GameState.ship_state.docked_port_id, "", "the ship stays at sea until it reaches the port")
 	for index in range(60):
 		_ship._physics.apply_control(-1.0, 1.0)
 		_advance()
@@ -92,6 +96,22 @@ func test_real_ship_physics_cannot_cancel_autopilot() -> void:
 	assert_eq(_ship.global_position, GameState.ship_state.position)
 	assert_eq(GameState.world_state.current_position, GameState.ship_state.position)
 	assert_gt(GameState.player_state.stats.total_distance, 90.0)
+
+func test_autopilot_plots_a_waypoint_around_a_hazard() -> void:
+	_pilot.set_hazard_zones([{"id": "tornado", "type": "tornado", "active": true,
+		"position": Vector2(300.0, 100.0), "radius": 50.0}])
+	_pilot._update_detour(Vector2(100.0, 100.0), Vector2(500.0, 100.0))
+	assert_true(_pilot._has_detour_waypoint)
+	assert_gt(_pilot._detour_waypoint.distance_to(Vector2(300.0, 100.0)), 130.0)
+
+func test_fleet_route_hazard_damages_ship_without_sinking_it() -> void:
+	_add_fleet()
+	_fleet.set_hazard_zones([{"id": "pirate", "type": "tornado", "active": true,
+		"position": Vector2(300.0, 100.0), "radius": 20.0}])
+	var message: String = _fleet._resolve_voyage_hazard(GameState.fleet_state[0], "home", _destination)
+	assert_eq(GameState.fleet_state[0].hull, 91.0)
+	assert_eq(GameState.fleet_state[0].steering, 95.0)
+	assert_true(message.contains("Смерч"))
 
 func test_resume_after_json_save_load_and_exactly_one_sale() -> void:
 	assert_true(_pilot.start(_destination, "resource_timber", 5).ok)
@@ -268,6 +288,28 @@ func test_unplanned_autopilot_is_paid_empty_repositioning_without_reward() -> vo
 	var cost: float = float(_fleet.quote_leg("aux", "route", 0).cash)
 	assert_true(_fleet.start_autopilot("aux", "route").ok)
 	assert_true(GameState.fleet_state[0].cargo.is_empty())
+
+func test_trade_line_loads_multiple_goods_on_one_route_leg() -> void:
+	_add_fleet()
+	var second_good: String = ""
+	for good in _market.get_goods():
+		var candidate: String = str(good.get("id", ""))
+		if candidate != "resource_timber" and bool(_market.get_market_info(_destination, candidate).get("accepted", false)):
+			second_good = candidate
+			break
+	assert_ne(second_good, "", "test port must accept at least two resources")
+	GameState.port_state.home.inventory[second_good] = 50
+	GameState.port_state[_destination].market_stock[second_good] = 50
+	var legs: Array = [
+		{"source_id": "home", "target_id": _destination, "resource_id": "resource_timber", "quantity": 4},
+		{"source_id": "home", "target_id": _destination, "resource_id": second_good, "quantity": 3},
+		{"source_id": _destination, "target_id": "home", "resource_id": second_good, "quantity": 1}
+	]
+	var result: Dictionary = _market.create_route_line("aux", legs, -100000.0)
+	assert_true(result.ok, str(result.get("message", "")))
+	assert_eq(GameState.fleet_state[0].cargo.size(), 2)
+	assert_eq(GameState.fleet_state[0].cargo[0].quantity, 4)
+	assert_eq(GameState.fleet_state[0].cargo[1].quantity, 3)
 	assert_almost_eq(GameState.player_state.money, 1000.0 - cost, 0.001)
 	_arrive_fleet()
 	assert_almost_eq(GameState.player_state.money, 1000.0 - cost, 0.001)

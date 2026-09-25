@@ -148,14 +148,36 @@ func create_route_line(ship_id: String, legs: Array, min_profit: float = 0.0) ->
 			return {"ok": false, "message": "В строке %d не выбран товар." % (index + 1)}
 		if quantity < 1 or quantity > capacity:
 			return {"ok": false, "message": "В строке %d количество не помещается в трюм." % (index + 1)}
-		if index == 0 and source_id != current_port:
-			return {"ok": false, "message": "Первая строка должна начинаться в текущем порту корабля."}
-		if index > 0 and source_id != str(normalized[index - 1].get("target_id", "")):
-			return {"ok": false, "message": "Порт отправления строки %d не совпадает с предыдущим прибытием." % (index + 1)}
 		if _get_route_key(source_id, target_id) == "":
 			return {"ok": false, "message": "Сначала изучите маршрут: %s → %s." % [source_id, target_id]}
-		normalized.append({"source_id": source_id, "target_id": target_id,
-			"resource_id": resource_id, "quantity": quantity})
+		var last_index: int = normalized.size() - 1
+		if last_index >= 0 and source_id == str(normalized[last_index].get("source_id", "")) and target_id == str(normalized[last_index].get("target_id", "")):
+			var same_hop: Dictionary = normalized[last_index]
+			var items: Array = same_hop.get("items", [])
+			var merged: bool = false
+			for item_index in range(items.size()):
+				if str(items[item_index].get("resource_id", "")) == resource_id:
+					items[item_index]["quantity"] = int(items[item_index].get("quantity", 0)) + quantity
+					merged = true
+					break
+			if not merged:
+				items.append({"resource_id": resource_id, "quantity": quantity})
+			var hop_quantity: int = 0
+			for item in items:
+				hop_quantity += int(item.get("quantity", 0))
+			if hop_quantity > capacity:
+				return {"ok": false, "message": "Общий груз на участке превышает вместимость трюма."}
+			same_hop["items"] = items
+			same_hop["quantity"] = hop_quantity
+			normalized[last_index] = same_hop
+		else:
+			if source_id != current_port:
+				return {"ok": false, "message": "Порт отправления строки %d не совпадает с предыдущим прибытием." % (index + 1)}
+			if index == 0 and source_id != str(ship.get("current_port_id", "")):
+				return {"ok": false, "message": "Первая строка должна начинаться в текущем порту корабля."}
+			normalized.append({"source_id": source_id, "target_id": target_id,
+				"items": [{"resource_id": resource_id, "quantity": quantity}], "quantity": quantity})
+			current_port = target_id
 	var last_leg: Dictionary = normalized[normalized.size() - 1]
 	var first_leg: Dictionary = normalized[0]
 	if str(last_leg.get("target_id", "")) != str(first_leg.get("source_id", "")):
@@ -248,8 +270,11 @@ func _start_multi_stop_leg(line: Dictionary) -> Dictionary:
 		return {"ok": false, "message": "У линии нет следующего перехода."}
 	var leg: Dictionary = legs[index]
 	line["quantity"] = int(leg.get("quantity", 0))
+	var items: Array = leg.get("items", [])
+	if items.is_empty() and str(leg.get("resource_id", "")) != "":
+		items = [{"resource_id": str(leg.get("resource_id", "")), "quantity": int(leg.get("quantity", 0))}]
 	return _start_trade_leg(line, str(leg.get("source_id", "")),
-		str(leg.get("target_id", "")), str(leg.get("resource_id", "")))
+		str(leg.get("target_id", "")), "", items)
 
 func _process_multi_stop_line(line: Dictionary) -> Dictionary:
 	var ship: Dictionary = _get_ship(str(line.get("ship_id", "")))
@@ -325,102 +350,141 @@ func start_single_trip(ship_id: String, source_id: String, target_id: String, re
 		SaveSystem.save_game()
 	return result
 
-func _start_trade_leg(line: Dictionary, source_id: String, target_id: String, resource_id: String) -> Dictionary:
-	var quantity: int = int(line.get("quantity", 0))
-	if quantity <= 0 or not _base_prices.has(resource_id):
-		return {"ok": false, "message": "Выберите товар и положительное количество."}
+func _start_trade_leg(line: Dictionary, source_id: String, target_id: String, resource_id: String, planned_items: Array = []) -> Dictionary:
+	var items: Array = planned_items.duplicate(true)
+	if items.is_empty() and resource_id != "":
+		items = [{"resource_id": resource_id, "quantity": int(line.get("quantity", 0))}]
+	if items.is_empty():
+		return {"ok": false, "message": "Выберите товары для перевозки."}
+	var total_quantity: int = 0
+	var purchase_total: float = 0.0
+	var revenue_total: float = 0.0
+	var production_cost: float = 0.0
 	var home_id: String = str(GameState.world_state.get("home_port_id", ""))
 	var to_home: bool = target_id == home_id
-	if not to_home:
-		var info: Dictionary = get_market_info(target_id, resource_id)
-		if not bool(info.get("accepted", false)):
-			return {"ok": false, "message": "Порт не принимает «%s»." % _good_name(resource_id)}
-		if int(info.get("demand", 0)) < quantity:
-			return {"ok": false, "message": "Спрос: %d ед. Повторите после восстановления." % int(info.get("demand", 0))}
-	if source_id != home_id:
-		_refresh_demand(source_id)
 	var source: Dictionary = GameState.port_state.get(source_id, {})
 	var stock_key: String = "inventory" if source_id == home_id else "market_stock"
 	var stock: Dictionary = source.get(stock_key, {})
-	var available_stock: int = int(stock.get(resource_id, 0))
-	if source_id == home_id:
-		available_stock -= _reserved_for_sale(resource_id)
-	if available_stock < quantity:
-		return {"ok": false, "message": "В источнике недостаточно «%s»." % _good_name(resource_id)}
-	var purchase: Dictionary = {"ok": true, "cost": 0.0}
-	if source_id != home_id:
-		purchase = quote_purchase(source_id, resource_id, quantity)
-	if not bool(purchase.get("ok", false)):
-		return purchase
-	var sale: Dictionary = {"ok": true, "revenue": 0.0}
-	if not to_home:
-		sale = quote_sale(target_id, resource_id, quantity)
-	if not bool(sale.get("ok", false)):
-		return sale
+	var recipes: Array = GameData.read("res://data/ports/production_recipes.json").get("recipes", [])
+	for raw_item in items:
+		var item: Dictionary = raw_item
+		var item_resource: String = str(item.get("resource_id", ""))
+		var quantity: int = int(item.get("quantity", 0))
+		if quantity <= 0 or not _base_prices.has(item_resource):
+			return {"ok": false, "message": "Укажите товар и положительное количество."}
+		total_quantity += quantity
+		if not to_home:
+			var info: Dictionary = get_market_info(target_id, item_resource)
+			if not bool(info.get("accepted", false)):
+				return {"ok": false, "message": "Порт не принимает «%s»." % _good_name(item_resource)}
+			if int(info.get("demand", 0)) < quantity:
+				return {"ok": false, "message": "Спрос на «%s»: %d ед." % [_good_name(item_resource), int(info.get("demand", 0))]}
+		var available_stock: int = int(stock.get(item_resource, 0))
+		if source_id == home_id:
+			available_stock -= _reserved_for_sale(item_resource)
+		if available_stock < quantity:
+			return {"ok": false, "message": "В источнике недостаточно «%s»." % _good_name(item_resource)}
+		if source_id != home_id:
+			var purchase: Dictionary = quote_purchase(source_id, item_resource, quantity)
+			if not bool(purchase.get("ok", false)):
+				return purchase
+			purchase_total += float(purchase.get("cost", 0.0))
+		if not to_home:
+			var sale: Dictionary = quote_sale(target_id, item_resource, quantity)
+			if not bool(sale.get("ok", false)):
+				return sale
+			revenue_total += float(sale.get("revenue", 0.0))
+		if source_id == home_id:
+			for recipe in recipes:
+				if str(recipe.get("resource_id", "")) == item_resource:
+					production_cost += float(recipe.get("cash_per_unit", 0.0)) * quantity
+	var ship: Dictionary = _get_ship(str(line.get("ship_id", "")))
+	if total_quantity > int(ship.get("cargo_capacity", 0)):
+		return {"ok": false, "message": "Суммарный груз не помещается в трюм."}
 	var route_key: String = _get_route_key(source_id, target_id)
-	var service: Dictionary = _fleet_system.quote_leg(str(line.get("ship_id", "")), route_key, quantity)
+	var service: Dictionary = _fleet_system.quote_leg(str(line.get("ship_id", "")), route_key, total_quantity)
 	if not bool(service.get("ok", false)):
 		return service
 	var return_cost: float = 0.0
 	if str(line.get("id", "")) != "" and source_id == str(line.get("origin_id", "")):
 		return_cost = float(_fleet_system.quote_leg(str(line.get("ship_id", "")), route_key, 0).get("economic_cost", 0.0))
-	var production_cost: float = 0.0
-	if source_id == home_id:
-		for recipe in GameData.read("res://data/ports/production_recipes.json").get("recipes", []):
-			if str(recipe.resource_id) == resource_id:
-				production_cost = float(recipe.get("cash_per_unit", 0.0)) * quantity
-	var predicted_profit: float = float(sale.get("revenue", 0.0)) - float(purchase.cost) - float(service.economic_cost) - return_cost - production_cost
+	var predicted_profit: float = revenue_total - purchase_total - float(service.economic_cost) - return_cost - production_cost
 	if not to_home and predicted_profit < float(line.get("min_profit", 0.0)):
-		return {"ok": false, "message": "Результат с расходами и возвратом %.0f ниже минимума." % predicted_profit}
-	var cost: float = float(purchase.cost) + float(service.cash)
+		return {"ok": false, "message": "После расходов на товары и рейс останется %.0f." % predicted_profit}
+	var cost: float = purchase_total + float(service.cash)
 	if float(GameState.player_state.get("money", 0.0)) < cost:
-		return {"ok": false, "message": "Не хватает денег на товар и рейс: %.0f." % cost}
-	var freight: Dictionary = {"resource_id": resource_id, "quantity": quantity,
-		"reward": 0.0, "managed_trade": true, "line_id": str(line.get("id", ""))}
-	# Fleet validates crew, cargo and busy state before any purchase is committed.
-	var result: Dictionary = _fleet_system.start_autopilot(str(line.get("ship_id", "")), _get_route_key(source_id, target_id), freight, false)
+		return {"ok": false, "message": "Не хватает денег на товары и рейс: %.0f." % cost}
+	var freight: Dictionary = {"items": items, "quantity": total_quantity, "reward": 0.0,
+		"managed_trade": true, "line_id": str(line.get("id", ""))}
+	if items.size() == 1:
+		freight["resource_id"] = str(items[0].get("resource_id", ""))
+	# Fleet checks route, crew, capacity, and funds before stock is deducted.
+	var result: Dictionary = _fleet_system.start_autopilot(str(line.get("ship_id", "")), route_key, freight, false)
 	if not bool(result.get("ok", false)):
 		return result
-	GameState.player_state["money"] = float(GameState.player_state.get("money", 0.0)) - float(purchase.cost)
-	stock[resource_id] = int(stock.get(resource_id, 0)) - quantity
+	GameState.player_state["money"] = float(GameState.player_state.get("money", 0.0)) - purchase_total
+	for item in items:
+		var item_resource: String = str(item.get("resource_id", ""))
+		stock[item_resource] = int(stock.get(item_resource, 0)) - int(item.get("quantity", 0))
 	source[stock_key] = stock
 	GameState.port_state[source_id] = source
 	line["spent"] = float(line.get("spent", 0.0)) + cost
 	return result
 
 func settle_freight(ship: Dictionary, freight: Dictionary) -> Dictionary:
-	var resource_id: String = str(freight.get("resource_id", ""))
-	var quantity: int = int(freight.get("quantity", 0))
 	var target_id: String = str(ship.get("current_port_id", ""))
-	if quantity == 0:
+	var items: Array = freight.get("items", [])
+	if items.is_empty() and int(freight.get("quantity", 0)) > 0:
+		items = [{"resource_id": str(freight.get("resource_id", "")), "quantity": int(freight.get("quantity", 0))}]
+	if items.is_empty():
 		return {"ok": true, "revenue": 0.0, "message": "Возврат без груза."}
-	var available: int = 0
-	for item in ship.get("cargo", []):
-		if str(item.get("resource_id", "")) == resource_id:
-			available += int(item.get("quantity", 0))
-	if available < quantity:
-		return {"ok": false, "message": "Недостаточно груза в трюме."}
-	var result: Dictionary
-	if target_id == str(GameState.world_state.get("home_port_id", "")):
-		var port: Dictionary = GameState.port_state.get(target_id, {})
+	var cargo_totals: Dictionary = {}
+	for raw_cargo in ship.get("cargo", []):
+		var cargo: Dictionary = raw_cargo
+		var cargo_id: String = str(cargo.get("resource_id", ""))
+		cargo_totals[cargo_id] = int(cargo_totals.get(cargo_id, 0)) + int(cargo.get("quantity", 0))
+	var total_quantity: int = 0
+	var revenue: float = 0.0
+	var home_port: bool = target_id == str(GameState.world_state.get("home_port_id", ""))
+	var sale_quotes: Array = []
+	for raw_item in items:
+		var item: Dictionary = raw_item
+		var resource_id: String = str(item.get("resource_id", ""))
+		var quantity: int = int(item.get("quantity", 0))
+		if quantity <= 0 or int(cargo_totals.get(resource_id, 0)) < quantity:
+			return {"ok": false, "message": "В трюме не хватает «%s» для разгрузки." % _good_name(resource_id)}
+		total_quantity += quantity
+		if not home_port:
+			var quote: Dictionary = quote_sale(target_id, resource_id, quantity)
+			if not bool(quote.get("ok", false)):
+				return quote
+			sale_quotes.append({"resource_id": resource_id, "quantity": quantity})
+			revenue += float(quote.get("revenue", 0.0))
+	var port: Dictionary = GameState.port_state.get(target_id, {})
+	if home_port:
 		var inventory: Dictionary = port.get("inventory", {})
-		inventory[resource_id] = int(inventory.get(resource_id, 0)) + quantity
+		for raw_item in items:
+			var item: Dictionary = raw_item
+			var resource_id: String = str(item.get("resource_id", ""))
+			inventory[resource_id] = int(inventory.get(resource_id, 0)) + int(item.get("quantity", 0))
 		port["inventory"] = inventory
-		GameState.port_state[target_id] = port
-		result = {"ok": true, "revenue": 0.0, "message": "Груз выгружен на склад базы."}
 	else:
-		result = try_sell_to_port(target_id, resource_id, quantity)
-	if bool(result.get("ok", false)):
-		ship["cargo"] = []
-		var revenue: float = float(result.get("revenue", 0.0))
-		GameState.player_state["money"] = float(GameState.player_state.get("money", 0.0)) + revenue
-		var stats: Dictionary = GameState.player_state.get("stats", {})
-		stats["total_earned"] = float(stats.get("total_earned", 0.0)) + revenue
-		stats["cargo_units_moved"] = int(stats.get("cargo_units_moved", 0)) + quantity
-		if revenue > 0.0:
-			stats["total_sales"] = int(stats.get("total_sales", 0)) + quantity
-		GameState.player_state["stats"] = stats
-	return result
+		var market_stock: Dictionary = port.get("market_stock", {})
+		for item in sale_quotes:
+			var resource_id: String = str(item.get("resource_id", ""))
+			market_stock[resource_id] = int(market_stock.get(resource_id, 0)) + int(item.get("quantity", 0))
+		port["market_stock"] = market_stock
+	GameState.port_state[target_id] = port
+	ship["cargo"] = []
+	GameState.player_state["money"] = float(GameState.player_state.get("money", 0.0)) + revenue
+	var stats: Dictionary = GameState.player_state.get("stats", {})
+	stats["total_earned"] = float(stats.get("total_earned", 0.0)) + revenue
+	stats["cargo_units_moved"] = int(stats.get("cargo_units_moved", 0)) + total_quantity
+	if revenue > 0.0:
+		stats["total_sales"] = int(stats.get("total_sales", 0)) + total_quantity
+	GameState.player_state["stats"] = stats
+	var message: String = "Груз выгружен на склад базы." if home_port else "Продано товаров на %.0f." % revenue
+	return {"ok": true, "revenue": revenue, "message": message}
 
 func _finish_sale(line: Dictionary, _target_id: String, _resource_id: String, completed_cycle: bool) -> Dictionary:
 	var ship: Dictionary = _get_ship(str(line.get("ship_id", "")))

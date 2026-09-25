@@ -7,6 +7,8 @@ var _hiring_system: Node
 var _ship_types: Dictionary = {}
 var _requirements: Dictionary = {}
 var _goods_prices: Dictionary = {}
+var _hazard_zones: Array = []
+var _hazard_rules: Dictionary = {}
 var _economy = preload("res://systems/economy/economy_model.gd").new()
 
 func _ready() -> void:
@@ -21,6 +23,7 @@ func initialize(port_system: Node, hiring_system: Node = null) -> void:
 			var ship_type: Dictionary = raw_type
 			_ship_types[str(ship_type.get("id", ""))] = ship_type
 	_requirements = GameData.get_crew_requirements()
+	_hazard_rules = GameData.read("res://data/world/hazard_rules.json")
 	var goods_catalog: Dictionary = GameData.read("res://data/resources/goods_catalog.json")
 	for raw_good in goods_catalog.get("resources", []):
 		var good: Dictionary = raw_good
@@ -187,7 +190,26 @@ func start_autopilot(ship_id: String, route_key: String, freight_plan: Dictionar
 		return {"ok": false, "message": "Корабль уже в рейсе."}
 	if not ship.get("cargo", []).is_empty():
 		return {"ok": false, "message": "В трюме остался груз. Завершите предыдущую поставку."}
-	if int(freight_plan.get("quantity", 0)) < 0 or int(freight_plan.get("quantity", 0)) > int(ship.get("cargo_capacity", 0)):
+	var cargo_items: Array = []
+	var planned_items: Variant = freight_plan.get("items", [])
+	if planned_items is Array and not planned_items.is_empty():
+		for raw_item in planned_items:
+			if not raw_item is Dictionary:
+				return {"ok": false, "message": "Состав груза заполнен неверно."}
+			var item: Dictionary = raw_item
+			var item_quantity: int = int(item.get("quantity", 0))
+			var item_resource: String = str(item.get("resource_id", ""))
+			if item_resource == "" or item_quantity <= 0:
+				return {"ok": false, "message": "Для каждого товара укажите количество."}
+			cargo_items.append({"resource_id": item_resource, "quantity": item_quantity})
+	else:
+		var legacy_quantity: int = int(freight_plan.get("quantity", 0))
+		if legacy_quantity > 0:
+			cargo_items.append({"resource_id": str(freight_plan.get("resource_id", "")), "quantity": legacy_quantity})
+	var total_quantity: int = 0
+	for cargo_item in cargo_items:
+		total_quantity += int(cargo_item.get("quantity", 0))
+	if total_quantity > int(ship.get("cargo_capacity", 0)):
 		return {"ok": false, "message": "Груз не помещается в трюм."}
 	var current_port_id: String = str(ship.get("current_port_id", ""))
 	var port_a_id: String = str(route.get("port_a_id", ""))
@@ -204,15 +226,17 @@ func start_autopilot(ship_id: String, route_key: String, freight_plan: Dictionar
 		return {"ok": false, "message": "Не хватает экипажа для выхода в море."}
 	if not _ship_has_captain(crew):
 		return {"ok": false, "message": "Для автопилота нужен капитан в экипаже."}
-	var freight: Dictionary = freight_plan if not freight_plan.is_empty() else {"managed_trade": true, "resource_id": "", "quantity": 0}
-	var quote: Dictionary = quote_leg(ship_id, route_key, int(freight.get("quantity", 0)))
+	var freight: Dictionary = freight_plan.duplicate(true) if not freight_plan.is_empty() else {"managed_trade": true, "resource_id": "", "quantity": 0}
+	freight["items"] = cargo_items.duplicate(true)
+	freight["quantity"] = total_quantity
+	var quote: Dictionary = quote_leg(ship_id, route_key, total_quantity)
 	if float(GameState.player_state.get("money", 0.0)) < float(quote.cash):
 		return {"ok": false, "message": "Рейс стоит %.0f: топливо, обслуживание, питание и зарплата." % float(quote.cash)}
 	GameState.player_state["money"] = float(GameState.player_state.get("money", 0.0)) - float(quote.cash)
 	var duration: float = float(quote.duration)
 	ship["last_service"] = quote.duplicate(true)
 	ship.erase("trade_receipt")
-	ship["cargo"] = [{"resource_id": str(freight.get("resource_id", "")), "quantity": int(freight.get("quantity", 0))}] if int(freight.get("quantity", 0)) > 0 else []
+	ship["cargo"] = cargo_items.duplicate(true)
 	ship["status"] = "В пути"
 	ship["autopilot"] = {
 		"route_key": route_key,
@@ -309,6 +333,7 @@ func _process(_delta: float) -> void:
 		var duration: float = maxf(1.0, float(autopilot.get("duration_seconds", 1.0)))
 		if elapsed >= duration:
 			var freight: Dictionary = autopilot.get("freight", {})
+			var hazard_message: String = _resolve_voyage_hazard(ship, str(autopilot.get("origin_port_id", "")), str(autopilot.get("destination_port_id", "")))
 			ship["current_port_id"] = str(autopilot.get("destination_port_id", ""))
 			_consume_crew_voyage(ship)
 			if bool(freight.get("managed_trade", false)) or str(freight.get("line_id", "")) != "":
@@ -322,6 +347,8 @@ func _process(_delta: float) -> void:
 				else:
 					ship.erase("pending_trade")
 				ship["status"] = str(receipt.get("message", "В порту"))
+				if hazard_message != "":
+					ship["status"] += " " + hazard_message
 				ship["autopilot"] = {}
 				GameState.fleet_state[index] = ship
 				changed = true
@@ -335,11 +362,79 @@ func _process(_delta: float) -> void:
 			ship["cargo"] = []
 			ship["current_port_id"] = str(autopilot.get("destination_port_id", ""))
 			ship["status"] = "В порту, рейс оплачен: %.0f" % reward
+			if hazard_message != "":
+				ship["status"] += " " + hazard_message
 			ship["autopilot"] = {}
 			GameState.fleet_state[index] = ship
 			changed = true
 	if changed:
 		SaveSystem.save_game()
+
+func set_hazard_zones(zones: Array) -> void:
+	_hazard_zones = zones.duplicate(true)
+
+func _resolve_voyage_hazard(ship: Dictionary, origin_id: String, destination_id: String) -> String:
+	if _port_system == null or _hazard_zones.is_empty():
+		return ""
+	var start: Vector2 = _port_system.get_port_position(origin_id)
+	var finish: Vector2 = _port_system.get_port_position(destination_id)
+	for raw_zone in _hazard_zones:
+		var zone: Dictionary = raw_zone
+		if not bool(zone.get("active", false)):
+			continue
+		var center: Vector2 = Vector2(zone.get("position", Vector2.ZERO))
+		var radius: float = float(zone.get("radius", 0.0))
+		if not _segment_touches_circle(start, finish, center, radius):
+			continue
+		var zone_type: String = str(zone.get("type", "storm"))
+		var effects: Dictionary = _hazard_rules.get("types", {})
+		var effect: Dictionary = effects.get(zone_type, effects.get("storm", {}))
+		var losses: Array[String] = []
+		for component in ["hull", "engine", "steering"]:
+			var damage_key: String = component + "_damage"
+			var damage: float = float(effect.get(damage_key, 0.0))
+			if damage <= 0.0:
+				continue
+			var current: float = float(ship.get(component, 100.0))
+			var next_value: float = maxf(10.0, current - damage)
+			if next_value < current:
+				ship[component] = next_value
+				losses.append("%s −%.0f" % [component, current - next_value])
+		if bool(effect.get("steal_one_cargo", false)) and _steal_one_unsealed_unit(ship):
+			losses.append("пираты забрали 1 ед. груза")
+		var result: String = str(effect.get("name", "Опасная зона"))
+		if not losses.is_empty():
+			result += ": " + ", ".join(losses)
+		else:
+			result += ": без потерь"
+		return result
+	return ""
+
+func _segment_touches_circle(start: Vector2, finish: Vector2, center: Vector2, radius: float) -> bool:
+	var segment: Vector2 = finish - start
+	var denominator: float = segment.length_squared()
+	var factor: float = 0.0
+	if denominator > 0.0001:
+		factor = clampf((center - start).dot(segment) / denominator, 0.0, 1.0)
+	return start.lerp(finish, factor).distance_to(center) <= radius
+
+func _steal_one_unsealed_unit(ship: Dictionary) -> bool:
+	var cargo: Array = ship.get("cargo", [])
+	for index in range(cargo.size() - 1, -1, -1):
+		var item: Dictionary = cargo[index]
+		if str(item.get("contract_id", "")) != "":
+			continue
+		var quantity: int = int(item.get("quantity", 0))
+		if quantity <= 0:
+			continue
+		if quantity == 1:
+			cargo.remove_at(index)
+		else:
+			item["quantity"] = quantity - 1
+			cargo[index] = item
+		ship["cargo"] = cargo
+		return true
+	return false
 
 func _find_auxiliary_index(ship_id: String) -> int:
 	for index in range(GameState.fleet_state.size()):

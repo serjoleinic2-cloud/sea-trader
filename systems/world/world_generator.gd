@@ -125,11 +125,17 @@ func _relayout_legacy_world(world_seed: int, world: Dictionary, ship_position: V
 	world["ports"] = ports
 
 	var hazards: Array = world.get("hazard_zones", [])
+	var hazard_types: Array = _config.get("hazard_types", ["storm", "pirate"])
+	var hazard_rng := RandomNumberGenerator.new()
+	hazard_rng.seed = absi(world_seed) + 918_271
 	for index in range(hazards.size()):
 		var hazard: Dictionary = hazards[index]
 		var hazard_position: Vector2i = Vector2i(hazard.get("position", Vector2i.ZERO))
 		var closest_island_id: String = _nearest_island_id(hazard_position, old_islands_by_id)
 		hazard["position"] = hazard_position + Vector2i(shifts.get(closest_island_id, Vector2i.ZERO))
+		if not hazard_types.is_empty():
+			hazard["type"] = str(hazard_types[hazard_rng.randi_range(0, hazard_types.size() - 1)])
+		hazard["active"] = true
 		hazards[index] = hazard
 	world["hazard_zones"] = hazards
 

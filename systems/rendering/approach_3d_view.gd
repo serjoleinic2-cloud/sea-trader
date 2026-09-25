@@ -56,6 +56,7 @@ func initialize(world_data: Dictionary, map_world: CanvasItem, map_ship: CanvasI
 		_fleet_traffic.set_process(false)
 	_subviewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 	_build_world_islands()
+	_build_world_hazards()
 	_build_world_boundary()
 
 
@@ -216,6 +217,36 @@ func _build_world_boundary() -> void:
 		var x: float = belt_center if offset > 0.0 else world_width - belt_center
 		_add_box(_scene_root, Vector3(belt_width, 0.08, world_depth), Vector3(x, 0.14, world_depth * 0.5), belt_material)
 		_add_box(_scene_root, Vector3(0.10, 0.06, world_depth), Vector3(x + offset * belt_width * 0.5, 0.19, world_depth * 0.5), edge_material)
+
+
+func _build_world_hazards() -> void:
+	for raw_zone in _world_data.get("hazard_zones", []):
+		var zone: Dictionary = raw_zone
+		if not bool(zone.get("active", false)):
+			continue
+		var zone_type: String = str(zone.get("type", "storm"))
+		var color: Color = Color("4a9fae")
+		match zone_type:
+			"tornado": color = Color("e67935")
+			"pirate": color = Color("a43d49")
+			"anomaly": color = Color("935ed6")
+			_: color = Color("4a9fae")
+		var map_position: Vector2 = Vector2(zone.get("position", Vector2.ZERO))
+		var radius: float = maxf(2.0, float(zone.get("radius", 150.0)) * MAP_TO_METERS)
+		var disk := CylinderMesh.new()
+		disk.top_radius = radius
+		disk.bottom_radius = radius
+		disk.height = 0.025
+		disk.radial_segments = 48
+		var marker := MeshInstance3D.new()
+		marker.name = "Hazard_" + str(zone.get("id", zone_type))
+		marker.mesh = disk
+		marker.position = Vector3(map_position.x * MAP_TO_METERS, 0.015, map_position.y * MAP_TO_METERS)
+		var material := _material(Color(color.r, color.g, color.b, 0.22), 0.4)
+		material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		marker.material_override = material
+		_scene_root.add_child(marker)
 
 
 func _sync_traffic(renderer: Node, group_id: String) -> void:

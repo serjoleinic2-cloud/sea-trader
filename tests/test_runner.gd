@@ -8,6 +8,7 @@ const TEST_FILES: Array = [
 	"res://tests/unit/test_event_bus.gd",
 	"res://tests/unit/test_save_system.gd",
 	"res://tests/unit/test_world_generation.gd",
+	"res://tests/unit/test_hazard_encounters.gd",
 	"res://tests/unit/test_ship_physics.gd",
 	"res://tests/unit/test_sensor_input.gd",
 	"res://tests/unit/test_phase05_ports.gd",

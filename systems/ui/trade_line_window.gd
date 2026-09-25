@@ -302,8 +302,15 @@ func _lines_text() -> String:
 			var route_parts: Array[String] = []
 			for raw_leg in line.get("legs", []):
 				var leg: Dictionary = raw_leg
+				var goods: Array = leg.get("items", [])
+				if goods.is_empty() and str(leg.get("resource_id", "")) != "":
+					goods = [{"resource_id": str(leg.get("resource_id", "")), "quantity": int(leg.get("quantity", 0))}]
+				var goods_text: Array[String] = []
+				for raw_good in goods:
+					var good: Dictionary = raw_good
+					goods_text.append("%s × %d" % [_good_name(str(good.get("resource_id", ""))), int(good.get("quantity", 0))])
 				route_parts.append("%s — %s → %s" % [_port_name(str(leg.get("source_id", ""))),
-					_good_name(str(leg.get("resource_id", ""))), _port_name(str(leg.get("target_id", "")))])
+					", ".join(goods_text), _port_name(str(leg.get("target_id", "")))])
 			route_text = "\n" + "\n".join(route_parts)
 		lines.append("%s: %s | кругов %d | заработано %.0f%s\n%s" % [
 			str(line.get("id", "")), str(line.get("status", "")), int(line.get("cycles", 0)),

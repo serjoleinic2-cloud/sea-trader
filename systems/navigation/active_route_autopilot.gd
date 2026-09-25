@@ -10,6 +10,9 @@ var _cargo_quantity: int = 0
 var _active: bool = false
 var _rules: Dictionary = {}
 var _goods: Dictionary = {}
+var _hazard_zones: Array = []
+var _detour_waypoint: Vector2 = Vector2.ZERO
+var _has_detour_waypoint: bool = false
 
 func _ready() -> void:
 	add_to_group("active_route_autopilot_system")
@@ -30,6 +33,11 @@ func initialize(ship: Node2D, port_system: Node) -> void:
 			GameState.world_state["autopilot_notice"] = "Рейс восстановлен: " + _port_system.get_port_name(_destination_port_id)
 		else:
 			_stop("Сохранённый рейс недоступен. Выберите маршрут заново.")
+
+func set_hazard_zones(zones: Array) -> void:
+	_hazard_zones = zones.duplicate(true)
+	if _active:
+		_update_detour(GameState.ship_state.get("position", Vector2.ZERO), _port_system.get_port_position(_destination_port_id))
 
 func fuel_needed(destination_id: String) -> float:
 	var current: Vector2 = GameState.ship_state.get("position", Vector2.ZERO)
@@ -80,6 +88,8 @@ func start(destination_port_id: String, resource_id: String = "", quantity: int 
 	_cargo_resource_id = resource_id
 	_cargo_quantity = maxi(0, quantity)
 	_active = true
+	_has_detour_waypoint = false
+	_update_detour(GameState.ship_state.get("position", _ship.global_position), _port_system.get_port_position(destination_port_id))
 	GameState.voyage_state["active_autopilot"] = true
 	GameState.voyage_state["autopilot_destination_id"] = destination_port_id
 	GameState.voyage_state["autopilot_resource_id"] = resource_id
@@ -103,18 +113,20 @@ func _physics_process(delta: float) -> void:
 		_stop("Автопилот остановлен: корабль пришвартован.")
 		return
 	var fuel: float = float(GameState.ship_state.get("fuel", 0.0))
-	var target: Vector2 = _port_system.get_port_position(_destination_port_id)
+	var destination: Vector2 = _port_system.get_port_position(_destination_port_id)
 	var current: Vector2 = GameState.ship_state.get("position", _ship.global_position)
+	if _has_detour_waypoint and current.distance_to(_detour_waypoint) <= 28.0:
+		_has_detour_waypoint = false
+		_update_detour(current, destination)
+	var target: Vector2 = _detour_waypoint if _has_detour_waypoint else destination
 	var distance: float = current.distance_to(target)
 	var arrival_distance: float = float(_rules.get("arrival_distance", 2.0))
 	var rate: float = _fuel_rate()
-	# Treat the discovery/docking radius as the final approach. This prevents
-	# floating-point rounding from stopping a valid voyage at 0 fuel a few
-	# pixels before the pier.
-	var can_reach_dock: bool = fuel > 0.0 and fuel / maxf(rate, 0.000001) + arrival_distance >= distance
-	if distance <= arrival_distance or can_reach_dock:
-		_ship.global_position = target
-		GameState.ship_state["position"] = target
+	# Dock only after physically reaching the port. The former fuel-range test
+	# was also true at the start of a fully fueled trip, causing instant travel.
+	if not _has_detour_waypoint and distance <= arrival_distance:
+		_ship.global_position = destination
+		GameState.ship_state["position"] = destination
 		GameState.ship_state["fuel"] = maxf(0.0, fuel - distance * rate)
 		if not _port_system.dock(_destination_port_id):
 			_stop("Швартовка не подтверждена. Груз остался в трюме.")
@@ -141,6 +153,55 @@ func _physics_process(delta: float) -> void:
 	stats["total_distance"] = float(stats.get("total_distance", 0.0)) + traveled
 	GameState.player_state["stats"] = stats
 	_ship.global_position = next
+	if not _has_detour_waypoint:
+		_update_detour(next, destination)
+
+func _update_detour(start: Vector2, destination: Vector2) -> void:
+	_has_detour_waypoint = false
+	var nearest_zone: Dictionary = {}
+	var nearest_distance: float = INF
+	for raw_zone in _hazard_zones:
+		var zone: Dictionary = raw_zone
+		if not bool(zone.get("active", false)):
+			continue
+		var center: Vector2 = Vector2(zone.get("position", Vector2.ZERO))
+		var radius: float = maxf(50.0, float(zone.get("radius", 0.0)) + 55.0)
+		if not _segment_touches_circle(start, destination, center, radius):
+			continue
+		var distance: float = start.distance_to(center)
+		if distance < nearest_distance:
+			nearest_distance = distance
+			nearest_zone = zone
+	if nearest_zone.is_empty():
+		return
+	var center: Vector2 = Vector2(nearest_zone.get("position", Vector2.ZERO))
+	var direction: Vector2 = destination - start
+	if direction.length_squared() < 0.001:
+		return
+	var side: Vector2 = direction.normalized().orthogonal()
+	# A wider lateral offset keeps both legs of the turn outside the zone.
+	var radius: float = maxf(100.0, (float(nearest_zone.get("radius", 0.0)) + 55.0) * 2.0)
+	var first: Vector2 = center + side * radius
+	var second: Vector2 = center - side * radius
+	var first_cost: float = start.distance_to(first) + first.distance_to(destination)
+	var second_cost: float = start.distance_to(second) + second.distance_to(destination)
+	_detour_waypoint = first if first_cost <= second_cost else second
+	_has_detour_waypoint = true
+	var zone_name: String = "опасную зону"
+	match str(nearest_zone.get("type", "storm")):
+		"tornado": zone_name = "смерч"
+		"pirate": zone_name = "пиратов"
+		"anomaly": zone_name = "аномальную зону"
+		"storm": zone_name = "штормовую зону"
+	GameState.world_state["autopilot_notice"] = "Автопилот обходит: " + zone_name
+
+func _segment_touches_circle(start: Vector2, finish: Vector2, center: Vector2, radius: float) -> bool:
+	var segment: Vector2 = finish - start
+	var denominator: float = segment.length_squared()
+	var factor: float = 0.0
+	if denominator > 0.0001:
+		factor = clampf((center - start).dot(segment) / denominator, 0.0, 1.0)
+	return start.lerp(finish, factor).distance_to(center) <= radius
 
 func _resolve_cargo_operation() -> String:
 	if _cargo_resource_id == "" or _cargo_quantity <= 0:
@@ -165,6 +226,7 @@ func _get_cargo_quantity(resource_id: String) -> int:
 
 func _stop(message: String) -> void:
 	_active = false
+	_has_detour_waypoint = false
 	GameState.voyage_state["active_autopilot"] = false
 	GameState.ship_state["velocity"] = Vector2.ZERO
 	GameState.world_state["current_position"] = GameState.ship_state.get("position", Vector2.ZERO)

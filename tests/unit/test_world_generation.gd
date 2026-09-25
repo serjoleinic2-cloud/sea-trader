@@ -143,9 +143,16 @@ func test_ports_reference_valid_islands() -> void:
 			"port %s must reference a valid island" % port_id
 		)
 
-func test_hazard_zones_inactive() -> void:
+func test_v2_hazard_zones_are_active_and_have_supported_types() -> void:
 	var world: Dictionary = _gen.generate(300)
 	assert_true(world.hazard_zones.size() > 0, "world should have hazard zones defined")
+	var supported_types: Array[String] = ["storm", "tornado", "pirate", "anomaly"]
 	for zone in world.hazard_zones:
-		assert_has(zone, "active", "hazard zone must have active field")
-		assert_eq(zone.get("active", true), false, "hazard zones should be inactive in Phase 02")
+		assert_eq(zone.get("active", false), true, "current-version hazards should affect voyages")
+		assert_true(supported_types.has(str(zone.get("type", ""))), "hazard type should have a gameplay rule")
+
+func test_v1_hazard_generation_remains_compatible_for_migration() -> void:
+	var world: Dictionary = _gen.generate(300, 1)
+	assert_true(world.hazard_zones.size() > 0, "legacy seed should retain its generated hazards")
+	for zone in world.hazard_zones:
+		assert_eq(zone.get("active", true), false, "v1 generator data must stay unchanged")

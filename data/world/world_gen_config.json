@@ -110,6 +110,12 @@
   "hazard_zone_count_max": 8,
   "hazard_zone_min_radius": 150,
   "hazard_zone_max_radius": 400,
+  "hazard_types": [
+    "storm",
+    "tornado",
+    "pirate",
+    "anomaly"
+  ],
   "port_names_pool": [
     "Port Laguna",
     "Windward Harbor",
