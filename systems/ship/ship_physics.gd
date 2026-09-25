@@ -121,9 +121,10 @@ func get_max_speed() -> float:
 func restore_from_state() -> void:
 	"""Restore physics from saved GameState after app resume."""
 	var vel: Vector2 = GameState.ship_state.get("velocity", Vector2.ZERO)
-	_speed = vel.length()
-	if _speed > 0.0:
-		_heading = atan2(vel.y, vel.x)
+	var is_reversing: bool = bool(GameState.ship_state.get("reverse_gear", false))
+	_speed = vel.length() * (-1.0 if is_reversing else 1.0)
+	if vel.length() > 0.0:
+		_heading = atan2(vel.y, vel.x) + (PI if is_reversing else 0.0)
 
 # ============================================================================
 # Internal — speed update
@@ -131,21 +132,25 @@ func restore_from_state() -> void:
 
 func _update_speed(delta: float) -> void:
 	var max_spd: float = get_max_speed()
+	var reverse_ratio: float = clampf(float(_ship_data.get("reverse_speed_ratio", 0.25)), 0.1, 0.5)
 
 	if _throttle > 0.0:
-		# Accelerate
 		var accel: float = float(_ship_data.get("acceleration", 80.0)) * _throttle * _get_engine_ratio()
 		_speed = move_toward(_speed, max_spd * _throttle, accel * delta)
 	elif _throttle < 0.0:
-		# Active brake
-		var brake: float = float(_ship_data.get("brake_force", 120.0))
-		_speed = move_toward(_speed, 0.0, brake * delta)
+		if _speed > 0.0:
+			# First bring the ship to a full stop; reverse engages on the next tick.
+			var brake: float = float(_ship_data.get("brake_force", 120.0))
+			_speed = move_toward(_speed, 0.0, brake * absf(_throttle) * delta)
+		else:
+			var reverse_target: float = -max_spd * reverse_ratio * absf(_throttle)
+			var reverse_accel: float = float(_ship_data.get("acceleration", 80.0)) * _get_engine_ratio() * absf(_throttle) * reverse_ratio
+			_speed = move_toward(_speed, reverse_target, reverse_accel * delta)
 	else:
-		# Natural deceleration (water friction)
 		var decel: float = float(_ship_data.get("deceleration", 60.0))
 		_speed = move_toward(_speed, 0.0, decel * delta)
 
-	_speed = clampf(_speed, 0.0, max_spd)
+	_speed = clampf(_speed, -max_spd * reverse_ratio, max_spd)
 
 
 # ============================================================================
@@ -153,14 +158,14 @@ func _update_speed(delta: float) -> void:
 # ============================================================================
 
 func _update_heading(delta: float) -> void:
-	if absf(_steering) < 0.01 or _speed < 1.0:
+	if absf(_steering) < 0.01 or absf(_speed) < 1.0:
 		return
 
 	var steering_ratio: float = _get_steering_ratio()
 	var maneuv: float = _ship_data.get("base_maneuverability", 0.85)
 
 	# Turn rate decreases at high speed
-	var speed_ratio: float = _speed / maxf(get_max_speed(), 1.0)
+	var speed_ratio: float = absf(_speed) / maxf(get_max_speed(), 1.0)
 	var speed_factor: float = lerp(1.0, float(_ship_data.get("turn_speed_reduction", 0.35)), speed_ratio)
 
 	var turn_rate: float = float(_ship_data.get("turn_rate", 1.6)) * maneuv * steering_ratio * speed_factor
@@ -180,8 +185,11 @@ func _update_position(delta: float) -> void:
 	new_pos = _resolve_navigation_collisions(current_pos, new_pos)
 
 	var traveled_distance: float = current_pos.distance_to(new_pos)
+	if traveled_distance < displacement.length() * 0.5:
+		_speed = 0.0
 	GameState.ship_state["position"] = new_pos
 	GameState.ship_state["velocity"] = direction * _speed if new_pos != current_pos else Vector2.ZERO
+	GameState.ship_state["reverse_gear"] = _speed < -0.5
 	GameState.player_state.stats["total_distance"] = float(GameState.player_state.stats.get("total_distance", 0.0)) + traveled_distance
 
 
@@ -239,7 +247,7 @@ func _update_visual_roll(delta: float) -> void:
 	var target_roll: float = _steering * float(_ship_data.get("max_roll_degrees", 12.0))
 
 	# Only roll when actually moving
-	if _speed < 1.0:
+	if absf(_speed) < 1.0:
 		target_roll = 0.0
 
 	_visual_roll = lerpf(_visual_roll, target_roll, float(_ship_data.get("roll_smooth_speed", 5.0)) * delta)
