@@ -136,11 +136,16 @@
   ],
   "streaming": {
     "chunk_size": 4096,
-    "island_count_min": 5,
-    "island_count_max": 8,
+    "island_count_min": 4,
+    "island_count_max": 6,
     "edge_margin": 520,
     "hazard_count_min": 1,
-    "hazard_count_max": 3,
-    "version": 1
+    "hazard_count_max": 2,
+    "version": 2,
+    "archipelago_cells": 3,
+    "major_island_radius_min": 1700,
+    "major_island_radius_max": 2400,
+    "channel_width_min": 230,
+    "channel_width_max": 360
   }
 }
