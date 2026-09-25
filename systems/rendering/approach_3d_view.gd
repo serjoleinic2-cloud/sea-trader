@@ -454,8 +454,9 @@ func _sync_traffic(traffic_renderer: Node, traffic_group: String) -> void:
 		model.position = Vector3(position.x * MAP_TO_METERS, 0.12, position.y * MAP_TO_METERS)
 		model.rotation.y = -heading.angle() - PI * 0.5
 
-	for model_key in _traffic_models.keys():
-		if keep_models.has(model_key):
+	for raw_model_key in _traffic_models.keys():
+		var model_key: String = str(raw_model_key)
+		if not model_key.begins_with(traffic_group + ":") or keep_models.has(model_key):
 			continue
 		var stale_model: Node3D = _traffic_models[model_key] as Node3D
 		if stale_model != null and is_instance_valid(stale_model):
