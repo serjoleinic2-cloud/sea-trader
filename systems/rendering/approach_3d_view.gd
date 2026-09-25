@@ -420,6 +420,64 @@ func _build_port(island_root: Node3D, port: Dictionary, island_position: Vector2
 	_add_cylinder(island_root, 0.38, 0.34, 0.22, lighthouse_at + Vector3(0.0, 3.02, 0.0), Color("f2d789"))
 
 
+func _sync_traffic(traffic_renderer: Node, traffic_group: String) -> void:
+	if traffic_renderer == null or not traffic_renderer.has_method("get_vessel_snapshots"):
+		return
+	var raw_snapshots: Variant = traffic_renderer.call("get_vessel_snapshots")
+	if not (raw_snapshots is Array):
+		return
+
+	var keep_models: Dictionary = {}
+	for raw_snapshot in raw_snapshots:
+		if not (raw_snapshot is Dictionary):
+			continue
+		var vessel: Dictionary = raw_snapshot
+		var vessel_id: String = str(vessel.get("id", ""))
+		if vessel_id == "":
+			continue
+		var model_key: String = traffic_group + ":" + vessel_id
+		keep_models[model_key] = true
+		var model: Node3D = _traffic_models.get(model_key) as Node3D
+		if model == null or not is_instance_valid(model):
+			var identity: String = str(vessel.get("ship_type_id", vessel.get("kind", "merchant")))
+			var target_length: float = maxf(0.6, float(vessel.get("length", 24.0)) * MAP_TO_METERS)
+			model = _attach_catalog_scene(_scene_root, "ships", identity, target_length)
+			if model == null:
+				model = _make_traffic_ship(vessel)
+				_scene_root.add_child(model)
+			model.name = "Traffic_" + model_key.replace(":", "_").replace("/", "_")
+			_traffic_models[model_key] = model
+		var position: Vector2 = Vector2(vessel.get("position", Vector2.ZERO))
+		var heading: Vector2 = Vector2(vessel.get("heading", Vector2.UP))
+		if heading.length_squared() < 0.001:
+			heading = Vector2.UP
+		model.position = Vector3(position.x * MAP_TO_METERS, 0.12, position.y * MAP_TO_METERS)
+		model.rotation.y = -heading.angle() - PI * 0.5
+
+	for model_key in _traffic_models.keys():
+		if keep_models.has(model_key):
+			continue
+		var stale_model: Node3D = _traffic_models[model_key] as Node3D
+		if stale_model != null and is_instance_valid(stale_model):
+			stale_model.queue_free()
+		_traffic_models.erase(model_key)
+
+
+func _make_traffic_ship(vessel: Dictionary) -> Node3D:
+	var length: float = maxf(0.6, float(vessel.get("length", 24.0)) * MAP_TO_METERS)
+	var width: float = length * 0.28
+	var accent: Color = vessel.get("color", Color("6da9bd"))
+	var ship := Node3D.new()
+	var hull_color: Color = Color("503629") if str(vessel.get("kind", "")) != "fleet" else Color("344a58")
+	_add_box(ship, Vector3(width, 0.22, length), Vector3(0.0, 0.16, 0.0), _material(hull_color, 0.78))
+	_add_box(ship, Vector3(width * 0.82, 0.10, length * 0.72), Vector3(0.0, 0.32, 0.02), _material(Color("b58955"), 0.84))
+	_add_box(ship, Vector3(width * 0.48, 0.28, length * 0.20), Vector3(0.0, 0.49, length * 0.18), _material(accent.darkened(0.25), 0.8))
+	var mast_height: float = maxf(0.7, length * 0.55)
+	_add_cylinder(ship, maxf(0.025, length * 0.012), maxf(0.025, length * 0.012), mast_height, Vector3(0.0, mast_height * 0.5 + 0.42, -length * 0.04), Color("594434"))
+	_add_sail(ship, Vector2(width * 0.82, mast_height * 0.62), Vector3(0.0, mast_height * 0.70 + 0.42, -length * 0.04), _material(Color("eee3c8").lerp(accent, 0.18), 0.92))
+	return ship
+
+
 func _update_camera(ship_position: Vector2, close_factor: float, delta: float) -> void:
 	var velocity: Vector2 = Vector2(GameState.ship_state.get("velocity", Vector2.ZERO))
 	var heading: float = velocity.angle() if velocity.length_squared() > 1.0 else -PI * 0.5
