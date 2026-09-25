@@ -244,7 +244,7 @@ func _update_camera(ship_position: Vector2, island_position: Vector2, close_fact
 	var map_camera: Camera2D = get_viewport().get_camera_2d()
 	if map_camera != null:
 		map_zoom = map_camera.zoom
-	var map_view_height: float = get_viewport_rect().size.y / maxf(map_zoom.y, 0.01) * MAP_TO_METERS
+	var map_view_height: float = get_viewport().get_visible_rect().size.y / maxf(map_zoom.y, 0.01) * MAP_TO_METERS
 	var start_fov: float = 18.0
 	var top_down_height: float = map_view_height / (2.0 * tan(deg_to_rad(start_fov * 0.5)))
 	var camera_back: float = lerpf(0.0, 14.0, close_factor)
