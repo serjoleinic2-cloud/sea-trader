@@ -54,6 +54,7 @@ func _process(_delta: float) -> void:
 	_panel.size = Vector2(minf(PANEL_SIZE.x, viewport_size.x - 24.0), minf(PANEL_SIZE.y, viewport_size.y - 150.0))
 	var ship: Dictionary = GameState.ship_state
 	var cargo_units: int = _get_cargo_units(ship)
+	var gear_text: String = " | задний ход" if bool(ship.get("reverse_gear", false)) else ""
 	var docked_port: String = str(ship.get("docked_port_id", ""))
 	var dock_hint: String = ""
 	if docked_port != "":
@@ -74,7 +75,7 @@ E: пришвартоваться"
 "
 		+ "Деньги: %.0f
 "
-		+ "Скорость: %.1f
+		+ "Скорость: %.1f%s
 "
 		+ "Топливо: %.1f / %.0f
 "
@@ -92,7 +93,7 @@ E: пришвартоваться"
 		+ "%s"
 	) % [
 		float(GameState.player_state.get("money", 0.0)),
-		ship.get("velocity", Vector2.ZERO).length(),
+		ship.get("velocity", Vector2.ZERO).length(), gear_text,
 		float(ship.get("fuel", 0.0)), float(ship.get("fuel_max", 0.0)),
 		float(ship.get("hull", 0.0)),
 		cargo_units, int(ship.get("cargo_capacity", 0)),
