@@ -2,8 +2,8 @@
 
 ## Current phase
 
-Gameplay remains top-down 2D while trade, navigation, routes, contracts, crews, ports, and economy are made reliable.
-Placeholder visuals are acceptable. Detailed graphics and final design come after the mechanics are stable.
+Trade, navigation, routes, contracts, crews, ports, and economy remain authoritative in the top-down 2D world.
+The first procedural 3D close-view renderer is active near islands; it reads the same world seed and positions and does not change game state. Models and detailed art can be refined after the mechanics are stable.
 
 ## Target camera
 

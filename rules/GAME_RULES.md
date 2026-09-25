@@ -11,7 +11,7 @@ These rules define what the game fundamentally is. Changing them changes the gam
 
 ### Core
 1. **Offline-first.** The game must function without any internet connection. No features may require a server.
-2. **Top-down 2D gameplay.** The main game view is top-down. No 3D, no side-scrolling.
+2. **Top-down strategy with a 3D close view.** Travel and world logic remain top-down 2D. As the player approaches an island, the camera smoothly transitions to a procedural third-person 3D view. The 3D layer is visual only and does not change navigation, collisions, trade, or saved world positions.
 3. **Player manually controls their main ship.** The player always personally navigates their primary vessel during active play.
 4. **No punishment for closing the app.** Player must not lose progress, ship, or cargo solely because they closed the application or it went to background.
 
