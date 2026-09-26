@@ -101,7 +101,7 @@ func _select_destination(port_id: String) -> void:
 func _update_course(destination_id: String) -> void:
 	var heading: float = float(GameState.ship_state.get("heading", -PI / 2.0))
 	var compass_degrees: int = posmod(roundi(rad_to_deg(heading) + 90.0), 360)
-	var cardinal_points: Array[String] = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"]
+	var cardinal_points: Array[String] = ["С", "СВ", "В", "ЮВ", "Ю", "ЮЗ", "З", "СЗ"]
 	var cardinal_index: int = posmod(roundi(float(compass_degrees) / 45.0), 8)
 	var compass_text: String = "КОМПАС: %s %03d°" % [cardinal_points[cardinal_index], compass_degrees]
 	if destination_id == "" or _port_system == null:
