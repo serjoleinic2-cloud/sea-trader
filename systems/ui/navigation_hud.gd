@@ -99,18 +99,23 @@ func _select_destination(port_id: String) -> void:
 		_is_open = false
 
 func _update_course(destination_id: String) -> void:
+	var heading: float = float(GameState.ship_state.get("heading", -PI / 2.0))
+	var compass_degrees: int = posmod(roundi(rad_to_deg(heading) + 90.0), 360)
+	var cardinal_points: Array[String] = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"]
+	var cardinal_index: int = posmod(roundi(float(compass_degrees) / 45.0), 8)
+	var compass_text: String = "КОМПАС: %s %03d°" % [cardinal_points[cardinal_index], compass_degrees]
 	if destination_id == "" or _port_system == null:
-		_course_label.text = "Курс не выбран"
+		_course_label.text = compass_text + "\nЦель не выбрана"
 		return
 	var target: Vector2 = _port_system.get_port_position(destination_id)
 	var ship_position: Vector2 = GameState.ship_state.get("position", Vector2.ZERO)
 	var direction: Vector2 = target - ship_position
 	var distance: int = int(direction.length())
-	var angle: float = direction.angle()
-	var arrows: Array[String] = ["→", "↘", "↓", "↙", "←", "↖", "↑", "↗"]
-	var index: int = posmod(int(round(angle / (PI / 4.0))), 8)
-	_course_label.text = "КУРС %s  %s\nРасстояние: %d" % [
-		arrows[index],
+	var relative_bearing: float = wrapf(direction.angle() - heading, -PI, PI)
+	var relative_arrows: Array[String] = ["↑", "↗", "→", "↘", "↓", "↙", "←", "↖"]
+	var arrow_index: int = posmod(roundi(relative_bearing / (PI / 4.0)), 8)
+	_course_label.text = compass_text + "\nЦель: %s %s · %d м" % [
+		relative_arrows[arrow_index],
 		_port_system.get_port_name(destination_id),
 		distance
 	]
