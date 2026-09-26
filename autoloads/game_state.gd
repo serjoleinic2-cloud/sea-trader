@@ -40,6 +40,7 @@ var world_state: Dictionary = {
 	"home_port_id": "",
 	"last_session_timestamp": 0,
 	"known_port_chunks": [],
+	"explored_chunks": {},
 	"chunk_generation_version": 1
 }
 
