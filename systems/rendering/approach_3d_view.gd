@@ -431,8 +431,10 @@ func _sync_fog(ship_position: Vector2) -> void:
 	var center := Vector2i(floori(ship_position.x / _chunk_size), floori(ship_position.y / _chunk_size))
 	var explored_chunks: Dictionary = GameState.world_state.get("explored_chunks", {})
 	if center == _fog_center and explored_chunks.size() == _fog_explored_count:
-		for tile in _fog_tiles.values():
-			(tile as Node3D).visible = _transition_factor < 0.35
+		for raw_tile in _fog_tiles.values():
+			var fog_tile: Node3D = raw_tile as Node3D
+			if fog_tile != null and is_instance_valid(fog_tile):
+				fog_tile.visible = _transition_factor < 0.35
 		return
 	_fog_center = center
 	_fog_explored_count = explored_chunks.size()
