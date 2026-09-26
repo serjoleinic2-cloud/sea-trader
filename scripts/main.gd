@@ -100,9 +100,9 @@ func _ensure_streamed_world() -> void:
 				exploration_changed = true
 	GameState.world_state["explored_chunks"] = explored_chunks
 
+	if _approach_view != null and _approach_view.has_method("sync_generated_world"):
+		_approach_view.call("sync_generated_world", _world_data)
 	if world_changed:
-		if _approach_view != null and _approach_view.has_method("sync_generated_world"):
-			_approach_view.call("sync_generated_world", _world_data)
 		if _active_route_autopilot != null and _active_route_autopilot.has_method("set_hazard_zones"):
 			_active_route_autopilot.call("set_hazard_zones", _world_data.get("hazard_zones", []))
 		if _fleet_system != null and _fleet_system.has_method("set_hazard_zones"):
