@@ -21,6 +21,8 @@ var _modules: RefCounted = preload("res://core/module_loader.gd").new()
 const CAMERA_ZOOM_STEP: float = 0.08
 const CAMERA_ZOOM_MIN: float = 0.15
 const CAMERA_ZOOM_MAX: float = 2.0
+const MAP_CACHE_RADIUS_CHUNKS: int = 6
+const CHART_REVEAL_RADIUS_CHUNKS: int = 1
 var _chunk_size: float = 4096.0
 var _loaded_chunks: Dictionary = {}
 var _last_stream_center: Vector2i = Vector2i(2147483647, 2147483647)
@@ -81,16 +83,19 @@ func _ensure_streamed_world() -> void:
 	var explored_chunks: Dictionary = GameState.world_state.get("explored_chunks", {})
 	var world_changed: bool = false
 	var exploration_changed: bool = false
-	for chunk_y in range(center.y - 1, center.y + 2):
-		for chunk_x in range(center.x - 1, center.x + 2):
+	for chunk_y in range(center.y - MAP_CACHE_RADIUS_CHUNKS, center.y + MAP_CACHE_RADIUS_CHUNKS + 1):
+		for chunk_x in range(center.x - MAP_CACHE_RADIUS_CHUNKS, center.x + MAP_CACHE_RADIUS_CHUNKS + 1):
 			var coordinate := Vector2i(chunk_x, chunk_y)
 			var chunk_key: String = "%d:%d" % [chunk_x, chunk_y]
+			var is_visible: bool = abs(chunk_x - center.x) <= CHART_REVEAL_RADIUS_CHUNKS and abs(chunk_y - center.y) <= CHART_REVEAL_RADIUS_CHUNKS
+			if not is_visible and not explored_chunks.has(chunk_key):
+				continue
 			var generation_version: int = int(explored_chunks.get(chunk_key, current_version))
 			if coordinate == Vector2i.ZERO:
 				generation_version = int(GameState.world_state.get("world_gen_version", current_version))
 			if _load_stream_chunk(coordinate, generation_version):
 				world_changed = true
-			if not explored_chunks.has(chunk_key):
+			if is_visible and not explored_chunks.has(chunk_key):
 				explored_chunks[chunk_key] = generation_version
 				exploration_changed = true
 	GameState.world_state["explored_chunks"] = explored_chunks
