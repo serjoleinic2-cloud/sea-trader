@@ -76,21 +76,36 @@ func _ensure_streamed_world() -> void:
 	if center == _last_stream_center:
 		return
 	_last_stream_center = center
-	var changed: bool = false
+
+	var current_version: int = int(GameData.read("res://data/world/world_gen_config.json").get("streaming", {}).get("version", 1))
+	var explored_chunks: Dictionary = GameState.world_state.get("explored_chunks", {})
+	var world_changed: bool = false
+	var exploration_changed: bool = false
 	for chunk_y in range(center.y - 1, center.y + 2):
 		for chunk_x in range(center.x - 1, center.x + 2):
-			if _load_stream_chunk(Vector2i(chunk_x, chunk_y)):
-				changed = true
-	if not changed:
-		return
-	if _approach_view != null and _approach_view.has_method("sync_generated_world"):
-		_approach_view.call("sync_generated_world", _world_data)
-	if _active_route_autopilot != null and _active_route_autopilot.has_method("set_hazard_zones"):
-		_active_route_autopilot.call("set_hazard_zones", _world_data.get("hazard_zones", []))
-	if _fleet_system != null and _fleet_system.has_method("set_hazard_zones"):
-		_fleet_system.call("set_hazard_zones", _world_data.get("hazard_zones", []))
-	if _world_event_system != null and _world_event_system.has_method("set_world_data"):
-		_world_event_system.call("set_world_data", _world_data)
+			var coordinate := Vector2i(chunk_x, chunk_y)
+			var chunk_key: String = "%d:%d" % [chunk_x, chunk_y]
+			var generation_version: int = int(explored_chunks.get(chunk_key, current_version))
+			if coordinate == Vector2i.ZERO:
+				generation_version = int(GameState.world_state.get("world_gen_version", current_version))
+			if _load_stream_chunk(coordinate, generation_version):
+				world_changed = true
+			if not explored_chunks.has(chunk_key):
+				explored_chunks[chunk_key] = generation_version
+				exploration_changed = true
+	GameState.world_state["explored_chunks"] = explored_chunks
+
+	if world_changed:
+		if _approach_view != null and _approach_view.has_method("sync_generated_world"):
+			_approach_view.call("sync_generated_world", _world_data)
+		if _active_route_autopilot != null and _active_route_autopilot.has_method("set_hazard_zones"):
+			_active_route_autopilot.call("set_hazard_zones", _world_data.get("hazard_zones", []))
+		if _fleet_system != null and _fleet_system.has_method("set_hazard_zones"):
+			_fleet_system.call("set_hazard_zones", _world_data.get("hazard_zones", []))
+		if _world_event_system != null and _world_event_system.has_method("set_world_data"):
+			_world_event_system.call("set_world_data", _world_data)
+	if exploration_changed and _world_ready and not SaveSystem.save_game():
+		push_warning("Не удалось сохранить открытые участки карты.")
 
 func _load_stream_chunk(coordinate: Vector2i, requested_generation_version: int = -1) -> bool:
 	var key: String = "%d:%d" % [coordinate.x, coordinate.y]
@@ -217,13 +232,17 @@ func _initialize_world() -> bool:
 	_loaded_chunks["0:0"] = true
 	if not GameState.world_state.has("chunk_generation_version"):
 		GameState.world_state["chunk_generation_version"] = 1
+	var explored_chunks: Dictionary = GameState.world_state.get("explored_chunks", {})
 	var saved_chunks: Variant = GameState.world_state.get("known_port_chunks", [])
 	if saved_chunks is Array:
 		for raw_key in saved_chunks:
 			var coordinates: PackedStringArray = str(raw_key).split(":")
 			if coordinates.size() >= 2:
 				var saved_chunk_version: int = int(coordinates[2]) if coordinates.size() >= 3 else 1
+				var saved_chunk_key: String = "%s:%s" % [coordinates[0], coordinates[1]]
+				explored_chunks[saved_chunk_key] = saved_chunk_version
 				_load_stream_chunk(Vector2i(int(coordinates[0]), int(coordinates[1])), saved_chunk_version)
+	GameState.world_state["explored_chunks"] = explored_chunks
 
 	if _is_new_game:
 		GameState.ship_state.position = Vector2(world_data.world_size) * 0.25
