@@ -1,7 +1,7 @@
 # DATA SCHEMA
 
 > Data models for runtime state and static game data. These are schemas, not implementations.
-> Last Updated: 2026-09-26 | Version: 0.3.5
+> Last Updated: 2026-09-26 | Version: 0.3.6
 
 Implementation note: save format 0.2.0 now persists the existing schema below.
 New games start with empty PortState; entries are created on discovery.
@@ -56,7 +56,7 @@ explored_chunks: Dictionary<String, int> # [PLAYER KNOWLEDGE] visible chunk "x:y
 
 > **Note:** `seed` in `WorldState` is written once on new game and must never be overwritten on load.
 > `world_gen_version` and each explored chunk's version preserve deterministic coordinates if generation changes.
-> The game records the 3×3 chunk area visible around the ship; fog of war is planned separately.
+The game records the 3×3 chunk area visible around the ship and draws a schematic fog overlay over unknown nearby chunks.
 
 ### ShipState
 ```
