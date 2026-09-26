@@ -198,6 +198,7 @@ func reset_to_defaults() -> void:
 		"home_port_id": "",
 		"last_session_timestamp": 0,
 		"known_port_chunks": [],
+		"explored_chunks": {},
 		"chunk_generation_version": 1
 	}
 	ship_state = {
