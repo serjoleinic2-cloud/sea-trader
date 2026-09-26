@@ -220,7 +220,7 @@ func _sync_generated_world(world_data: Dictionary) -> void:
 		var map_position: Vector2 = Vector2(island.get("position", Vector2.ZERO))
 		var chunk_x: int = floori(map_position.x / _chunk_size)
 		var chunk_y: int = floori(map_position.y / _chunk_size)
-		if abs(chunk_x - center_chunk.x) > 1 or abs(chunk_y - center_chunk.y) > 1:
+		if abs(chunk_x - center_chunk.x) > FOG_RADIUS_CHUNKS or abs(chunk_y - center_chunk.y) > FOG_RADIUS_CHUNKS:
 			continue
 		var island_id: String = str(island.get("id", ""))
 		if island_id == "":
