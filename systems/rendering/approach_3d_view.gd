@@ -540,7 +540,10 @@ func _make_traffic_ship(vessel: Dictionary) -> Node3D:
 
 func _update_camera(ship_position: Vector2, close_factor: float, delta: float) -> void:
 	var velocity: Vector2 = Vector2(GameState.ship_state.get("velocity", Vector2.ZERO))
-	var heading: float = velocity.angle() if velocity.length_squared() > 1.0 else -PI * 0.5
+	var heading: float = float(GameState.ship_state.get(
+		"heading",
+		velocity.angle() if velocity.length_squared() > 1.0 else -PI * 0.5
+	))
 	# Godot's 3D ship points along local -Z. This yaw maps that nose to the same
 	# direction as the 2D velocity vector (x right, y down).
 	var yaw: float = -heading - PI * 0.5
