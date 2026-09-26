@@ -22,6 +22,7 @@ func _seed_progress() -> void:
 	GameState.world_state.current_position = Vector2(321, 654)
 	GameState.world_state.current_region = "eastern_archipelago"
 	GameState.world_state.explored_region_ids = ["eastern_archipelago"]
+	GameState.world_state.explored_chunks = {"-1:0": 2, "0:0": 1, "1:0": 2}
 	GameState.world_state.destination_port_id = "port_b"
 	GameState.player_state.discovered_port_ids = ["port_a", "port_b"]
 	GameState.port_state = {"port_a": {"discovered": true, "level": 3,
@@ -70,6 +71,7 @@ func test_full_save_load_round_trip() -> void:
 	# Timestamp intentionally records this save, not the previous session.
 	snapshot.world_state.last_session_timestamp = restored.world_state.last_session_timestamp
 	assert_eq(restored, snapshot, "all state survives JSON round trip")
+	assert_eq(restored.world_state.explored_chunks, {"-1:0": 2, "0:0": 1, "1:0": 2})
 	assert_gt(int(GameState.world_state.last_session_timestamp), 0)
 
 
