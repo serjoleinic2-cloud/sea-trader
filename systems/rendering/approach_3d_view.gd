@@ -6,6 +6,8 @@ extends CanvasLayer
 const MAP_TO_METERS: float = 0.04
 const TRANSITION_START_GAP: float = 560.0
 const TRANSITION_CLOSE_GAP: float = 160.0
+const FOG_RADIUS_CHUNKS: int = 6
+const FOG_HEIGHT: float = 28.0
 
 var _world_data: Dictionary = {}
 var _map_world: CanvasItem
@@ -22,6 +24,9 @@ var _island_nodes: Dictionary = {}
 var _hazard_nodes: Dictionary = {}
 var _rendered_island_data: Dictionary = {}
 var _traffic_models: Dictionary = {}
+var _fog_tiles: Dictionary = {}
+var _fog_center: Vector2i = Vector2i(2147483647, 2147483647)
+var _fog_explored_count: int = -1
 var _asset_catalog: Dictionary = {}
 var _transition_factor: float = 0.0
 var _chunk_size: float = 4096.0
@@ -72,6 +77,7 @@ func _process(delta: float) -> void:
 	var nearest: Dictionary = _find_nearest_island(ship_position)
 	if nearest.is_empty():
 		_set_transition(0.0, delta)
+		_sync_fog(ship_position)
 		return
 
 	var island_position: Vector2 = Vector2(nearest.get("position", Vector2.ZERO))
@@ -84,6 +90,7 @@ func _process(delta: float) -> void:
 	if _water != null:
 		_water.position.x = ship_position.x * MAP_TO_METERS
 		_water.position.z = ship_position.y * MAP_TO_METERS
+	_sync_fog(ship_position)
 	_sync_traffic(_trader_traffic, "trader")
 	_sync_traffic(_fleet_traffic, "fleet")
 
@@ -418,6 +425,58 @@ func _build_port(island_root: Node3D, port: Dictionary, island_position: Vector2
 	_add_cylinder(island_root, 0.58, 0.38, 2.5, lighthouse_at + Vector3(0.0, 1.4, 0.0), Color("e6dfc9"))
 	_add_cylinder(island_root, 0.43, 0.43, 0.35, lighthouse_at + Vector3(0.0, 2.75, 0.0), Color("a74935"))
 	_add_cylinder(island_root, 0.38, 0.34, 0.22, lighthouse_at + Vector3(0.0, 3.02, 0.0), Color("f2d789"))
+
+
+func _sync_fog(ship_position: Vector2) -> void:
+	var center := Vector2i(floori(ship_position.x / _chunk_size), floori(ship_position.y / _chunk_size))
+	var explored_chunks: Dictionary = GameState.world_state.get("explored_chunks", {})
+	if center == _fog_center and explored_chunks.size() == _fog_explored_count:
+		for tile in _fog_tiles.values():
+			(tile as Node3D).visible = _transition_factor < 0.35
+		return
+	_fog_center = center
+	_fog_explored_count = explored_chunks.size()
+	var keep_tiles: Dictionary = {}
+	for chunk_y in range(center.y - FOG_RADIUS_CHUNKS, center.y + FOG_RADIUS_CHUNKS + 1):
+		for chunk_x in range(center.x - FOG_RADIUS_CHUNKS, center.x + FOG_RADIUS_CHUNKS + 1):
+			var chunk_key: String = "%d:%d" % [chunk_x, chunk_y]
+			if explored_chunks.has(chunk_key):
+				continue
+			keep_tiles[chunk_key] = true
+			var fog_tile: Node3D = _fog_tiles.get(chunk_key) as Node3D
+			if fog_tile == null or not is_instance_valid(fog_tile):
+				fog_tile = _create_fog_tile(chunk_x, chunk_y)
+				_scene_root.add_child(fog_tile)
+				_fog_tiles[chunk_key] = fog_tile
+			fog_tile.visible = _transition_factor < 0.35
+	for raw_key in _fog_tiles.keys():
+		var chunk_key: String = str(raw_key)
+		if keep_tiles.has(chunk_key):
+			continue
+		var stale_tile: Node3D = _fog_tiles[chunk_key] as Node3D
+		if stale_tile != null and is_instance_valid(stale_tile):
+			stale_tile.queue_free()
+		_fog_tiles.erase(chunk_key)
+
+
+func _create_fog_tile(chunk_x: int, chunk_y: int) -> Node3D:
+	var tile := MeshInstance3D.new()
+	tile.name = "UnknownSea_%d_%d" % [chunk_x, chunk_y]
+	var plane := PlaneMesh.new()
+	plane.size = Vector2(_chunk_size * MAP_TO_METERS, _chunk_size * MAP_TO_METERS)
+	tile.mesh = plane
+	var fog_material := StandardMaterial3D.new()
+	fog_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	fog_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	fog_material.cull_mode = BaseMaterial3D.CULL_DISABLED
+	fog_material.albedo_color = Color(0.035, 0.085, 0.13, 0.92)
+	tile.material_override = fog_material
+	tile.position = Vector3(
+		(float(chunk_x) + 0.5) * _chunk_size * MAP_TO_METERS,
+		FOG_HEIGHT,
+		(float(chunk_y) + 0.5) * _chunk_size * MAP_TO_METERS
+	)
+	return tile
 
 
 func _sync_traffic(traffic_renderer: Node, traffic_group: String) -> void:
