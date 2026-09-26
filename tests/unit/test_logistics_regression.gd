@@ -291,6 +291,7 @@ func test_unplanned_autopilot_is_paid_empty_repositioning_without_reward() -> vo
 
 func test_trade_line_loads_multiple_goods_on_one_route_leg() -> void:
 	_add_fleet()
+	var cost: float = float(_fleet.quote_leg("aux", "route", 0).cash)
 	var second_good: String = ""
 	for good in _market.get_goods():
 		var candidate: String = str(good.get("id", ""))
