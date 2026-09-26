@@ -63,6 +63,7 @@ explored_chunks: Dictionary<String, int> # [PLAYER KNOWLEDGE] visible chunk "x:y
 ship_id: String           # references ShipData
 position: Vector2
 velocity: Vector2
+heading: float         # [PERSISTED] bow direction in radians, independent of reverse velocity
 hull: float               # 0.0–100.0
 engine: float             # 0.0–100.0
 steering: float           # 0.0–100.0
