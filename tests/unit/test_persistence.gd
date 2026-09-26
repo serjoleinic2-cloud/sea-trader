@@ -37,7 +37,7 @@ func _seed_progress() -> void:
 		"fuel_at_start": 90.0, "hull_at_start": 85.0,
 		"contract_id": "test_contract", "status": "sailing"}, true)
 	GameState.ship_state.merge({"ship_id": "ship_sloop", "position": Vector2.ZERO,
-		"velocity": Vector2(3, 4), "fuel": 37.0, "hull": 61.0,
+		"velocity": Vector2(3, 4), "heading": PI / 4.0, "fuel": 37.0, "hull": 61.0,
 		"engine": 80.0, "steering": 75.0, "cargo_hold": 70.0,
 		"cargo": [{"resource_id": "resource_timber", "quantity": 5}]}, true)
 
