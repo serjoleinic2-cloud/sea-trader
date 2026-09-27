@@ -213,18 +213,38 @@ func _resolve_navigation_collisions(current_pos: Vector2, proposed_pos: Vector2)
 		var island: Dictionary = raw_island
 		var center: Vector2 = Vector2(island.get("position", Vector2.ZERO))
 		var radius: float = float(island.get("radius", 0.0))
-		if radius <= 0.0 or proposed_pos.distance_to(center) >= radius + COLLISION_CLEARANCE:
+		if radius <= 0.0:
 			continue
-		# A natural-bay mouth is the one safe opening through the coastline.
-		var bay_angle: float = float(island.get("bay_angle", 1000.0))
-		var bay_width: float = float(island.get("bay_width", 0.0))
-		var offset: Vector2 = proposed_pos - center
-		var in_bay: bool = bay_angle < 900.0 and absf(wrapf(offset.angle() - bay_angle, -PI, PI)) <= bay_width and offset.length() >= radius * 0.72
-		if in_bay:
+		var current_distance: float = current_pos.distance_to(center)
+		var proposed_distance: float = proposed_pos.distance_to(center)
+		var current_is_blocked: bool = _island_blocks_position(current_pos, center, radius, island)
+		var move_distance: float = current_pos.distance_to(proposed_pos)
+		var sample_count: int = maxi(1, ceili(move_distance / maxf(1.0, COLLISION_CLEARANCE * 0.5)))
+
+		# Let a save or prior bad position escape outward from inside an island,
+		# but never allow tangential movement that could carry the ship through it.
+		if current_is_blocked:
+			if proposed_distance <= current_distance + 0.001:
+				_speed = 0.0
+				return current_pos
+			var previous_distance: float = current_distance
+			for sample_index in range(1, sample_count + 1):
+				var sample_position: Vector2 = current_pos.lerp(proposed_pos, float(sample_index) / float(sample_count))
+				var sample_distance: float = sample_position.distance_to(center)
+				if sample_distance + 0.5 < previous_distance:
+					_speed = 0.0
+					return current_pos
+				previous_distance = sample_distance
 			continue
-		if current_pos.distance_to(center) > radius + COLLISION_CLEARANCE:
-			_speed = 0.0
-			return current_pos
+
+		# Sample the whole step so large frame/autopilot steps cannot tunnel
+		# through an island between two safe endpoints.
+		for sample_index in range(1, sample_count + 1):
+			var sample_position: Vector2 = current_pos.lerp(proposed_pos, float(sample_index) / float(sample_count))
+			if _island_blocks_position(sample_position, center, radius, island):
+				_speed = 0.0
+				return current_pos
+
 	for raw_vessel in data.get("vessels", []):
 		if not (raw_vessel is Dictionary):
 			continue
@@ -238,6 +258,16 @@ func _resolve_navigation_collisions(current_pos: Vector2, proposed_pos: Vector2)
 			_speed = 0.0
 			return current_pos
 	return proposed_pos
+
+
+func _island_blocks_position(position: Vector2, center: Vector2, radius: float, island: Dictionary) -> bool:
+	if position.distance_to(center) >= radius + COLLISION_CLEARANCE:
+		return false
+	var bay_angle: float = float(island.get("bay_angle", 1000.0))
+	var bay_width: float = float(island.get("bay_width", 0.0))
+	var offset: Vector2 = position - center
+	var in_bay: bool = bay_angle < 900.0 and bay_width > 0.0 and absf(wrapf(offset.angle() - bay_angle, -PI, PI)) <= bay_width and offset.length() >= radius * 0.72
+	return not in_bay
 
 
 func setup_world_bounds(_w: float, _h: float) -> void:
