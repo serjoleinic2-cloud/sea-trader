@@ -122,13 +122,15 @@ func get_max_speed() -> float:
 
 
 func restore_from_state() -> void:
-	"""Restore physics from saved GameState after app resume."""
-	var vel: Vector2 = GameState.ship_state.get("velocity", Vector2.ZERO)
-	var is_reversing: bool = bool(GameState.ship_state.get("reverse_gear", false))
+	"""Restore signed speed against the saved hull heading.
+	Heading describes where the bow points; velocity may point the other way."""
+	var vel: Vector2 = Vector2(GameState.ship_state.get("velocity", Vector2.ZERO))
 	_heading = float(GameState.ship_state.get("heading", -PI / 2.0))
-	_speed = vel.length() * (-1.0 if is_reversing else 1.0)
-	if vel.length() > 0.0:
-		_heading = atan2(vel.y, vel.x) + (PI if is_reversing else 0.0)
+	var forward: Vector2 = Vector2(cos(_heading), sin(_heading))
+	_speed = vel.dot(forward)
+	if vel.length_squared() < 0.01:
+		_speed = 0.0
+	GameState.ship_state["reverse_gear"] = _speed < -0.5
 
 # ============================================================================
 # Internal — speed update
