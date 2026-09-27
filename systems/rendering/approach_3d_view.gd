@@ -43,6 +43,7 @@ var _manual_close_view: bool = false
 var _camera_orbit_yaw: float = 0.0
 var _camera_orbit_pitch: float = 0.0
 var _touch_points: Dictionary = {}
+var _last_touch_distance: float = 0.0
 
 
 func _ready() -> void:
@@ -133,12 +134,31 @@ func _input(event: InputEvent) -> void:
 	elif event is InputEventScreenTouch:
 		if event.pressed:
 			_touch_points[event.index] = event.position
+			if _touch_points.size() == 2:
+				var touch_ids: Array = _touch_points.keys()
+				_last_touch_distance = Vector2(_touch_points[touch_ids[0]]).distance_to(Vector2(_touch_points[touch_ids[1]]))
 		else:
 			_touch_points.erase(event.index)
-	elif event is InputEventScreenDrag and _touch_points.size() >= 2 and event.index == 0:
-		_manual_close_view = true
-		_camera_orbit_yaw = wrapf(_camera_orbit_yaw - event.relative.x * 0.006, -TAU, TAU)
-		_camera_orbit_pitch = clampf(_camera_orbit_pitch + event.relative.y * 0.004, -0.48, 0.62)
+			if _touch_points.size() < 2:
+				_last_touch_distance = 0.0
+	elif event is InputEventScreenDrag and _touch_points.has(event.index):
+		_touch_points[event.index] = event.position
+		if _touch_points.size() >= 2:
+			var touch_ids: Array = _touch_points.keys()
+			var first_touch: Vector2 = Vector2(_touch_points[touch_ids[0]])
+			var second_touch: Vector2 = Vector2(_touch_points[touch_ids[1]])
+			var touch_distance: float = first_touch.distance_to(second_touch)
+			if _last_touch_distance > 1.0 and touch_distance > 1.0:
+				var map_camera: Camera2D = get_viewport().get_camera_2d()
+				if map_camera != null:
+					var zoom_value: float = clampf(map_camera.zoom.x * touch_distance / _last_touch_distance, 0.15, 2.0)
+					map_camera.zoom = Vector2.ONE * zoom_value
+					_manual_close_view = true
+			_last_touch_distance = touch_distance
+			if event.index == 0:
+				_manual_close_view = true
+				_camera_orbit_yaw = wrapf(_camera_orbit_yaw - event.relative.x * 0.006, -TAU, TAU)
+				_camera_orbit_pitch = clampf(_camera_orbit_pitch + event.relative.y * 0.004, -0.48, 0.62)
 
 
 func _build_viewport() -> void:
@@ -243,25 +263,28 @@ func _build_star_dome() -> void:
 	_star_dome = Node3D.new()
 	_star_dome.name = "NightSkyStars"
 	_scene_root.add_child(_star_dome)
+	# Simple, recognizable silhouettes for Ursa Major, Cassiopeia, and Orion.
+	# Kept as presentation-only geometry until the world calendar gains latitude.
 	var constellations: Array[Array] = [
-		[Vector2(-0.92, 0.55), Vector2(-0.70, 0.62), Vector2(-0.62, 0.42), Vector2(-0.88, 0.38), Vector2(-0.92, 0.55), Vector2(-1.05, 0.23), Vector2(-1.20, 0.10)],
-		[Vector2(-0.28, 0.55), Vector2(-0.10, 0.72), Vector2(0.08, 0.52), Vector2(0.27, 0.72), Vector2(0.45, 0.50)],
-		[Vector2(0.73, 0.30), Vector2(0.82, 0.62), Vector2(0.95, 0.42), Vector2(1.08, 0.62), Vector2(1.20, 0.31), Vector2(0.96, 0.10), Vector2(0.82, 0.62)]
+		[Vector2(-0.96, 0.56), Vector2(-0.70, 0.63), Vector2(-0.64, 0.38), Vector2(-0.91, 0.34), Vector2(-0.96, 0.56), Vector2(-1.10, 0.16), Vector2(-1.25, -0.06)],
+		[Vector2(-0.43, 0.55), Vector2(-0.23, 0.76), Vector2(-0.02, 0.50), Vector2(0.19, 0.75), Vector2(0.40, 0.48)],
+		[Vector2(0.70, 0.68), Vector2(1.05, 0.67), Vector2(0.77, 0.15), Vector2(1.10, 0.12), Vector2(0.70, 0.68), Vector2(0.90, 0.42), Vector2(1.05, 0.67), Vector2(0.90, 0.42), Vector2(0.77, 0.15)]
 	]
 	var line_mesh := ImmediateMesh.new()
+	var line_material := StandardMaterial3D.new()
+	line_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	line_material.albedo_color = Color(0.42, 0.74, 0.92, 0.62)
+	line_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	line_mesh.surface_begin(Mesh.PRIMITIVE_LINES)
 	var star_index: int = 0
 	for constellation in constellations:
 		var previous: Vector3 = Vector3.ZERO
-		var first: Vector3 = Vector3.ZERO
 		for point in constellation:
-			var sky_point := Vector3(float(point.x), 0.35 + float(point.y) * 0.35, -1.0).normalized() * STAR_DOME_RADIUS
-			if star_index > 0 and previous != Vector3.ZERO:
+			var sky_point := Vector3(float(point.x), 0.40 + float(point.y) * 0.35, -1.0).normalized() * STAR_DOME_RADIUS
+			if previous != Vector3.ZERO:
 				line_mesh.surface_add_vertex(previous)
 				line_mesh.surface_add_vertex(sky_point)
 			previous = sky_point
-			if first == Vector3.ZERO:
-				first = sky_point
 			var star_mesh := SphereMesh.new()
 			star_mesh.radius = 0.24 if star_index % 4 else 0.34
 			star_mesh.height = star_mesh.radius * 2.0
@@ -271,22 +294,19 @@ func _build_star_dome() -> void:
 			star_node.name = "Star_%02d" % star_index
 			star_node.mesh = star_mesh
 			star_node.position = sky_point
-			star_node.material_override = _material(Color("c9e9ff"), 0.2)
-			var star_material: StandardMaterial3D = star_node.material_override as StandardMaterial3D
+			var star_material := StandardMaterial3D.new()
 			star_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+			star_material.albedo_color = Color("c9e9ff")
 			star_material.emission_enabled = true
 			star_material.emission = Color("90cfff")
 			star_material.emission_energy_multiplier = 2.0
+			star_node.material_override = star_material
 			_star_dome.add_child(star_node)
 			star_index += 1
-		line_mesh.surface_end()
+	line_mesh.surface_end()
 	var lines := MeshInstance3D.new()
 	lines.name = "ConstellationLines"
 	lines.mesh = line_mesh
-	var line_material := StandardMaterial3D.new()
-	line_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	line_material.albedo_color = Color(0.42, 0.74, 0.92, 0.62)
-	line_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	lines.material_override = line_material
 	_star_dome.add_child(lines)
 	_star_dome.visible = false
