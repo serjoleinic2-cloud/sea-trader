@@ -7,7 +7,7 @@
 
 ## Core Fantasy
 
-You are a lone captain of a small cargo ship on a procedurally generated sea. You start with nothing and build a trading empire — from a single creaking sloop to a full fleet and your own company. Every voyage is manual, every delivery is personal, every coin earned is yours.
+You are a lone captain of a small cargo ship in an immense fantasy maritime world. You start with nothing and build a trading empire — from a single creaking sloop to a full fleet and your own company. Every voyage is manual, every delivery is personal, every coin earned is yours. Exploration is driven by beautiful, varied coastlines and rare wonders at sea; war is not the world's defining identity. The approved visual direction is documented in rules/VISUAL_WORLD_PLAN.md.
 
 ---
 
@@ -46,10 +46,10 @@ Single ship captain
 
 ## World
 
-- **View:** Top-down 2D
-- **Sea:** Procedurally generated, **permanent deterministic seed**
-- **Islands:** Scattered across sea
-- **Ports:** Procedurally generated, attached to islands
+- **View:** A shared 3D world presented through strategic overhead and close sailing camera views.
+- **Sea:** Procedurally generated and streamed from a **permanent deterministic seed**.
+- **Islands:** A varied mix of broad landmasses, large islands, archipelagos, open crossings, and rare fantastical floating-island landmarks.
+- **Ports:** Generated at selected sheltered shores; most are working harbors, with rare monumental hubs.
 - **Regions:** Different areas with different resources and dangers
 - **Hazards:** Pirate zones, storms (TBD specifics)
 - **Discovery:** Ports are hidden until player physically reaches them
