@@ -1,38 +1,63 @@
 # VISUAL WORLD PLAN
 
-## Current phase
+## Owner-approved art direction — 2026-09-27
 
-Trade, navigation, routes, contracts, crews, ports, and economy remain authoritative in the top-down 2D world.
-The first procedural 3D close-view renderer is active near islands; it reads the same world seed and positions and does not change game state. Models and detailed art can be refined after the mechanics are stable.
+Sea Trader is a cinematic fantasy maritime world: a working trade-and-exploration game with the scale and wonder of a fantasy film. The sea is beautiful, immense, and occasionally strange; warfare is not the world's defining identity.
 
-## Target camera
+Mood references are broad only: the bioluminescent wonder and dramatic natural scale of *Avatar*, mythic Atlantean city imagery, and the monumental architecture and landscapes of *The Lord of the Rings*. Do not reproduce those franchises' characters, locations, symbols, or signature designs. Build an original visual language for Sea Trader.
 
-The final world uses three camera modes:
+Use stylized realism: readable ship silhouettes, believable coastlines and scale, expressive lighting, and imaginative color. Art must remain legible on a phone and perform on mobile hardware.
 
-- **Top-Down / Map** — strategic travel, routes, ports, navigation and economy.
-- **Dynamic / Auto** — smooth transition while zooming toward the ship.
-- **Third-Person / Close** — close sailing view, ports, islands and ship scale.
+## Current implementation and source of truth
 
-Auto mode moves the camera along a smooth arc from a top-down position to a third-person position behind the ship. It is not an abrupt mode switch.
-The player can keep an explicit Top-Down or Third-Person mode. The future mobile controls are pinch-to-zoom and drag-to-rotate in the 3D close view.
+Trade, navigation, routes, contracts, crews, ports, and economy remain driven by the saved deterministic world and game systems. The shared 3D renderer presents that same world; visual effects and imported models must not alter game state.
 
-## World
+Detailed art can be added in stages after each gameplay slice is stable. Procedural placeholders remain useful during mechanics development.
 
-World identity remains the saved deterministic seed. Islands, ports and their positions must regenerate from that seed; player progress must stay separate.
+## Camera and readability
 
-The final visual islands are 3D scenes with combinations of:
+The final world has three presentation modes:
 
-- harbours, docks and warehouses;
-- cliffs, beaches and vegetation;
-- lighthouse, castle or port administration;
-- local buildings, small boats and merchant traffic.
+- **Strategic / Map** — routes, known ports, navigation, and world orientation.
+- **Dynamic / Auto** — a smooth camera arc between overview and sailing views.
+- **Sailing / Close** — the ship, horizon, nearby coastline, and water motion remain readable at sea.
 
-The current 2D islands/ports remain the gameplay layout source until the 3D renderer is introduced.
+The player can select an explicit overview or close view. In close view, desktop right-mouse drag orbits around the ship; mobile uses a dedicated touch gesture. Zoom controls distance and does not unexpectedly remove all horizon and motion cues while sailing in open water. Near a coast, the camera can lower smoothly to show the ship against the land.
 
-## Models and import
+Keep ship heading, speed, wake, and a clear navigation reference available without covering the scene. Camera movement must not imply that the ship has stopped.
 
-The player can model ships and large props in SketchUp. Preferred import format for Godot is **GLB**.
-Ship models should be a single object for the first import pass, centered at the origin, with forward direction agreed before export and a consistent scale.
-Ship tiers will receive distinct 3D silhouettes: small boat, barque, schooner, freighter and tanker.
+## World geography and landmarks
 
-3D assets must not change trade, save, route, economy or progression state. They are render-layer replacements over the same systems.
+The world should feel broader than a field of small, evenly spaced islands. Generate deterministic regions containing a mix of:
+
+- broad continental shorelines and very large islands that take time to sail around;
+- open-water crossings, island chains, deep bays, fjords, narrow straits, and navigable passages between cliffs;
+- smaller islands and reefs that make coastlines varied without filling every sea lane;
+- a small number of fantastical floating islands suspended in cloud, used as rare distant landmarks and special regional set pieces;
+- discoverable hazards and unusual waters, used to create route choices rather than constant combat.
+
+Procedural generation should use a seeded regional layout and coastline templates so continents, straits, and archipelagos have a coherent shape and remain stable after saving. Ports belong at plausible sheltered coves or inlets, not at every coastline point.
+
+## Ports and monumental structures
+
+Most ports should be useful, distinct working harbors. A few rare hubs may be monumental: vast sea gates, terraced quays, ancient coastal cities, or citadel-like harbor walls. Port scale and architecture should signal a region's history and importance.
+
+Some island approaches can pass between giant carved statues into an inner bay or city. The statues and approach should be navigable landmarks, not decoration that blocks the route. Atlantean-inspired cities should feel ancient and maritime while retaining an original Sea Trader design.
+
+The home port should read clearly as the player's base. Rare grand ports should feel exceptional because ordinary harbors leave room for contrast.
+
+## Day, night, stars, and luminous water
+
+Daylight is the default for readable sailing. Night is brief and intentional: a quiet visual interval to look up at the sky without making routine navigation frustrating.
+
+The night sky should use a consistent, recognizable real-star reference rather than random decorative dots. Constellations and the star field should move coherently across the sky. Exact latitude/date behavior can be defined when the world calendar and geography are finalized.
+
+At night, add restrained bioluminescent or fluorescent-looking light around the hull and in the wake. It should reveal the ship and nearby water without turning the whole sea into glowing neon. Ship lamps, moonlight, stars, and coast silhouettes should preserve enough contrast to steer safely.
+
+## Mobile performance and asset workflow
+
+Stream and level-of-detail the world: distant coastlines can use simplified silhouettes; nearby islands and ports receive detailed meshes and props. Keep water shader cost, transparent effects, lights, and floating-island geometry within a measured mobile budget. Provide scalable effect quality where needed.
+
+The world uses reusable, modular 3D scenes so new islands, ports, statues, and sea objects can be added to the asset catalog without changing trading or save logic. The player can model ships and large props in SketchUp. Preferred import format for Godot is **GLB**. First-pass ship models should be centered, share an agreed forward axis, and use consistent scale.
+
+Ship tiers need distinct silhouettes: small boat, barque, schooner, freighter, and tanker. All visual assets remain a presentation layer over the same game systems.
