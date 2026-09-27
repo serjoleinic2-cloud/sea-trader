@@ -637,6 +637,9 @@ func _build_port(island_root: Node3D, port: Dictionary, island_position: Vector2
 	# Warehouses and small port buildings sit between the beach and the pier.
 	var landward: Vector3 = -outward
 	var settlement_center: Vector3 = Vector3(local_port.x, 0.0, local_port.y) + landward * 1.8
+	var home_port_id: String = str(GameState.world_state.get("home_port_id", ""))
+	if str(port.get("id", "")) == home_port_id or bool(port.get("monumental", false)):
+		_add_harbor_gate(island_root, dock_start + outward * 5.0, pier_right, bay_radius)
 	var registered_building: Node3D = _attach_catalog_scene(island_root, "buildings", str(port.get("id", "port")) + "_warehouse", 2.6)
 	if registered_building != null:
 		registered_building.position += settlement_center + landward * 2.0 + Vector3(0.0, 1.0, 0.0)
@@ -655,6 +658,34 @@ func _build_port(island_root: Node3D, port: Dictionary, island_position: Vector2
 	_add_cylinder(island_root, 0.58, 0.38, 2.5, lighthouse_at + Vector3(0.0, 1.4, 0.0), Color("e6dfc9"))
 	_add_cylinder(island_root, 0.43, 0.43, 0.35, lighthouse_at + Vector3(0.0, 2.75, 0.0), Color("a74935"))
 	_add_cylinder(island_root, 0.38, 0.34, 0.22, lighthouse_at + Vector3(0.0, 3.02, 0.0), Color("f2d789"))
+
+
+func _add_harbor_gate(parent: Node3D, center: Vector3, pier_right: Vector3, bay_radius: float) -> void:
+	var stone := _material(Color("7c908d"), 0.88)
+	var bronze := _material(Color("a98c61"), 0.78)
+	for side_value in [-1.0, 1.0]:
+		var side: float = float(side_value)
+		var statue := Node3D.new()
+		statue.name = "HarborGateStatue"
+		statue.position = center + pier_right * side * maxf(5.0, bay_radius * 0.78)
+		parent.add_child(statue)
+		_add_cylinder(statue, 1.35, 1.02, 8.0, Vector3(0.0, 4.0, 0.0), stone)
+		_add_cylinder(statue, 1.50, 1.30, 0.65, Vector3(0.0, 0.65, 0.0), bronze)
+		_add_cylinder(statue, 1.12, 1.38, 0.55, Vector3(0.0, 8.25, 0.0), bronze)
+		var head := SphereMesh.new()
+		head.radius = 1.0
+		head.height = 2.2
+		head.radial_segments = 10
+		head.rings = 6
+		var head_node := MeshInstance3D.new()
+		head_node.mesh = head
+		head_node.material_override = stone
+		head_node.position = Vector3(0.0, 9.5, 0.0)
+		statue.add_child(head_node)
+		var shoulder := _add_box(statue, Vector3(3.1, 0.82, 1.0), Vector3(0.0, 6.75, 0.0), stone)
+		shoulder.rotation.z = -side * 0.08
+		var arm := _add_box(statue, Vector3(0.68, 3.0, 0.78), Vector3(side * 1.25, 5.25, 0.0), stone)
+		arm.rotation.z = side * 0.12
 
 
 func _sync_fog(ship_position: Vector2) -> void:
