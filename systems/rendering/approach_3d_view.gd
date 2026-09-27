@@ -668,17 +668,18 @@ func _build_port(island_root: Node3D, port: Dictionary, island_position: Vector2
 
 
 func _add_harbor_gate(parent: Node3D, center: Vector3, pier_right: Vector3, bay_radius: float) -> void:
-	var stone := _material(Color("7c908d"), 0.88)
-	var bronze := _material(Color("a98c61"), 0.78)
+	var stone_color: Color = Color("7c908d")
+	var bronze_color: Color = Color("a98c61")
+	var stone := _material(stone_color, 0.88)
 	for side_value in [-1.0, 1.0]:
 		var side: float = float(side_value)
 		var statue := Node3D.new()
 		statue.name = "HarborGateStatue"
 		statue.position = center + pier_right * side * maxf(5.0, bay_radius * 0.78)
 		parent.add_child(statue)
-		_add_cylinder(statue, 1.35, 1.02, 8.0, Vector3(0.0, 4.0, 0.0), stone)
-		_add_cylinder(statue, 1.50, 1.30, 0.65, Vector3(0.0, 0.65, 0.0), bronze)
-		_add_cylinder(statue, 1.12, 1.38, 0.55, Vector3(0.0, 8.25, 0.0), bronze)
+		_add_cylinder(statue, 1.35, 1.02, 8.0, Vector3(0.0, 4.0, 0.0), stone_color)
+		_add_cylinder(statue, 1.50, 1.30, 0.65, Vector3(0.0, 0.65, 0.0), bronze_color)
+		_add_cylinder(statue, 1.12, 1.38, 0.55, Vector3(0.0, 8.25, 0.0), bronze_color)
 		var head := SphereMesh.new()
 		head.radius = 1.0
 		head.height = 2.2
