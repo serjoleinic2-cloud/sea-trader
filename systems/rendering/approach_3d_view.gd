@@ -448,42 +448,112 @@ func _sync_generated_world(world_data: Dictionary) -> void:
 
 func _build_island(island_root: Node3D, island: Dictionary) -> void:
 	var current_id: String = str(island.get("id", ""))
+	var island_position: Vector2 = Vector2(island.get("position", Vector2.ZERO))
 	var map_radius: float = float(island.get("radius", 90.0))
 	var radius: float = map_radius * MAP_TO_METERS
 	var landform: String = str(island.get("landform", "small_island"))
+	var port: Dictionary = _find_port_for_island(current_id)
+	var port_angle: float = INF
+	if not port.is_empty():
+		var port_offset: Vector2 = Vector2(port.get("position", island_position)) - island_position
+		if port_offset.length_squared() > 0.01:
+			port_angle = port_offset.angle()
 	var custom_model: Node3D = _attach_catalog_scene(island_root, "islands", current_id, radius * 2.0)
 	if custom_model == null:
-		# Schematic coast footprint stays aligned to navigation coordinates.
-		_add_cylinder(island_root, radius, radius * 0.94, 1.55, Vector3(0.0, 0.62, 0.0), Color("b99a69"))
-		_add_cylinder(island_root, radius * 0.94, radius * 0.84, 0.5, Vector3(0.0, 1.58, 0.0), Color("4f7851"))
+		# The 3D shoreline varies deterministically while staying inside the
+		# navigation circle used by collision and save data.
+		_add_cylinder(island_root, radius * 0.99, radius * 0.79, 1.1, Vector3(0.0, -0.24, 0.0), Color("75654f"))
+		var seed_value: int = abs(hash(current_id))
+		_add_island_surface(island_root, radius, 0.32, 0.98, seed_value, port_angle, 0.10, 0.24, Color("b99a69"))
+		_add_island_surface(island_root, radius, 0.39, 0.83, seed_value + 31, port_angle, 0.16, 0.22, Color("4f7851"))
 		if landform == "great_island":
-			var peak_seed: int = abs(hash(current_id))
 			for peak_index in range(11):
-				var peak_angle: float = TAU * float(peak_index) / 11.0 + float(peak_seed % 79) * 0.01
-				var peak_distance: float = radius * (0.18 + float((peak_index * 7 + peak_seed) % 48) / 100.0)
-				var peak_height: float = 8.0 + float((peak_index * 13 + peak_seed) % 150) / 10.0
+				var peak_angle: float = TAU * float(peak_index) / 11.0 + float(seed_value % 79) * 0.01
+				var peak_distance: float = radius * (0.18 + float((peak_index * 7 + seed_value) % 48) / 100.0)
+				var peak_height: float = 8.0 + float((peak_index * 13 + seed_value) % 150) / 10.0
 				var peak_radius: float = radius * (0.07 + float(peak_index % 4) * 0.018)
-				var peak_at := Vector3(cos(peak_angle) * peak_distance, peak_height * 0.5, sin(peak_angle) * peak_distance)
+				var peak_at := Vector3(cos(peak_angle) * peak_distance, peak_height * 0.5 + 0.45, sin(peak_angle) * peak_distance)
 				_add_cylinder(island_root, peak_radius, peak_radius * 0.06, peak_height, peak_at, Color("718269") if peak_index % 3 else Color("797c75"))
-			_add_cylinder(island_root, radius * 0.20, 0.0, 28.0, Vector3(-radius * 0.14, 14.0, -radius * 0.12), Color("747e70"))
+			_add_cylinder(island_root, radius * 0.20, 0.0, 28.0, Vector3(-radius * 0.14, 14.4, -radius * 0.12), Color("747e70"))
 		else:
-			_add_cylinder(island_root, radius * 0.34, 0.0, 2.9, Vector3(-radius * 0.18, 3.0, -radius * 0.08), Color("607d4c"))
-			_add_cylinder(island_root, radius * 0.24, 0.0, 2.1, Vector3(radius * 0.28, 2.65, radius * 0.12), Color("71865a"))
-		var random_seed: int = abs(hash(current_id))
-		var tree_count: int = 5 if landform == "great_island" else 7
+			_add_cylinder(island_root, radius * 0.34, 0.0, 2.9, Vector3(-radius * 0.18, 3.45, -radius * 0.08), Color("607d4c"))
+			_add_cylinder(island_root, radius * 0.24, 0.0, 2.1, Vector3(radius * 0.28, 3.1, radius * 0.12), Color("71865a"))
+		var tree_count: int = 8 if landform == "great_island" else 7
 		for index in range(tree_count):
-			var angle: float = TAU * float(index) / float(tree_count) + float(random_seed % 31) * 0.01
-			var distance: float = radius * (0.23 + float(index % 3) * 0.13)
-			var tree_at := Vector3(cos(angle) * distance, 1.9, sin(angle) * distance)
+			var angle: float = TAU * float(index) / float(tree_count) + float(seed_value % 31) * 0.01
+			var distance: float = radius * (0.20 + float(index % 3) * 0.12)
+			var tree_at := Vector3(cos(angle) * distance, 2.0, sin(angle) * distance)
 			_add_cylinder(island_root, 0.10, 0.08, 1.2, tree_at + Vector3(0.0, 0.55, 0.0), Color("73553b"))
 			_add_cylinder(island_root, 0.85, 0.04, 1.45, tree_at + Vector3(0.0, 1.7, 0.0), Color("326747"))
+		if landform == "great_island" and posmod(seed_value, 13) == 0:
+			_add_floating_island(island_root, radius, seed_value)
 
-	var port: Dictionary = _find_port_for_island(current_id)
 	if not port.is_empty():
-		_build_port(island_root, port, Vector2(island.get("position", Vector2.ZERO)), radius)
+		_build_port(island_root, port, island_position, radius)
 	elif custom_model == null:
 		_add_cylinder(island_root, radius * 0.16, radius * 0.05, 1.5, Vector3(radius * 0.42, 2.1, -radius * 0.35), Color("8a8272"))
 
+
+func _add_island_surface(parent: Node3D, radius: float, height: float, base_factor: float, seed_value: int, port_angle: float, bay_cut: float, bay_width: float, color: Color) -> void:
+	const SEGMENTS: int = 80
+	var vertices := PackedVector3Array()
+	var indices := PackedInt32Array()
+	vertices.append(Vector3.ZERO)
+	var seed_phase: float = float(posmod(seed_value, 10000)) * 0.001
+	for index in range(SEGMENTS):
+		var angle: float = TAU * float(index) / float(SEGMENTS)
+		var coast_noise: float = 1.0 + sin(angle * 3.0 + seed_phase) * 0.035 + sin(angle * 7.0 - seed_phase * 0.7) * 0.022 + sin(angle * 13.0 + seed_phase * 1.4) * 0.012
+		var factor: float = base_factor * coast_noise
+		if not is_inf(port_angle):
+			var angle_gap: float = absf(wrapf(angle - port_angle, -PI, PI))
+			factor -= bay_cut * exp(-pow(angle_gap / bay_width, 2.0))
+		factor = clampf(factor, 0.55, 1.0)
+		vertices.append(Vector3(cos(angle) * radius * factor, 0.0, sin(angle) * radius * factor))
+	for index in range(SEGMENTS):
+		indices.append(0)
+		indices.append(1 + ((index + 1) % SEGMENTS))
+		indices.append(1 + index)
+	var arrays: Array = []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = vertices
+	arrays[Mesh.ARRAY_INDEX] = indices
+	var mesh := ArrayMesh.new()
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	var instance := MeshInstance3D.new()
+	instance.mesh = mesh
+	instance.material_override = _material(color, 0.92)
+	instance.position.y = height
+	parent.add_child(instance)
+
+
+func _add_floating_island(parent: Node3D, main_radius: float, seed_value: int) -> void:
+	var floating := Node3D.new()
+	floating.name = "FloatingIsland"
+	var angle: float = float(posmod(seed_value, 628)) * 0.01
+	var float_radius: float = main_radius * 0.20
+	var altitude: float = 34.0 + float(posmod(seed_value / 7, 260)) * 0.12
+	floating.position = Vector3(cos(angle) * main_radius * 1.22, altitude, sin(angle) * main_radius * 1.22)
+	parent.add_child(floating)
+	_add_cylinder(floating, float_radius * 0.70, float_radius * 0.18, float_radius * 0.72, Vector3(0.0, 0.0, 0.0), Color("777c78"))
+	_add_cylinder(floating, float_radius * 0.18, float_radius * 0.48, 0.9, Vector3(0.0, float_radius * 0.39, 0.0), Color("51865e"))
+	_add_cylinder(floating, 0.0, float_radius * 0.10, float_radius * 0.86, Vector3(-float_radius * 0.26, -float_radius * 0.70, 0.0), Color("686e6b"))
+	_add_cylinder(floating, 0.0, float_radius * 0.07, float_radius * 0.62, Vector3(float_radius * 0.28, -float_radius * 0.56, float_radius * 0.12), Color("686e6b"))
+	var cloud_material := StandardMaterial3D.new()
+	cloud_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	cloud_material.albedo_color = Color(0.72, 0.86, 0.92, 0.22)
+	cloud_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	for cloud_index in range(3):
+		var cloud_mesh := SphereMesh.new()
+		cloud_mesh.radius = float_radius * (0.45 + 0.08 * float(cloud_index))
+		cloud_mesh.height = cloud_mesh.radius * 0.42
+		cloud_mesh.radial_segments = 8
+		cloud_mesh.rings = 4
+		var cloud := MeshInstance3D.new()
+		cloud.name = "Cloud_%d" % cloud_index
+		cloud.mesh = cloud_mesh
+		cloud.material_override = cloud_material
+		cloud.position = Vector3(float(cloud_index - 1) * float_radius * 0.62, -float_radius * 0.48, 0.0)
+		floating.add_child(cloud)
 
 
 func _attach_catalog_scene(parent: Node3D, category: String, identity: String, target_size_m: float) -> Node3D:
