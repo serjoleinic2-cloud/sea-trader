@@ -8,6 +8,8 @@ const TRANSITION_START_GAP: float = 560.0
 const TRANSITION_CLOSE_GAP: float = 160.0
 const FOG_RADIUS_CHUNKS: int = 6
 const FOG_HEIGHT: float = 28.0
+const DAY_CYCLE_SECONDS: float = 300.0
+const STAR_DOME_RADIUS: float = 420.0
 
 var _world_data: Dictionary = {}
 var _map_world: CanvasItem
@@ -31,6 +33,16 @@ var _asset_catalog: Dictionary = {}
 var _transition_factor: float = 0.0
 var _chunk_size: float = 4096.0
 var _camera_initialized: bool = false
+var _environment: Environment
+var _sunlight: DirectionalLight3D
+var _star_dome: Node3D
+var _wake_material: StandardMaterial3D
+var _day_clock: float = 0.0
+var _orbit_dragging: bool = false
+var _manual_close_view: bool = false
+var _camera_orbit_yaw: float = 0.0
+var _camera_orbit_pitch: float = 0.0
+var _touch_points: Dictionary = {}
 
 
 func _ready() -> void:
@@ -71,28 +83,62 @@ func initialize(world_data: Dictionary, map_world: CanvasItem, map_ship: CanvasI
 
 
 func _process(delta: float) -> void:
+	_day_clock = fposmod(_day_clock + delta, DAY_CYCLE_SECONDS)
+	_update_ambience(delta)
 	if _world_data.is_empty() or _camera == null:
 		return
 	var ship_position: Vector2 = Vector2(GameState.ship_state.get("position", Vector2.ZERO))
 	var nearest: Dictionary = _find_nearest_island(ship_position)
-	if nearest.is_empty():
-		_set_transition(0.0, delta)
-		_sync_fog(ship_position)
-		return
+	var coast_factor: float = 0.0
+	if not nearest.is_empty():
+		var island_position: Vector2 = Vector2(nearest.get("position", Vector2.ZERO))
+		var island_radius: float = float(nearest.get("radius", 80.0))
+		var coast_gap: float = maxf(0.0, ship_position.distance_to(island_position) - island_radius)
+		coast_factor = 1.0 - smoothstep(TRANSITION_CLOSE_GAP, TRANSITION_START_GAP, coast_gap)
 
-	var island_position: Vector2 = Vector2(nearest.get("position", Vector2.ZERO))
-	var island_radius: float = float(nearest.get("radius", 80.0))
-	var center_distance: float = ship_position.distance_to(island_position)
-	var coast_gap: float = maxf(0.0, center_distance - island_radius)
-	var close_factor: float = 1.0 - smoothstep(TRANSITION_CLOSE_GAP, TRANSITION_START_GAP, coast_gap)
+	# High zoom can enter the same 3D sailing view even far from land.
+	var map_camera: Camera2D = get_viewport().get_camera_2d()
+	var zoom_factor: float = 0.0
+	if map_camera != null:
+		zoom_factor = smoothstep(0.72, 1.20, map_camera.zoom.x)
+	if map_camera != null and map_camera.zoom.x < 0.62:
+		_manual_close_view = false
+		_camera_orbit_yaw = 0.0
+		_camera_orbit_pitch = 0.0
+	var close_factor: float = maxf(coast_factor, zoom_factor)
+	if _manual_close_view:
+		close_factor = 1.0
 	_set_transition(close_factor, delta)
 	_update_camera(ship_position, _transition_factor, delta)
 	if _water != null:
 		_water.position.x = ship_position.x * MAP_TO_METERS
 		_water.position.z = ship_position.y * MAP_TO_METERS
+	if _star_dome != null:
+		_star_dome.position = _camera.position
 	_sync_fog(ship_position)
 	_sync_traffic(_trader_traffic, "trader")
 	_sync_traffic(_fleet_traffic, "fleet")
+
+
+func _input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT:
+		_orbit_dragging = event.pressed
+		if event.pressed:
+			_manual_close_view = true
+		get_viewport().set_input_as_handled()
+	elif event is InputEventMouseMotion and _orbit_dragging:
+		_camera_orbit_yaw = wrapf(_camera_orbit_yaw - event.relative.x * 0.006, -TAU, TAU)
+		_camera_orbit_pitch = clampf(_camera_orbit_pitch + event.relative.y * 0.004, -0.48, 0.62)
+		get_viewport().set_input_as_handled()
+	elif event is InputEventScreenTouch:
+		if event.pressed:
+			_touch_points[event.index] = event.position
+		else:
+			_touch_points.erase(event.index)
+	elif event is InputEventScreenDrag and _touch_points.size() >= 2 and event.index == 0:
+		_manual_close_view = true
+		_camera_orbit_yaw = wrapf(_camera_orbit_yaw - event.relative.x * 0.006, -TAU, TAU)
+		_camera_orbit_pitch = clampf(_camera_orbit_pitch + event.relative.y * 0.004, -0.48, 0.62)
 
 
 func _build_viewport() -> void:
@@ -118,23 +164,25 @@ func _build_scene() -> void:
 	_subviewport.add_child(_scene_root)
 
 	var environment_node := WorldEnvironment.new()
-	var environment := Environment.new()
-	environment.background_mode = Environment.BG_COLOR
-	environment.background_color = Color("7ca9bd")
-	environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	environment.ambient_light_color = Color("b9d5df")
-	environment.ambient_light_energy = 0.65
-	environment_node.environment = environment
+	_environment = Environment.new()
+	_environment.background_mode = Environment.BG_COLOR
+	_environment.background_color = Color("7ca9bd")
+	_environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+	_environment.ambient_light_color = Color("b9d5df")
+	_environment.ambient_light_energy = 0.65
+	environment_node.environment = _environment
 	_scene_root.add_child(environment_node)
 
-	var sunlight := DirectionalLight3D.new()
-	sunlight.rotation_degrees = Vector3(-42.0, -28.0, 0.0)
-	sunlight.light_energy = 1.25
-	_scene_root.add_child(sunlight)
+	_sunlight = DirectionalLight3D.new()
+	_sunlight.rotation_degrees = Vector3(-42.0, -28.0, 0.0)
+	_sunlight.light_energy = 1.25
+	_scene_root.add_child(_sunlight)
 
 	_add_water()
 	_ship = _make_ship()
 	_scene_root.add_child(_ship)
+	_add_ship_wake()
+	_build_star_dome()
 	_camera = Camera3D.new()
 	_camera.current = true
 	_camera.fov = 58.0
@@ -171,6 +219,98 @@ func _add_water() -> void:
 	_water.material_override = water_material
 	_water.position.y = -0.18
 	_scene_root.add_child(_water)
+
+
+func _add_ship_wake() -> void:
+	var wake := MeshInstance3D.new()
+	wake.name = "BioluminescentWake"
+	var plane := PlaneMesh.new()
+	plane.size = Vector2(0.8, 4.8)
+	wake.mesh = plane
+	wake.position = Vector3(0.0, 0.08, 2.5)
+	_wake_material = StandardMaterial3D.new()
+	_wake_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	_wake_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	_wake_material.albedo_color = Color(0.15, 0.95, 0.90, 0.0)
+	_wake_material.emission_enabled = true
+	_wake_material.emission = Color(0.10, 0.82, 0.90)
+	_wake_material.emission_energy_multiplier = 1.4
+	wake.material_override = _wake_material
+	_ship.add_child(wake)
+
+
+func _build_star_dome() -> void:
+	_star_dome = Node3D.new()
+	_star_dome.name = "NightSkyStars"
+	_scene_root.add_child(_star_dome)
+	var constellations: Array[Array] = [
+		[Vector2(-0.92, 0.55), Vector2(-0.70, 0.62), Vector2(-0.62, 0.42), Vector2(-0.88, 0.38), Vector2(-0.92, 0.55), Vector2(-1.05, 0.23), Vector2(-1.20, 0.10)],
+		[Vector2(-0.28, 0.55), Vector2(-0.10, 0.72), Vector2(0.08, 0.52), Vector2(0.27, 0.72), Vector2(0.45, 0.50)],
+		[Vector2(0.73, 0.30), Vector2(0.82, 0.62), Vector2(0.95, 0.42), Vector2(1.08, 0.62), Vector2(1.20, 0.31), Vector2(0.96, 0.10), Vector2(0.82, 0.62)]
+	]
+	var line_mesh := ImmediateMesh.new()
+	line_mesh.surface_begin(Mesh.PRIMITIVE_LINES)
+	var star_index: int = 0
+	for constellation in constellations:
+		var previous: Vector3 = Vector3.ZERO
+		var first: Vector3 = Vector3.ZERO
+		for point in constellation:
+			var sky_point := Vector3(float(point.x), 0.35 + float(point.y) * 0.35, -1.0).normalized() * STAR_DOME_RADIUS
+			if star_index > 0 and previous != Vector3.ZERO:
+				line_mesh.surface_add_vertex(previous)
+				line_mesh.surface_add_vertex(sky_point)
+			previous = sky_point
+			if first == Vector3.ZERO:
+				first = sky_point
+			var star_mesh := SphereMesh.new()
+			star_mesh.radius = 0.24 if star_index % 4 else 0.34
+			star_mesh.height = star_mesh.radius * 2.0
+			star_mesh.radial_segments = 6
+			star_mesh.rings = 3
+			var star_node := MeshInstance3D.new()
+			star_node.name = "Star_%02d" % star_index
+			star_node.mesh = star_mesh
+			star_node.position = sky_point
+			star_node.material_override = _material(Color("c9e9ff"), 0.2)
+			var star_material: StandardMaterial3D = star_node.material_override as StandardMaterial3D
+			star_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+			star_material.emission_enabled = true
+			star_material.emission = Color("90cfff")
+			star_material.emission_energy_multiplier = 2.0
+			_star_dome.add_child(star_node)
+			star_index += 1
+		line_mesh.surface_end()
+	var lines := MeshInstance3D.new()
+	lines.name = "ConstellationLines"
+	lines.mesh = line_mesh
+	var line_material := StandardMaterial3D.new()
+	line_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	line_material.albedo_color = Color(0.42, 0.74, 0.92, 0.62)
+	line_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	lines.material_override = line_material
+	_star_dome.add_child(lines)
+	_star_dome.visible = false
+
+
+func _update_ambience(_delta: float) -> void:
+	var phase: float = _day_clock / DAY_CYCLE_SECONDS
+	var night: float = smoothstep(0.72, 0.84, phase) * (1.0 - smoothstep(0.96, 1.0, phase))
+	if _environment != null:
+		_environment.background_color = Color("7ca9bd").lerp(Color("07162c"), night)
+		_environment.ambient_light_color = Color("b9d5df").lerp(Color("293955"), night)
+		_environment.ambient_light_energy = lerpf(0.65, 0.22, night)
+	if _sunlight != null:
+		_sunlight.light_energy = lerpf(1.25, 0.10, night)
+		_sunlight.light_color = Color("fff0d2").lerp(Color("91a9d0"), night)
+		_sunlight.rotation_degrees = Vector3(-42.0 + 36.0 * sin(phase * TAU), -28.0 + phase * 360.0, 0.0)
+	if _star_dome != null:
+		_star_dome.visible = night > 0.18
+		_star_dome.rotation.y = phase * TAU
+	if _wake_material != null:
+		var velocity: Vector2 = Vector2(GameState.ship_state.get("velocity", Vector2.ZERO))
+		var speed_factor: float = clampf(velocity.length() / 80.0, 0.25, 1.0)
+		_wake_material.albedo_color.a = night * speed_factor * 0.78
+		_wake_material.emission_energy_multiplier = lerpf(0.4, 1.8, night)
 
 
 func _make_ship() -> Node3D:
@@ -562,15 +702,16 @@ func _update_camera(ship_position: Vector2, close_factor: float, delta: float) -
 	var start_fov: float = 18.0
 	var top_down_height: float = map_view_height / (2.0 * tan(deg_to_rad(start_fov * 0.5)))
 	var camera_back: float = lerpf(0.0, 14.0, close_factor)
-	var camera_height: float = lerpf(top_down_height, 4.4, close_factor)
-	var desired_camera_position: Vector3 = ship_world_position - forward * camera_back + Vector3.UP * camera_height
+	var camera_height: float = lerpf(top_down_height, 5.2, close_factor)
+	var orbit_forward: Vector3 = forward.rotated(Vector3.UP, _camera_orbit_yaw)
+	var desired_camera_position: Vector3 = ship_world_position - orbit_forward * camera_back + Vector3.UP * camera_height
 	if _camera_initialized:
 		_camera.position = _camera.position.lerp(desired_camera_position, 1.0 - exp(-delta * 3.5))
 	else:
 		_camera.position = desired_camera_position
 		_camera_initialized = true
-	var look_distance: float = lerpf(0.0, 7.0, close_factor)
-	var focus: Vector3 = ship_world_position + forward * look_distance + Vector3.UP * (0.8 * close_factor)
+	var look_distance: float = lerpf(0.0, 8.0, close_factor)
+	var focus: Vector3 = ship_world_position + orbit_forward * look_distance + Vector3.UP * (0.8 * close_factor + tan(_camera_orbit_pitch) * 12.0 * close_factor)
 	var map_up := Vector3(0.0, 0.0, -1.0)
 	_camera.look_at(focus, map_up.lerp(Vector3.UP, close_factor).normalized())
 	_camera.fov = lerpf(start_fov, 58.0, close_factor)
