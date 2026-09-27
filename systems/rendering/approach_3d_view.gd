@@ -462,10 +462,13 @@ func _build_island(island_root: Node3D, island: Dictionary) -> void:
 	if custom_model == null:
 		# The 3D shoreline varies deterministically while staying inside the
 		# navigation circle used by collision and save data.
-		_add_cylinder(island_root, radius * 0.99, radius * 0.79, 1.1, Vector3(0.0, -0.24, 0.0), Color("75654f"))
 		var seed_value: int = abs(hash(current_id))
-		_add_island_surface(island_root, radius, 0.32, 0.98, seed_value, port_angle, 0.10, 0.24, Color("b99a69"))
-		_add_island_surface(island_root, radius, 0.39, 0.83, seed_value + 31, port_angle, 0.16, 0.22, Color("4f7851"))
+		var cliff_color: Color = Color("596360") if landform == "sea_cliff" else Color("75654f")
+		_add_cylinder(island_root, radius * 0.99, radius * 0.79, 1.1, Vector3(0.0, -0.24, 0.0), cliff_color)
+		var coast_color: Color = Color("626d69") if landform == "sea_cliff" else Color("b99a69")
+		_add_island_surface(island_root, radius, 0.32, 0.98, seed_value, port_angle, 0.10, 0.24, coast_color)
+		if landform != "sea_cliff":
+			_add_island_surface(island_root, radius, 0.39, 0.83, seed_value + 31, port_angle, 0.16, 0.22, Color("4f7851"))
 		if landform == "great_island":
 			for peak_index in range(11):
 				var peak_angle: float = TAU * float(peak_index) / 11.0 + float(seed_value % 79) * 0.01
@@ -475,10 +478,14 @@ func _build_island(island_root: Node3D, island: Dictionary) -> void:
 				var peak_at := Vector3(cos(peak_angle) * peak_distance, peak_height * 0.5 + 0.45, sin(peak_angle) * peak_distance)
 				_add_cylinder(island_root, peak_radius, peak_radius * 0.06, peak_height, peak_at, Color("718269") if peak_index % 3 else Color("797c75"))
 			_add_cylinder(island_root, radius * 0.20, 0.0, 28.0, Vector3(-radius * 0.14, 14.4, -radius * 0.12), Color("747e70"))
+		elif landform == "sea_cliff":
+			var cliff_height: float = radius * 0.95
+			_add_cylinder(island_root, radius * 0.42, radius * 0.04, cliff_height, Vector3(-radius * 0.12, cliff_height * 0.5 + 0.4, 0.0), Color("727d79"))
+			_add_cylinder(island_root, radius * 0.31, radius * 0.02, cliff_height * 0.78, Vector3(radius * 0.27, cliff_height * 0.39 + 0.4, radius * 0.12), Color("626c69"))
 		else:
 			_add_cylinder(island_root, radius * 0.34, 0.0, 2.9, Vector3(-radius * 0.18, 3.45, -radius * 0.08), Color("607d4c"))
 			_add_cylinder(island_root, radius * 0.24, 0.0, 2.1, Vector3(radius * 0.28, 3.1, radius * 0.12), Color("71865a"))
-		var tree_count: int = 8 if landform == "great_island" else 7
+		var tree_count: int = 0 if landform == "sea_cliff" else (8 if landform == "great_island" else 7)
 		for index in range(tree_count):
 			var angle: float = TAU * float(index) / float(tree_count) + float(seed_value % 31) * 0.01
 			var distance: float = radius * (0.20 + float(index % 3) * 0.12)
