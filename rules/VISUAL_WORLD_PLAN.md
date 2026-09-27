@@ -61,3 +61,15 @@ Stream and level-of-detail the world: distant coastlines can use simplified silh
 The world uses reusable, modular 3D scenes so new islands, ports, statues, and sea objects can be added to the asset catalog without changing trading or save logic. The player can model ships and large props in SketchUp. Preferred import format for Godot is **GLB**. First-pass ship models should be centered, share an agreed forward axis, and use consistent scale.
 
 Ship tiers need distinct silhouettes: small boat, barque, schooner, freighter, and tanker. All visual assets remain a presentation layer over the same game systems.
+
+## Implemented visual foundation — 2026-09-27
+
+The shared 3D renderer now supports the first sailing-view slice:
+
+- Shore proximity and close zoom blend the overhead view into the same 3D sea; desktop right-drag and mobile two-finger gestures orbit, while the pinch gesture also controls zoom.
+- The close view updates over open water, so it does not depend on a nearby island.
+- The renderer has a short night interval, lower moonlit ambience, constellation-shaped star silhouettes, and a restrained glowing ship wake.
+- Procedural island surfaces use seed-stable irregular coastlines with a visual opening at a harbor. Rare large islands receive a floating landmark; the home harbor receives a pair of gate statues.
+- These meshes are visual only. Navigation, collisions, world seed, and save data continue to use the existing generated-world data.
+
+The star silhouettes are a visual prototype. Once the world calendar and latitude are defined, replace them with an accurately oriented star field. Region-scale continental generation, bespoke coast/port meshes, cloud and waterfall effects, and mobile graphics presets remain future implementation slices.
