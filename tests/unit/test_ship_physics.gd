@@ -1,6 +1,7 @@
 extends "res://tests/test_base.gd"
 
 var _physics: Node
+var _collision_test_data: Dictionary = {}
 var _ship_data: Dictionary = {
 	"id": "ship_sloop",
 	"base_speed": 120.0,
@@ -14,6 +15,7 @@ var _ship_data: Dictionary = {
 }
 
 func before_each() -> void:
+	_collision_test_data = {}
 	_physics = preload("res://systems/ship/ship_physics.gd").new()
 	add_child(_physics)
 	_physics.setup(_ship_data)
@@ -135,6 +137,35 @@ func test_fuel_not_below_zero() -> void:
 	for _i in range(500):
 		_physics.physics_tick(0.1)
 	assert_gte(float(GameState.ship_state.get("fuel", 0.0)), 0.0, "fuel should never go below zero")
+
+func _get_collision_test_data() -> Dictionary:
+	return _collision_test_data
+
+
+func test_ship_cannot_cross_island_even_when_step_starts_outside() -> void:
+	_collision_test_data = {
+		"islands": [{"position": Vector2.ZERO, "radius": 100.0}]
+	}
+	_physics.set_collision_data_provider(Callable(self, "_get_collision_test_data"))
+	assert_true(_physics.is_navigation_move_blocked(Vector2(-220.0, 0.0), Vector2(220.0, 0.0)))
+
+
+func test_natural_bay_does_not_allow_crossing_the_island() -> void:
+	_collision_test_data = {
+		"islands": [{"position": Vector2.ZERO, "radius": 100.0, "bay_angle": 0.0, "bay_width": 0.24}]
+	}
+	_physics.set_collision_data_provider(Callable(self, "_get_collision_test_data"))
+	assert_false(_physics.is_navigation_move_blocked(Vector2(200.0, 0.0), Vector2(80.0, 0.0)))
+	assert_true(_physics.is_navigation_move_blocked(Vector2(80.0, 0.0), Vector2(-200.0, 0.0)))
+
+
+func test_ship_already_inside_island_can_escape_outward() -> void:
+	_collision_test_data = {
+		"islands": [{"position": Vector2.ZERO, "radius": 100.0}]
+	}
+	_physics.set_collision_data_provider(Callable(self, "_get_collision_test_data"))
+	assert_false(_physics.is_navigation_move_blocked(Vector2.ZERO, Vector2(200.0, 0.0)))
+
 
 func test_hull_not_below_zero() -> void:
 	GameState.ship_state["hull"] = 0.0
