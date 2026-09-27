@@ -57,6 +57,40 @@ func test_deceleration_reduces_speed() -> void:
 		_physics.physics_tick(0.1)
 	assert_lt(_physics.get_speed(), before, "speed should decrease after throttle release")
 
+func test_reverse_moves_stern_first_without_rotating_hull() -> void:
+	var starting_heading: float = _physics.get_heading_degrees()
+	_physics.apply_control(1.0, 0.0)
+	for _i in range(40):
+		_physics.physics_tick(0.1)
+	assert_gt(_physics.get_speed(), 0.0)
+
+	_physics.apply_control(-1.0, 0.0)
+	for _i in range(40):
+		_physics.physics_tick(0.1)
+	assert_lt(_physics.get_speed(), 0.0)
+	assert_true(bool(GameState.ship_state.get("reverse_gear", false)))
+	assert_almost_eq(_physics.get_heading_degrees(), starting_heading, 0.001)
+
+	var reverse_start: Vector2 = GameState.ship_state.position
+	for _i in range(15):
+		_physics.physics_tick(0.1)
+	var forward: Vector2 = Vector2(cos(deg_to_rad(starting_heading)), sin(deg_to_rad(starting_heading)))
+	var reverse_displacement: Vector2 = GameState.ship_state.position - reverse_start
+	assert_lt(reverse_displacement.dot(forward), 0.0, "reverse motion must be toward the stern")
+	assert_almost_eq(_physics.get_heading_degrees(), starting_heading, 0.001)
+
+func test_restore_uses_saved_heading_even_if_reverse_flag_is_stale() -> void:
+	var saved_heading: float = 0.37
+	GameState.ship_state["heading"] = saved_heading
+	GameState.ship_state["velocity"] = Vector2(cos(saved_heading + PI), sin(saved_heading + PI)) * 8.0
+	GameState.ship_state["reverse_gear"] = false
+
+	_physics.restore_from_state()
+
+	assert_almost_eq(_physics.get_heading_degrees(), rad_to_deg(saved_heading), 0.001)
+	assert_almost_eq(_physics.get_speed(), -8.0, 0.001)
+	assert_true(bool(GameState.ship_state.reverse_gear))
+
 func test_ship_comes_to_rest() -> void:
 	_physics.apply_control(1.0, 0.0)
 	for _i in range(50):
