@@ -4,7 +4,7 @@
 
 Sea Trader is a cinematic fantasy maritime world: a working trade-and-exploration game with the scale and wonder of a fantasy film. The sea is beautiful, immense, and occasionally strange; warfare is not the world's defining identity.
 
-Mood references are broad only: the bioluminescent wonder and dramatic natural scale of *Avatar*, mythic Atlantean city imagery, and the monumental architecture and landscapes of *The Lord of the Rings*. Do not reproduce those franchises' characters, locations, symbols, or signature designs. Build an original visual language for Sea Trader.
+Mood references are broad only: the bioluminescent wonder, floating heights, and dramatic natural scale of *Avatar* and *Avatar: The Way of Water*; mythic Atlantean city imagery; and the monumental architecture and landscapes of *The Lord of the Rings*. Do not reproduce those franchises' characters, locations, symbols, or signature designs. Build an original visual language for Sea Trader.
 
 Use stylized realism: readable ship silhouettes, believable coastlines and scale, expressive lighting, and imaginative color. Art must remain legible on a phone and perform on mobile hardware.
 
@@ -42,7 +42,7 @@ Procedural generation should use a seeded regional layout and coastline template
 
 Most ports should be useful, distinct working harbors. A few rare hubs may be monumental: vast sea gates, terraced quays, ancient coastal cities, or citadel-like harbor walls. Port scale and architecture should signal a region's history and importance.
 
-Some island approaches can pass between giant carved statues into an inner bay or city. The statues and approach should be navigable landmarks, not decoration that blocks the route. Atlantean-inspired cities should feel ancient and maritime while retaining an original Sea Trader design.
+A signature exploration moment is sailing from open water into a hidden, sheltered bay: the coastline opens gradually to reveal towering cliffs, lush slopes, waterfalls, reefs, cloud-wrapped heights, and an ancient harbor. Some island approaches can pass between giant carved statues into an inner bay or city. The statues and approach should be navigable landmarks, not decoration that blocks the route. Atlantean-inspired cities should feel ancient and maritime while retaining an original Sea Trader design.
 
 The home port should read clearly as the player's base. Rare grand ports should feel exceptional because ordinary harbors leave room for contrast.
 
