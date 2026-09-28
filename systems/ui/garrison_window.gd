@@ -269,7 +269,6 @@ func _add_garrison_upgrade(parent: VBoxContainer) -> void:
 	_upgrade_button.add_theme_font_size_override("font_size", 18)
 	_upgrade_button.pressed.connect(_upgrade_garrison)
 	row.add_child(_upgrade_button)
-	_repair_button = _repair_button if _repair_button != null else Button.new()
 	parent.add_child(row)
 
 func _refresh() -> void:
@@ -482,16 +481,6 @@ func _update_recruit_preview(amount_value: float, unit_id: String, preview: Labe
 	var total_seconds: int = int(definition.get("seconds_per_unit", 10)) * amount
 	preview.text = "%d отрядов: %d монет  •  обучение %d сек." % [amount, total_cost, total_seconds]
 	hire_button.disabled = not _system.is_at_home() or not _system.get_recruitment_status().is_empty() or not _system.can_recruit(unit_id, amount)
-
-func _add_garrison_upgrade(parent: VBoxContainer) -> void:
-	var row := HBoxContainer.new()
-	_upgrade_button = Button.new()
-	_upgrade_button.text = "Улучшить гарнизон"
-	_upgrade_button.custom_minimum_size = Vector2(230, 48)
-	_upgrade_button.add_theme_font_size_override("font_size", 18)
-	_upgrade_button.pressed.connect(_upgrade_garrison)
-	row.add_child(_upgrade_button)
-	parent.add_child(row)
 
 func _rebuild_reports() -> void:
 	for child in _report_list.get_children():
