@@ -792,6 +792,11 @@ func _open_section(section_id: String) -> void:
 		if not logistics_windows.is_empty():
 			logistics_windows[0].open()
 		return
+	if section_id == "garrison":
+		var garrison_windows: Array[Node] = get_tree().get_nodes_in_group("garrison_window")
+		if not garrison_windows.is_empty():
+			garrison_windows[0].open()
+		return
 	_current_section = section_id
 	if port_id == "":
 		return
