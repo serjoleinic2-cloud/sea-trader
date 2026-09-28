@@ -28,6 +28,7 @@ func test_new_game_has_a_small_starter_garrison() -> void:
 func test_recruitment_finishes_and_persists() -> void:
     var result: Dictionary = _system.recruit("coast_guard", 2)
     assert_true(bool(result.get("ok", false)), "recruiting an unlocked unit starts training")
+    assert_eq(float(GameState.player_state.money), 49840.0, "the hiring fee is charged once")
     var job: Dictionary = GameState.combat_state.recruitment
     job["completes_at"] = int(Time.get_unix_time_from_system())
     GameState.combat_state["recruitment"] = job
