@@ -380,7 +380,7 @@ func _create_unit_card(unit: Dictionary, max_batch: int) -> Control:
 		portrait.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		portrait.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-		portrait.texture = load(portrait_path)
+		portrait.texture = load(portrait_path) as Texture2D
 		portrait_row.add_child(portrait)
 	else:
 		var placeholder := PanelContainer.new()
