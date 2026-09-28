@@ -53,6 +53,7 @@ signal fleet_ship_added(ship_instance_id: String)
 signal game_saved()
 signal game_loaded()
 signal offline_progress_applied(delta_seconds: int)
+signal combat_report_ready(report: Dictionary)
 
 # ============================================================================
 # Navigation (UI listens; systems do not emit directly to UI methods)
