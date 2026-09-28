@@ -16,6 +16,7 @@
 | Наём | HiringWindow → HiringSystem; назначение → FleetSystem | employee_state, экипаж судна |
 | Карьера | CareerSystem ← статистика GameState | Вычисляемые ранг и допуски |
 | Челлендж | ChallengeWindow → ChallengeSystem → RewardSystem | economy_state.challenges/rewards |
+| Гарнизон и бой | GarrisonWindow → CombatSystem → GameState/SaveSystem | combat_state; скрытый бой и сохранённая сводка |
 | Бонус награды | RewardSystem → ShipPhysics / TradeLineSystem | Скорость / фактическая цена продажи |
 | Сохранение | Система или жизненный цикл Main → SaveSystem | Версионированный JSON |
 
