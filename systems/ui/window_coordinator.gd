@@ -253,6 +253,8 @@ func _process(_delta: float) -> void:
 	_main.get_node("CrewWindow").get("_button").hide()
 	_main.get_node("NavigationHUD").get("_toggle_button").hide()
 	_main.get_node("NavigationHUD").get("_course_label").visible = not has_modal and not docked
+	var map_open: bool = bool(_main.get_node("NavigationHUD").get("_is_open"))
+	_toolbar.visible = not map_open
 	_toolbar.position = Vector2(maxf(12.0, (viewport.x - _toolbar.size.x) * 0.5), viewport.y - _toolbar.size.y - 12.0 if has_modal or not docked else 12.0)
 	_more_panel.size = Vector2(260.0, minf(330.0, viewport.y - 100.0))
 	_more_panel.position = Vector2(
