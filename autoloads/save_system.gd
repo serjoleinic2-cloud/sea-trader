@@ -8,7 +8,7 @@ const SAVE_DIR := "user://saves/"
 const SAVE_MAIN := "save_main.json"
 const SAVE_BACKUP := "save_backup.json"
 const SAVE_META := "save_meta.json"
-const CURRENT_SAVE_VERSION := "0.2.0"
+const CURRENT_SAVE_VERSION := "0.3.0"
 # The released generator before versioned saves used config version 1.
 const LEGACY_WORLD_GEN_VERSION := "1"
 
@@ -133,6 +133,7 @@ func _serialize_game_state() -> Dictionary:
 		"port_state": GameState.port_state.duplicate(true),
 		"known_routes_state": GameState.known_routes_state.duplicate(true),
 		"voyage_state": GameState.voyage_state.duplicate(true),
+		"combat_state": GameState.combat_state.duplicate(true),
 		"economy_state": GameState.economy_state.duplicate(true),
 		"company_state": GameState.company_state.duplicate(true),
 		"employee_state": GameState.employee_state.duplicate(true),
@@ -158,6 +159,7 @@ func _deserialize_game_state(data: Dictionary) -> void:
 	GameState.port_state = data.get("port_state", {}).duplicate(true)
 	GameState.known_routes_state = data.get("known_routes_state", {}).duplicate(true)
 	GameState.voyage_state.merge(data.get("voyage_state", {}).duplicate(true), true)
+	GameState.combat_state.merge(data.get("combat_state", {}).duplicate(true), true)
 	GameState.economy_state.merge(data.get("economy_state", {}).duplicate(true), true)
 	GameState.company_state.merge(data.get("company_state", {}).duplicate(true), true)
 	GameState.employee_state = data.get("employee_state", []).duplicate(true)
@@ -269,7 +271,7 @@ func _copy_file(from: String, to: String) -> void:
 # ============================================================================
 
 func _migrate(data: Dictionary, from_version: String, to_version: String) -> Dictionary:
-	if from_version not in ["0.0.0", "0.1.0"] or to_version != CURRENT_SAVE_VERSION:
+	if from_version not in ["0.0.0", "0.1.0", "0.2.0"] or to_version != CURRENT_SAVE_VERSION:
 		push_warning("SaveSystem: Unsupported save version %s. Save was not reset." % from_version)
 		return {}
 	var migrated: Dictionary = data.duplicate(true)
@@ -278,6 +280,7 @@ func _migrate(data: Dictionary, from_version: String, to_version: String) -> Dic
 		world["world_gen_version"] = LEGACY_WORLD_GEN_VERSION
 	migrated["known_routes_state"] = migrated.get("known_routes_state", {})
 	migrated["voyage_state"] = migrated.get("voyage_state", GameState.default_voyage_state())
+	migrated["combat_state"] = migrated.get("combat_state", GameState.default_combat_state())
 	var player: Dictionary = migrated.get("player_state", {})
 	var discovered: Array = player.get("discovered_port_ids", []).duplicate()
 	for port_id in migrated.get("port_state", {}):
@@ -302,7 +305,7 @@ func _valid_save(data: Dictionary) -> bool:
 	if world.seed != int(world.seed):
 		return false
 	for key in ["player_state", "ship_state", "port_state", "known_routes_state", "voyage_state",
-		"economy_state", "company_state", "progression_state", "achievement_state", "settings_state", "monetization_state"]:
+		"economy_state", "company_state", "combat_state", "progression_state", "achievement_state", "settings_state", "monetization_state"]:
 		if data.has(key) and not data[key] is Dictionary:
 			return false
 	for key in ["employee_state", "fleet_state"]:
