@@ -312,12 +312,14 @@ func _repair() -> void:
     _refresh()
 
 func _test_defense() -> void:
-    var result: Dictionary = _system.resolve_hidden_attack(maxi(20, _system.get_defense_power() + 5), "Тестовый пиратский отряд")
+    var enemy_power: int = maxi(20, int(_system.get_defense_power()) + 5)
+    var result: Dictionary = _system.resolve_hidden_attack(enemy_power, "Тестовый пиратский отряд")
     _notice.text = str(result.get("message", ""))
     _refresh()
 
 func _test_raid() -> void:
-    var result: Dictionary = _system.start_player_raid("Лагерь пиратов", maxi(10, _system.get_attack_power() / 2), 15)
+    var enemy_power: int = maxi(10, int(float(_system.get_attack_power()) / 2.0))
+    var result: Dictionary = _system.start_player_raid("Лагерь пиратов", enemy_power, 15)
     _notice.text = str(result.get("message", ""))
     _refresh()
 
