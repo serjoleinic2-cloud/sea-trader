@@ -72,6 +72,8 @@ var known_routes_state: Dictionary = {}
 
 var voyage_state: Dictionary = default_voyage_state()
 
+var combat_state: Dictionary = default_combat_state()
+
 
 func default_voyage_state() -> Dictionary:
 	return {
@@ -87,6 +89,22 @@ func default_voyage_state() -> Dictionary:
 		"hull_at_start": 0.0,
 		"contract_id": null,
 		"status": "planning"
+	}
+
+
+func default_combat_state() -> Dictionary:
+	return {
+		"garrison_level": 1,
+		"units": {"coast_guard": {"count": 8, "level": 1, "experience": 0}},
+		"towers": [],
+		"fort_integrity": 100.0,
+		"recruitment": {},
+		"construction_job": {},
+		"active_raid": {},
+		"reports": [],
+		"report_sequence": 0,
+		"unread_reports": 0,
+		"next_defense_at": 0
 	}
 
 # ============================================================================
@@ -220,6 +238,7 @@ func reset_to_defaults() -> void:
 	port_state = {}
 	known_routes_state = {}
 	voyage_state = default_voyage_state()
+	combat_state = default_combat_state()
 	economy_state = {
 		"market": {},
 		"last_market_update": 0,
