@@ -1,9 +1,9 @@
 # DATA SCHEMA
 
 > Data models for runtime state and static game data. These are schemas, not implementations.
-> Last Updated: 2026-09-26 | Version: 0.3.6
+> Last Updated: 2026-09-28 | Version: 0.3.7
 
-Implementation note: save format 0.2.0 now persists the existing schema below.
+Implementation note: save format 0.3.0 persists the runtime schema below. Saves from 0.2.0 migrate with a default CombatState.
 New games start with empty PortState; entries are created on discovery.
 Legacy saves keep progression fields but lose generated geometry metadata during
 migration. world_gen_version is the string form of the generation config version
@@ -73,6 +73,22 @@ fuel: float               # 0.0–100.0 (Fuel / Supplies)
 fuel_max: float           # capacity, upgradeable
 cargo_capacity: int       # max cargo units
 ```
+
+### CombatState
+```
+garrison_level: int          # 1–5; controls unit and tower unlocks
+units: {}                    # unit_id → { count, level, experience }
+towers: []                   # up to five crystal tower types and effects
+fort_integrity: float        # 0–100; damaged by a lost base defense
+recruitment: {}              # one active training job with completion timestamp
+construction_job: {}         # garrison/tower project with materials already reserved
+active_raid: {}              # player operation target, strength, and timestamps
+reports: []                  # bounded history of hidden battle results
+unread_reports: int          # notification state
+next_defense_at: int         # next scheduled NPC attack (Unix time)
+```
+
+Battle scenes are not shown. NPC base defenses resolve in the background and create a report; player operations show a text progress percentage and then the result.
 
 ### PortState
 ```
