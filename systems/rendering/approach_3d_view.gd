@@ -538,7 +538,7 @@ func _add_floating_island(parent: Node3D, main_radius: float, seed_value: int) -
 	floating.name = "FloatingIsland"
 	var angle: float = float(posmod(seed_value, 628)) * 0.01
 	var float_radius: float = main_radius * 0.20
-	var altitude: float = 34.0 + float(posmod(seed_value / 7, 260)) * 0.12
+	var altitude: float = 34.0 + float(posmod(int(float(seed_value) / 7.0), 260)) * 0.12
 	floating.position = Vector3(cos(angle) * main_radius * 1.22, altitude, sin(angle) * main_radius * 1.22)
 	parent.add_child(floating)
 	_add_cylinder(floating, float_radius * 0.70, float_radius * 0.18, float_radius * 0.72, Vector3(0.0, 0.0, 0.0), Color("777c78"))
@@ -591,9 +591,9 @@ func _attach_catalog_scene(parent: Node3D, category: String, identity: String, t
 	var asset_scale: float = target_size_m / reference_size * float(chosen.get("scale", 1.0))
 	wrapper.scale = Vector3.ONE * asset_scale
 	wrapper.rotation_degrees.y = float(chosen.get("rotation_y_degrees", 0.0))
-	var offset: Array = chosen.get("offset_m", [0.0, 0.0, 0.0])
-	if offset.size() >= 3:
-		wrapper.position = Vector3(float(offset[0]), float(offset[1]), float(offset[2]))
+	var placement_offset: Array = chosen.get("offset_m", [0.0, 0.0, 0.0])
+	if placement_offset.size() >= 3:
+		wrapper.position = Vector3(float(placement_offset[0]), float(placement_offset[1]), float(placement_offset[2]))
 	return wrapper
 
 
