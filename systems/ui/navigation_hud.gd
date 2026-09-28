@@ -38,44 +38,57 @@ func _ready() -> void:
 
 	var margin := MarginContainer.new()
 	for side in ["left", "top", "right", "bottom"]:
-		margin.add_theme_constant_override("margin_" + side, 14)
+		margin.add_theme_constant_override("margin_" + side, 16)
 	_panel.add_child(margin)
-	var box := VBoxContainer.new()
-	box.add_theme_constant_override("separation", 10)
-	margin.add_child(box)
+	var root := VBoxContainer.new()
+	root.add_theme_constant_override("separation", 12)
+	root.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	root.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	margin.add_child(root)
 
 	var title := Label.new()
 	title.text = "КАРТА МОРСКИХ ПУТЕЙ"
-	title.add_theme_font_size_override("font_size", 25)
-	box.add_child(title)
+	title.add_theme_font_size_override("font_size", 28)
+	root.add_child(title)
 	var hint := Label.new()
-	hint.text = "★ отмечает домашнюю базу. Голубой знак — ваш корабль."
+	hint.text = "★ — ваша база   •   Голубой знак — ваш корабль   •   Линия показывает путь домой"
 	hint.add_theme_font_size_override("font_size", 18)
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	box.add_child(hint)
+	root.add_child(hint)
+
+	var body := HBoxContainer.new()
+	body.add_theme_constant_override("separation", 14)
+	body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	root.add_child(body)
 
 	var chart_script: GDScript = load("res://systems/ui/navigation_chart.gd") as GDScript
 	_chart = chart_script.new() as Control
-	_chart.custom_minimum_size = Vector2(620, 350)
+	_chart.custom_minimum_size = Vector2(600, 420)
 	_chart.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	box.add_child(_chart)
+	_chart.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	body.add_child(_chart)
 
+	var sidebar := VBoxContainer.new()
+	sidebar.custom_minimum_size.x = 280
+	sidebar.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	sidebar.add_theme_constant_override("separation", 10)
+	body.add_child(sidebar)
 	var home_button := Button.new()
 	home_button.text = "ПРОЛОЖИТЬ КУРС ДОМОЙ"
-	home_button.custom_minimum_size.y = 48
+	home_button.custom_minimum_size.y = 54
 	home_button.add_theme_font_size_override("font_size", 20)
 	home_button.pressed.connect(_set_home_destination)
-	box.add_child(home_button)
+	sidebar.add_child(home_button)
 
 	var destination_title := Label.new()
 	destination_title.text = "ИЗВЕСТНЫЕ ПОРТЫ"
 	destination_title.add_theme_font_size_override("font_size", 20)
-	box.add_child(destination_title)
+	sidebar.add_child(destination_title)
 	var scroll := ScrollContainer.new()
-	scroll.custom_minimum_size.y = 250
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	box.add_child(scroll)
+	sidebar.add_child(scroll)
 	_destination_list = VBoxContainer.new()
 	_destination_list.add_theme_constant_override("separation", 6)
 	_destination_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
