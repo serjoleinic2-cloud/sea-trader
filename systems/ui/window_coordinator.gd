@@ -12,6 +12,7 @@ var _status: Label
 var _cancel: Button
 var _text_scale_button: Button
 var _accessibility: Node
+var _garrison_button: Button
 
 func initialize(main: Node) -> void:
 	_main = main
@@ -42,6 +43,12 @@ func initialize(main: Node) -> void:
 			_add_toolbar_button(item)
 		else:
 			_more_navigation.append(item)
+	_garrison_button = Button.new()
+	_garrison_button.text = "ГАРНИЗОН"
+	_garrison_button.custom_minimum_size = Vector2(155, 44)
+	_garrison_button.add_theme_font_size_override("font_size", 20)
+	_garrison_button.pressed.connect(_open_garrison)
+	_toolbar.add_child(_garrison_button)
 	_more_button = Button.new()
 	_more_button.text = "ЕЩЁ  ⋮"
 	_more_button.custom_minimum_size = Vector2(135, 44)
@@ -146,12 +153,18 @@ func _wrap_panel(window: Node, panel: PanelContainer, flag: String) -> void:
 	close.add_theme_font_size_override("font_size", 20)
 	close.pressed.connect(_close_window.bind(window, flag))
 	column.add_child(close)
-	var scroll: ScrollContainer = ScrollContainer.new()
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	column.add_child(scroll)
+	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	column.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	scroll.add_child(content)
+	if str(window.name) == "NavigationHUD":
+		content.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		column.add_child(content)
+	else:
+		var scroll: ScrollContainer = ScrollContainer.new()
+		scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+		column.add_child(scroll)
+		scroll.add_child(content)
 	_hide_duplicate_close(content)
 
 func _wrap_port(port: Node) -> void:
@@ -172,6 +185,13 @@ func _hide_duplicate_close(node: Node) -> void:
 
 func _close_window(window: Node, flag: String) -> void:
 	window.set(flag, false)
+
+func _open_garrison() -> void:
+	if str(GameState.ship_state.get("docked_port_id", "")) != str(GameState.world_state.get("home_port_id", "")):
+		return
+	var windows: Array[Node] = get_tree().get_nodes_in_group("garrison_window")
+	if not windows.is_empty() and windows[0].has_method("open"):
+		windows[0].call("open")
 
 func _open_tool(node_name: String, method: String) -> void:
 	var window: Node = _main.get_node_or_null(node_name)
@@ -209,9 +229,17 @@ func _process(_delta: float) -> void:
 		panel.visible = opened
 		if opened:
 			has_modal = true
-			panel.size = Vector2(minf(900.0, viewport.x - 32.0), maxf(200.0, viewport.y - 156.0))
-			panel.position = Vector2((viewport.x - panel.size.x) * 0.5, 20.0)
-	var docked: bool = str(GameState.ship_state.get("docked_port_id", "")) != ""
+			if str(entry["window"].name) == "NavigationHUD":
+				panel.size = viewport
+				panel.position = Vector2.ZERO
+			else:
+				panel.size = Vector2(minf(900.0, viewport.x - 32.0), maxf(200.0, viewport.y - 156.0))
+				panel.position = Vector2((viewport.x - panel.size.x) * 0.5, 20.0)
+	var docked_port_id: String = str(GameState.ship_state.get("docked_port_id", ""))
+	var home_port_id: String = str(GameState.world_state.get("home_port_id", ""))
+	var docked: bool = docked_port_id != ""
+	var at_home: bool = docked and docked_port_id == home_port_id
+	_garrison_button.visible = at_home and not has_modal
 	_refresh_more_availability(docked)
 	for node_name in ["ShipStatusHUD", "MapStatusHUD", "WorldEventHUD"]:
 		var hud: CanvasLayer = _main.get_node_or_null(node_name)
