@@ -408,6 +408,29 @@
         "method": "open",
         "order": 60
       }
+    },
+    {
+      "id": "CombatSystem",
+      "script": "res://systems/combat/combat_system.gd",
+      "initialize": "initialize",
+      "args": []
+    },
+    {
+      "id": "GarrisonWindow",
+      "script": "res://systems/ui/garrison_window.gd",
+      "initialize": "initialize",
+      "args": [
+        "CombatSystem"
+      ],
+      "workspace_flag": "_is_open"
+    },
+    {
+      "id": "CombatNotificationHUD",
+      "script": "res://systems/ui/combat_notification_hud.gd",
+      "initialize": "initialize",
+      "args": [
+        "CombatSystem"
+      ]
     }
   ]
 }
