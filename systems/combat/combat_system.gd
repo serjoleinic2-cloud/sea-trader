@@ -43,6 +43,26 @@ func _normalize_state() -> void:
         state["construction_job"] = {}
     if not state.get("reports", []) is Array:
         state["reports"] = []
+    if not state.get("crystals", {}) is Dictionary:
+        state["crystals"] = {}
+    var crystal_inventory: Dictionary = state.get("crystals", {})
+    for crystal_id in _catalog.get("crystals", {}).keys():
+        crystal_inventory[crystal_id] = maxi(0, int(crystal_inventory.get(crystal_id, 0)))
+    state["crystals"] = crystal_inventory
+    var legacy_crystals: Dictionary = {"power": "crystal_power", "guard": "crystal_guard", "wind": "crystal_wind"}
+    var towers: Array = state.get("towers", [])
+    for index in range(towers.size()):
+        var tower: Dictionary = towers[index]
+        var old_type: String = str(tower.get("type", "island"))
+        if legacy_crystals.has(old_type) and str(tower.get("crystal_id", "")) == "":
+            tower["crystal_id"] = str(legacy_crystals[old_type])
+            tower["type"] = "island"
+            towers[index] = tower
+    state["towers"] = towers
+    if int(state.get("battle_victories", -1)) < 0:
+        state["battle_victories"] = 0
+    if int(state.get("next_crystal_reward", -1)) < 0:
+        state["next_crystal_reward"] = 0
     var units: Dictionary = state.units
     if not units.has("coast_guard"):
         units["coast_guard"] = {"count": 8, "level": 1, "experience": 0}
@@ -102,7 +122,55 @@ func get_unit_name(unit_id: String) -> String:
     return str(_catalog.get("units", {}).get(unit_id, {}).get("name", unit_id))
 
 func get_tower_name(tower_type: String) -> String:
-    return str(_catalog.get("towers", {}).get(tower_type, {}).get("name", tower_type))
+    var normalized_type: String = _normalize_tower_type(tower_type)
+    return str(_catalog.get("towers", {}).get(normalized_type, {}).get("name", normalized_type))
+
+func _normalize_tower_type(tower_type: String) -> String:
+    if tower_type in ["power", "guard", "wind"]:
+        return "island"
+    return tower_type
+
+func get_crystal_definitions() -> Dictionary:
+    return _catalog.get("crystals", {}).duplicate(true)
+
+func get_crystal_order() -> Array:
+    return _catalog.get("crystal_order", []).duplicate()
+
+func get_crystal_inventory() -> Dictionary:
+    return GameState.combat_state.get("crystals", {}).duplicate(true)
+
+func get_crystal_name(crystal_id: String) -> String:
+    return str(_catalog.get("crystals", {}).get(crystal_id, {}).get("name", crystal_id))
+
+func set_tower_crystal(tower_index: int, crystal_id: String) -> Dictionary:
+    if not is_at_home():
+        return _result(false, "Кристаллы можно менять только в главном порту.")
+    var towers: Array = GameState.combat_state.get("towers", []).duplicate(true)
+    if tower_index < 0 or tower_index >= towers.size():
+        return _result(false, "Башня не найдена.")
+    if crystal_id != "" and not _catalog.get("crystals", {}).has(crystal_id):
+        return _result(false, "Неизвестный кристалл.")
+    var tower: Dictionary = towers[tower_index]
+    var previous_id: String = str(tower.get("crystal_id", ""))
+    if previous_id == crystal_id:
+        return _result(true, "Эта башня уже настроена так.")
+    var inventory: Dictionary = get_crystal_inventory()
+    if crystal_id != "" and int(inventory.get(crystal_id, 0)) <= 0:
+        return _result(false, "Такого кристалла нет в гарнизоне.")
+    if previous_id != "":
+        inventory[previous_id] = int(inventory.get(previous_id, 0)) + 1
+    if crystal_id != "":
+        inventory[crystal_id] = int(inventory.get(crystal_id, 0)) - 1
+    tower["crystal_id"] = crystal_id
+    towers[tower_index] = tower
+    var old_state: Dictionary = GameState.combat_state.duplicate(true)
+    GameState.combat_state["towers"] = towers
+    GameState.combat_state["crystals"] = inventory
+    if not SaveSystem.save_game():
+        GameState.combat_state = old_state
+        return _result(false, "Не удалось сохранить установку кристалла.")
+    var message: String = "Кристалл снят и возвращён в запас." if crystal_id == "" else "%s установлен в башню." % get_crystal_name(crystal_id)
+    return _result(true, message)
 
 func can_recruit(unit_id: String, amount: int) -> bool:
     var definition: Dictionary = _catalog.get("units", {}).get(unit_id, {})
@@ -117,10 +185,10 @@ func get_towers() -> Array:
 
 func get_tower_bonuses() -> Dictionary:
     var result: Dictionary = {"attack": 0.0, "defense": 0.0, "speed": 0.0}
-    var defs: Dictionary = _catalog.get("towers", {})
+    var defs: Dictionary = _catalog.get("crystals", {})
     for raw_tower in get_towers():
         var tower: Dictionary = raw_tower
-        var definition: Dictionary = defs.get(str(tower.get("type", "")), {})
+        var definition: Dictionary = defs.get(str(tower.get("crystal_id", "")), {})
         result["attack"] += float(definition.get("attack_bonus", 0.0))
         result["defense"] += float(definition.get("defense_bonus", 0.0))
         result["speed"] += float(definition.get("speed_bonus", 0.0))
@@ -190,10 +258,17 @@ func get_construction_status() -> Dictionary:
 func can_upgrade_garrison() -> bool:
     return is_at_home() and GameState.combat_state.get("construction_job", {}).is_empty() and _can_pay_cost(get_garrison_upgrade_cost())
 
+func _tower_slot_limit() -> int:
+    var slots: Array = _rules().get("tower_slots_by_garrison_level", [])
+    var level: int = clampi(get_garrison_level(), 1, int(_rules().get("max_garrison_level", 5)))
+    if level < slots.size():
+        return mini(3, int(slots[level]))
+    return mini(3, level)
+
 func can_build_tower(tower_type: String) -> bool:
     var towers: Array = GameState.combat_state.get("towers", [])
-    var limit: int = mini(get_garrison_level(), int(_rules().get("max_towers", 5)))
-    return is_at_home() and GameState.combat_state.get("construction_job", {}).is_empty() and _catalog.get("towers", {}).has(tower_type) and towers.size() < limit and _can_pay_cost(_rules().get("tower_cost", {}))
+    var limit: int = _tower_slot_limit()
+    return is_at_home() and GameState.combat_state.get("construction_job", {}).is_empty() and _catalog.get("towers", {}).has(_normalize_tower_type(tower_type)) and towers.size() < limit and _can_pay_cost(_rules().get("tower_cost", {}))
 
 func _can_pay_cost(cost: Dictionary) -> bool:
     if cost.is_empty() or float(GameState.player_state.get("money", 0.0)) < float(cost.get("money", 0)):
@@ -326,10 +401,11 @@ func upgrade_garrison() -> Dictionary:
 func build_tower(tower_type: String) -> Dictionary:
     if not is_at_home():
         return _result(false, "Башни строятся только в главном порту.")
+    tower_type = _normalize_tower_type(tower_type)
     if not _catalog.get("towers", {}).has(tower_type):
         return _result(false, "Неизвестный тип башни.")
     var towers: Array = GameState.combat_state.get("towers", [])
-    var limit: int = mini(get_garrison_level(), int(_rules().get("max_towers", 5)))
+    var limit: int = _tower_slot_limit()
     if towers.size() >= limit:
         return _result(false, "Свободных мест нет. Улучшите гарнизон.")
     if not GameState.combat_state.get("construction_job", {}).is_empty():
@@ -464,7 +540,7 @@ func _complete_construction() -> void:
         GameState.combat_state["garrison_level"] = int(job.get("target_level", get_garrison_level()))
     elif str(job.get("kind", "")) == "tower_build":
         var towers: Array = GameState.combat_state.get("towers", [])
-        towers.append({"type": str(job.get("tower_type", "")), "built_at": _now()})
+        towers.append({"type": "island", "crystal_id": "", "built_at": _now()})
         GameState.combat_state["towers"] = towers
     GameState.combat_state["construction_job"] = {}
     SaveSystem.save_game()
@@ -571,7 +647,31 @@ func _apply_stock_losses() -> int:
     GameState.port_state[port_id] = port
     return target_loss - remaining
 
+func _award_crystal_for_victory(report: Dictionary) -> void:
+    var state: Dictionary = GameState.combat_state
+    var victories: int = int(state.get("battle_victories", 0)) + 1
+    state["battle_victories"] = victories
+    var interval: int = maxi(1, int(_rules().get("victories_between_crystal_rewards", 3)))
+    if victories != 1 and (victories - 1) % interval != 0:
+        GameState.combat_state = state
+        return
+    var order: Array = get_crystal_order()
+    if order.is_empty():
+        GameState.combat_state = state
+        return
+    var reward_index: int = int(state.get("next_crystal_reward", 0)) % order.size()
+    var crystal_id: String = str(order[reward_index])
+    var inventory: Dictionary = state.get("crystals", {})
+    inventory[crystal_id] = int(inventory.get(crystal_id, 0)) + 1
+    state["crystals"] = inventory
+    state["next_crystal_reward"] = reward_index + 1
+    report["crystal_reward"] = crystal_id
+    report["summary"] = str(report.get("summary", "")) + " Найден: %s." % get_crystal_name(crystal_id)
+    GameState.combat_state = state
+
 func _store_report(report: Dictionary) -> void:
+    if bool(report.get("won", false)):
+        _award_crystal_for_victory(report)
     var state: Dictionary = GameState.combat_state
     var reports: Array = state.get("reports", [])
     reports.push_front(report)
