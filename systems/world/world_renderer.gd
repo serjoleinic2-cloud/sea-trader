@@ -21,6 +21,7 @@ var _wave_clock: float = 0.0
 
 
 func _ready() -> void:
+	add_to_group("world_renderer")
 	EventBus.port_discovered.connect(_on_port_discovered)
 
 
@@ -52,6 +53,10 @@ func setup(world_data: Dictionary) -> void:
 
 func set_camera(cam: Camera2D) -> void:
 	_camera = cam
+
+
+func get_world_map_data() -> Dictionary:
+	return _world_data
 
 
 # ============================================================================
