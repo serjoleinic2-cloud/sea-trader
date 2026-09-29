@@ -16,6 +16,10 @@ var _raid_label: Label
 var _raid_bar: ProgressBar
 var _tower_label: Label
 var _tower_buttons: Dictionary = {}
+var _tower_slot_select: OptionButton
+var _crystal_select: OptionButton
+var _crystal_apply_button: Button
+var _crystal_signature: String = ""
 var _unit_grids: Dictionary = {}
 var _report_list: VBoxContainer
 var _upgrade_button: Button
@@ -224,7 +228,7 @@ func _build_defense_tab() -> void:
 
 	var tower_buttons := HBoxContainer.new()
 	tower_buttons.add_theme_constant_override("separation", 8)
-	for tower in [["power", "Башня силы"], ["guard", "Башня защиты"], ["wind", "Башня ветра"]]:
+	for tower in [["island", "Построить башню"]]:
 		var button := Button.new()
 		button.text = str(tower[1])
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -235,8 +239,30 @@ func _build_defense_tab() -> void:
 		_tower_buttons[str(tower[0])] = button
 	content.add_child(tower_buttons)
 
+	var crystal_row := HBoxContainer.new()
+	crystal_row.add_theme_constant_override("separation", 8)
+	_tower_slot_select = OptionButton.new()
+	_tower_slot_select.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_tower_slot_select.custom_minimum_size.y = 46
+	_tower_slot_select.add_theme_font_size_override("font_size", 17)
+	_tower_slot_select.item_selected.connect(_on_tower_slot_selected)
+	crystal_row.add_child(_tower_slot_select)
+	_crystal_select = OptionButton.new()
+	_crystal_select.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_crystal_select.custom_minimum_size.y = 46
+	_crystal_select.add_theme_font_size_override("font_size", 17)
+	_crystal_select.item_selected.connect(_on_crystal_selected)
+	crystal_row.add_child(_crystal_select)
+	_crystal_apply_button = Button.new()
+	_crystal_apply_button.text = "Установить"
+	_crystal_apply_button.custom_minimum_size = Vector2(170, 46)
+	_crystal_apply_button.add_theme_font_size_override("font_size", 17)
+	_crystal_apply_button.pressed.connect(_set_tower_crystal)
+	crystal_row.add_child(_crystal_apply_button)
+	content.add_child(crystal_row)
+
 	var note := Label.new()
-	note.text = "Каждая башня занимает ячейку гарнизона. Эффекты башен усиливают защиту базы или выбранные боевые показатели."
+	note.text = "На острове строятся одинаковые башни. Гарнизон 1, 2 и 3 уровня открывает по одной площадке; всего их не более трёх. В каждую подходит любой кристалл. Его можно снять и переставить."
 	note.add_theme_font_size_override("font_size", 17)
 	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	content.add_child(note)
@@ -298,11 +324,12 @@ func _refresh() -> void:
 	_raid_bar.value = float(raid.get("percent", 0.0))
 	_raid_label.text = "Идёт вылазка к цели «%s»  •  %d%%  •  осталось %d сек." % [str(raid.get("target", "")), int(raid.get("percent", 0.0)), int(raid.get("seconds_left", 0))] if not raid.is_empty() else "Вылазок сейчас нет."
 
-	var can_build_more: bool = _system.get_towers().size() < mini(level, 5)
+	var can_build_more: bool = _system.get_towers().size() < mini(level, 3)
 	for tower_type in _tower_buttons:
 		var tower_button: Button = _tower_buttons[tower_type]
 		tower_button.disabled = not can_build_more or not _system.can_build_tower(str(tower_type))
 	_tower_label.text = _format_towers(_system.get_tower_bonuses())
+	_refresh_crystal_controls()
 	_repair_button.disabled = not _system.is_at_home() or integrity >= 100.0
 
 	var roster_signature: String = ""
@@ -315,19 +342,80 @@ func _refresh() -> void:
 	_rebuild_reports()
 
 func _format_towers(bonuses: Dictionary) -> String:
-	var names: Array[String] = []
-	for tower in _system.get_towers():
-		names.append(str(_system.get_tower_name(str(tower.get("type", "")))))
-	var slots: int = mini(_system.get_garrison_level(), 5)
-	var contents: String = "Нет построенных башен."
-	if not names.is_empty():
-		contents = "Построены: "
-		for index in range(names.size()):
+	var towers: Array = _system.get_towers()
+	var slots: int = mini(_system.get_garrison_level(), 3)
+	var contents: String = "Башен пока нет."
+	if not towers.is_empty():
+		contents = "Башни острова: "
+		for index in range(towers.size()):
 			if index > 0:
-				contents += ", "
-			contents += names[index]
-		contents += "."
-	return "%s Ячеек занято: %d / %d. Бонусы: сила +%.0f%%, защита +%.0f%%, скорость +%.0f%%." % [contents, names.size(), slots, float(bonuses.get("attack", 0.0)), float(bonuses.get("defense", 0.0)), float(bonuses.get("speed", 0.0))]
+				contents += "  •  "
+			var crystal_id: String = str(towers[index].get("crystal_id", ""))
+			var crystal_name: String = "пустая" if crystal_id == "" else str(_system.get_crystal_name(crystal_id))
+			contents += "%d — %s" % [index + 1, crystal_name]
+	var inventory: Dictionary = _system.get_crystal_inventory()
+	var available: int = 0
+	for count in inventory.values():
+		available += int(count)
+	return "%s  Площадки: %d / %d. Кристаллов в запасе: %d. Бонусы: сила +%.0f%%, защита +%.0f%%, скорость +%.0f%%." % [contents, towers.size(), slots, available, float(bonuses.get("attack", 0.0)), float(bonuses.get("defense", 0.0)), float(bonuses.get("speed", 0.0))]
+
+func _refresh_crystal_controls() -> void:
+	if _tower_slot_select == null or _crystal_select == null or _crystal_apply_button == null:
+		return
+	var towers: Array = _system.get_towers()
+	var inventory: Dictionary = _system.get_crystal_inventory()
+	var signature: String = JSON.stringify(towers) + JSON.stringify(inventory)
+	if signature == _crystal_signature:
+		return
+	_crystal_signature = signature
+	var previously_selected: int = maxi(0, _tower_slot_select.selected)
+	_tower_slot_select.clear()
+	for index in range(towers.size()):
+		_tower_slot_select.add_item("Башня %d" % (index + 1))
+	if not towers.is_empty():
+		_tower_slot_select.select(mini(previously_selected, towers.size() - 1))
+	_crystal_select.clear()
+	_crystal_select.add_item("Снять кристалл")
+	_crystal_select.set_item_metadata(0, "")
+	var current_id: String = ""
+	if not towers.is_empty():
+		current_id = str(towers[_tower_slot_select.selected].get("crystal_id", ""))
+	for crystal_id in _system.get_crystal_order():
+		var id: String = str(crystal_id)
+		var count: int = int(inventory.get(id, 0))
+		var item_index: int = _crystal_select.item_count
+		_crystal_select.add_item("%s — %d шт." % [_system.get_crystal_name(id), count])
+		_crystal_select.set_item_metadata(item_index, id)
+		if count <= 0 and id != current_id:
+			_crystal_select.set_item_disabled(item_index, true)
+		if id == current_id:
+			_crystal_select.select(item_index)
+	if current_id == "":
+		_crystal_select.select(0)
+	var can_change: bool = not towers.is_empty()
+	if _crystal_select.selected > 0:
+		var chosen_id: String = str(_crystal_select.get_item_metadata(_crystal_select.selected))
+		can_change = can_change and (int(inventory.get(chosen_id, 0)) > 0 or chosen_id == current_id)
+	_crystal_apply_button.disabled = not can_change
+	_crystal_apply_button.text = "Снять кристалл" if _crystal_select.selected == 0 and current_id != "" else "Установить"
+
+func _on_tower_slot_selected(_index: int) -> void:
+	_crystal_signature = ""
+	_refresh_crystal_controls()
+
+func _on_crystal_selected(_index: int) -> void:
+	_crystal_signature = ""
+	_refresh_crystal_controls()
+
+func _set_tower_crystal() -> void:
+	if _tower_slot_select == null or _crystal_select == null:
+		return
+	var tower_index: int = _tower_slot_select.selected
+	var crystal_id: String = str(_crystal_select.get_item_metadata(_crystal_select.selected))
+	var result: Dictionary = _system.set_tower_crystal(tower_index, crystal_id)
+	_notice.text = str(result.get("message", ""))
+	_crystal_signature = ""
+	_refresh()
 
 func _rebuild_unit_cards() -> void:
 	for grid in _unit_grids.values():
