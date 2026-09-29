@@ -54,6 +54,18 @@ func _ready() -> void:
 	_asset_catalog = GameData.read("res://data/world/world_asset_catalog.json")
 	_build_viewport()
 	_build_scene()
+	if not EventBus.active_ship_changed.is_connected(_on_active_ship_changed):
+		EventBus.active_ship_changed.connect(_on_active_ship_changed)
+
+
+func _on_active_ship_changed(_ship_type_id: String) -> void:
+	if _scene_root == null:
+		return
+	if is_instance_valid(_ship):
+		_ship.queue_free()
+	_ship = _make_ship()
+	_scene_root.add_child(_ship)
+	_add_ship_wake()
 
 
 func initialize(world_data: Dictionary, map_world: CanvasItem, map_ship: CanvasItem, trader_traffic: Node = null, fleet_traffic: Node = null) -> void:
