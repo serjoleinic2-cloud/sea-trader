@@ -133,7 +133,7 @@
 
 ## Правила работы и тестирования
 
-1. Убедись, что работаешь в репозитории [sea-trader](https://github.com/serjoleinic2-cloud/sea-trader) на ветке `codex/persistent-state-foundation). Команды переключения ветки ищи в корневом README. Не создавай дубликат репозитория или параллельный набор тех же систем.
+1. Убедись, что работаешь в репозитории [sea-trader](https://github.com/serjoleinic2-cloud/sea-trader) на ветке `codex/persistent-state-foundation`. Команды переключения ветки ищи в корневом README. Не создавай дубликат репозитория или параллельный набор тех же систем.
 2. Сначала прочитай [PROJECT_STATE.md](PROJECT_STATE.md), [TRUTH.md](TRUTH.md), [AI_DEVELOPMENT_RULES.md](AI_DEVELOPMENT_RULES.md), затем профильные документы и код задачи.
 3. Посмотри Git status и сохрани пользовательские незакоммиченные изменения. Не переноси работу в `main` без отдельного указания.
 4. Runtime-состояние — только через `GameState`; файлы сохранений — только через `SaveSystem`; статические данные — в JSON; правила игры — в системах, не в UI.
