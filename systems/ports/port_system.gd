@@ -88,6 +88,8 @@ func _upgrade_legacy_port_knowledge() -> void:
 func _process(_delta: float) -> void:
 	if _ship_node == null or GameState.port_state == null:
 		return
+	if _ensure_home_starter_shipyard_kit():
+		SaveSystem.save_game()
 	var ship_pos: Vector2 = _ship_node.global_position
 	var nearby_ids: Array = _get_nearby_port_ids(ship_pos)
 	for raw_id in _ports_in_range.keys():
@@ -204,6 +206,26 @@ func get_dock_candidate() -> String:
 	return best_id
 
 
+func _ensure_home_starter_shipyard_kit() -> bool:
+	var home_id: String = str(GameState.world_state.get("home_port_id", ""))
+	if home_id == "" or not GameState.port_state.has(home_id):
+		return false
+	var home_state: Dictionary = GameState.port_state.get(home_id, {})
+	if bool(home_state.get("starter_shipyard_kit_granted", false)):
+		return false
+	var inventory: Dictionary = home_state.get("inventory", {})
+	var starter_shipyard_kit: Dictionary = _get_starter_shipyard_kit()
+	for resource_id in starter_shipyard_kit:
+		inventory[resource_id] = maxi(
+			int(inventory.get(resource_id, 0)),
+			int(starter_shipyard_kit.get(resource_id, 0))
+		)
+	home_state["inventory"] = inventory
+	home_state["starter_shipyard_kit_granted"] = true
+	GameState.port_state[home_id] = home_state
+	return true
+
+
 func _get_starter_shipyard_kit() -> Dictionary:
 	var rules: Dictionary = GameData.read("res://data/ports/building_rules.json")
 	var kit: Dictionary = rules.get("base_materials", {}).get("shipyard", {}).duplicate(true)
@@ -218,6 +240,8 @@ func dock(port_id: String) -> bool:
 	if port_id == "" or get_dock_candidate() != port_id:
 		return false
 	if str(GameState.ship_state.get("docked_port_id", "")) == port_id:
+		if _ensure_home_starter_shipyard_kit():
+			SaveSystem.save_game()
 		return true
 	var previous_port_id: String = str(GameState.world_state.get("last_docked_port_id", ""))
 	var establishing_home_port: bool = str(GameState.world_state.get("home_port_id", "")) == ""
@@ -231,19 +255,6 @@ func dock(port_id: String) -> bool:
 		}
 	else:
 		GameState.port_state[port_id]["discovered"] = true
-	if establishing_home_port:
-		# One-time starter materials let a new captain build the first shipyard
-		# and a second starter hull without bypassing the construction screen.
-		var home_state: Dictionary = GameState.port_state.get(port_id, {})
-		var home_inventory: Dictionary = home_state.get("inventory", {})
-		var starter_shipyard_kit: Dictionary = _get_starter_shipyard_kit()
-		for resource_id in starter_shipyard_kit:
-			home_inventory[resource_id] = maxi(
-				int(home_inventory.get(resource_id, 0)),
-				int(starter_shipyard_kit.get(resource_id, 0))
-			)
-		home_state["inventory"] = home_inventory
-		GameState.port_state[port_id] = home_state
 	var already_listed: bool = GameState.player_state.discovered_port_ids.has(port_id)
 	var newly_visible: bool = not is_port_discovered(port_id)
 	var first_visit: bool = newly_visible and not already_listed
@@ -281,6 +292,7 @@ func dock(port_id: String) -> bool:
 	GameState.ship_state["docked_port_id"] = port_id
 	if str(GameState.world_state.get("home_port_id", "")) == "":
 		GameState.world_state["home_port_id"] = port_id
+	_ensure_home_starter_shipyard_kit()
 	GameState.ship_state["velocity"] = Vector2.ZERO
 	# A fuel warning from an interrupted voyage must not remain as the current
 	# navigation state after the player has manually reached a port.
