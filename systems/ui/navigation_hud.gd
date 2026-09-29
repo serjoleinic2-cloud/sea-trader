@@ -51,7 +51,7 @@ func _ready() -> void:
 	title.add_theme_font_size_override("font_size", 28)
 	root.add_child(title)
 	var hint := Label.new()
-	hint.text = "Колесо мыши — масштаб вокруг корабля · перетаскивание — обзор карты · подписи показывают ваши суда и известные порты"
+	hint.text = "Колесо мыши — масштаб вокруг корабля · зажми ЛКМ и тяни — сдвинуть карту · подписи — ваши суда и открытые порты"
 	hint.add_theme_font_size_override("font_size", 18)
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	root.add_child(hint)
