@@ -244,7 +244,6 @@ func dock(port_id: String) -> bool:
 			SaveSystem.save_game()
 		return true
 	var previous_port_id: String = str(GameState.world_state.get("last_docked_port_id", ""))
-	var establishing_home_port: bool = str(GameState.world_state.get("home_port_id", "")) == ""
 	if not GameState.port_state.has(port_id):
 		var generated: Dictionary = _world_ports.get(port_id, {})
 		GameState.port_state[port_id] = {
