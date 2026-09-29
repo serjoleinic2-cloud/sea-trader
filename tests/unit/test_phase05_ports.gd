@@ -45,6 +45,15 @@ func test_existing_home_gets_shipyard_and_starter_ship_materials_once() -> void:
 	_system._process(0.016)
 	assert_eq(int(GameState.port_state.test_port.inventory.resource_timber), 0, "the kit is not repeatedly reissued")
 
+func test_missing_home_port_state_is_recreated_with_ship_materials() -> void:
+	GameState.world_state.home_port_id = "test_port"
+	GameState.port_state.erase("test_port")
+	_system._process(0.016)
+	assert_true(GameState.port_state.has("test_port"), "missing home state is restored from generated home data")
+	var expected_kit: Dictionary = _system._get_starter_shipyard_kit()
+	for resource_id in expected_kit:
+		assert_gte(int(GameState.port_state.test_port.inventory.get(resource_id, 0)), int(expected_kit[resource_id]), "restored home receives the shipyard and hull materials")
+
 func test_initialize_does_not_populate_empty_saved_knowledge() -> void:
 	assert_true(GameState.port_state.is_empty())
 	assert_true(GameState.player_state.discovered_port_ids.is_empty())
