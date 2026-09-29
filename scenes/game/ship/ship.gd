@@ -36,6 +36,8 @@ func _ready() -> void:
 	# Connect collision
 	$Area2D.body_entered.connect(_on_body_entered)
 	$Area2D.area_entered.connect(_on_area_entered)
+	if not EventBus.active_ship_changed.is_connected(_on_active_ship_changed):
+		EventBus.active_ship_changed.connect(_on_active_ship_changed)
 
 
 func _physics_process(delta: float) -> void:
@@ -105,6 +107,17 @@ func _position_ship() -> void:
 
 	# Snap camera
 	_camera.position = Vector2.ZERO   # Camera2D is child, position is relative
+
+
+func _on_active_ship_changed(_ship_type_id: String) -> void:
+	_load_ship_data()
+	if _ship_data.is_empty():
+		return
+	_physics.setup(_ship_data, false)
+	_physics.ship_node = _procedural_visual
+	_position_ship()
+	_sync_visual()
+	_update_hud()
 
 
 # ============================================================================
