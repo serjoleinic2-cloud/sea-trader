@@ -235,10 +235,15 @@ func take_control(ship_id: String) -> Dictionary:
 
 
 func get_next_fleet_number() -> int:
-	var next_number: int = 1
-	while _find_auxiliary_index("fleet_ship_%03d" % next_number) >= 0:
-		next_number += 1
-	return next_number
+	var highest_number: int = 0
+	for raw_ship in GameState.fleet_state:
+		var ship: Dictionary = raw_ship
+		var ship_id: String = str(ship.get("instance_id", ""))
+		if not ship_id.begins_with("fleet_ship_"):
+			continue
+		var suffix: String = ship_id.trim_prefix("fleet_ship_")
+		highest_number = maxi(highest_number, int(suffix))
+	return highest_number + 1
 
 
 func _next_fleet_instance_id() -> String:
