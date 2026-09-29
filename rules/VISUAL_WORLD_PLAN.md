@@ -78,7 +78,8 @@ The shared 3D renderer now supports the first sailing-view slice:
 
 - Shore proximity and close zoom blend the overhead view into the same 3D sea; desktop right-drag and mobile two-finger gestures orbit, while the pinch gesture also controls zoom.
 - The close view updates over open water, so it does not depend on a nearby island.
-- The renderer has a short night interval, lower moonlit ambience, constellation-shaped star silhouettes, and a restrained glowing ship wake.
+- The first day/night pass uses a five-minute cycle with a target 3:1 daylight-to-night ratio. A procedural gradient sky, animated solar elevation, warm sunrise/sunset lighting, coordinated ambient light, and a restrained warm tint on the water establish dawn and dusk.
+- The renderer still uses illustrative constellation silhouettes rather than a real star catalog. Exact astronomical positions remain a later task after the world coordinates and calendar are defined.
 - Procedural island surfaces use seed-stable irregular coastlines with a visual opening at a harbor. Rare large islands receive a floating landmark; the home harbor receives a pair of gate statues.
 - These meshes are visual only. Navigation, collisions, world seed, and save data continue to use the existing generated-world data.
 
