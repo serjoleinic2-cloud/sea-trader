@@ -53,7 +53,13 @@ func test_garrison_levels_unlock_units_and_towers_affect_defense() -> void:
     GameState.combat_state["construction_job"] = job
     _system._process(0.0)
     assert_eq(_system.get_towers().size(), 1, "tower appears after its build timer")
-    assert_gt(_system.get_tower_bonuses().defense, 0.0, "defensive tower gives its stated bonus")
+    assert_eq(_system.get_tower_bonuses().defense, 0.0, "empty universal tower has no bonus before a crystal is installed")
+    var victory: Dictionary = _system.resolve_hidden_attack(1, "Разбойники")
+    assert_true(bool(victory.get("report", {}).get("won", false)), "a successful defense is a crystal source")
+    assert_eq(int(_system.get_crystal_inventory().get("crystal_power", 0)), 1, "the first victory grants a predictable crystal")
+    var install_result: Dictionary = _system.set_tower_crystal(0, "crystal_power")
+    assert_true(bool(install_result.get("ok", false)), "any owned crystal fits the island tower")
+    assert_gt(_system.get_tower_bonuses().attack, 0.0, "a socketed crystal gives its defined bonus")
 
 func test_hidden_defense_writes_report_without_battle_scene_and_limits_loss() -> void:
     GameState.port_state.home.inventory = {"resource_timber": 100, "resource_parts": 100}
