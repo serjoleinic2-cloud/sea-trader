@@ -208,8 +208,18 @@ func get_dock_candidate() -> String:
 
 func _ensure_home_starter_shipyard_kit() -> bool:
 	var home_id: String = str(GameState.world_state.get("home_port_id", ""))
-	if home_id == "" or not GameState.port_state.has(home_id):
+	if home_id == "":
 		return false
+	if not GameState.port_state.has(home_id):
+		var generated: Dictionary = _world_ports.get(home_id, {})
+		if generated.is_empty():
+			return false
+		GameState.port_state[home_id] = {
+			"discovered": true,
+			"level": generated.get("level", 1),
+			"buildings": {},
+			"inventory": {}
+		}
 	var home_state: Dictionary = GameState.port_state.get(home_id, {})
 	if bool(home_state.get("starter_shipyard_kit_granted", false)):
 		return false
