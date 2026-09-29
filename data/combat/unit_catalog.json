@@ -1,34 +1,169 @@
 {
-  "unit_order": ["coast_guard", "rune_spearman", "stone_warden", "wind_rider", "crystal_mortar", "storm_drake"],
+  "unit_order": [
+    "coast_guard",
+    "rune_spearman",
+    "stone_warden",
+    "wind_rider",
+    "crystal_mortar",
+    "storm_drake"
+  ],
   "units": {
-    "coast_guard": {"name": "Береговой дозорный", "branch": "Лёгкая пехота", "unlock_level": 1, "attack": 3, "defense": 5, "speed": 7, "luck": 3, "hire_cost": 80, "seconds_per_unit": 8},
-    "rune_spearman": {"name": "Рунный копейщик", "branch": "Средняя пехота", "unlock_level": 2, "attack": 6, "defense": 7, "speed": 5, "luck": 4, "hire_cost": 180, "seconds_per_unit": 12},
-    "stone_warden": {"name": "Каменный страж", "branch": "Тяжёлая пехота", "unlock_level": 3, "attack": 9, "defense": 14, "speed": 2, "luck": 2, "hire_cost": 360, "seconds_per_unit": 18},
-    "wind_rider": {"name": "Всадник ветра", "branch": "Летучие", "unlock_level": 3, "attack": 11, "defense": 6, "speed": 14, "luck": 8, "hire_cost": 520, "seconds_per_unit": 22},
-    "crystal_mortar": {"name": "Кристальная мортира", "branch": "Осадная техника", "unlock_level": 4, "attack": 20, "defense": 4, "speed": 1, "luck": 1, "hire_cost": 850, "seconds_per_unit": 30},
-    "storm_drake": {"name": "Грозовой дракончик", "branch": "Летучие", "unlock_level": 5, "attack": 22, "defense": 15, "speed": 16, "luck": 12, "hire_cost": 1600, "seconds_per_unit": 42}
+    "coast_guard": {
+      "name": "Береговой дозорный",
+      "branch": "Лёгкая пехота",
+      "unlock_level": 1,
+      "attack": 3,
+      "defense": 5,
+      "speed": 7,
+      "luck": 3,
+      "hire_cost": 80,
+      "seconds_per_unit": 8
+    },
+    "rune_spearman": {
+      "name": "Рунный копейщик",
+      "branch": "Средняя пехота",
+      "unlock_level": 2,
+      "attack": 6,
+      "defense": 7,
+      "speed": 5,
+      "luck": 4,
+      "hire_cost": 180,
+      "seconds_per_unit": 12
+    },
+    "stone_warden": {
+      "name": "Каменный страж",
+      "branch": "Тяжёлая пехота",
+      "unlock_level": 3,
+      "attack": 9,
+      "defense": 14,
+      "speed": 2,
+      "luck": 2,
+      "hire_cost": 360,
+      "seconds_per_unit": 18
+    },
+    "wind_rider": {
+      "name": "Всадник ветра",
+      "branch": "Летучие",
+      "unlock_level": 3,
+      "attack": 11,
+      "defense": 6,
+      "speed": 14,
+      "luck": 8,
+      "hire_cost": 520,
+      "seconds_per_unit": 22
+    },
+    "crystal_mortar": {
+      "name": "Кристальная мортира",
+      "branch": "Осадная техника",
+      "unlock_level": 4,
+      "attack": 20,
+      "defense": 4,
+      "speed": 1,
+      "luck": 1,
+      "hire_cost": 850,
+      "seconds_per_unit": 30
+    },
+    "storm_drake": {
+      "name": "Грозовой дракончик",
+      "branch": "Летучие",
+      "unlock_level": 5,
+      "attack": 22,
+      "defense": 15,
+      "speed": 16,
+      "luck": 12,
+      "hire_cost": 1600,
+      "seconds_per_unit": 42
+    }
   },
   "garrison_upgrade_costs": [
-    {"money": 0, "resource_timber": 0, "resource_parts": 0},
-    {"money": 600, "resource_timber": 20, "resource_parts": 8},
-    {"money": 1800, "resource_timber": 45, "resource_parts": 24},
-    {"money": 5200, "resource_timber": 90, "resource_parts": 60},
-    {"money": 14000, "resource_timber": 180, "resource_parts": 140}
+    {
+      "money": 0,
+      "resource_timber": 0,
+      "resource_parts": 0
+    },
+    {
+      "money": 600,
+      "resource_timber": 20,
+      "resource_parts": 8
+    },
+    {
+      "money": 1800,
+      "resource_timber": 45,
+      "resource_parts": 24
+    },
+    {
+      "money": 5200,
+      "resource_timber": 90,
+      "resource_parts": 60
+    },
+    {
+      "money": 14000,
+      "resource_timber": 180,
+      "resource_parts": 140
+    }
   ],
   "towers": {
-    "power": {"name": "Башня силы", "description": "+8% к силе отрядов", "attack_bonus": 8, "defense_bonus": 0, "speed_bonus": 0},
-    "guard": {"name": "Башня защиты", "description": "+8% к защите базы", "attack_bonus": 0, "defense_bonus": 8, "speed_bonus": 0},
-    "wind": {"name": "Башня ветра", "description": "+8% к скорости отрядов", "attack_bonus": 0, "defense_bonus": 0, "speed_bonus": 8}
+    "island": {
+      "name": "Башня острова",
+      "description": "Универсальная башня с одним местом для любого кристалла."
+    }
   },
   "rules": {
     "max_garrison_level": 5,
-    "max_towers": 5,
-    "garrison_upgrade_seconds": [0, 60, 150, 300, 600],
-    "tower_cost": {"money": 450, "resource_timber": 10, "resource_parts": 6},
+    "max_towers": 3,
+    "garrison_upgrade_seconds": [
+      0,
+      60,
+      150,
+      300,
+      600
+    ],
+    "tower_cost": {
+      "money": 450,
+      "resource_timber": 10,
+      "resource_parts": 6
+    },
     "tower_build_seconds": 45,
     "passive_attack_interval_seconds": 21600,
     "player_raid_duration_seconds": 45,
     "report_limit": 30,
-    "max_recruitment_batch": 20
+    "max_recruitment_batch": 20,
+    "tower_slots_by_garrison_level": [
+      0,
+      1,
+      2,
+      3,
+      3,
+      3
+    ],
+    "victories_between_crystal_rewards": 3
+  },
+  "crystal_order": [
+    "crystal_power",
+    "crystal_guard",
+    "crystal_wind"
+  ],
+  "crystals": {
+    "crystal_power": {
+      "name": "Кристалл силы",
+      "description": "+8% к силе отрядов",
+      "attack_bonus": 8,
+      "defense_bonus": 0,
+      "speed_bonus": 0
+    },
+    "crystal_guard": {
+      "name": "Кристалл защиты",
+      "description": "+8% к защите базы",
+      "attack_bonus": 0,
+      "defense_bonus": 8,
+      "speed_bonus": 0
+    },
+    "crystal_wind": {
+      "name": "Кристалл ветра",
+      "description": "+8% к скорости отрядов",
+      "attack_bonus": 0,
+      "defense_bonus": 0,
+      "speed_bonus": 8
+    }
   }
 }
