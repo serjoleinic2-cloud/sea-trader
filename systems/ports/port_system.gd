@@ -210,15 +210,33 @@ func dock(port_id: String) -> bool:
 	if str(GameState.ship_state.get("docked_port_id", "")) == port_id:
 		return true
 	var previous_port_id: String = str(GameState.world_state.get("last_docked_port_id", ""))
+	var establishing_home_port: bool = str(GameState.world_state.get("home_port_id", "")) == ""
 	if not GameState.port_state.has(port_id):
 		var generated: Dictionary = _world_ports.get(port_id, {})
 		GameState.port_state[port_id] = {
 			"discovered": true,
 			"level": generated.get("level", 1),
-			"buildings": {}
+			"buildings": {},
+			"inventory": {}
 		}
 	else:
 		GameState.port_state[port_id]["discovered"] = true
+	if establishing_home_port:
+		# One-time starter materials let a new captain build the first shipyard
+		# and a second starter hull without bypassing the construction screen.
+		var home_state: Dictionary = GameState.port_state.get(port_id, {})
+		var home_inventory: Dictionary = home_state.get("inventory", {})
+		if home_inventory.is_empty():
+			home_inventory = {
+				"resource_timber": 50,
+				"resource_nails": 28,
+				"resource_fabric": 18,
+				"resource_rope": 18,
+				"resource_paint": 9,
+				"resource_varnish": 2
+			}
+		home_state["inventory"] = home_inventory
+		GameState.port_state[port_id] = home_state
 	var already_listed: bool = GameState.player_state.discovered_port_ids.has(port_id)
 	var newly_visible: bool = not is_port_discovered(port_id)
 	var first_visit: bool = newly_visible and not already_listed
