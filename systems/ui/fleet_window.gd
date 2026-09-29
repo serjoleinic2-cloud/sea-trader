@@ -175,6 +175,12 @@ func _add_auxiliary_ship_card(ship: Dictionary) -> void:
 	take_button.tooltip_text = str(take_status.get("message", ""))
 	take_button.pressed.connect(_take_control.bind(ship_id))
 	box.add_child(take_button)
+	if not bool(take_status.get("ok", false)):
+		var take_hint: Label = Label.new()
+		take_hint.text = str(take_status.get("message", ""))
+		take_hint.add_theme_font_size_override("font_size", 16)
+		take_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		box.add_child(take_hint)
 
 func _format_duration(seconds: float) -> String:
 	var total: int = maxi(0, int(ceil(seconds)))
