@@ -177,7 +177,7 @@ func take_control(ship_id: String) -> Dictionary:
 	var previous_ship_type_id: String = str(previous_state.get("ship_id", GameData.get_starter_ship_id()))
 	var previous_data: Dictionary = get_ship_type(previous_ship_type_id)
 	var previous_name: String = str(previous_data.get("name", "Корабль"))
-	var previous_id: String = _next_fleet_instance_id()
+	var previous_id: String = ship_id
 	var previous_crew: Array = previous_state.get("crew", []).duplicate()
 	var previous_cargo: Array = previous_state.get("cargo", []).duplicate(true)
 	var active_state: Dictionary = candidate.get("vessel_state", {}).duplicate(true)
@@ -207,6 +207,7 @@ func take_control(ship_id: String) -> Dictionary:
 	active_state["cargo"] = candidate.get("cargo", []).duplicate(true)
 	active_state["crew"] = candidate.get("crew", []).duplicate()
 	active_state["cargo_capacity"] = int(candidate.get("cargo_capacity", active_state.get("cargo_capacity", 50)))
+	candidate["instance_id"] = _next_fleet_instance_id()
 	candidate["vessel_state"] = {}
 	candidate["crew"] = previous_crew
 	candidate["cargo"] = previous_cargo
