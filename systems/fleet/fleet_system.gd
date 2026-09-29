@@ -212,6 +212,8 @@ func take_control(ship_id: String) -> Dictionary:
 	candidate["crew"] = previous_crew
 	candidate["cargo"] = previous_cargo
 	candidate["cargo_capacity"] = int(previous_state.get("cargo_capacity", 50))
+	for state_key in ["hull", "engine", "steering", "cargo_hold", "fuel", "fuel_max", "position", "velocity", "heading"]:
+		candidate[state_key] = previous_state.get(state_key, candidate.get(state_key))
 	candidate["ship_type_id"] = previous_ship_type_id
 	candidate["name"] = previous_name + " (бывший основной)"
 	candidate["current_port_id"] = port_id
