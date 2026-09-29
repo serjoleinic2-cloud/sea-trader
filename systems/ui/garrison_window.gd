@@ -392,20 +392,30 @@ func _refresh_crystal_controls() -> void:
 			_crystal_select.select(item_index)
 	if current_id == "":
 		_crystal_select.select(0)
-	var can_change: bool = not towers.is_empty()
-	if _crystal_select.selected > 0:
-		var chosen_id: String = str(_crystal_select.get_item_metadata(_crystal_select.selected))
-		can_change = can_change and (int(inventory.get(chosen_id, 0)) > 0 or chosen_id == current_id)
+	_update_crystal_apply_button()
+
+func _update_crystal_apply_button() -> void:
+	if _tower_slot_select == null or _crystal_select == null or _crystal_apply_button == null:
+		return
+	var towers: Array = _system.get_towers()
+	var inventory: Dictionary = _system.get_crystal_inventory()
+	var has_tower: bool = not towers.is_empty() and _tower_slot_select.selected >= 0
+	var current_id: String = ""
+	if has_tower:
+		current_id = str(towers[_tower_slot_select.selected].get("crystal_id", ""))
+	var chosen_id: String = str(_crystal_select.get_item_metadata(_crystal_select.selected)) if _crystal_select.selected >= 0 else ""
+	var can_change: bool = has_tower and chosen_id != current_id
+	if chosen_id != "":
+		can_change = can_change and int(inventory.get(chosen_id, 0)) > 0
 	_crystal_apply_button.disabled = not can_change
-	_crystal_apply_button.text = "Снять кристалл" if _crystal_select.selected == 0 and current_id != "" else "Установить"
+	_crystal_apply_button.text = "Снять кристалл" if chosen_id == "" and current_id != "" else "Установить"
 
 func _on_tower_slot_selected(_index: int) -> void:
 	_crystal_signature = ""
 	_refresh_crystal_controls()
 
 func _on_crystal_selected(_index: int) -> void:
-	_crystal_signature = ""
-	_refresh_crystal_controls()
+	_update_crystal_apply_button()
 
 func _set_tower_crystal() -> void:
 	if _tower_slot_select == null or _crystal_select == null:
