@@ -6,6 +6,9 @@ extends Node2D
 
 var _ports: Dictionary = {}
 
+func _ready() -> void:
+	add_to_group("fleet_traffic_renderer")
+
 func initialize(world_data: Dictionary) -> void:
 	var raw_ports: Variant = world_data.get("ports", {})
 	if raw_ports is Dictionary:
@@ -43,9 +46,13 @@ func get_vessel_snapshots() -> Array[Dictionary]:
 			position = _port_position(str(voyage.get("current_port_id", "")))
 			var berth_angle: float = float(posmod(abs(hash(ship_id)), 5)) * 1.1
 			position += Vector2(cos(berth_angle), sin(berth_angle)) * 24.0
-		var tier: int = int(GameData.get_ship(str(ship.get("ship_type_id", ""))).get("tier", 1))
+		var ship_type_id: String = str(ship.get("ship_type_id", ""))
+		var ship_type: Dictionary = GameData.get_ship(ship_type_id)
+		var tier: int = int(ship_type.get("tier", 1))
 		snapshots.append({
 			"id": ship_id,
+			"name": str(ship.get("name", ship_type.get("name", "Корабль"))),
+			"ship_type_id": ship_type_id,
 			"position": position,
 			"heading": heading,
 			"length": 24.0 + float(tier) * 9.0,
