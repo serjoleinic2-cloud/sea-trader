@@ -204,6 +204,16 @@ func get_dock_candidate() -> String:
 	return best_id
 
 
+func _get_starter_shipyard_kit() -> Dictionary:
+	var rules: Dictionary = GameData.read("res://data/ports/building_rules.json")
+	var kit: Dictionary = rules.get("base_materials", {}).get("shipyard", {}).duplicate(true)
+	var starter_ship: Dictionary = GameData.get_ship(GameData.get_starter_ship_id())
+	var hull_materials: Dictionary = starter_ship.get("build_materials", {})
+	for resource_id in hull_materials:
+		kit[resource_id] = int(kit.get(resource_id, 0)) + int(hull_materials.get(resource_id, 0))
+	return kit
+
+
 func dock(port_id: String) -> bool:
 	if port_id == "" or get_dock_candidate() != port_id:
 		return false
@@ -226,14 +236,7 @@ func dock(port_id: String) -> bool:
 		# and a second starter hull without bypassing the construction screen.
 		var home_state: Dictionary = GameState.port_state.get(port_id, {})
 		var home_inventory: Dictionary = home_state.get("inventory", {})
-		var starter_shipyard_kit: Dictionary = {
-			"resource_timber": 50,
-			"resource_nails": 28,
-			"resource_fabric": 18,
-			"resource_rope": 18,
-			"resource_paint": 9,
-			"resource_varnish": 2
-		}
+		var starter_shipyard_kit: Dictionary = _get_starter_shipyard_kit()
 		for resource_id in starter_shipyard_kit:
 			home_inventory[resource_id] = maxi(
 				int(home_inventory.get(resource_id, 0)),
