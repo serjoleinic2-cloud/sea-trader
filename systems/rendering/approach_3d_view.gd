@@ -34,7 +34,9 @@ var _transition_factor: float = 0.0
 var _chunk_size: float = 4096.0
 var _camera_initialized: bool = false
 var _environment: Environment
+var _sky_material: ProceduralSkyMaterial
 var _sunlight: DirectionalLight3D
+var _water_shader_material: ShaderMaterial
 var _star_dome: Node3D
 var _wake_material: StandardMaterial3D
 var _day_clock: float = 0.0
@@ -185,8 +187,15 @@ func _build_scene() -> void:
 
 	var environment_node := WorldEnvironment.new()
 	_environment = Environment.new()
-	_environment.background_mode = Environment.BG_COLOR
-	_environment.background_color = Color("7ca9bd")
+	_sky_material = ProceduralSkyMaterial.new()
+	_sky_material.sky_top_color = Color("3f86b6")
+	_sky_material.sky_horizon_color = Color("a7d3e3")
+	_sky_material.ground_bottom_color = Color("15344a")
+	_sky_material.ground_horizon_color = Color("a7d3e3")
+	var sky := Sky.new()
+	sky.sky_material = _sky_material
+	_environment.background_mode = Environment.BG_SKY
+	_environment.sky = sky
 	_environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	_environment.ambient_light_color = Color("b9d5df")
 	_environment.ambient_light_energy = 0.65
@@ -219,6 +228,8 @@ func _add_water() -> void:
 	shader_type spatial;
 	uniform vec3 deep_water = vec3(0.035, 0.20, 0.30);
 	uniform vec3 light_water = vec3(0.10, 0.36, 0.46);
+	uniform vec3 twilight_reflection = vec3(0.8, 0.36, 0.19);
+	uniform float twilight_amount = 0.0;
 	void vertex() {
 		VERTEX.y += sin(VERTEX.x * 0.12 + TIME * 1.1) * 0.10;
 		VERTEX.y += sin(VERTEX.z * 0.17 + TIME * 0.8) * 0.08;
@@ -226,7 +237,8 @@ func _add_water() -> void:
 	void fragment() {
 		float bands = sin((UV.x * 47.0 + UV.y * 23.0 + TIME * 0.15) * 6.28318);
 		float glint = smoothstep(0.62, 0.96, bands) * 0.20;
-		ALBEDO = mix(deep_water, light_water, glint);
+		vec3 sea_color = mix(deep_water, light_water, glint);
+		ALBEDO = mix(sea_color, twilight_reflection, twilight_amount * (0.10 + glint * 0.45));
 		ROUGHNESS = 0.28;
 		METALLIC = 0.08;
 	}
@@ -234,9 +246,9 @@ func _add_water() -> void:
 	_water = MeshInstance3D.new()
 	_water.name = "AnimatedOcean"
 	_water.mesh = plane
-	var water_material := ShaderMaterial.new()
-	water_material.shader = shader
-	_water.material_override = water_material
+	_water_shader_material = ShaderMaterial.new()
+	_water_shader_material.shader = shader
+	_water.material_override = _water_shader_material
 	_water.position.y = -0.18
 	_scene_root.add_child(_water)
 
@@ -314,15 +326,29 @@ func _build_star_dome() -> void:
 
 func _update_ambience(_delta: float) -> void:
 	var phase: float = _day_clock / DAY_CYCLE_SECONDS
-	var night: float = smoothstep(0.72, 0.84, phase) * (1.0 - smoothstep(0.96, 1.0, phase))
+	# Sunrise begins at cycle wrap; sunset begins at 75% of the cycle.
+	# That gives the prototype a 3:1 daylight-to-night ratio.
+	var night: float = smoothstep(0.75, 0.87, phase) * (1.0 - smoothstep(0.94, 1.0, phase))
+	var dusk: float = _cyclic_pulse(phase, 0.75, 0.01, 0.085)
+	var dawn: float = _cyclic_pulse(phase, 0.0, 0.01, 0.085)
+	var twilight: float = maxf(dusk, dawn)
+	if _sky_material != null:
+		_sky_material.sky_top_color = Color("3f86b6").lerp(Color("06142a"), night).lerp(Color("7895b4"), twilight * 0.35)
+		_sky_material.sky_horizon_color = Color("a7d3e3").lerp(Color("111d35"), night).lerp(Color("f0a06f"), twilight)
+		_sky_material.ground_bottom_color = Color("15344a").lerp(Color("071322"), night)
+		_sky_material.ground_horizon_color = Color("a7d3e3").lerp(Color("18243b"), night).lerp(Color("e98e64"), twilight)
 	if _environment != null:
-		_environment.background_color = Color("7ca9bd").lerp(Color("07162c"), night)
-		_environment.ambient_light_color = Color("b9d5df").lerp(Color("293955"), night)
-		_environment.ambient_light_energy = lerpf(0.65, 0.22, night)
+		_environment.ambient_light_color = Color("b9d5df").lerp(Color("293955"), night).lerp(Color("e6a879"), twilight * 0.42)
+		_environment.ambient_light_energy = lerpf(0.65, 0.22, night) + twilight * 0.06
 	if _sunlight != null:
-		_sunlight.light_energy = lerpf(1.25, 0.10, night)
-		_sunlight.light_color = Color("fff0d2").lerp(Color("91a9d0"), night)
-		_sunlight.rotation_degrees = Vector3(-42.0 + 36.0 * sin(phase * TAU), -28.0 + phase * 360.0, 0.0)
+		_sunlight.light_energy = lerpf(1.25, 0.10, night) + twilight * 0.12
+		_sunlight.light_color = Color("fff0d2").lerp(Color("91a9d0"), night).lerp(Color("f6a36f"), twilight)
+		var solar_elevation: float
+		if phase < 0.75:
+			solar_elevation = sin(PI * phase / 0.75)
+		else:
+			solar_elevation = -sin(PI * (phase - 0.75) / 0.25)
+		_sunlight.rotation_degrees = Vector3(-90.0 + 58.0 * solar_elevation, -28.0 + phase * 360.0, 0.0)
 	if _star_dome != null:
 		_star_dome.visible = night > 0.18
 		_star_dome.rotation.y = phase * TAU
@@ -331,7 +357,14 @@ func _update_ambience(_delta: float) -> void:
 		var speed_factor: float = clampf(velocity.length() / 80.0, 0.25, 1.0)
 		_wake_material.albedo_color.a = night * speed_factor * 0.78
 		_wake_material.emission_energy_multiplier = lerpf(0.4, 1.8, night)
+	if _water_shader_material != null:
+		_water_shader_material.set_shader_parameter("twilight_amount", twilight * 0.38)
+		_water_shader_material.set_shader_parameter("twilight_reflection", Color("f3a16e"))
 
+
+func _cyclic_pulse(phase: float, center: float, core: float, fade: float) -> float:
+	var wrapped_distance: float = absf(wrapf(phase - center, -0.5, 0.5))
+	return 1.0 - smoothstep(core, core + fade, wrapped_distance)
 
 func _make_ship() -> Node3D:
 	var ship_id: String = str(GameState.ship_state.get("ship_id", "ship_sloop"))
