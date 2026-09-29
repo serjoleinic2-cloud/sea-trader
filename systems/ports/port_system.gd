@@ -226,15 +226,19 @@ func dock(port_id: String) -> bool:
 		# and a second starter hull without bypassing the construction screen.
 		var home_state: Dictionary = GameState.port_state.get(port_id, {})
 		var home_inventory: Dictionary = home_state.get("inventory", {})
-		if home_inventory.is_empty():
-			home_inventory = {
-				"resource_timber": 50,
-				"resource_nails": 28,
-				"resource_fabric": 18,
-				"resource_rope": 18,
-				"resource_paint": 9,
-				"resource_varnish": 2
-			}
+		var starter_shipyard_kit: Dictionary = {
+			"resource_timber": 50,
+			"resource_nails": 28,
+			"resource_fabric": 18,
+			"resource_rope": 18,
+			"resource_paint": 9,
+			"resource_varnish": 2
+		}
+		for resource_id in starter_shipyard_kit:
+			home_inventory[resource_id] = maxi(
+				int(home_inventory.get(resource_id, 0)),
+				int(starter_shipyard_kit.get(resource_id, 0))
+			)
 		home_state["inventory"] = home_inventory
 		GameState.port_state[port_id] = home_state
 	var already_listed: bool = GameState.player_state.discovered_port_ids.has(port_id)
