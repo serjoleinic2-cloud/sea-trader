@@ -136,7 +136,15 @@
       3,
       3
     ],
-    "victories_between_crystal_rewards": 3
+    "victories_between_crystal_rewards": 3,
+    "starter_garrison_and_tower_kit": {
+      "resource_timber": 30,
+      "resource_parts": 14
+    },
+    "starter_tower_kit": {
+      "resource_timber": 10,
+      "resource_parts": 6
+    }
   },
   "crystal_order": [
     "crystal_power",
