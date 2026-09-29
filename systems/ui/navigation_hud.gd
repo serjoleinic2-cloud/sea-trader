@@ -47,11 +47,11 @@ func _ready() -> void:
 	margin.add_child(root)
 
 	var title := Label.new()
-	title.text = "КАРТА МОРСКИХ ПУТЕЙ"
+	title.text = "КАРТА МИРА"
 	title.add_theme_font_size_override("font_size", 28)
 	root.add_child(title)
 	var hint := Label.new()
-	hint.text = "★ — ваша база   •   Голубой знак — ваш корабль   •   Линия показывает путь домой"
+	hint.text = "Колесо мыши — масштаб вокруг корабля · перетаскивание — обзор карты · подписи показывают ваши суда и известные порты"
 	hint.add_theme_font_size_override("font_size", 18)
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	root.add_child(hint)
@@ -80,6 +80,12 @@ func _ready() -> void:
 	home_button.add_theme_font_size_override("font_size", 20)
 	home_button.pressed.connect(_set_home_destination)
 	sidebar.add_child(home_button)
+	var center_button := Button.new()
+	center_button.text = "ЦЕНТР НА МОЁМ СУДНЕ"
+	center_button.custom_minimum_size.y = 48
+	center_button.add_theme_font_size_override("font_size", 18)
+	center_button.pressed.connect(_center_chart_on_ship)
+	sidebar.add_child(center_button)
 
 	var destination_title := Label.new()
 	destination_title.text = "ИЗВЕСТНЫЕ ПОРТЫ"
@@ -93,6 +99,12 @@ func _ready() -> void:
 	_destination_list.add_theme_constant_override("separation", 6)
 	_destination_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.add_child(_destination_list)
+	var close_button := Button.new()
+	close_button.text = "ЗАКРЫТЬ КАРТУ  [N]"
+	close_button.custom_minimum_size.y = 52
+	close_button.add_theme_font_size_override("font_size", 19)
+	close_button.pressed.connect(_toggle_panel)
+	sidebar.add_child(close_button)
 	_panel.hide()
 
 func initialize(port_system: Node) -> void:
@@ -101,9 +113,11 @@ func initialize(port_system: Node) -> void:
 		_chart.call("initialize", _port_system)
 
 func _process(_delta: float) -> void:
+	var viewport: Rect2 = get_viewport().get_visible_rect()
 	_toggle_button.position = Vector2(12.0, 205.0)
 	_course_label.position = Vector2(12.0, 255.0)
-	_panel.position = Vector2(12.0, 340.0)
+	_panel.position = viewport.position
+	_panel.size = viewport.size
 	_panel.visible = _is_open
 	_chart.visible = _is_open
 
@@ -121,7 +135,13 @@ func _toggle_panel() -> void:
 	_is_open = not _is_open
 	if _is_open:
 		_rebuild_destinations()
+		if _chart != null and _chart.has_method("center_on_ship"):
+			_chart.call("center_on_ship")
 		_chart.queue_redraw()
+
+func _center_chart_on_ship() -> void:
+	if _chart != null and _chart.has_method("center_on_ship"):
+		_chart.call("center_on_ship")
 
 func _rebuild_destinations() -> void:
 	if _destination_list == null or _port_system == null:
