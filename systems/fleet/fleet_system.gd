@@ -144,6 +144,97 @@ func complete_ship_from_shipyard(ship_type_id: String, ship_name: String) -> Dic
 	SaveSystem.save_game()
 	return {"ok": true, "message": "Корабль «" + clean_name + "» построен и спущен на воду."}
 
+
+func get_take_control_status(ship_id: String) -> Dictionary:
+	var index: int = _find_auxiliary_index(ship_id)
+	if index < 0:
+		return {"ok": false, "message": "Корабль флота не найден."}
+	var candidate: Dictionary = GameState.fleet_state[index]
+	if not candidate.get("autopilot", {}).is_empty():
+		return {"ok": false, "message": "Сначала дождитесь окончания рейса."}
+	if not candidate.get("pending_trade", {}).is_empty():
+		return {"ok": false, "message": "Сначала завершите продажу груза."}
+	var active_port_id: String = str(GameState.ship_state.get("docked_port_id", ""))
+	var candidate_port_id: String = str(candidate.get("current_port_id", ""))
+	if active_port_id == "" or candidate_port_id != active_port_id:
+		return {"ok": false, "message": "Для пересадки оба корабля должны стоять в одном порту."}
+	var lines: Variant = GameState.economy_state.get("trade_lines", [])
+	if lines is Array:
+		for raw_line in lines:
+			if raw_line is Dictionary and str(raw_line.get("ship_id", "")) == ship_id:
+				return {"ok": false, "message": "Сначала снимите корабль с торговой линии."}
+	return {"ok": true, "message": "Можно перейти на этот корабль."}
+
+
+func take_control(ship_id: String) -> Dictionary:
+	var status: Dictionary = get_take_control_status(ship_id)
+	if not bool(status.get("ok", false)):
+		return status
+	var index: int = _find_auxiliary_index(ship_id)
+	var candidate: Dictionary = GameState.fleet_state[index]
+	var port_id: String = str(GameState.ship_state.get("docked_port_id", ""))
+	var previous_state: Dictionary = GameState.ship_state.duplicate(true)
+	var previous_ship_type_id: String = str(previous_state.get("ship_id", GameData.get_starter_ship_id()))
+	var previous_data: Dictionary = get_ship_type(previous_ship_type_id)
+	var previous_name: String = str(previous_data.get("name", "Корабль"))
+	var previous_id: String = _next_fleet_instance_id()
+	var previous_crew: Array = previous_state.get("crew", []).duplicate()
+	var previous_cargo: Array = previous_state.get("cargo", []).duplicate(true)
+	var active_state: Dictionary = candidate.get("vessel_state", {}).duplicate(true)
+	if active_state.is_empty():
+		var ship_data: Dictionary = get_ship_type(str(candidate.get("ship_type_id", "")))
+		if ship_data.is_empty():
+			return {"ok": false, "message": "Не удалось загрузить характеристики выбранного судна."}
+		var port_position: Vector2 = _port_system.get_port_position(port_id) if _port_system != null else Vector2.ZERO
+		active_state = {
+			"ship_id": str(candidate.get("ship_type_id", "")),
+			"position": port_position,
+			"velocity": Vector2.ZERO,
+			"heading": -PI / 2.0,
+			"docked_port_id": port_id,
+			"hull": float(ship_data.get("hull_max", 100.0)),
+			"engine": float(ship_data.get("engine_max", 100.0)),
+			"steering": float(ship_data.get("steering_max", 100.0)),
+			"cargo_hold": float(ship_data.get("cargo_hold_max", 100.0)),
+			"fuel": float(ship_data.get("fuel_capacity", 100.0)),
+			"fuel_max": float(ship_data.get("fuel_capacity", 100.0)),
+			"cargo_capacity": int(candidate.get("cargo_capacity", ship_data.get("cargo_capacity", 50))),
+			"reverse_gear": false
+		}
+	active_state["ship_id"] = str(candidate.get("ship_type_id", active_state.get("ship_id", "")))
+	active_state["docked_port_id"] = port_id
+	active_state["velocity"] = Vector2.ZERO
+	active_state["cargo"] = candidate.get("cargo", []).duplicate(true)
+	active_state["crew"] = candidate.get("crew", []).duplicate()
+	active_state["cargo_capacity"] = int(candidate.get("cargo_capacity", active_state.get("cargo_capacity", 50)))
+	candidate["vessel_state"] = {}
+	candidate["crew"] = previous_crew
+	candidate["cargo"] = previous_cargo
+	candidate["cargo_capacity"] = int(previous_state.get("cargo_capacity", 50))
+	candidate["ship_type_id"] = previous_ship_type_id
+	candidate["name"] = previous_name + " (бывший основной)"
+	candidate["current_port_id"] = port_id
+	candidate["status"] = "У причала"
+	candidate["autopilot"] = {}
+	candidate["vessel_state"] = previous_state
+	GameState.fleet_state[index] = candidate
+	GameState.ship_state = active_state
+	for employee_id in previous_crew:
+		_update_employee_assignment(str(employee_id), previous_id)
+	for employee_id in active_state.get("crew", []):
+		_update_employee_assignment(str(employee_id), "active_ship")
+	GameState.world_state["current_position"] = Vector2(active_state.get("position", Vector2.ZERO))
+	EventBus.active_ship_changed.emit(str(active_state.get("ship_id", "")))
+	SaveSystem.save_game()
+	return {"ok": true, "message": "Теперь вы управляете кораблём «%s»." % str(candidate.get("name", "Корабль"))}
+
+
+func _next_fleet_instance_id() -> String:
+	var next_number: int = 1
+	while _find_auxiliary_index("fleet_ship_%03d" % next_number) >= 0:
+		next_number += 1
+	return "fleet_ship_%03d" % next_number
+
 func assign_employee(employee_id: String, target_ship_id: String) -> Dictionary:
 	if not _employee_exists(employee_id):
 		return {"ok": false, "message": "Сотрудник не найден."}
