@@ -125,10 +125,11 @@ func complete_ship_from_shipyard(ship_type_id: String, ship_name: String) -> Dic
 	var access: Dictionary = get_ship_access(ship_type_id)
 	if not bool(access.get("ok", false)):
 		return access
-	var instance_id: String = "fleet_ship_%03d" % (GameState.fleet_state.size() + 1)
+	var fleet_number: int = get_next_fleet_number()
+	var instance_id: String = "fleet_ship_%03d" % fleet_number
 	var clean_name: String = ship_name.strip_edges()
 	if clean_name == "":
-		clean_name = str(ship_type.get("name", "Корабль")) + " №" + str(GameState.fleet_state.size() + 1)
+		clean_name = str(ship_type.get("name", "Корабль")) + " №" + str(fleet_number)
 	GameState.fleet_state.append({
 		"instance_id": instance_id,
 		"ship_type_id": ship_type_id,
@@ -233,11 +234,15 @@ func take_control(ship_id: String) -> Dictionary:
 	return {"ok": true, "message": "Теперь вы управляете кораблём «%s»." % new_active_name}
 
 
-func _next_fleet_instance_id() -> String:
+func get_next_fleet_number() -> int:
 	var next_number: int = 1
 	while _find_auxiliary_index("fleet_ship_%03d" % next_number) >= 0:
 		next_number += 1
-	return "fleet_ship_%03d" % next_number
+	return next_number
+
+
+func _next_fleet_instance_id() -> String:
+	return "fleet_ship_%03d" % get_next_fleet_number()
 
 func assign_employee(employee_id: String, target_ship_id: String) -> Dictionary:
 	if not _employee_exists(employee_id):
