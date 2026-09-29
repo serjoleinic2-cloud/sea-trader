@@ -177,6 +177,7 @@ func take_control(ship_id: String) -> Dictionary:
 	var previous_ship_type_id: String = str(previous_state.get("ship_id", GameData.get_starter_ship_id()))
 	var previous_data: Dictionary = get_ship_type(previous_ship_type_id)
 	var previous_name: String = str(previous_data.get("name", "Корабль"))
+	var new_active_name: String = str(candidate.get("name", "Корабль"))
 	var previous_id: String = _next_fleet_instance_id()
 	var previous_crew: Array = previous_state.get("crew", []).duplicate()
 	var previous_cargo: Array = previous_state.get("cargo", []).duplicate(true)
@@ -229,7 +230,7 @@ func take_control(ship_id: String) -> Dictionary:
 	GameState.world_state["current_position"] = Vector2(active_state.get("position", Vector2.ZERO))
 	EventBus.active_ship_changed.emit(str(active_state.get("ship_id", "")))
 	SaveSystem.save_game()
-	return {"ok": true, "message": "Теперь вы управляете кораблём «%s»." % str(candidate.get("name", "Корабль"))}
+	return {"ok": true, "message": "Теперь вы управляете кораблём «%s»." % new_active_name}
 
 
 func _next_fleet_instance_id() -> String:
