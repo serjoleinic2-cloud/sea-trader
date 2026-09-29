@@ -41,7 +41,7 @@ func create_project(ship_type_id: String) -> Dictionary:
 	var recipe: Dictionary = _recipes.get(ship_type_id, {})
 	GameState.company_state["shipyard_project"] = {
 		"ship_type_id": ship_type_id,
-		"name": str(recipe.get("default_name", ship_type.get("name", "Корабль"))) + " №" + str(GameState.fleet_state.size() + 1),
+		"name": str(recipe.get("default_name", ship_type.get("name", "Корабль"))) + " №" + str(_fleet_system.get_next_fleet_number()),
 		"materials": {},
 		"required_materials": recipe.get("materials", {}).duplicate(true)
 	}
