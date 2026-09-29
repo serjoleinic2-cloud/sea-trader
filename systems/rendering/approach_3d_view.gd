@@ -359,7 +359,7 @@ func _update_ambience(_delta: float) -> void:
 		_wake_material.emission_energy_multiplier = lerpf(0.4, 1.8, night)
 	if _water_shader_material != null:
 		_water_shader_material.set_shader_parameter("twilight_amount", twilight * 0.38)
-		_water_shader_material.set_shader_parameter("twilight_reflection", Color("f3a16e"))
+		_water_shader_material.set_shader_parameter("twilight_reflection", Vector3(0.95, 0.41, 0.18))
 
 
 func _cyclic_pulse(phase: float, center: float, core: float, fade: float) -> float:
