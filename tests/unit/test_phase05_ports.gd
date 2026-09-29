@@ -33,6 +33,18 @@ func test_discovery_records_both_knowledge_fields_without_geometry() -> void:
 	assert_true(GameState.known_routes_state.is_empty(), "discovery is not a known route")
 	assert_false(_world_ports.test_port.has("discovered"), "world data stays independent")
 
+func test_existing_home_gets_shipyard_and_starter_ship_materials_once() -> void:
+	GameState.world_state.home_port_id = "test_port"
+	GameState.port_state.test_port = {"discovered": true, "level": 1, "buildings": {}, "inventory": {}}
+	_system._process(0.016)
+	var expected_kit: Dictionary = _system._get_starter_shipyard_kit()
+	for resource_id in expected_kit:
+		assert_gte(int(GameState.port_state.test_port.inventory.get(resource_id, 0)), int(expected_kit[resource_id]), "existing home receives enough for the shipyard and starter hull")
+	assert_true(bool(GameState.port_state.test_port.starter_shipyard_kit_granted), "the materials are granted once")
+	GameState.port_state.test_port.inventory["resource_timber"] = 0
+	_system._process(0.016)
+	assert_eq(int(GameState.port_state.test_port.inventory.resource_timber), 0, "the kit is not repeatedly reissued")
+
 func test_initialize_does_not_populate_empty_saved_knowledge() -> void:
 	assert_true(GameState.port_state.is_empty())
 	assert_true(GameState.player_state.discovered_port_ids.is_empty())
