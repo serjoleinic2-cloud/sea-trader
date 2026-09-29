@@ -167,6 +167,14 @@ func _add_auxiliary_ship_card(ship: Dictionary) -> void:
 	select_button.custom_minimum_size.y = 36
 	select_button.pressed.connect(_select_ship.bind(ship_id))
 	box.add_child(select_button)
+	var take_status: Dictionary = _fleet_system.get_take_control_status(ship_id)
+	var take_button: Button = Button.new()
+	take_button.text = "Сесть за штурвал"
+	take_button.custom_minimum_size.y = 42
+	take_button.disabled = not bool(take_status.get("ok", false))
+	take_button.tooltip_text = str(take_status.get("message", ""))
+	take_button.pressed.connect(_take_control.bind(ship_id))
+	box.add_child(take_button)
 
 func _format_duration(seconds: float) -> String:
 	var total: int = maxi(0, int(ceil(seconds)))
@@ -328,6 +336,14 @@ func _get_crew_text(crew: Array) -> String:
 		var employee: Dictionary = _fleet_system.get_employee(str(employee_id))
 		names.append(str(employee.get("name", "сотрудник")))
 	return "Экипаж: " + ", ".join(names)
+
+func _take_control(ship_id: String) -> void:
+	var result: Dictionary = _fleet_system.take_control(ship_id)
+	_notice = str(result.get("message", ""))
+	if bool(result.get("ok", false)):
+		_selected_ship_id = ""
+	_refresh()
+
 
 func _select_ship(ship_id: String) -> void:
 	_selected_ship_id = ship_id
