@@ -53,6 +53,8 @@ func get_vessel_snapshots() -> Array[Dictionary]:
 			"id": ship_id,
 			"name": str(ship.get("name", ship_type.get("name", "Корабль"))),
 			"ship_type_id": ship_type_id,
+			"port_id": "" if in_transit else str(voyage.get("current_port_id", "")),
+			"in_transit": in_transit,
 			"position": position,
 			"heading": heading,
 			"length": 24.0 + float(tier) * 9.0,
