@@ -277,10 +277,8 @@ func _build_star_dome() -> void:
 	_scene_root.add_child(_star_dome)
 	var star_rng := RandomNumberGenerator.new()
 	star_rng.seed = 190779
-	_add_star_multimesh("ScatteredStars", 1800, 0.20, Color("9cb5d5"), 0.45, false, star_rng)
-	_add_star_multimesh("MilkyWayStars", 7200, 0.16, Color("c7d6f2"), 0.65, true, star_rng)
-	_add_star_multimesh("BrightStars", 120, 0.30, Color("f3eddf"), 1.8, false, star_rng)
-	_add_milky_way_ribbons()
+	_add_star_multimesh("ScatteredStars", 6200, 0.18, Color("a9bedc"), 0.5, star_rng)
+	_add_star_multimesh("BrightStars", 120, 0.30, Color("f3eddf"), 1.8, star_rng)
 	# Simple, recognizable silhouettes for Ursa Major, Cassiopeia, and Orion.
 	# Kept as presentation-only geometry until the world calendar gains latitude.
 	var constellations: Array[Array] = [
@@ -330,7 +328,7 @@ func _build_star_dome() -> void:
 	_star_dome.visible = false
 
 
-func _add_star_multimesh(layer_name: String, count: int, radius: float, tint: Color, energy: float, in_galactic_band: bool, rng: RandomNumberGenerator) -> void:
+func _add_star_multimesh(layer_name: String, count: int, radius: float, tint: Color, energy: float, rng: RandomNumberGenerator) -> void:
 	var sphere := SphereMesh.new()
 	sphere.radius = radius
 	sphere.height = radius * 2.0
@@ -348,21 +346,11 @@ func _add_star_multimesh(layer_name: String, count: int, radius: float, tint: Co
 	multimesh.transform_format = MultiMesh.TRANSFORM_3D
 	multimesh.mesh = sphere
 	multimesh.instance_count = count
-	var galactic_basis := Basis(Vector3(0.52, 0.73, 0.44).normalized(), deg_to_rad(37.0))
 	for index in range(count):
-		var direction: Vector3
-		if in_galactic_band:
-			var longitude: float = rng.randf_range(0.0, TAU)
-			var center_latitude: float = 0.18 * sin(longitude * 1.15) + 0.055 * sin(longitude * 3.6)
-			var latitude_noise: float = (rng.randf() + rng.randf() + rng.randf() - 1.5) * 0.24
-			var latitude: float = clampf(center_latitude + latitude_noise, -0.58, 0.58)
-			direction = Vector3(cos(latitude) * cos(longitude), sin(latitude), cos(latitude) * sin(longitude))
-			direction = (galactic_basis * direction).normalized()
-		else:
-			var vertical: float = rng.randf_range(-1.0, 1.0)
-			var azimuth: float = rng.randf_range(0.0, TAU)
-			var horizontal: float = sqrt(maxf(0.0, 1.0 - vertical * vertical))
-			direction = Vector3(horizontal * cos(azimuth), vertical, horizontal * sin(azimuth))
+		var vertical: float = rng.randf_range(-1.0, 1.0)
+		var azimuth: float = rng.randf_range(0.0, TAU)
+		var horizontal: float = sqrt(maxf(0.0, 1.0 - vertical * vertical))
+		var direction := Vector3(horizontal * cos(azimuth), vertical, horizontal * sin(azimuth))
 		var size_scale: float = rng.randf_range(0.55, 1.45)
 		var transform_basis := Basis.IDENTITY.scaled(Vector3.ONE * size_scale)
 		var position: Vector3 = direction * STAR_DOME_RADIUS * 0.94
@@ -373,51 +361,6 @@ func _add_star_multimesh(layer_name: String, count: int, radius: float, tint: Co
 	stars.multimesh = multimesh
 	stars.material_override = star_material
 	_star_dome.add_child(stars)
-
-
-func _add_milky_way_ribbons() -> void:
-	_add_milky_way_ribbon("MilkyWayDiffuseOuter", 0.34, Color(0.42, 0.51, 0.78, 0.055), 0.25)
-	_add_milky_way_ribbon("MilkyWayDiffuseCore", 0.16, Color(0.66, 0.72, 0.92, 0.085), 0.38)
-	_add_milky_way_ribbon("MilkyWayBrightCore", 0.075, Color(0.82, 0.84, 0.97, 0.075), 0.42)
-
-
-func _add_milky_way_ribbon(ribbon_name: String, base_width: float, tint: Color, emission_energy: float) -> void:
-	var mesh := ImmediateMesh.new()
-	mesh.surface_begin(Mesh.PRIMITIVE_TRIANGLES)
-	var segment_count: int = 256
-	var galactic_basis := Basis(Vector3(0.52, 0.73, 0.44).normalized(), deg_to_rad(37.0))
-	for segment in range(segment_count):
-		var longitude_a: float = TAU * float(segment) / float(segment_count)
-		var longitude_b: float = TAU * float(segment + 1) / float(segment_count)
-		var center_a: float = 0.18 * sin(longitude_a * 1.15) + 0.055 * sin(longitude_a * 3.6)
-		var center_b: float = 0.18 * sin(longitude_b * 1.15) + 0.055 * sin(longitude_b * 3.6)
-		var width_a: float = base_width * (0.72 + 0.28 * sin(longitude_a * 5.0 + 1.2))
-		var width_b: float = base_width * (0.72 + 0.28 * sin(longitude_b * 5.0 + 1.2))
-		var lower_a: Vector3 = galactic_basis * Vector3(cos(center_a - width_a) * cos(longitude_a), sin(center_a - width_a), cos(center_a - width_a) * sin(longitude_a))
-		var upper_a: Vector3 = galactic_basis * Vector3(cos(center_a + width_a) * cos(longitude_a), sin(center_a + width_a), cos(center_a + width_a) * sin(longitude_a))
-		var lower_b: Vector3 = galactic_basis * Vector3(cos(center_b - width_b) * cos(longitude_b), sin(center_b - width_b), cos(center_b - width_b) * sin(longitude_b))
-		var upper_b: Vector3 = galactic_basis * Vector3(cos(center_b + width_b) * cos(longitude_b), sin(center_b + width_b), cos(center_b + width_b) * sin(longitude_b))
-		mesh.surface_add_vertex(lower_a * STAR_DOME_RADIUS * 0.985)
-		mesh.surface_add_vertex(lower_b * STAR_DOME_RADIUS * 0.985)
-		mesh.surface_add_vertex(upper_b * STAR_DOME_RADIUS * 0.985)
-		mesh.surface_add_vertex(lower_a * STAR_DOME_RADIUS * 0.985)
-		mesh.surface_add_vertex(upper_b * STAR_DOME_RADIUS * 0.985)
-		mesh.surface_add_vertex(upper_a * STAR_DOME_RADIUS * 0.985)
-	mesh.surface_end()
-
-	var material := StandardMaterial3D.new()
-	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	material.cull_mode = BaseMaterial3D.CULL_DISABLED
-	material.albedo_color = tint
-	material.emission_enabled = true
-	material.emission = Color(tint.r, tint.g, tint.b)
-	material.emission_energy_multiplier = emission_energy
-	var ribbon := MeshInstance3D.new()
-	ribbon.name = ribbon_name
-	ribbon.mesh = mesh
-	ribbon.material_override = material
-	_star_dome.add_child(ribbon)
 
 
 func _update_ambience(_delta: float) -> void:
