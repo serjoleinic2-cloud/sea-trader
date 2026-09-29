@@ -199,6 +199,7 @@ func _draw_fleet_ships() -> void:
 	var snapshots: Variant = _fleet_traffic.call("get_vessel_snapshots")
 	if not snapshots is Array:
 		return
+	var dock_counts: Dictionary = {}
 	for raw_snapshot in snapshots:
 		if not raw_snapshot is Dictionary:
 			continue
@@ -206,20 +207,32 @@ func _draw_fleet_ships() -> void:
 		var position: Vector2 = _to_chart(Vector2(vessel.get("position", Vector2.ZERO)))
 		if not Rect2(Vector2.ZERO, size).grow(32.0).has_point(position):
 			continue
+		var dock_index: int = 0
+		var port_id: String = str(vessel.get("port_id", ""))
+		if port_id != "":
+			dock_index = int(dock_counts.get(port_id, 0))
+			dock_counts[port_id] = dock_index + 1
+		var column: int = dock_index % 2
+		var row: int = floori(float(dock_index) / 2.0)
+		var visual_position: Vector2 = position
+		var label_offset: Vector2 = Vector2(14.0, 22.0)
+		if port_id != "":
+			visual_position += Vector2(float(column) * 12.0, float(row) * 12.0)
+			label_offset = Vector2(18.0 + float(column) * 90.0, 20.0 + float(row) * 22.0)
 		var heading: Vector2 = Vector2(vessel.get("heading", Vector2.UP))
 		var forward := Vector2(heading.x, -heading.y).normalized()
 		if forward.length_squared() < 0.001:
 			forward = Vector2.UP
 		var side := Vector2(-forward.y, forward.x)
 		var points := PackedVector2Array([
-			position + forward * 13.0,
-			position - forward * 8.0 + side * 7.0,
-			position - forward * 8.0 - side * 7.0
+			visual_position + forward * 13.0,
+			visual_position - forward * 8.0 + side * 7.0,
+			visual_position - forward * 8.0 - side * 7.0
 		])
 		var color: Color = vessel.get("color", Color("#62cdeb"))
 		draw_colored_polygon(points, color)
 		draw_polyline(points, Color("#e7fbff"), 1.5, true)
-		_draw_label(position + Vector2(14.0, 22.0), str(vessel.get("name", "Корабль")), Color("#b9eaff"))
+		_draw_label(visual_position + label_offset, str(vessel.get("name", "Корабль")), Color("#b9eaff"))
 
 
 func _draw_label(position: Vector2, text: String, color: Color) -> void:
