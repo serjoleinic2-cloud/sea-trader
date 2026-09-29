@@ -13,6 +13,7 @@ func _ready() -> void:
 func initialize() -> void:
     _catalog = GameData.read(CATALOG_PATH)
     _normalize_state()
+    _ensure_starter_garrison_materials()
     var state: Dictionary = GameState.combat_state
     if int(state.get("next_defense_at", 0)) <= 0:
         state["next_defense_at"] = _now() + int(_rules().get("passive_attack_interval_seconds", 21600))
@@ -21,6 +22,7 @@ func _process(_delta: float) -> void:
     if _catalog.is_empty():
         return
     _normalize_state()
+    _ensure_starter_garrison_materials()
     _complete_recruitment()
     _complete_construction()
     _complete_player_raid()
@@ -29,6 +31,31 @@ func _process(_delta: float) -> void:
         var level: int = int(state.get("garrison_level", 1))
         var enemy_power: int = _rng.randi_range(14 + level * 5, 25 + level * 10)
         resolve_hidden_attack(enemy_power, "Пиратский отряд")
+
+func _ensure_starter_garrison_materials() -> void:
+    var state: Dictionary = GameState.combat_state
+    if bool(state.get("starter_tower_kit_granted", false)):
+        return
+    var home_id: String = get_home_port_id()
+    if home_id == "" or not GameState.port_state.has(home_id):
+        return
+    var towers: Array = state.get("towers", [])
+    if not towers.is_empty():
+        state["starter_tower_kit_granted"] = true
+        GameState.combat_state = state
+        SaveSystem.save_game()
+        return
+    var port: Dictionary = GameState.port_state.get(home_id, {})
+    var inventory: Dictionary = port.get("inventory", {})
+    var package_key: String = "starter_garrison_and_tower_kit" if get_garrison_level() == 1 else "starter_tower_kit"
+    var starter_kit: Dictionary = _rules().get(package_key, {})
+    for resource_id in starter_kit:
+        inventory[resource_id] = maxi(int(inventory.get(resource_id, 0)), int(starter_kit[resource_id]))
+    port["inventory"] = inventory
+    GameState.port_state[home_id] = port
+    state["starter_tower_kit_granted"] = true
+    GameState.combat_state = state
+    SaveSystem.save_game()
 
 func _normalize_state() -> void:
     var state: Dictionary = GameState.combat_state
@@ -59,6 +86,8 @@ func _normalize_state() -> void:
             tower["type"] = "island"
             towers[index] = tower
     state["towers"] = towers
+    if not state.has("starter_tower_kit_granted"):
+        state["starter_tower_kit_granted"] = false
     if int(state.get("battle_victories", -1)) < 0:
         state["battle_victories"] = 0
     if int(state.get("next_crystal_reward", -1)) < 0:
