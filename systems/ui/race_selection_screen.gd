@@ -20,11 +20,13 @@ var _detail_focus: Label
 var _detail_strength: Label
 var _detail_weakness: Label
 var _choose_button: Button
+var _continuing_existing_save: bool = false
 
 
-func configure(factions: Array, on_confirm: Callable) -> void:
+func configure(factions: Array, on_confirm: Callable, continuing_existing_save: bool = false) -> void:
 	_factions = factions.duplicate(true)
 	_on_confirm = on_confirm
+	_continuing_existing_save = continuing_existing_save
 
 
 func _ready() -> void:
@@ -88,7 +90,7 @@ func _build_gallery() -> void:
 	_gallery_view.add_child(_make_header())
 
 	var warning := Label.new()
-	warning.text = LOCK_WARNING
+	warning.text = _warning_text()
 	warning.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	warning.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	warning.add_theme_color_override("font_color", Color("#e5be78"))
@@ -134,7 +136,7 @@ func _make_header() -> Control:
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title_box.add_child(title)
 	var subtitle := Label.new()
-	subtitle.text = "Шесть народов одного морского мира"
+	subtitle.text = "Твой текущий мир и прогресс сохранятся. Выбери свой народ." if _continuing_existing_save else "Шесть народов одного морского мира"
 	subtitle.add_theme_color_override("font_color", Color("#56d5d4"))
 	subtitle.add_theme_font_size_override("font_size", 18)
 	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -262,7 +264,7 @@ func _build_details() -> void:
 	dossier.add_child(spacer)
 
 	var warning := Label.new()
-	warning.text = LOCK_WARNING
+	warning.text = _warning_text()
 	warning.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	warning.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	warning.add_theme_color_override("font_color", Color("#f0bd68"))
@@ -282,7 +284,7 @@ func _build_details() -> void:
 	back_button.pressed.connect(_back_to_gallery)
 	actions.add_child(back_button)
 	_choose_button = Button.new()
-	_choose_button.text = "ВЫБРАТЬ ЭТУ РАСУ"
+	_choose_button.text = "ПРОДОЛЖИТЬ С ЭТОЙ РАСОЙ" if _continuing_existing_save else "ВЫБРАТЬ ЭТУ РАСУ"
 	_choose_button.custom_minimum_size = Vector2(320, 58)
 	_choose_button.add_theme_font_size_override("font_size", 20)
 	_choose_button.add_theme_color_override("font_color", Color("#f5edda"))
@@ -337,6 +339,12 @@ func _confirm_choice() -> void:
 		return
 	_choose_button.disabled = true
 	_on_confirm.call(_candidate_id)
+
+
+func _warning_text() -> String:
+	if _continuing_existing_save:
+		return "Текущий тестовый мир сохранится. Выбор народа применяется один раз и после подтверждения не меняется."
+	return LOCK_WARNING
 
 
 func _animate_card_hover(card: Button, hovered: bool) -> void:

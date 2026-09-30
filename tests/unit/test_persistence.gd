@@ -18,6 +18,7 @@ func after_each() -> void:
 
 func _seed_progress() -> void:
 	GameState.player_state["origin_race_id"] = "aery"
+	GameState.player_state["origin_race_confirmed"] = true
 	GameState.world_state.seed = 42
 	GameState.world_state.world_gen_version = "1"
 	GameState.world_state.current_position = Vector2(321, 654)
@@ -69,16 +70,25 @@ func test_new_game_initializes_and_saves_identity() -> void:
 	assert_eq(GameState.player_state.get("origin_race_id", ""), "meridians", "Chosen race survives save/load")
 
 
-func test_existing_save_without_race_gets_stable_identity() -> void:
+func test_existing_save_without_confirmed_race_shows_picker_and_keeps_progress() -> void:
 	_seed_progress()
 	assert_true(SaveSystem.save_game())
 	var old_save: Dictionary = SaveSystem._read_json("user://saves/save_main.json")
-	old_save.player_state.erase("origin_race_id")
+	old_save.player_state.erase("origin_race_confirmed")
 	SaveSystem._write_json("user://saves/save_main.json", old_save)
+	var saved_seed: int = int(old_save.world_state.seed)
+	var saved_ports: Dictionary = old_save.port_state.duplicate(true)
 	_launch()
+	assert_false(_main._world_ready, "Existing test save must wait for a race choice")
+	assert_true(is_instance_valid(_main._race_selection_screen))
+	_main._start_new_game_with_race("humans")
 	assert_true(_main._world_ready)
-	assert_eq(GameState.player_state.get("origin_race_id", ""), "nerids")
-	assert_eq(SaveSystem._read_json("user://saves/save_main.json").player_state.origin_race_id, "nerids")
+	assert_false(_main._is_new_game, "Race choice must continue the existing world")
+	assert_eq(GameState.player_state.get("origin_race_id", ""), "humans")
+	assert_true(GameState.player_state.origin_race_confirmed)
+	assert_eq(GameState.world_state.seed, saved_seed)
+	assert_eq(GameState.port_state, saved_ports)
+	assert_eq(SaveSystem._read_json("user://saves/save_main.json").player_state.origin_race_id, "humans")
 
 
 func test_full_save_load_round_trip() -> void:

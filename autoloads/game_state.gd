@@ -9,6 +9,7 @@ extends Node
 # ============================================================================
 var player_state: Dictionary = {
 	"origin_race_id": "",
+	"origin_race_confirmed": false,
 	"money": 0.0,
 	"xp": 0,
 	"level": 1,
@@ -194,6 +195,7 @@ var monetization_state: Dictionary = {
 func reset_to_defaults() -> void:
 	player_state = {
 		"origin_race_id": "",
+		"origin_race_confirmed": false,
 		"money": 0.0,
 		"xp": 0,
 		"level": 1,

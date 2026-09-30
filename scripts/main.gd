@@ -18,6 +18,7 @@ var _world_ready: bool = false
 var startup_error: String = ""
 var _race_selection_screen: CanvasLayer = null
 var _pending_origin_race_id: String = ""
+var _race_selection_for_existing_save: bool = false
 var _modules: RefCounted = preload("res://core/module_loader.gd").new()
 
 const CAMERA_ZOOM_STEP: float = 0.08
@@ -155,6 +156,13 @@ func _ready() -> void:
 	if not SaveSystem.has_save():
 		_show_race_selection()
 		return
+	if not SaveSystem.load_game():
+		_show_startup_error("Не удалось загрузить сохранение.")
+		return
+	if not bool(GameState.player_state.get("origin_race_confirmed", false)):
+		_race_selection_for_existing_save = true
+		_show_race_selection()
+		return
 	_start_game()
 
 
@@ -165,7 +173,7 @@ func _show_race_selection() -> void:
 		return
 	_race_selection_screen = load("res://systems/ui/race_selection_screen.gd").new()
 	_race_selection_screen.name = "RaceSelectionScreen"
-	_race_selection_screen.call("configure", factions, Callable(self, "_start_new_game_with_race"))
+	_race_selection_screen.call("configure", factions, Callable(self, "_start_new_game_with_race"), _race_selection_for_existing_save)
 	add_child(_race_selection_screen)
 
 
@@ -177,6 +185,8 @@ func _start_new_game_with_race(faction_id: String) -> void:
 	if is_instance_valid(_race_selection_screen):
 		_race_selection_screen.queue_free()
 	_race_selection_screen = null
+	# For an older test save this only records the first race choice; it does not
+	# reset the world, ship, port progress, routes, or cargo.
 	_start_game()
 
 
@@ -331,16 +341,24 @@ func _load_or_create_state() -> bool:
 		if not SaveSystem.load_game():
 			startup_error = "Cannot load saved game. Loading stopped."
 			return false
-		var race_id: String = str(GameState.player_state.get("origin_race_id", ""))
-		if GameData.get_faction(race_id).is_empty():
-			# Saves from before origin selection remain playable and receive a stable identity.
+		if not bool(GameState.player_state.get("origin_race_confirmed", false)):
+			if GameData.get_faction(_pending_origin_race_id).is_empty():
+				startup_error = "Для этого сохранения сначала нужно выбрать народ."
+				return false
+			GameState.player_state["origin_race_id"] = _pending_origin_race_id
+			GameState.player_state["origin_race_confirmed"] = true
+			_world_migrated = true
+		elif GameData.get_faction(str(GameState.player_state.get("origin_race_id", ""))).is_empty():
+			# Invalid legacy identity receives a stable default without losing progress.
 			GameState.player_state["origin_race_id"] = "nerids"
+			GameState.player_state["origin_race_confirmed"] = true
 			_world_migrated = true
 		return true  # Zero is also a valid saved seed.
 
 	var new_seed: int = int(Time.get_unix_time_from_system()) + randi()
 	GameState.reset_to_defaults()
 	GameState.player_state["origin_race_id"] = _pending_origin_race_id
+	GameState.player_state["origin_race_confirmed"] = true
 	GameState.world_state.seed = new_seed
 	_is_new_game = true
 	return true
