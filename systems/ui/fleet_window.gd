@@ -203,15 +203,9 @@ func _add_build_section(home_port_id: String, docked_port_id: String) -> void:
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	if home_port_id != "" and docked_port_id == home_port_id:
 		hint.text = "Карточки кораблей и постройка находятся во вкладке «Верфь» в окне базы."
-		var button: Button = Button.new()
-		button.text = "ОТКРЫТЬ ВКЛАДКУ «ВЕРФЬ»"
-		button.custom_minimum_size.y = 44
-		button.pressed.connect(_open_shipyard_tab)
-		box.add_child(hint)
-		box.add_child(button)
 	else:
 		hint.text = "Чтобы строить корабли, пришвартуйтесь на своей базе и откройте вкладку «Верфь»."
-		box.add_child(hint)
+	box.add_child(hint)
 
 func _open_shipyard_tab() -> void:
 	var windows: Array[Node] = get_tree().get_nodes_in_group("port_window")
