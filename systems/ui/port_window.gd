@@ -9,6 +9,7 @@ var _sheet: PanelContainer
 var _title: Label
 var _details: Label
 var _building_list: VBoxContainer
+var _content_scroll: ScrollContainer
 var _plan_button: Button
 var _load_button: Button
 var _unload_button: Button
@@ -94,14 +95,15 @@ func _ready() -> void:
 	unload_tab.pressed.connect(_set_cargo_action.bind("unload"))
 	_cargo_tabs.add_child(unload_tab)
 	column.add_child(_cargo_tabs)
-	var scroll: ScrollContainer = ScrollContainer.new()
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	scroll.custom_minimum_size.y = 300
-	column.add_child(scroll)
+	_content_scroll = ScrollContainer.new()
+	_content_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_content_scroll.custom_minimum_size.y = 300
+	_content_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	column.add_child(_content_scroll)
 	_building_list = VBoxContainer.new()
 	_building_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_building_list.add_theme_constant_override("separation", 6)
-	scroll.add_child(_building_list)
+	_content_scroll.add_child(_building_list)
 	_plan_button = Button.new()
 	_plan_button.text = "Открыть проект строительства"
 	_plan_button.custom_minimum_size.y = 42
@@ -246,9 +248,18 @@ func _process(_delta: float) -> void:
 		_last_home_port_id = ""
 		return
 	var viewport_size: Vector2 = get_viewport().get_visible_rect().size
-	_sheet.size = Vector2(minf(540.0, viewport_size.x - 24.0), minf(840.0, viewport_size.y - 124.0))
+	var desktop_layout: bool = viewport_size.x >= 1000.0
+	var sheet_max_width: float = 1480.0 if desktop_layout else 540.0
+	var sheet_max_height: float = 1000.0 if desktop_layout else 840.0
+	var sheet_bottom_margin: float = 124.0 if desktop_layout else 124.0
+	_sheet.size = Vector2(minf(sheet_max_width, viewport_size.x - (48.0 if desktop_layout else 24.0)), minf(sheet_max_height, viewport_size.y - sheet_bottom_margin))
 	_sheet.position = (viewport_size - _sheet.size) * 0.5 - Vector2(0.0, 38.0)
-	_bottom_menu.size = Vector2(minf(920.0, viewport_size.x - 24.0), 82.0)
+	_bottom_menu.size = Vector2(minf(1220.0 if desktop_layout else 920.0, viewport_size.x - 24.0), 82.0)
+	if _content_scroll != null:
+		var card_section: bool = _current_section == "construction" or _current_section == "shipyard"
+		var disable_card_scroll: bool = desktop_layout and viewport_size.y >= 680.0 and card_section
+		_content_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED if disable_card_scroll else ScrollContainer.SCROLL_MODE_AUTO
+		_content_scroll.custom_minimum_size.y = minf(440.0, maxf(240.0, viewport_size.y - 260.0)) if desktop_layout else 300.0
 	_bottom_menu.position = Vector2((viewport_size.x - _bottom_menu.size.x) * 0.5, viewport_size.y - _bottom_menu.size.y - 14.0)
 	var is_home: bool = docked_port == str(GameState.world_state.get("home_port_id", ""))
 	if is_home and docked_port != _last_home_port_id:
@@ -331,7 +342,9 @@ func _rebuild_building_list(port_id: String) -> void:
 	for child in _building_list.get_children():
 		child.queue_free()
 	var grid: GridContainer = GridContainer.new()
-	grid.columns = 2
+	var viewport_size: Vector2 = get_viewport().get_visible_rect().size
+	var desktop_layout: bool = viewport_size.x >= 1000.0
+	grid.columns = 4 if desktop_layout else 2
 	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	grid.add_theme_constant_override("h_separation", 10)
 	grid.add_theme_constant_override("v_separation", 10)
@@ -342,13 +355,14 @@ func _rebuild_building_list(port_id: String) -> void:
 		var building_id: String = str(building.get("building_id", ""))
 		var icon_path: String = str(building.get("ui_icon", ""))
 		var button: Button = Button.new()
-		button.custom_minimum_size = Vector2(224, 190)
+		var card_width: float = clampf((viewport_size.x - 160.0) / 4.0, 200.0, 300.0) if desktop_layout else 224.0
+		button.custom_minimum_size = Vector2(card_width, 190.0)
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		button.text = _get_building_name(building_id) + "\n" + _get_building_state(port, building_id)
 		button.add_theme_font_size_override("font_size", 18)
 		button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		button.vertical_icon_alignment = VERTICAL_ALIGNMENT_TOP
-		button.add_theme_constant_override("icon_max_width", 128)
+		button.add_theme_constant_override("icon_max_width", 160 if desktop_layout else 128)
 		button.expand_icon = true
 		if icon_path != "" and ResourceLoader.exists(icon_path):
 			button.icon = load(icon_path) as Texture2D
@@ -383,7 +397,9 @@ func _rebuild_shipyard_list() -> void:
 	var shipyard_systems: Array[Node] = get_tree().get_nodes_in_group("shipyard_system")
 	var current_project: Dictionary = shipyard_systems[0].get_project() if not shipyard_systems.is_empty() else {}
 	var grid: GridContainer = GridContainer.new()
-	grid.columns = 2
+	var viewport_size: Vector2 = get_viewport().get_visible_rect().size
+	var desktop_layout: bool = viewport_size.x >= 1000.0
+	grid.columns = 5 if viewport_size.x >= 1360.0 else (4 if desktop_layout else 2)
 	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	grid.add_theme_constant_override("h_separation", 10)
 	grid.add_theme_constant_override("v_separation", 10)
@@ -394,12 +410,14 @@ func _rebuild_shipyard_list() -> void:
 		var access: Dictionary = fleet_system.get_ship_access(ship_id)
 		var can_continue: bool = current_project.is_empty() or str(current_project.get("ship_type_id", "")) == ship_id
 		var button: Button = Button.new()
-		button.custom_minimum_size = Vector2(224, 190)
+		var card_columns: float = float(grid.columns)
+		var card_width: float = clampf((viewport_size.x - 180.0) / card_columns, 190.0, 280.0) if desktop_layout else 224.0
+		button.custom_minimum_size = Vector2(card_width, 190.0)
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		button.add_theme_font_size_override("font_size", 17)
 		button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		button.vertical_icon_alignment = VERTICAL_ALIGNMENT_TOP
-		button.add_theme_constant_override("icon_max_width", 128)
+		button.add_theme_constant_override("icon_max_width", 152 if desktop_layout else 128)
 		button.expand_icon = true
 		var rank_text: String = "Ранг %d" % int(ship.get("command_rank_required", 1))
 		button.text = "%s\nГруз %d · скорость %d\n%s" % [str(ship.get("name", "Корабль")), int(ship.get("cargo_capacity", 0)), int(ship.get("base_speed", 0)), rank_text]
