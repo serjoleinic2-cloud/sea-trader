@@ -60,9 +60,17 @@ func test_garrison_levels_unlock_units_and_towers_affect_defense() -> void:
     assert_true(bool(victory.get("report", {}).get("won", false)), "a successful defense is a crystal source")
     assert_eq(_system.get_magic_shards(), 3, "the first victory grants three magic shards")
     assert_eq(int(_system.get_crystal_inventory().get("crystal_power", 0)), 0, "crystals must be made at the Mage Guild")
+    GameState.port_state.home["buildings"] = {"mage_guild": {"level": 1, "status": "active"}}
+    var crystal_result: Dictionary = _system.create_crystal("crystal_power")
+    assert_true(bool(crystal_result.get("ok", false)), "the Mage Guild turns the victory shards into a crystal")
     var install_result: Dictionary = _system.set_tower_crystal(0, "crystal_power")
     assert_true(bool(install_result.get("ok", false)), "any owned crystal fits the island tower")
     assert_gt(_system.get_tower_bonuses().attack, 0.0, "a socketed crystal gives its defined bonus")
+    var second_crystal_result: Dictionary = _system.create_crystal("crystal_luck")
+    assert_false(bool(second_crystal_result.get("ok", false)), "each crystal recipe requires its own shards")
+    GameState.combat_state["magic_shards"] = 3
+    second_crystal_result = _system.create_crystal("crystal_luck")
+    assert_true(bool(second_crystal_result.get("ok", false)), "luck crystals are crafted at the Mage Guild too")
     var luck_install: Dictionary = _system.set_tower_crystal(0, "crystal_luck")
     assert_true(bool(luck_install.get("ok", false)), "luck crystal can be installed in a tower")
     assert_gt(_system.get_tower_bonuses().luck, 0.0, "luck crystal improves the garrison luck contribution")
