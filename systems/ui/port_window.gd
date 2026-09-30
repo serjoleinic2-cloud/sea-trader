@@ -31,6 +31,7 @@ var _modernization_switches: HBoxContainer
 var _save_button: Button
 var _bottom_menu: PanelContainer
 var _leave_button: Button
+var _shipyard_tab_button: Button
 var _building_catalog: Array = []
 var _production_recipes: Array = []
 var _goods: Dictionary = {}
@@ -95,7 +96,7 @@ func _ready() -> void:
 	column.add_child(_cargo_tabs)
 	var scroll: ScrollContainer = ScrollContainer.new()
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	scroll.custom_minimum_size.y = 225
+	scroll.custom_minimum_size.y = 300
 	column.add_child(scroll)
 	_building_list = VBoxContainer.new()
 	_building_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -256,9 +257,10 @@ func _process(_delta: float) -> void:
 	elif not is_home:
 		_last_home_port_id = ""
 	_bottom_menu.visible = true
-	_building_list.visible = (is_home and (_current_section == "construction" or _current_section == "resources" or _current_section == "market")) or (not is_home and _current_section == "market") or _current_section == "management"
+	_building_list.visible = (is_home and (_current_section == "construction" or _current_section == "resources" or _current_section == "market" or _current_section == "shipyard")) or (not is_home and _current_section == "market") or _current_section == "management"
 	_cargo_tabs.visible = is_home and _current_section == "resources"
-	_plan_button.visible = is_home and _current_section == "construction"
+	_plan_button.visible = false
+	_shipyard_tab_button.visible = is_home and _is_shipyard_active(docked_port)
 	_modernization_switches.visible = is_home and _current_section == "modernization"
 	_update_quantity_selector(docked_port, is_home)
 	_update_load_button(docked_port, is_home)
@@ -301,6 +303,10 @@ func _refresh_text(port_id: String, is_home: bool) -> void:
 			float(ship.get("hull", 0.0))
 		]
 		return
+	if _current_section == "shipyard":
+		_title.text = "ВЕРФЬ"
+		_details.text = "Выберите корабль, чтобы посмотреть характеристики и начать постройку. " + _notice
+		return
 	if _current_section == "resources":
 		_refresh_resources_page(port, ship, port_name)
 		return
@@ -321,16 +327,98 @@ func _refresh_text(port_id: String, is_home: bool) -> void:
 func _rebuild_building_list(port_id: String) -> void:
 	for child in _building_list.get_children():
 		child.queue_free()
+	var grid: GridContainer = GridContainer.new()
+	grid.columns = 2
+	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	grid.add_theme_constant_override("h_separation", 10)
+	grid.add_theme_constant_override("v_separation", 10)
+	_building_list.add_child(grid)
+	var port: Dictionary = GameState.port_state.get(port_id, {})
 	for raw_building in _building_catalog:
 		var building: Dictionary = raw_building
 		var building_id: String = str(building.get("building_id", ""))
+		var icon_path: String = str(building.get("ui_icon", ""))
 		var button: Button = Button.new()
-		button.custom_minimum_size.y = 38
-		button.text = _get_building_name(building_id) + " — " + _get_building_state(GameState.port_state.get(port_id, {}), building_id)
-		button.pressed.connect(_select_building.bind(building_id))
-		_building_list.add_child(button)
+		button.custom_minimum_size = Vector2(224, 156)
+		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		button.text = _get_building_name(building_id) + "\\n" + _get_building_state(port, building_id)
+		button.add_theme_font_size_override("font_size", 18)
+		button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		button.vertical_icon_alignment = VERTICAL_ALIGNMENT_TOP
+		button.icon_max_width = 104
+		button.expand_icon = true
+		if icon_path != "" and ResourceLoader.exists(icon_path):
+			button.icon = load(icon_path) as Texture2D
+		button.pressed.connect(_open_building_card.bind(building_id))
+		grid.add_child(button)
 	if _selected_building_id == "" and not _building_catalog.is_empty():
 		_selected_building_id = str(_building_catalog[0].get("building_id", ""))
+
+func _is_shipyard_active(port_id: String) -> bool:
+	var port: Dictionary = GameState.port_state.get(port_id, {})
+	var raw_buildings: Variant = port.get("buildings", {})
+	if not (raw_buildings is Dictionary):
+		return false
+	var buildings: Dictionary = raw_buildings
+	var shipyard: Dictionary = buildings.get("shipyard", {})
+	return int(shipyard.get("level", 0)) > 0 and str(shipyard.get("status", "")) == "active"
+
+func _rebuild_shipyard_list() -> void:
+	for child in _building_list.get_children():
+		child.queue_free()
+	var heading: Label = Label.new()
+	heading.text = "КОРАБЛИ ДЛЯ ПОСТРОЙКИ"
+	heading.add_theme_font_size_override("font_size", 20)
+	_building_list.add_child(heading)
+	var systems: Array[Node] = get_tree().get_nodes_in_group("fleet_system")
+	if systems.is_empty():
+		var unavailable: Label = Label.new()
+		unavailable.text = "Система флота пока недоступна."
+		_building_list.add_child(unavailable)
+		return
+	var fleet_system: Node = systems[0]
+	var shipyard_systems: Array[Node] = get_tree().get_nodes_in_group("shipyard_system")
+	var current_project: Dictionary = shipyard_systems[0].get_project() if not shipyard_systems.is_empty() else {}
+	var grid: GridContainer = GridContainer.new()
+	grid.columns = 2
+	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	grid.add_theme_constant_override("h_separation", 10)
+	grid.add_theme_constant_override("v_separation", 10)
+	_building_list.add_child(grid)
+	for raw_ship in fleet_system.get_ship_types():
+		var ship: Dictionary = raw_ship
+		var ship_id: String = str(ship.get("id", ""))
+		var access: Dictionary = fleet_system.get_ship_access(ship_id)
+		var can_continue: bool = current_project.is_empty() or str(current_project.get("ship_type_id", "")) == ship_id
+		var button: Button = Button.new()
+		button.custom_minimum_size = Vector2(224, 166)
+		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		button.add_theme_font_size_override("font_size", 17)
+		button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		button.vertical_icon_alignment = VERTICAL_ALIGNMENT_TOP
+		button.icon_max_width = 104
+		button.expand_icon = true
+		var rank_text: String = "Ранг %d" % int(ship.get("command_rank_required", 1))
+		button.text = "%s\\nГруз %d · скорость %d\\n%s" % [str(ship.get("name", "Корабль")), int(ship.get("cargo_capacity", 0)), int(ship.get("base_speed", 0)), rank_text]
+		var icon_path: String = str(ship.get("ui_icon", ""))
+		if icon_path != "" and ResourceLoader.exists(icon_path):
+			button.icon = load(icon_path) as Texture2D
+		button.disabled = not bool(access.get("ok", false)) or not can_continue
+		button.tooltip_text = str(access.get("message", "")) if not can_continue else ("Сначала завершите или отмените текущий проект." if not current_project.is_empty() else "")
+		button.pressed.connect(_open_ship_card.bind(ship_id))
+		grid.add_child(button)
+
+func _open_building_card(building_id: String) -> void:
+	_selected_building_id = building_id
+	_notice = ""
+	var windows: Array[Node] = get_tree().get_nodes_in_group("building_project_window")
+	if not windows.is_empty():
+		windows[0].open_for_building(building_id)
+
+func _open_ship_card(ship_type_id: String) -> void:
+	var windows: Array[Node] = get_tree().get_nodes_in_group("shipyard_window")
+	if not windows.is_empty():
+		windows[0].open_for_ship(ship_type_id)
 
 func _rebuild_resource_list(port_id: String) -> void:
 	for child in _building_list.get_children():
@@ -510,9 +598,12 @@ func _is_production_active_for_resource(port: Dictionary, resource_id: String) -
 	var building: Dictionary = buildings[building_id]
 	return int(building.get("level", 0)) >= 1 and str(building.get("status", "")) == "active"
 
-func _on_building_activated(port_id: String, _building_id: String) -> void:
-	if port_id == str(GameState.ship_state.get("docked_port_id", "")):
-		_rebuild_building_list(port_id)
+func _on_building_activated(port_id: String, building_id: String) -> void:
+	if port_id != str(GameState.ship_state.get("docked_port_id", "")):
+		return
+	_rebuild_building_list(port_id)
+	if building_id == "shipyard" and _current_section == "shipyard":
+		_rebuild_shipyard_list()
 
 func _plan_selected_building() -> void:
 	if _selected_building_id == "":
@@ -755,14 +846,17 @@ func _create_bottom_menu() -> void:
 	_add_navigation_button(row, "Ресурсы", "resources")
 	_add_navigation_button(row, "Рынок", "market")
 	_add_navigation_button(row, "Управление", "management")
+	_shipyard_tab_button = _add_navigation_button(row, "Верфь", "shipyard")
+	_shipyard_tab_button.hide()
 
-func _add_navigation_button(row: HBoxContainer, label_text: String, section_id: String) -> void:
+func _add_navigation_button(row: HBoxContainer, label_text: String, section_id: String) -> Button:
 	var button: Button = Button.new()
 	button.text = label_text
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	button.add_theme_font_size_override("font_size", 17)
 	button.pressed.connect(_open_section.bind(section_id))
 	row.add_child(button)
+	return button
 
 func _open_section(section_id: String) -> void:
 	_notice = ""
@@ -812,6 +906,12 @@ func _open_section(section_id: String) -> void:
 	elif section_id == "construction":
 		_selected_market_resource_id = ""
 		_rebuild_building_list(port_id)
+	elif section_id == "shipyard":
+		_selected_market_resource_id = ""
+		if _is_shipyard_active(port_id):
+			_rebuild_shipyard_list()
+		else:
+			_notice = "Сначала постройте верфь на своей базе."
 	elif section_id == "resources":
 		_selected_market_resource_id = ""
 		_rebuild_resource_list(port_id)
