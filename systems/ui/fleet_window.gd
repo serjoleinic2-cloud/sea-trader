@@ -207,11 +207,6 @@ func _add_build_section(home_port_id: String, docked_port_id: String) -> void:
 		hint.text = "Чтобы строить корабли, пришвартуйтесь на своей базе и откройте вкладку «Верфь»."
 	box.add_child(hint)
 
-func _open_shipyard_tab() -> void:
-	var windows: Array[Node] = get_tree().get_nodes_in_group("port_window")
-	if not windows.is_empty():
-		windows[0]._open_section("shipyard")
-
 func _add_selected_ship_actions() -> void:
 	var ship: Dictionary = _get_selected_ship()
 	if ship.is_empty():
