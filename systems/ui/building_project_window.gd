@@ -40,7 +40,7 @@ func _ready() -> void:
 	title.add_theme_font_size_override("font_size", 30)
 	box.add_child(title)
 	_building_icon = TextureRect.new()
-	_building_icon.custom_minimum_size = Vector2(0, 128)
+	_building_icon.custom_minimum_size = Vector2(0, 104)
 	_building_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	_building_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	box.add_child(_building_icon)
@@ -49,7 +49,7 @@ func _ready() -> void:
 	_details.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	box.add_child(_details)
 	var scroll: ScrollContainer = ScrollContainer.new()
-	scroll.custom_minimum_size.y = 510
+	scroll.custom_minimum_size.y = 360
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	box.add_child(scroll)
 	_material_list = VBoxContainer.new()
