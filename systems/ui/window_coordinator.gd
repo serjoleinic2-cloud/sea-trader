@@ -13,7 +13,6 @@ var _cancel: Button
 var _text_scale_button: Button
 var _accessibility: Node
 var _garrison_button: Button
-var _port_scroll: ScrollContainer
 
 func initialize(main: Node) -> void:
 	_main = main
@@ -29,6 +28,7 @@ func initialize(main: Node) -> void:
 		_entries.append({"window": window, "flag": flag, "was_open": false, "panel": panel})
 		window.layer = 60
 		_wrap_panel(window, panel, flag)
+		_disable_scrolling(window)
 	_toolbar = HBoxContainer.new()
 	_toolbar.add_theme_constant_override("separation", 8)
 	add_child(_toolbar)
@@ -77,6 +77,7 @@ func initialize(main: Node) -> void:
 	var port: Node = main.get_node_or_null("PortWindow")
 	if port != null:
 		_wrap_port(port)
+		_disable_scrolling(port)
 	# These two controls were useful during the first prototype, but duplicate
 	# the one bottom navigation bar on a phone-sized screen.
 	_hide_duplicate_floating_controls()
@@ -161,25 +162,28 @@ func _wrap_panel(window: Node, panel: PanelContainer, flag: String) -> void:
 		content.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		column.add_child(content)
 	else:
-		var scroll: ScrollContainer = ScrollContainer.new()
-		scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-		scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-		column.add_child(scroll)
-		scroll.add_child(content)
+		# Desktop workspaces use a fit-to-screen panel; a second nested
+		# viewport made controls disappear below a scrollable card.
+		content.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		column.add_child(content)
 	_hide_duplicate_close(content)
 
 func _wrap_port(port: Node) -> void:
 	var panel: PanelContainer = port.get("_sheet")
 	var content: Control = panel.get_child(0)
 	panel.remove_child(content)
-	_port_scroll = ScrollContainer.new()
-	_port_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_port_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_port_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	panel.add_child(_port_scroll)
 	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	content.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_port_scroll.add_child(content)
+	panel.add_child(content)
+
+func _disable_scrolling(node: Node) -> void:
+	if node is ScrollContainer:
+		var scroll: ScrollContainer = node
+		scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+		scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	for child in node.get_children():
+		_disable_scrolling(child)
+
 
 func _hide_duplicate_close(node: Node) -> void:
 	if node is Button and str(node.text).to_lower() == "закрыть":
@@ -237,14 +241,9 @@ func _process(_delta: float) -> void:
 				panel.size = viewport
 				panel.position = Vector2.ZERO
 			else:
-				panel.size = Vector2(minf(900.0, viewport.x - 32.0), maxf(200.0, viewport.y - 156.0))
-				panel.position = Vector2((viewport.x - panel.size.x) * 0.5, 20.0)
+				panel.size = Vector2(minf(1440.0, viewport.x - 40.0), maxf(200.0, viewport.y - 104.0))
+				panel.position = Vector2((viewport.x - panel.size.x) * 0.5, 52.0)
 	var docked_port_id: String = str(GameState.ship_state.get("docked_port_id", ""))
-	if _port_scroll != null:
-		var port_window: Node = _main.get_node_or_null("PortWindow")
-		var port_section: String = str(port_window.get("_current_section")) if port_window != null else ""
-		var desktop_cards: bool = viewport.x >= 1000.0 and viewport.y >= 760.0 and port_section in ["construction", "shipyard"]
-		_port_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED if desktop_cards else ScrollContainer.SCROLL_MODE_AUTO
 	var home_port_id: String = str(GameState.world_state.get("home_port_id", ""))
 	var docked: bool = docked_port_id != ""
 	var at_home: bool = docked and docked_port_id == home_port_id
@@ -279,8 +278,8 @@ func _process(_delta: float) -> void:
 	_status.text = str(GameState.world_state.get("autopilot_notice", ""))
 	if docked and not has_modal:
 		var port_panel: PanelContainer = _main.get_node("PortWindow").get("_sheet")
-		port_panel.size = Vector2(minf(900.0, viewport.x - 32.0), maxf(200.0, viewport.y - 180.0))
-		port_panel.position = Vector2((viewport.x - port_panel.size.x) * 0.5, 70.0)
+		port_panel.size = Vector2(minf(1480.0, viewport.x - 40.0), maxf(200.0, viewport.y - 116.0))
+		port_panel.position = Vector2((viewport.x - port_panel.size.x) * 0.5, 58.0)
 
 func _refresh_more_availability(docked: bool) -> void:
 	if _more_panel == null:
