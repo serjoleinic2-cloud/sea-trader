@@ -237,7 +237,7 @@ func get_attack_power() -> int:
         var definition: Dictionary = defs.get(str(unit_id), {})
         var luck_power: float = _unit_stat(definition, saved, "luck") * 0.3 * (1.0 + float(bonuses.luck) / 100.0)
         total += float(saved.get("count", 0)) * (_unit_stat(definition, saved, "attack") + luck_power)
-    return maxi(0, int(round(total * (1.0 + float(bonuses.attack) / 100.0)))
+    return maxi(0, int(round(total * (1.0 + float(bonuses.attack) / 100.0))))
 
 func get_average_speed() -> float:
     var weighted_speed: float = 0.0
