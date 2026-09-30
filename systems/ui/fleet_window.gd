@@ -196,62 +196,27 @@ func _format_duration(seconds: float) -> String:
 func _add_build_section(home_port_id: String, docked_port_id: String) -> void:
 	var box: VBoxContainer = _create_card()
 	var title: Label = Label.new()
-	title.text = "ВЕРФЬ — ПРОЕКТ СТРОИТЕЛЬСТВА"
+	title.text = "ВЕРФЬ"
 	title.add_theme_font_size_override("font_size", 20)
 	box.add_child(title)
-	if home_port_id == "" or docked_port_id != home_port_id:
-		var hint: Label = Label.new()
-		hint.text = "Верфь доступна только на вашей базе."
-		hint.add_theme_font_size_override("font_size", 17)
-		box.add_child(hint)
-		return
 	var hint: Label = Label.new()
-	hint.text = "Выберите корпус: затем передайте древесину, гвозди, ткань и другие материалы со склада."
-	hint.add_theme_font_size_override("font_size", 17)
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	box.add_child(hint)
-	for raw_type in _fleet_system.get_ship_types():
-		var ship_type: Dictionary = raw_type
-		var access: Dictionary = _fleet_system.get_ship_access(str(ship_type.get("id", "")))
+	if home_port_id != "" and docked_port_id == home_port_id:
+		hint.text = "Карточки кораблей и постройка находятся во вкладке «Верфь» в окне базы."
 		var button: Button = Button.new()
-		button.custom_minimum_size.y = 38
-		button.text = "Открыть проект: %s (допуск %d)%s" % [
-			str(ship_type.get("name", "Корабль")),
-			int(ship_type.get("command_rank_required", 1)),
-			"" if bool(access.get("ok", false)) else " — закрыто"
-		]
-		button.disabled = not bool(access.get("ok", false))
-		button.tooltip_text = str(access.get("message", ""))
-		button.pressed.connect(_open_shipyard.bind(str(ship_type.get("id", ""))))
+		button.text = "ОТКРЫТЬ ВКЛАДКУ «ВЕРФЬ»"
+		button.custom_minimum_size.y = 44
+		button.pressed.connect(_open_shipyard_tab)
+		box.add_child(hint)
 		box.add_child(button)
-	var premium_title: Label = Label.new()
-	premium_title.text = "ПРЕМИАЛЬНЫЙ ФЛОТ — ОСОБЫЕ РОЛИ"
-	premium_title.add_theme_font_size_override("font_size", 20)
-	box.add_child(premium_title)
-	var premium_hint: Label = Label.new()
-	premium_hint.text = "Особые корабли появятся в магазине. Они меняют стиль игры, но не заменяют развитие капитана."
-	premium_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	premium_hint.add_theme_font_size_override("font_size", 17)
-	box.add_child(premium_hint)
-	for raw_premium in _fleet_system.get_premium_ship_types():
-		var premium: Dictionary = raw_premium
-		var premium_button: Button = Button.new()
-		premium_button.custom_minimum_size.y = 48
-		premium_button.text = "%s  | %s\n%s" % [str(premium.get("name", "Корабль")),
-			str(premium.get("role", "Особая роль")), str(premium.get("perk_text", ""))]
-		if str(premium.get("acquisition", "shop_rotation")) == "event_reward":
-			premium_button.text += "  | НАГРАДА СОБЫТИЯ"
-			premium_button.tooltip_text = "Доступен за редкое игровое событие."
-		else:
-			premium_button.text += "  | СКОРО В МАГАЗИНЕ"
-			premium_button.tooltip_text = "Покупка будет подключена после появления серверного магазина."
-		premium_button.disabled = true
-		box.add_child(premium_button)
+	else:
+		hint.text = "Чтобы строить корабли, пришвартуйтесь на своей базе и откройте вкладку «Верфь»."
+		box.add_child(hint)
 
-func _open_shipyard(ship_type_id: String) -> void:
-	var windows: Array[Node] = get_tree().get_nodes_in_group("shipyard_window")
+func _open_shipyard_tab() -> void:
+	var windows: Array[Node] = get_tree().get_nodes_in_group("port_window")
 	if not windows.is_empty():
-		windows[0].open_for_ship(ship_type_id)
+		windows[0]._open_section("shipyard")
 
 func _add_selected_ship_actions() -> void:
 	var ship: Dictionary = _get_selected_ship()
