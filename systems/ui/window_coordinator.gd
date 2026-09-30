@@ -13,6 +13,7 @@ var _cancel: Button
 var _text_scale_button: Button
 var _accessibility: Node
 var _garrison_button: Button
+var _port_scroll: ScrollContainer
 
 func initialize(main: Node) -> void:
 	_main = main
@@ -171,11 +172,11 @@ func _wrap_port(port: Node) -> void:
 	var panel: PanelContainer = port.get("_sheet")
 	var content: Control = panel.get_child(0)
 	panel.remove_child(content)
-	var scroll: ScrollContainer = ScrollContainer.new()
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	panel.add_child(scroll)
+	_port_scroll = ScrollContainer.new()
+	_port_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	panel.add_child(_port_scroll)
 	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	scroll.add_child(content)
+	_port_scroll.add_child(content)
 
 func _hide_duplicate_close(node: Node) -> void:
 	if node is Button and str(node.text).to_lower() == "закрыть":
@@ -236,6 +237,11 @@ func _process(_delta: float) -> void:
 				panel.size = Vector2(minf(900.0, viewport.x - 32.0), maxf(200.0, viewport.y - 156.0))
 				panel.position = Vector2((viewport.x - panel.size.x) * 0.5, 20.0)
 	var docked_port_id: String = str(GameState.ship_state.get("docked_port_id", ""))
+	if _port_scroll != null:
+		var port_window: Node = _main.get_node_or_null("PortWindow")
+		var port_section: String = str(port_window.get("_current_section")) if port_window != null else ""
+		var desktop_cards: bool = viewport.x >= 1000.0 and viewport.y >= 680.0 and port_section in ["construction", "shipyard"]
+		_port_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED if desktop_cards else ScrollContainer.SCROLL_MODE_AUTO
 	var home_port_id: String = str(GameState.world_state.get("home_port_id", ""))
 	var docked: bool = docked_port_id != ""
 	var at_home: bool = docked and docked_port_id == home_port_id
