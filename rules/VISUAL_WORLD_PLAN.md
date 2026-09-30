@@ -20,6 +20,12 @@ This is the project's visual rule for **all** future graphics. Do not drift from
 - **Effects and lighting:** water, wakes, spray, clouds, sunrise/sunset, underwater rays, and night glow follow the same cinematic color and material language. Keep effects readable and performance-scalable; glow must not overwhelm navigation or text.
 - **Consistency gate:** review every new or replaced visual asset against the environment reference, both character portraits, and the interface palette. Do not introduce another visual direction without the owner's explicit approval.
 
+## Визуальный стандарт для рейдов — 2026-09-30
+
+Боевые отчёты остаются частью общей морской стилистики: тёмно-синие карточки, бирюзовые руны, латунная окантовка, выразительная иллюстрация победы или поражения. Отчёт делится на две равные стороны с отдельными карточками отрядов, артиллерии, потерь и ресурсов. На телефоне две стороны складываются вертикально; на ПК остаются рядом.
+
+Портовые защитники обязаны быть визуально другими персонажами, чем войска игрока: собственные лица, силуэты, одежда, броня, волосы и фракционные материалы, а не повторные портреты героя с изменённым цветом. Все лица открыты. Осадные орудия изображаются отдельными оригинальными объектами техники, не людьми. Победная и проигрышная иллюстрации также должны быть оригинальными и не копировать конкретные кадры/персонажей референсов. Подробное распределение ролей и экран сводки — `ideas/combat/PORT_RAIDS.md`.
+
 ## Current implementation and source of truth
 
 Trade, navigation, routes, contracts, crews, ports, and economy remain driven by the saved deterministic world and game systems. The shared 3D renderer presents that same world; visual effects and imported models must not alter game state.
