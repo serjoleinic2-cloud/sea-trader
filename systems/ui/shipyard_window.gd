@@ -6,6 +6,7 @@ var _system: Node
 var _root: Control
 var _panel: PanelContainer
 var _title: Label
+var _ship_icon: TextureRect
 var _details: Label
 var _name_input: LineEdit
 var _material_list: VBoxContainer
@@ -37,6 +38,11 @@ func _ready() -> void:
 	_title.text = "ВЕРФЬ — СТРОИТЕЛЬСТВО КОРАБЛЯ"
 	_title.add_theme_font_size_override("font_size", 30)
 	box.add_child(_title)
+	_ship_icon = TextureRect.new()
+	_ship_icon.custom_minimum_size = Vector2(0, 160)
+	_ship_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_ship_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	box.add_child(_ship_icon)
 	_details = Label.new()
 	_details.add_theme_font_size_override("font_size", 22)
 	_details.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -114,15 +120,25 @@ func _refresh() -> void:
 	var required: Dictionary = project.get("required_materials", {})
 	var materials: Dictionary = project.get("materials", {})
 	var ready: bool = _system.is_project_ready(project)
-	_details.text = "Проект: %s\nПередайте материалы со склада. Каждый ползунок переводит материал в верфь.\n%s" % [
-		str(project.get("ship_type_id", "")),
-		_notice
+	var ship_type_id: String = str(project.get("ship_type_id", ""))
+	var fleet_systems: Array[Node] = get_tree().get_nodes_in_group("fleet_system")
+	var ship_type: Dictionary = fleet_systems[0].get_ship_type(ship_type_id) if not fleet_systems.is_empty() else {}
+	var icon_path: String = str(ship_type.get("ui_icon", ""))
+	_ship_icon.texture = load(icon_path) as Texture2D if icon_path != "" and ResourceLoader.exists(icon_path) else null
+	_details.text = "%s\n%s\nГруз: %d · скорость: %d\nЭкипаж: %d–%d · допуск: ранг %d\nМатериалы передаются со склада в проект." % [
+		str(ship_type.get("role", ship_type.get("name", "Корабль"))),
+		str(ship_type.get("era", "")),
+		int(ship_type.get("cargo_capacity", 0)),
+		int(ship_type.get("base_speed", 0)),
+		int(ship_type.get("min_crew", 0)),
+		int(ship_type.get("max_crew", 0)),
+		int(ship_type.get("command_rank_required", 1))
 	]
 	for resource_id in required:
 		_add_material_row(str(resource_id), int(materials.get(resource_id, 0)), int(required.get(resource_id, 0)))
 	_build_button.disabled = not ready
 	if ready:
-		_build_button.text = "ПОСТРОИТЬ И СПУСТИТЬ НА ВОДУ"
+		_build_button.text = "ПОСТРОИТЬ"
 	else:
 		_build_button.text = "НЕ ХВАТАЕТ МАТЕРИАЛОВ"
 
