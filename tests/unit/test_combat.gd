@@ -75,7 +75,11 @@ func test_hidden_defense_writes_report_without_battle_scene_and_limits_loss() ->
     assert_lt(float(GameState.combat_state.fort_integrity), 100.0, "loss damages base fortifications")
     var remaining: int = int(GameState.combat_state.units.coast_guard.count)
     assert_gte(remaining, 1, "a single attack cannot erase the last defenders")
-    assert_lte(int(report.get("goods_lost", 0)), 4, "inventory loss remains capped for this test stock")
+    assert_lte(float(GameState.combat_state.fort_integrity), 97.0, "a home raid damages no more than three fort points")
+    assert_lte(int(report.get("goods_lost", 0)), 8, "home raid inventory loss stays capped")
+    var delay: int = int(GameState.combat_state.next_defense_at) - int(Time.get_unix_time_from_system())
+    assert_gte(delay, 259200, "next home raid is at least 72 hours away")
+    assert_lte(delay, 432000, "next home raid is no more than 120 hours away")
 
 func test_player_raid_exposes_progress_then_report() -> void:
     var started: Dictionary = _system.start_player_raid("Пиратский лагерь", 1, 60)
