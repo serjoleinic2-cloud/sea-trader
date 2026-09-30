@@ -8,11 +8,11 @@ const GOODS: String = "res://data/resources/goods_catalog.json"
 const FACTIONS: String = "res://data/world/faction_catalog.json"
 const FACTION_ART: Dictionary = {
 	"sea_trader": {"emblem": preload("res://assets/ui/emblems/sea_trader.svg")},
-	"nerids": {"emblem": preload("res://assets/ui/emblems/nerids.svg"), "portrait": preload("res://assets/characters/factions/nerids_tide_anchor_512.webp")},
-	"surr": {"emblem": preload("res://assets/ui/emblems/surr.svg"), "portrait": preload("res://assets/characters/factions/surr_fire_anchor_512.webp")},
-	"meridians": {"emblem": preload("res://assets/ui/emblems/meridian.svg"), "portrait": preload("res://assets/characters/factions/meridian_trader_anchor_512.webp")},
-	"aery": {"emblem": preload("res://assets/ui/emblems/aery.svg"), "portrait": preload("res://assets/characters/factions/aery_sky_anchor_512.webp")},
-	"crystari": {"emblem": preload("res://assets/ui/emblems/crystari.svg"), "portrait": preload("res://assets/characters/factions/crystari_stone_anchor_512.webp")}
+	"nerids": {"emblem": preload("res://assets/ui/emblems/nerids.svg")},
+	"surr": {"emblem": preload("res://assets/ui/emblems/surr.svg")},
+	"meridians": {"emblem": preload("res://assets/ui/emblems/meridian.svg")},
+	"aery": {"emblem": preload("res://assets/ui/emblems/aery.svg")},
+	"crystari": {"emblem": preload("res://assets/ui/emblems/crystari.svg")}
 }
 var _cache: Dictionary = {}
 
@@ -85,8 +85,14 @@ func get_faction_emblem(faction_id: String) -> Texture2D:
 	return art.get("emblem") as Texture2D
 
 func get_faction_portrait(faction_id: String) -> Texture2D:
-	var art: Dictionary = FACTION_ART.get(faction_id, {})
-	return art.get("portrait") as Texture2D
+	var faction: Dictionary = get_faction(faction_id)
+	var path: String = str(faction.get("portrait", ""))
+	if path == "" or not ResourceLoader.exists(path):
+		return get_faction_emblem(faction_id)
+	var portrait: Resource = load(path)
+	if portrait is Texture2D:
+		return portrait as Texture2D
+	return get_faction_emblem(faction_id)
 
 func validate() -> Array[String]:
 	var validator: RefCounted = preload("res://core/config_validator.gd").new()
