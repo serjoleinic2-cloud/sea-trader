@@ -36,7 +36,8 @@
         "resource_rope": 8,
         "resource_paint": 4,
         "resource_varnish": 2
-      }
+      },
+      "ui_icon": "res://assets/ui/cards/ship_sloop.svg"
     },
     {
       "id": "ship_barque",
@@ -57,7 +58,8 @@
         "resource_paint": 12,
         "resource_varnish": 8,
         "resource_glass": 4
-      }
+      },
+      "ui_icon": "res://assets/ui/cards/ship_barque.svg"
     },
     {
       "id": "ship_schooner",
@@ -78,7 +80,8 @@
         "resource_paint": 35,
         "resource_varnish": 25,
         "resource_glass": 12
-      }
+      },
+      "ui_icon": "res://assets/ui/cards/ship_schooner.svg"
     },
     {
       "id": "ship_freighter",
@@ -99,7 +102,8 @@
         "resource_paint": 100,
         "resource_varnish": 75,
         "resource_glass": 45
-      }
+      },
+      "ui_icon": "res://assets/ui/cards/ship_freighter.svg"
     },
     {
       "id": "ship_tanker",
@@ -120,7 +124,8 @@
         "resource_paint": 280,
         "resource_varnish": 180,
         "resource_glass": 120
-      }
+      },
+      "ui_icon": "res://assets/ui/cards/ship_tanker.svg"
     }
   ]
 }
