@@ -339,13 +339,13 @@ func _rebuild_building_list(port_id: String) -> void:
 		var building_id: String = str(building.get("building_id", ""))
 		var icon_path: String = str(building.get("ui_icon", ""))
 		var button: Button = Button.new()
-		button.custom_minimum_size = Vector2(224, 156)
+		button.custom_minimum_size = Vector2(224, 190)
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		button.text = _get_building_name(building_id) + "\n" + _get_building_state(port, building_id)
 		button.add_theme_font_size_override("font_size", 18)
 		button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		button.vertical_icon_alignment = VERTICAL_ALIGNMENT_TOP
-		button.icon_max_width = 104
+		button.icon_max_width = 128
 		button.expand_icon = true
 		if icon_path != "" and ResourceLoader.exists(icon_path):
 			button.icon = load(icon_path) as Texture2D
@@ -391,7 +391,7 @@ func _rebuild_shipyard_list() -> void:
 		var access: Dictionary = fleet_system.get_ship_access(ship_id)
 		var can_continue: bool = current_project.is_empty() or str(current_project.get("ship_type_id", "")) == ship_id
 		var button: Button = Button.new()
-		button.custom_minimum_size = Vector2(224, 166)
+		button.custom_minimum_size = Vector2(224, 190)
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		button.add_theme_font_size_override("font_size", 17)
 		button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
