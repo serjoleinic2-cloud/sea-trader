@@ -165,9 +165,9 @@ func _draw_known_ports() -> void:
 func _draw_route() -> void:
 	if _port_system == null:
 		return
+	# Draw only a route the player actually selected. Falling back to the home
+	# port made a permanent yellow line appear from the active vessel.
 	var target_id: String = str(GameState.world_state.get("destination_port_id", ""))
-	if target_id == "":
-		target_id = str(GameState.world_state.get("home_port_id", ""))
 	if target_id == "":
 		return
 	var target: Vector2 = _to_chart(_port_system.get_port_position(target_id))
