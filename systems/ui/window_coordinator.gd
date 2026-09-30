@@ -173,9 +173,12 @@ func _wrap_port(port: Node) -> void:
 	var content: Control = panel.get_child(0)
 	panel.remove_child(content)
 	_port_scroll = ScrollContainer.new()
+	_port_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_port_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_port_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	panel.add_child(_port_scroll)
 	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	content.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_port_scroll.add_child(content)
 
 func _hide_duplicate_close(node: Node) -> void:
