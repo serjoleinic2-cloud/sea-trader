@@ -243,7 +243,7 @@ func _process(_delta: float) -> void:
 	if _port_scroll != null:
 		var port_window: Node = _main.get_node_or_null("PortWindow")
 		var port_section: String = str(port_window.get("_current_section")) if port_window != null else ""
-		var desktop_cards: bool = viewport.x >= 1000.0 and viewport.y >= 680.0 and port_section in ["construction", "shipyard"]
+		var desktop_cards: bool = viewport.x >= 1000.0 and viewport.y >= 760.0 and port_section in ["construction", "shipyard"]
 		_port_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED if desktop_cards else ScrollContainer.SCROLL_MODE_AUTO
 	var home_port_id: String = str(GameState.world_state.get("home_port_id", ""))
 	var docked: bool = docked_port_id != ""
