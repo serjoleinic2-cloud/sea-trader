@@ -28,6 +28,7 @@ var _is_open: bool = false
 var _cards_dirty: bool = true
 var _last_refresh_second: int = -1
 var _last_roster_signature: String = ""
+var _origin_emblem: TextureRect
 
 const CARD_MIN_SIZE := Vector2(330, 360)
 const UNIT_PORTRAITS := {
@@ -62,8 +63,15 @@ func _ready() -> void:
 
 	var heading := HBoxContainer.new()
 	layout.add_child(heading)
+	_origin_emblem = TextureRect.new()
+	_origin_emblem.custom_minimum_size = Vector2(46, 46)
+	_origin_emblem.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_origin_emblem.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	heading.add_child(_origin_emblem)
 	var title := Label.new()
-	title.text = "ГАРНИЗОН"
+	var faction: Dictionary = GameData.get_faction(str(GameState.player_state.get("origin_race_id", "")))
+	_origin_emblem.texture = GameData.get_faction_emblem(str(GameState.player_state.get("origin_race_id", "")))
+	title.text = "ГАРНИЗОН · %s" % str(faction.get("name", "Игрок"))
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	title.add_theme_font_size_override("font_size", 28)
 	heading.add_child(title)
@@ -99,6 +107,7 @@ func _ready() -> void:
 
 func initialize(system: Node) -> void:
 	_system = system
+	_origin_emblem.texture = GameData.get_faction_emblem(str(GameState.player_state.get("origin_race_id", "")))
 
 func open() -> void:
 	_is_open = true

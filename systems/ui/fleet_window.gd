@@ -10,6 +10,7 @@ var _list: VBoxContainer
 var _is_open: bool = false
 var _selected_ship_id: String = ""
 var _notice: String = ""
+var _origin_emblem: TextureRect
 
 func _ready() -> void:
 	layer = 31
@@ -34,10 +35,20 @@ func _ready() -> void:
 	var box: VBoxContainer = VBoxContainer.new()
 	box.add_theme_constant_override("separation", 10)
 	margin.add_child(box)
+	var title_row := HBoxContainer.new()
+	title_row.add_theme_constant_override("separation", 12)
+	box.add_child(title_row)
+	_origin_emblem = TextureRect.new()
+	_origin_emblem.custom_minimum_size = Vector2(46, 46)
+	_origin_emblem.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_origin_emblem.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_origin_emblem.texture = _get_origin_emblem()
+	title_row.add_child(_origin_emblem)
 	var title: Label = Label.new()
 	title.text = "УПРАВЛЕНИЕ ФЛОТОМ"
+	title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	title.add_theme_font_size_override("font_size", 24)
-	box.add_child(title)
+	title_row.add_child(title)
 	_summary = Label.new()
 	_summary.add_theme_font_size_override("font_size", 18)
 	_summary.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -58,6 +69,12 @@ func _ready() -> void:
 
 func initialize(fleet_system: Node) -> void:
 	_fleet_system = fleet_system
+	if _origin_emblem != null:
+		_origin_emblem.texture = _get_origin_emblem()
+
+
+func _get_origin_emblem() -> Texture2D:
+	return GameData.get_faction_emblem(str(GameState.player_state.get("origin_race_id", "")))
 
 func _process(_delta: float) -> void:
 	var viewport: Vector2 = get_viewport().get_visible_rect().size

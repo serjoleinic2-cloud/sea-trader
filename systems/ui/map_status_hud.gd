@@ -5,6 +5,8 @@ extends CanvasLayer
 var _port_system: Node
 var _panel: ColorRect
 var _label: Label
+var _race_emblem: TextureRect
+var _race_id: String = ""
 
 func _ready() -> void:
 	layer = 20
@@ -13,9 +15,15 @@ func _ready() -> void:
 	_panel.size = Vector2(300, 180)
 	_panel.color = Color(0.02, 0.03, 0.04, 1.0)
 	add_child(_panel)
+	_race_emblem = TextureRect.new()
+	_race_emblem.position = Vector2(16, 16)
+	_race_emblem.size = Vector2(48, 48)
+	_race_emblem.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_race_emblem.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	add_child(_race_emblem)
 	_label = Label.new()
-	_label.position = Vector2(26, 24)
-	_label.size = Vector2(272, 150)
+	_label.position = Vector2(76, 18)
+	_label.size = Vector2(220, 154)
 	_label.add_theme_color_override("font_color", Color(0.8, 0.95, 1.0, 1.0))
 	_label.add_theme_font_size_override("font_size", 19)
 	add_child(_label)
@@ -26,6 +34,7 @@ func initialize(port_system: Node) -> void:
 func _process(_delta: float) -> void:
 	if _label == null:
 		return
+	_update_race_emblem()
 	var nearest: String = "-"
 	if _port_system != null and str(_port_system.nearest_port_name) != "":
 		nearest = str(_port_system.nearest_port_name)
@@ -46,3 +55,11 @@ func _process(_delta: float) -> void:
 		nearest,
 		home_name
 	]
+
+
+func _update_race_emblem() -> void:
+	var race_id: String = str(GameState.player_state.get("origin_race_id", ""))
+	if race_id == _race_id:
+		return
+	_race_id = race_id
+	_race_emblem.texture = GameData.get_faction_emblem(race_id)

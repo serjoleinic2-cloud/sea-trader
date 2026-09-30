@@ -1,10 +1,11 @@
 # Карта работающих систем
 
-Обновлено: 2026-09-19. Источник полного списка подключений — data/config/game_modules.json.
+Обновлено: 2026-09-30. Источник полного списка подключений — data/config/game_modules.json.
 
 | Действие | Путь выполнения | Состояние |
 | --- | --- | --- |
-| Запуск | Main → GameData/ModuleLoader → SaveSystem → WorldGenerator → Ship → модули | Восстановленные разделы GameState |
+| Новый запуск | Main → GameData → RaceSelectionScreen → GameState.player_state.origin_race_id → SaveSystem → WorldGenerator → Ship → модули | Выбранная раса, мир и остальные разделы GameState |
+| Продолжение | Main → GameData/ModuleLoader → SaveSystem → WorldGenerator → Ship → модули | Восстановленные разделы GameState; старым сохранениям назначается постоянная раса по умолчанию |
 | Ручное управление | SensorInput/InputAdapter → ShipControl → ShipPhysics | ship_state, world_state |
 | Исследование океана | Main → WorldGenerator.generate_chunk → PortSystem / Approach3DView | Seed-карта, известные области и текущая 3D-геометрия |
 | Швартовка и маршрут | Main → PortSystem | ship_state, port_state, known_routes_state, player_state |

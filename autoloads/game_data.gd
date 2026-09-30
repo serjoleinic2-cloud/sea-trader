@@ -5,6 +5,15 @@ extends Node
 const SHIPS: String = "res://data/ships/ship_catalog.json"
 const PREMIUM_SHIPS: String = "res://data/ships/premium_ship_pool.json"
 const GOODS: String = "res://data/resources/goods_catalog.json"
+const FACTIONS: String = "res://data/world/faction_catalog.json"
+const FACTION_ART: Dictionary = {
+	"sea_trader": {"emblem": preload("res://assets/ui/emblems/sea_trader.svg")},
+	"nerids": {"emblem": preload("res://assets/ui/emblems/nerids.svg"), "portrait": preload("res://assets/characters/factions/nerids_tide_anchor_512.webp")},
+	"surr": {"emblem": preload("res://assets/ui/emblems/surr.svg"), "portrait": preload("res://assets/characters/factions/surr_fire_anchor_512.webp")},
+	"meridians": {"emblem": preload("res://assets/ui/emblems/meridian.svg"), "portrait": preload("res://assets/characters/factions/meridian_trader_anchor_512.webp")},
+	"aery": {"emblem": preload("res://assets/ui/emblems/aery.svg"), "portrait": preload("res://assets/characters/factions/aery_sky_anchor_512.webp")},
+	"crystari": {"emblem": preload("res://assets/ui/emblems/crystari.svg"), "portrait": preload("res://assets/characters/factions/crystari_stone_anchor_512.webp")}
+}
 var _cache: Dictionary = {}
 
 func read(path: String) -> Dictionary:
@@ -59,6 +68,26 @@ func get_good(resource_id: String) -> Dictionary:
 			return good
 	return {}
 
+func get_factions() -> Array:
+	var value: Variant = read(FACTIONS).get("factions", [])
+	if not value is Array:
+		return []
+	return value.duplicate(true)
+
+func get_faction(faction_id: String) -> Dictionary:
+	for faction in get_factions():
+		if str(faction.get("id", "")) == faction_id:
+			return faction
+	return {}
+
+func get_faction_emblem(faction_id: String) -> Texture2D:
+	var art: Dictionary = FACTION_ART.get(faction_id, FACTION_ART["sea_trader"])
+	return art.get("emblem") as Texture2D
+
+func get_faction_portrait(faction_id: String) -> Texture2D:
+	var art: Dictionary = FACTION_ART.get(faction_id, {})
+	return art.get("portrait") as Texture2D
+
 func validate() -> Array[String]:
 	var validator: RefCounted = preload("res://core/config_validator.gd").new()
 	var errors: Array[String] = validator.validate(
@@ -66,6 +95,25 @@ func validate() -> Array[String]:
 		read("res://data/ports/production_recipes.json"))
 	errors.append_array(validator.validate_rewards(read("res://data/challenges/challenge_rules.json"), read("res://data/rewards/reward_catalog.json")))
 	errors.append_array(validator.validate_building_rules(read("res://data/ports/building_rules.json"), read("res://data/ports/building_catalog.json"), read(GOODS)))
+	var faction_ids: Dictionary = {}
+	var factions: Array = get_factions()
+	if factions.size() != 5:
+		errors.append("faction_catalog.factions: expected exactly five factions")
+	for faction_value in factions:
+		if not faction_value is Dictionary:
+			errors.append("faction_catalog.factions: expected objects")
+			continue
+		var faction: Dictionary = faction_value
+		var faction_id: String = str(faction.get("id", ""))
+		if faction_id == "" or faction_ids.has(faction_id):
+			errors.append("faction_catalog.factions: empty or duplicate ID '" + faction_id + "'")
+		else:
+			faction_ids[faction_id] = true
+			if not FACTION_ART.has(faction_id):
+				errors.append("faction_catalog." + faction_id + ": missing preloaded portrait/emblem assets")
+		for field in ["name", "portrait", "emblem", "trade_identity", "combat_identity"]:
+			if not faction.has(field):
+				errors.append("faction_catalog." + faction_id + ": missing " + field)
 	var required_positive: Dictionary = {
 		"res://data/economy/market_rules.json": ["delivery_surcharge", "delivery_seconds"],
 		"res://data/ports/service_rules.json": ["fuel_per_oil", "hull_per_parts", "price_per_fuel", "price_per_hull", "minimum_price_factor"],

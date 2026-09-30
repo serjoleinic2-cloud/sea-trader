@@ -17,6 +17,7 @@ func after_each() -> void:
 
 
 func _seed_progress() -> void:
+	GameState.player_state["origin_race_id"] = "aery"
 	GameState.world_state.seed = 42
 	GameState.world_state.world_gen_version = "1"
 	GameState.world_state.current_position = Vector2(321, 654)
@@ -49,8 +50,12 @@ func _launch() -> void:
 
 func test_new_game_initializes_and_saves_identity() -> void:
 	_launch()
+	assert_false(_main._world_ready, "New game waits for the origin choice")
+	assert_true(is_instance_valid(_main._race_selection_screen))
+	_main._start_new_game_with_race("meridians")
 	assert_true(_main._world_ready)
 	assert_true(_main._is_new_game)
+	assert_eq(GameState.player_state.get("origin_race_id", ""), "meridians")
 	assert_ne(GameState.world_state.seed, 0)
 	assert_eq(GameState.world_state.world_gen_version, "1")
 	assert_true(SaveSystem.has_save())
@@ -59,6 +64,21 @@ func test_new_game_initializes_and_saves_identity() -> void:
 		assert_false(bool(port.get("discovered", false)), "Market seeding must not discover ports")
 	assert_true(GameState.known_routes_state.is_empty())
 	assert_false(GameState.voyage_state.active)
+	GameState.reset_to_defaults()
+	assert_true(SaveSystem.load_game())
+	assert_eq(GameState.player_state.get("origin_race_id", ""), "meridians", "Chosen race survives save/load")
+
+
+func test_existing_save_without_race_gets_stable_identity() -> void:
+	_seed_progress()
+	assert_true(SaveSystem.save_game())
+	var old_save: Dictionary = SaveSystem._read_json("user://saves/save_main.json")
+	old_save.player_state.erase("origin_race_id")
+	SaveSystem._write_json("user://saves/save_main.json", old_save)
+	_launch()
+	assert_true(_main._world_ready)
+	assert_eq(GameState.player_state.get("origin_race_id", ""), "nerids")
+	assert_eq(SaveSystem._read_json("user://saves/save_main.json").player_state.origin_race_id, "nerids")
 
 
 func test_full_save_load_round_trip() -> void:

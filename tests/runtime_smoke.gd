@@ -20,6 +20,7 @@ func _ready() -> void:
 		return
 	GameState.reset_to_defaults()
 	SaveSystem.delete_save()
+	GameState.player_state["origin_race_id"] = "nerids"
 	GameState.world_state.seed = 42
 	GameState.world_state.world_gen_version = "1"
 	SaveSystem.save_game()

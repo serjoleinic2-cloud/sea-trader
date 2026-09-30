@@ -16,6 +16,8 @@ var _is_new_game: bool = false
 var _world_migrated: bool = false
 var _world_ready: bool = false
 var startup_error: String = ""
+var _race_selection_screen: CanvasLayer = null
+var _pending_origin_race_id: String = ""
 var _modules: RefCounted = preload("res://core/module_loader.gd").new()
 
 const CAMERA_ZOOM_STEP: float = 0.08
@@ -150,6 +152,35 @@ func _ready() -> void:
 	if not config_errors.is_empty():
 		_show_startup_error("Ошибка конфигурации:\n" + "\n".join(config_errors))
 		return
+	if not SaveSystem.has_save():
+		_show_race_selection()
+		return
+	_start_game()
+
+
+func _show_race_selection() -> void:
+	var factions: Array = GameData.get_factions()
+	if factions.size() != 5:
+		_show_startup_error("Каталог пяти рас не найден или повреждён.")
+		return
+	_race_selection_screen = load("res://systems/ui/race_selection_screen.gd").new()
+	_race_selection_screen.name = "RaceSelectionScreen"
+	_race_selection_screen.call("configure", factions, Callable(self, "_start_new_game_with_race"))
+	add_child(_race_selection_screen)
+
+
+func _start_new_game_with_race(faction_id: String) -> void:
+	if GameData.get_faction(faction_id).is_empty():
+		_show_startup_error("Выбрана неизвестная раса: " + faction_id)
+		return
+	_pending_origin_race_id = faction_id
+	if is_instance_valid(_race_selection_screen):
+		_race_selection_screen.queue_free()
+	_race_selection_screen = null
+	_start_game()
+
+
+func _start_game() -> void:
 	var manifest: Dictionary = GameData.read("res://data/config/game_modules.json")
 	if not manifest.get("modules") is Array or manifest.modules.is_empty():
 		_show_startup_error("Пустой или неверный список модулей.")
@@ -300,10 +331,16 @@ func _load_or_create_state() -> bool:
 		if not SaveSystem.load_game():
 			startup_error = "Cannot load saved game. Loading stopped."
 			return false
+		var race_id: String = str(GameState.player_state.get("origin_race_id", ""))
+		if GameData.get_faction(race_id).is_empty():
+			# Saves from before origin selection remain playable and receive a stable identity.
+			GameState.player_state["origin_race_id"] = "nerids"
+			_world_migrated = true
 		return true  # Zero is also a valid saved seed.
 
 	var new_seed: int = int(Time.get_unix_time_from_system()) + randi()
 	GameState.reset_to_defaults()
+	GameState.player_state["origin_race_id"] = _pending_origin_race_id
 	GameState.world_state.seed = new_seed
 	_is_new_game = true
 	return true

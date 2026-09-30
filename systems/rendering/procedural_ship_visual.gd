@@ -6,6 +6,11 @@ extends Node2D
 
 var _sailing_speed: float = 0.0
 var _clock: float = 0.0
+var _origin_emblem: Texture2D
+
+
+func _ready() -> void:
+	_origin_emblem = GameData.get_faction_emblem(str(GameState.player_state.get("origin_race_id", "")))
 
 
 func set_sailing_speed(value: float) -> void:
@@ -77,5 +82,7 @@ func _draw() -> void:
 	draw_line(Vector2(0, -40), Vector2(10, -8), Color("d3bd91"), 1.0, true)
 	draw_line(Vector2(0, -30), Vector2(-9, -1), Color("d3bd91"), 1.0, true)
 	draw_circle(Vector2(0, -38), 2.1, Color("d9b35c"))
+	if _origin_emblem != null:
+		draw_texture_rect(_origin_emblem, Rect2(2.0, -21.0, 9.0, 9.0), false, Color.WHITE)
 
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)

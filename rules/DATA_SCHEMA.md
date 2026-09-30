@@ -28,6 +28,7 @@ All runtime state lives in `GameState` autoload.
 
 ### PlayerState
 ```
+origin_race_id: String     # persistent faction chosen at first start; empty only before selection
 money: float              # current gold/currency
 xp: int                   # total XP earned
 level: int                # player level (derived from xp)
@@ -39,6 +40,8 @@ stats:
   total_distance: float
   total_earned: float
 ```
+
+`origin_race_id` references `data/world/faction_catalog.json`. The first-run choice is stored in the ordinary player save and is not a gameplay-stat bonus. Saves predating race choice receive a stable default during load without resetting progress.
 
 ### WorldState
 ```
