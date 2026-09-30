@@ -6,6 +6,7 @@ var _system: Node
 var _root: Control
 var _panel: PanelContainer
 var _details: Label
+var _building_icon: TextureRect
 var _material_list: VBoxContainer
 var _start_button: Button
 var _cancel_button: Button
@@ -38,6 +39,11 @@ func _ready() -> void:
 	title.text = "ПРОЕКТ БАЗЫ"
 	title.add_theme_font_size_override("font_size", 30)
 	box.add_child(title)
+	_building_icon = TextureRect.new()
+	_building_icon.custom_minimum_size = Vector2(0, 128)
+	_building_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_building_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	box.add_child(_building_icon)
 	_details = Label.new()
 	_details.add_theme_font_size_override("font_size", 22)
 	_details.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -107,6 +113,8 @@ func _refresh() -> void:
 		_cancel_button.disabled = true
 		return
 	var building_id: String = str(project.get("building_id", ""))
+	var icon_path: String = _system.get_building_icon_path(building_id)
+	_building_icon.texture = load(icon_path) as Texture2D if icon_path != "" and ResourceLoader.exists(icon_path) else null
 	var level: int = int(project.get("target_level", 1))
 	var required: Dictionary = project.get("required_materials", {})
 	var reserved: Dictionary = project.get("materials", {})
@@ -123,7 +131,7 @@ func _refresh() -> void:
 	for resource_id in required:
 		_add_material_row(building_id, str(resource_id), int(reserved.get(resource_id, 0)), int(required.get(resource_id, 0)), started)
 	_start_button.disabled = started or not _system.is_project_ready(project)
-	_start_button.text = "СТРОИТЕЛЬСТВО ИДЁТ" if started else ("ЗАПУСТИТЬ СТРОИТЕЛЬСТВО" if not _start_button.disabled else "НЕ ХВАТАЕТ МАТЕРИАЛОВ")
+	_start_button.text = "СТРОИТЕЛЬСТВО ИДЁТ" if started else ("НАЧАТЬ СТРОИТЕЛЬСТВО" if not _start_button.disabled else "НЕ ХВАТАЕТ МАТЕРИАЛОВ")
 	_cancel_button.disabled = started
 
 func _add_material_row(building_id: String, resource_id: String, current: int, required: int, started: bool) -> void:
