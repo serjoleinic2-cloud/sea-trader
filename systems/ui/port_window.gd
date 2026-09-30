@@ -399,7 +399,7 @@ func _rebuild_shipyard_list() -> void:
 		button.add_theme_font_size_override("font_size", 17)
 		button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		button.vertical_icon_alignment = VERTICAL_ALIGNMENT_TOP
-		button.icon_max_width = 104
+		button.add_theme_constant_override("icon_max_width", 128)
 		button.expand_icon = true
 		var rank_text: String = "Ранг %d" % int(ship.get("command_rank_required", 1))
 		button.text = "%s\nГруз %d · скорость %d\n%s" % [str(ship.get("name", "Корабль")), int(ship.get("cargo_capacity", 0)), int(ship.get("base_speed", 0)), rank_text]
