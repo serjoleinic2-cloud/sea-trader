@@ -106,7 +106,7 @@
       "name": "Люди — Вольные порты",
       "portrait": "res://assets/characters/captains/humans_captain_full.webp",
       "captain_portrait": "res://assets/characters/captains/humans_captain_full.webp",
-      "emblem": "res://assets/ui/emblems/humans.svg",
+      "emblem": "res://assets/ui/emblems/humans.png",
       "palette": ["#132b43", "#2bbcc1", "#c49a58", "#d9e2e0"],
       "body_plan": "Обычная человеческая анатомия и открытые лица; разные черты, возраст и происхождение. Технологичную броню носят поверх практичной морской одежды.",
       "trade_identity": ["перевозки", "контракты", "корабельные детали", "припасы дальних рейсов"],

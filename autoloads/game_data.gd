@@ -13,7 +13,7 @@ const FACTION_ART: Dictionary = {
 	"meridians": {"emblem": preload("res://assets/ui/emblems/meridian.svg")},
 	"aery": {"emblem": preload("res://assets/ui/emblems/aery.svg")},
 	"crystari": {"emblem": preload("res://assets/ui/emblems/crystari.svg")},
-	"humans": {"emblem": preload("res://assets/ui/emblems/humans.svg")}
+	"humans": {"emblem": preload("res://assets/ui/emblems/humans.png")}
 }
 var _cache: Dictionary = {}
 
