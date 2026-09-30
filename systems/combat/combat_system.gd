@@ -24,6 +24,7 @@ func _process(_delta: float) -> void:
     if _catalog.is_empty():
         return
     _normalize_state()
+    _award_mage_guild_starter_shards()
     _complete_recruitment()
     _complete_construction()
     _complete_player_raid()
@@ -177,6 +178,15 @@ func get_crystal_level() -> int:
 
 func get_magic_shards() -> int:
     return maxi(0, int(GameState.combat_state.get("magic_shards", 0)))
+
+func _award_mage_guild_starter_shards() -> void:
+    var state: Dictionary = GameState.combat_state
+    if bool(state.get("mage_guild_starter_shards_awarded", false)) or get_mage_guild_level() < 1:
+        return
+    state["magic_shards"] = maxi(0, int(state.get("magic_shards", 0))) + 3
+    state["mage_guild_starter_shards_awarded"] = true
+    GameState.combat_state = state
+    SaveSystem.save_game()
 
 func get_crystal_recipe(crystal_id: String) -> Dictionary:
     var recipe: Dictionary = _mage_guild_rules.get("crystal_recipes", {}).get(crystal_id, {}).duplicate(true)

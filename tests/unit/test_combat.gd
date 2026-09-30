@@ -79,6 +79,7 @@ func test_garrison_levels_unlock_units_and_towers_affect_defense() -> void:
 func test_mage_guild_creates_crystals_and_levels_all_existing_crystals() -> void:
     GameState.port_state.home["buildings"] = {"mage_guild": {"level": 1, "status": "active"}}
     GameState.combat_state["magic_shards"] = 6
+    GameState.combat_state["mage_guild_starter_shards_awarded"] = true
     GameState.combat_state["towers"] = [{"type": "island", "crystal_id": "crystal_power"}]
     var starting_money: float = GameState.player_state.money
     var starting_parts: int = int(GameState.port_state.home.inventory.resource_parts)
@@ -100,6 +101,13 @@ func test_mage_guild_creates_crystals_and_levels_all_existing_crystals() -> void
         {"type": "island", "crystal_id": "crystal_power"}
     ]
     assert_eq(float(_system.get_tower_bonuses().attack), 40.0, "combined tower attack bonus is capped at forty percent")
+
+func test_first_mage_guild_unlock_grants_a_one_time_starter_crystal() -> void:
+    GameState.port_state.home["buildings"] = {"mage_guild": {"level": 1, "status": "active"}}
+    _system._process(0.0)
+    assert_eq(_system.get_magic_shards(), 3, "the first guild level provides enough shards for one crystal")
+    _system._process(0.0)
+    assert_eq(_system.get_magic_shards(), 3, "the starter shards are granted only once")
 
 func test_towers_unlock_at_garrison_levels_two_and_four() -> void:
     GameState.combat_state.garrison_level = 1

@@ -162,7 +162,7 @@ func _refresh() -> void:
 	elif not _system.is_at_home():
 		_status.text = "Гильдия действует на домашнем острове. Вернитесь в главный порт, чтобы создавать кристаллы."
 	else:
-		_status.text = "Уровень гильдии автоматически усиливает все созданные и установленные кристаллы. Осколки дают победы в бою: за первую победу и затем за каждую третью. Кристалла скорости нет."
+		_status.text = "Уровень гильдии усиливает все кристаллы. При первом открытии выдано 3 стартовых осколка; новые дают победы в бою: за первую и затем за каждую третью. Кристалла скорости нет."
 	var inventory: Dictionary = _system.get_crystal_inventory()
 	var home_port: Dictionary = GameState.port_state.get(_system.get_home_port_id(), {})
 	var home_inventory: Dictionary = home_port.get("inventory", {})

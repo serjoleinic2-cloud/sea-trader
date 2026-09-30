@@ -101,6 +101,7 @@ func default_combat_state() -> Dictionary:
 		"towers": [],
 		"crystals": {"crystal_power": 0, "crystal_guard": 0, "crystal_wind": 0},
 		"magic_shards": 0,
+		"mage_guild_starter_shards_awarded": false,
 		"battle_victories": 0,
 		"next_crystal_reward": 0,
 		"fort_integrity": 100.0,
