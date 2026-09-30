@@ -26,8 +26,8 @@ func _process(_delta: float) -> void:
     _complete_player_raid()
     var state: Dictionary = GameState.combat_state
     if _now() >= int(state.get("next_defense_at", 0)) and not bool(state.get("active_raid", {}).get("active", false)):
-        var level: int = int(state.get("garrison_level", 1))
-        var enemy_power: int = _rng.randi_range(14 + level * 5, 25 + level * 10)
+        var home_power: int = maxi(1, get_defense_power())
+        var enemy_power: int = _rng.randi_range(maxi(1, int(float(home_power) * 0.45)), maxi(2, int(float(home_power) * 0.60)))
         resolve_hidden_attack(enemy_power, "Пиратский отряд")
 
 func _normalize_state() -> void:
@@ -73,6 +73,9 @@ func _normalize_state() -> void:
         state["battle_victories"] = 0
     if int(state.get("next_crystal_reward", -1)) < 0:
         state["next_crystal_reward"] = 0
+    if int(state.get("defense_schedule_version", 0)) < 1:
+        state["next_defense_at"] = _now() + _next_home_raid_delay()
+        state["defense_schedule_version"] = 1
     var units: Dictionary = state.units
     if not units.has("coast_guard"):
         units["coast_guard"] = {"count": 8, "level": 1, "experience": 0}
@@ -84,6 +87,11 @@ func _rules() -> Dictionary:
 
 func _now() -> int:
     return int(Time.get_unix_time_from_system())
+
+func _next_home_raid_delay() -> int:
+    var base: int = int(_rules().get("passive_attack_interval_seconds", 259200))
+    var jitter: int = int(_rules().get("passive_attack_jitter_seconds", 172800))
+    return base + _rng.randi_range(0, maxi(0, jitter))
 
 func get_home_port_id() -> String:
     return str(GameState.world_state.get("home_port_id", ""))
@@ -479,8 +487,7 @@ func resolve_hidden_attack(enemy_power: int, enemy_name: String = "Пираты"
         return _result(false, "Сначала завершите текущую операцию.")
     enemy_power = maxi(1, enemy_power)
     var report: Dictionary = _resolve_battle(enemy_power, "defense", enemy_name)
-    var interval: int = int(_rules().get("passive_attack_interval_seconds", 21600))
-    GameState.combat_state["next_defense_at"] = _now() + interval
+    GameState.combat_state["next_defense_at"] = _now() + _next_home_raid_delay()
     _store_report(report)
     return {"ok": true, "report": report, "message": "Было нападение на базу. " + str(report.get("summary", ""))}
 
@@ -568,14 +575,14 @@ func _complete_player_raid() -> void:
 func _resolve_battle(enemy_power: int, kind: String, enemy_name: String) -> Dictionary:
     var own_power: int = get_defense_power() if kind == "defense" else get_attack_power()
     var won: bool = own_power >= enemy_power
-    var unit_losses: Dictionary = _apply_casualties(won, own_power, enemy_power)
+    var unit_losses: Dictionary = _apply_casualties(won, own_power, enemy_power, kind == "defense")
     _award_unit_experience(won)
     var enemy_unit_count: int = maxi(1, int(ceil(float(enemy_power) / 8.0)))
     var enemy_losses: int = mini(enemy_unit_count, int(ceil(float(enemy_unit_count) * (0.30 if won else 0.08))))
     var base_damage: float = 0.0
     var lost_goods: int = 0
     if kind == "defense" and not won:
-        base_damage = 8.0
+        base_damage = 3.0
         GameState.combat_state["fort_integrity"] = maxf(0.0, float(GameState.combat_state.get("fort_integrity", 100.0)) - base_damage)
         lost_goods = _apply_stock_losses()
     var outcome: String = "Победа" if won else "Поражение"
@@ -600,13 +607,13 @@ func _resolve_battle(enemy_power: int, kind: String, enemy_name: String) -> Dict
         "summary": summary
     }
 
-func _apply_casualties(won: bool, own_power: int, enemy_power: int) -> Dictionary:
+func _apply_casualties(won: bool, own_power: int, enemy_power: int, home_defense: bool = false) -> Dictionary:
     var losses: Dictionary = {}
     var units: Dictionary = GameState.combat_state.get("units", {})
     var total: int = _total_units()
     if total <= 1:
         return losses
-    var ratio: float = 0.025 if won else 0.12
+    var ratio: float = (0.01 if won else 0.04) if home_defense else (0.025 if won else 0.12)
     if own_power <= 0:
         ratio = 0.0
     var loss_count: int = mini(total - 1, int(round(float(total) * ratio)))
@@ -644,14 +651,14 @@ func _apply_stock_losses() -> int:
     var total: int = 0
     for value in inventory.values():
         total += maxi(0, int(value))
-    var target_loss: int = mini(10, int(floor(float(total) * 0.02)))
+    var target_loss: int = mini(8, int(floor(float(total) * 0.005)))
     var remaining: int = target_loss
     for raw_id in inventory.keys():
         if remaining <= 0:
             break
         var id: String = str(raw_id)
         var amount: int = maxi(0, int(inventory[id]))
-        var lost: int = mini(amount, int(floor(float(amount) * 0.02)))
+        var lost: int = mini(amount, int(floor(float(amount) * 0.005)))
         if lost > 0:
             inventory[id] = amount - lost
             remaining -= lost
