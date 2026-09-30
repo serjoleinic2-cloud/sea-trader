@@ -37,9 +37,11 @@ Events must work without forcing a player to be online while sailing.
 A port is a developable base. Its buildings have independent levels and must
 produce gameplay effects: docks affect service access, warehouses affect cargo
 capacity, workshops affect repair and upgrades, markets affect trade and
-contracts, shipyards affect ship tiers, and harbor offices affect company,
-event and unique-item administration. Numeric effects and construction costs
-remain data-driven balance decisions.
+contracts, shipyards affect ship tiers, and the Mage Guild enables tower
+crystals. The harbor office is only a future concept for company, event and
+unique-item administration; it is not available in the current construction
+menu because those systems are not implemented. Numeric effects and
+construction costs remain data-driven balance decisions.
 
 ## Unique Items
 

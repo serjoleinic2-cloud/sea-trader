@@ -32,12 +32,6 @@
       "resource_rope": 10,
       "resource_paint": 5
     },
-    "harbor_office": {
-      "resource_timber": 14,
-      "resource_nails": 8,
-      "resource_glass": 5,
-      "resource_paint": 4
-    },
     "fishing_wharf": {
       "resource_timber": 14,
       "resource_nails": 7,

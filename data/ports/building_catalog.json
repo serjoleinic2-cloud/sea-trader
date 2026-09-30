@@ -57,16 +57,15 @@
       "ui_icon": "res://assets/ui/cards/shipyard.svg"
     },
     {
-      "building_id": "harbor_office",
-      "display_name": "Портовая администрация",
-      "role": "Company, event and unique-item administration.",
+      "building_id": "mage_guild",
+      "display_name": "Гильдия магов",
+      "role": "Создание кристаллов для башен и усиление их свойств.",
       "max_level": 30,
       "effect_ids": [
-        "event_access",
-        "company_management",
-        "item_registry"
+        "crystal_crafting",
+        "crystal_growth"
       ],
-      "ui_icon": "res://assets/ui/cards/harbor_office.svg"
+      "ui_icon": "res://assets/ui/cards/mage_guild.svg"
     },
     {
       "building_id": "fishing_wharf",
@@ -87,17 +86,6 @@
         "produce_timber"
       ],
       "ui_icon": "res://assets/ui/cards/timber_yard.svg"
-    },
-    {
-      "building_id": "mage_guild",
-      "display_name": "Гильдия магов",
-      "role": "Создание кристаллов для башен и усиление их свойств.",
-      "max_level": 30,
-      "effect_ids": [
-        "crystal_crafting",
-        "crystal_growth"
-      ],
-      "ui_icon": "res://assets/ui/cards/mage_guild.svg"
     }
   ],
   "balance_status": "Material-funded 30-level building progression; numeric effects remain provisional."
