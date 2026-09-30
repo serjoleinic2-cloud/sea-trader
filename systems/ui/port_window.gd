@@ -256,10 +256,10 @@ func _process(_delta: float) -> void:
 	_sheet.position = (viewport_size - _sheet.size) * 0.5 - Vector2(0.0, 38.0)
 	_bottom_menu.size = Vector2(minf(1220.0 if desktop_layout else 920.0, viewport_size.x - 24.0), 82.0)
 	if _content_scroll != null:
-		var card_section: bool = _current_section == "construction" or _current_section == "shipyard"
-		var disable_card_scroll: bool = desktop_layout and viewport_size.y >= 760.0 and card_section
-		_content_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED if disable_card_scroll else ScrollContainer.SCROLL_MODE_AUTO
-		_content_scroll.custom_minimum_size.y = minf(480.0, maxf(320.0, viewport_size.y - 240.0)) if desktop_layout else 300.0
+		# Menus are sized for the PC workspace and remain fixed; the content
+		# area must never re-enable a vertical scroll bar on another tab.
+		_content_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+		_content_scroll.custom_minimum_size.y = minf(560.0, maxf(320.0, viewport_size.y - 240.0)) if desktop_layout else 300.0
 	_bottom_menu.position = Vector2((viewport_size.x - _bottom_menu.size.x) * 0.5, viewport_size.y - _bottom_menu.size.y - 14.0)
 	var is_home: bool = docked_port == str(GameState.world_state.get("home_port_id", ""))
 	if is_home and docked_port != _last_home_port_id:
