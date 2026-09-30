@@ -9,7 +9,8 @@
       "effect_ids": [
         "docking_access",
         "service_capacity"
-      ]
+      ],
+      "ui_icon": "res://assets/ui/cards/dock.svg"
     },
     {
       "building_id": "warehouse",
@@ -19,7 +20,8 @@
       "effect_ids": [
         "cargo_storage",
         "market_stock"
-      ]
+      ],
+      "ui_icon": "res://assets/ui/cards/warehouse.svg"
     },
     {
       "building_id": "workshop",
@@ -29,7 +31,8 @@
       "effect_ids": [
         "repair_access",
         "upgrade_access"
-      ]
+      ],
+      "ui_icon": "res://assets/ui/cards/workshop.svg"
     },
     {
       "building_id": "market",
@@ -39,7 +42,8 @@
       "effect_ids": [
         "trade_offers",
         "contract_quality"
-      ]
+      ],
+      "ui_icon": "res://assets/ui/cards/market.svg"
     },
     {
       "building_id": "shipyard",
@@ -49,7 +53,8 @@
       "effect_ids": [
         "ship_purchase",
         "ship_tier_access"
-      ]
+      ],
+      "ui_icon": "res://assets/ui/cards/shipyard.svg"
     },
     {
       "building_id": "harbor_office",
@@ -60,7 +65,8 @@
         "event_access",
         "company_management",
         "item_registry"
-      ]
+      ],
+      "ui_icon": "res://assets/ui/cards/harbor_office.svg"
     },
     {
       "building_id": "fishing_wharf",
@@ -69,7 +75,8 @@
       "max_level": 30,
       "effect_ids": [
         "produce_fish"
-      ]
+      ],
+      "ui_icon": "res://assets/ui/cards/fishing_wharf.svg"
     },
     {
       "building_id": "timber_yard",
@@ -78,7 +85,8 @@
       "max_level": 30,
       "effect_ids": [
         "produce_timber"
-      ]
+      ],
+      "ui_icon": "res://assets/ui/cards/timber_yard.svg"
     }
   ],
   "balance_status": "Material-funded 30-level building progression; numeric effects remain provisional."
