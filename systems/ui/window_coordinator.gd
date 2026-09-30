@@ -19,6 +19,7 @@ func initialize(main: Node) -> void:
 	layer = 90
 	process_priority = 1000
 	for window in main.get_children():
+		_disable_scrolling(window)
 		if not window.has_meta("workspace_flag"):
 			continue
 		var panel: PanelContainer = window.get("_panel")
@@ -28,7 +29,6 @@ func initialize(main: Node) -> void:
 		_entries.append({"window": window, "flag": flag, "was_open": false, "panel": panel})
 		window.layer = 60
 		_wrap_panel(window, panel, flag)
-		_disable_scrolling(window)
 	_toolbar = HBoxContainer.new()
 	_toolbar.add_theme_constant_override("separation", 8)
 	add_child(_toolbar)
