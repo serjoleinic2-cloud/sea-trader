@@ -124,7 +124,8 @@
       "resource_parts": 6
     },
     "tower_build_seconds": 45,
-    "passive_attack_interval_seconds": 21600,
+    "passive_attack_interval_seconds": 259200,
+    "passive_attack_jitter_seconds": 172800,
     "player_raid_duration_seconds": 45,
     "report_limit": 30,
     "max_recruitment_batch": 20,
