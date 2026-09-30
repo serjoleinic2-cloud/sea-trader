@@ -79,9 +79,11 @@ cargo_capacity: int       # max cargo units
 
 ### CombatState
 ```
-garrison_level: int          # 1–5; controls unit and tower unlocks
+garrison_level: int          # 1–5; towers unlock at levels 2 and 4
 units: {}                    # unit_id → { count, level, experience }
-towers: []                   # up to five crystal tower types and effects
+towers: []                   # up to two universal towers with a crystal socket
+crystals: {}                 # crystal_id → count; all owned crystals rise with Mage Guild level
+magic_shards: int            # non-tradeable crafting material earned from victories/events
 fort_integrity: float        # 0–100; damaged by a lost base defense
 recruitment: {}              # one active training job with completion timestamp
 construction_job: {}         # garrison/tower project with materials already reserved

@@ -100,6 +100,7 @@ func default_combat_state() -> Dictionary:
 		"units": {"coast_guard": {"count": 8, "level": 1, "experience": 0}},
 		"towers": [],
 		"crystals": {"crystal_power": 0, "crystal_guard": 0, "crystal_wind": 0},
+		"magic_shards": 0,
 		"battle_victories": 0,
 		"next_crystal_reward": 0,
 		"fort_integrity": 100.0,

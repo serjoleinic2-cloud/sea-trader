@@ -2,8 +2,10 @@ extends Node
 
 ## Offline-first, text-only combat simulation. Battle outcomes live in GameState.
 const CATALOG_PATH := "res://data/combat/unit_catalog.json"
+const MAGE_GUILD_RULES_PATH := "res://data/combat/mage_guild_rules.json"
 
 var _catalog: Dictionary = {}
+var _mage_guild_rules: Dictionary = {}
 var _rng: RandomNumberGenerator = RandomNumberGenerator.new()
 
 func _ready() -> void:
@@ -12,6 +14,7 @@ func _ready() -> void:
 
 func initialize() -> void:
     _catalog = GameData.read(CATALOG_PATH)
+    _mage_guild_rules = GameData.read(MAGE_GUILD_RULES_PATH)
     _normalize_state()
     var state: Dictionary = GameState.combat_state
     if int(state.get("next_defense_at", 0)) <= 0:
@@ -45,6 +48,7 @@ func _normalize_state() -> void:
         state["reports"] = []
     if not state.get("crystals", {}) is Dictionary:
         state["crystals"] = {}
+    state["magic_shards"] = maxi(0, int(state.get("magic_shards", 0)))
     var crystal_inventory: Dictionary = state.get("crystals", {})
     var old_wind_count: int = maxi(0, int(crystal_inventory.get("crystal_wind", 0)))
     if old_wind_count > 0:
@@ -149,7 +153,7 @@ func _normalize_tower_type(tower_type: String) -> String:
     return tower_type
 
 func get_crystal_definitions() -> Dictionary:
-    return _catalog.get("crystals", {}).duplicate(true)
+    return _mage_guild_rules.get("crystal_recipes", {}).duplicate(true)
 
 func get_crystal_order() -> Array:
     return _catalog.get("crystal_order", []).duplicate()
@@ -158,7 +162,96 @@ func get_crystal_inventory() -> Dictionary:
     return GameState.combat_state.get("crystals", {}).duplicate(true)
 
 func get_crystal_name(crystal_id: String) -> String:
-    return str(_catalog.get("crystals", {}).get(crystal_id, {}).get("name", crystal_id))
+    return str(_mage_guild_rules.get("crystal_recipes", {}).get(crystal_id, {}).get("name", crystal_id))
+
+func get_mage_guild_level() -> int:
+    var port: Dictionary = GameState.port_state.get(get_home_port_id(), {})
+    var buildings: Dictionary = port.get("buildings", {})
+    var guild: Dictionary = buildings.get("mage_guild", {})
+    if str(guild.get("status", "active")) != "active":
+        return 0
+    return clampi(int(guild.get("level", 0)), 0, int(_mage_guild_rules.get("max_level", 30)))
+
+func get_crystal_level() -> int:
+    return maxi(int(_mage_guild_rules.get("crystal_level_minimum", 1)), get_mage_guild_level())
+
+func get_magic_shards() -> int:
+    return maxi(0, int(GameState.combat_state.get("magic_shards", 0)))
+
+func get_crystal_recipe(crystal_id: String) -> Dictionary:
+    var recipe: Dictionary = _mage_guild_rules.get("crystal_recipes", {}).get(crystal_id, {}).duplicate(true)
+    if recipe.is_empty():
+        return {}
+    var level: int = maxi(1, get_mage_guild_level())
+    var growth: Dictionary = _mage_guild_rules.get("recipe_growth", {})
+    recipe["money"] = int(recipe.get("money", 0)) + (level - 1) * int(growth.get("money_per_guild_level_after_first", 0))
+    var decade_steps: int = int((level - 1) / 10)
+    recipe["resource_parts"] = int(recipe.get("resource_parts", 0)) + decade_steps * int(growth.get("parts_per_ten_guild_levels", 0))
+    recipe["magic_shards"] = int(recipe.get("magic_shards", 0)) + decade_steps * int(growth.get("shards_per_ten_guild_levels", 0))
+    return recipe
+
+func can_create_crystal(crystal_id: String) -> bool:
+    if not is_at_home() or get_mage_guild_level() < 1:
+        return false
+    var recipe: Dictionary = get_crystal_recipe(crystal_id)
+    if recipe.is_empty() or float(GameState.player_state.get("money", 0.0)) < float(recipe.get("money", 0)):
+        return false
+    var port: Dictionary = GameState.port_state.get(get_home_port_id(), {})
+    var inventory: Dictionary = port.get("inventory", {})
+    return int(inventory.get("resource_parts", 0)) >= int(recipe.get("resource_parts", 0)) and get_magic_shards() >= int(recipe.get("magic_shards", 0))
+
+func create_crystal(crystal_id: String) -> Dictionary:
+    if not is_at_home():
+        return _result(false, "Создавать кристаллы можно только в главном порту.")
+    if get_mage_guild_level() < 1:
+        return _result(false, "Сначала постройте гильдию магов.")
+    var recipe: Dictionary = get_crystal_recipe(crystal_id)
+    if recipe.is_empty():
+        return _result(false, "Неизвестный рецепт кристалла.")
+    if not can_create_crystal(crystal_id):
+        return _result(false, "Не хватает монет, запчастей или осколков магии.")
+    var old_combat: Dictionary = GameState.combat_state.duplicate(true)
+    var old_money: float = float(GameState.player_state.get("money", 0.0))
+    var old_port: Dictionary = GameState.port_state.get(get_home_port_id(), {}).duplicate(true)
+    var port: Dictionary = old_port.duplicate(true)
+    var inventory: Dictionary = port.get("inventory", {})
+    GameState.player_state["money"] = old_money - float(recipe.get("money", 0))
+    inventory["resource_parts"] = int(inventory.get("resource_parts", 0)) - int(recipe.get("resource_parts", 0))
+    port["inventory"] = inventory
+    GameState.port_state[get_home_port_id()] = port
+    var crystals: Dictionary = GameState.combat_state.get("crystals", {}).duplicate(true)
+    crystals[crystal_id] = int(crystals.get(crystal_id, 0)) + 1
+    GameState.combat_state["crystals"] = crystals
+    GameState.combat_state["magic_shards"] = get_magic_shards() - int(recipe.get("magic_shards", 0))
+    if not SaveSystem.save_game():
+        GameState.combat_state = old_combat
+        GameState.player_state["money"] = old_money
+        GameState.port_state[get_home_port_id()] = old_port
+        return _result(false, "Не удалось сохранить создание кристалла.")
+    return _result(true, "%s создан %d уровня." % [get_crystal_name(crystal_id), get_crystal_level()])
+
+func get_crystal_effect(crystal_id: String) -> Dictionary:
+    var per_level: Dictionary = _mage_guild_rules.get("effects_per_level", {}).get(crystal_id, {})
+    var result: Dictionary = {}
+    var level: int = get_crystal_level()
+    for effect_id in per_level:
+        result[effect_id] = float(per_level[effect_id]) * float(level)
+    return result
+
+func get_crystal_effect_text(crystal_id: String) -> String:
+    var effect: Dictionary = get_crystal_effect(crystal_id)
+    if effect.has("attack_percent"):
+        return "+%.1f%% к атаке" % float(effect.attack_percent)
+    if effect.has("defense_percent"):
+        return "+%.1f%% к броне" % float(effect.defense_percent)
+    if effect.has("luck_chance_percentage_points"):
+        return "+%.1f п.п. к шансу удачного удара" % float(effect.luck_chance_percentage_points)
+    return "Эффект не задан"
+
+func get_tower_slot_limit() -> int:
+    var slots: Array = _rules().get("tower_slots_by_garrison_level", [])
+    var level: int = clampi(get_garrison_level(), 1, int(_rules().get("max_garrison_level", 5)))
+    return int(slots[level]) if level < slots.size() else 0
 
 func set_tower_crystal(tower_index: int, crystal_id: String) -> Dictionary:
     if not is_at_home():
@@ -203,15 +296,16 @@ func get_towers() -> Array:
 
 func get_tower_bonuses() -> Dictionary:
     var result: Dictionary = {"attack": 0.0, "defense": 0.0, "luck": 0.0}
-    var defs: Dictionary = _catalog.get("crystals", {})
     for raw_tower in get_towers():
         var tower: Dictionary = raw_tower
-        var definition: Dictionary = defs.get(str(tower.get("crystal_id", "")), {})
-        result["attack"] += float(definition.get("attack_bonus", 0.0))
-        result["defense"] += float(definition.get("defense_bonus", 0.0))
-        result["luck"] += float(definition.get("luck_bonus", 0.0))
-    for key in result:
-        result[key] = minf(float(result[key]), 40.0)
+        var effect: Dictionary = get_crystal_effect(str(tower.get("crystal_id", "")))
+        result["attack"] += float(effect.get("attack_percent", 0.0))
+        result["defense"] += float(effect.get("defense_percent", 0.0))
+        result["luck"] += float(effect.get("luck_chance_percentage_points", 0.0))
+    var caps: Dictionary = _mage_guild_rules.get("effect_caps", {})
+    result["attack"] = minf(float(result.attack), float(caps.get("attack_percent", 40.0)))
+    result["defense"] = minf(float(result.defense), float(caps.get("defense_percent", 40.0)))
+    result["luck"] = minf(float(result.luck), float(caps.get("luck_chance_percentage_points", 24.0)))
     return result
 
 func get_defense_power() -> int:
@@ -222,8 +316,11 @@ func get_defense_power() -> int:
     for unit_id in units:
         var saved: Dictionary = units[unit_id]
         var definition: Dictionary = defs.get(str(unit_id), {})
-        var luck_power: float = _unit_stat(definition, saved, "luck") * 0.3 * (1.0 + float(bonuses.luck) / 100.0)
-        total += float(saved.get("count", 0)) * (_unit_stat(definition, saved, "defense") + luck_power)
+        var luck_power: float = _unit_stat(definition, saved, "luck") * 0.3
+        var defense_stat: float = _unit_stat(definition, saved, "defense")
+        if str(unit_id) == "coast_guard":
+            defense_stat *= 1.15
+        total += float(saved.get("count", 0)) * (defense_stat + luck_power)
     var integrity: float = float(GameState.combat_state.get("fort_integrity", 100.0)) / 100.0
     return maxi(0, int(round(total * (1.0 + float(bonuses.defense) / 100.0) * integrity)))
 
@@ -235,8 +332,11 @@ func get_attack_power() -> int:
     for unit_id in units:
         var saved: Dictionary = units[unit_id]
         var definition: Dictionary = defs.get(str(unit_id), {})
-        var luck_power: float = _unit_stat(definition, saved, "luck") * 0.3 * (1.0 + float(bonuses.luck) / 100.0)
-        total += float(saved.get("count", 0)) * (_unit_stat(definition, saved, "attack") + luck_power)
+        var luck_power: float = _unit_stat(definition, saved, "luck") * 0.3
+        var attack_stat: float = _unit_stat(definition, saved, "attack")
+        if str(unit_id) == "wind_rider":
+            attack_stat *= 1.12
+        total += float(saved.get("count", 0)) * (attack_stat + luck_power)
     return maxi(0, int(round(total * (1.0 + float(bonuses.attack) / 100.0))))
 
 func get_average_speed() -> float:
@@ -254,7 +354,15 @@ func get_average_speed() -> float:
 
 func _unit_stat(definition: Dictionary, saved: Dictionary, stat: String) -> float:
     var level: int = int(saved.get("level", 1))
-    return float(definition.get(stat, 0.0)) * (1.0 + 0.08 * float(maxi(0, level - 1)))
+    var growth_levels: int = maxi(0, level - 1)
+    match stat:
+        "attack", "defense":
+            return float(definition.get(stat, 0.0)) * (1.0 + 0.10 * float(growth_levels))
+        "speed":
+            return float(definition.get(stat, 0.0)) * (1.0 + 0.05 * float(growth_levels))
+        "luck":
+            return float(definition.get(stat, 0.0)) + float(growth_levels)
+    return float(definition.get(stat, 0.0))
 
 func get_garrison_upgrade_cost() -> Dictionary:
     var costs: Array = _catalog.get("garrison_upgrade_costs", [])
@@ -279,11 +387,7 @@ func can_upgrade_garrison() -> bool:
     return is_at_home() and GameState.combat_state.get("construction_job", {}).is_empty() and _can_pay_cost(get_garrison_upgrade_cost())
 
 func _tower_slot_limit() -> int:
-    var slots: Array = _rules().get("tower_slots_by_garrison_level", [])
-    var level: int = clampi(get_garrison_level(), 1, int(_rules().get("max_garrison_level", 5)))
-    if level < slots.size():
-        return mini(3, int(slots[level]))
-    return mini(3, level)
+    return get_tower_slot_limit()
 
 func can_build_tower(tower_type: String) -> bool:
     var towers: Array = GameState.combat_state.get("towers", [])
@@ -574,15 +678,18 @@ func _complete_player_raid() -> void:
 
 func _resolve_battle(enemy_power: int, kind: String, enemy_name: String) -> Dictionary:
     var own_power: int = get_defense_power() if kind == "defense" else get_attack_power()
-    var won: bool = own_power >= enemy_power
-    var unit_losses: Dictionary = _apply_casualties(won, own_power, enemy_power, kind == "defense")
+    enemy_power = maxi(1, enemy_power)
+    var luck_result: Dictionary = _resolve_lucky_strikes(enemy_power, kind)
+    var effective_enemy_power: int = int(luck_result.get("effective_enemy_power", enemy_power))
+    var won: bool = own_power >= effective_enemy_power
+    var unit_losses: Dictionary = _apply_casualties(won, own_power, effective_enemy_power, kind == "defense")
     _award_unit_experience(won)
     var enemy_unit_count: int = maxi(1, int(ceil(float(enemy_power) / 8.0)))
     var enemy_losses: int = mini(enemy_unit_count, int(ceil(float(enemy_unit_count) * (0.30 if won else 0.08))))
     var base_damage: float = 0.0
     var lost_goods: int = 0
     if kind == "defense" and not won:
-        base_damage = 3.0
+        base_damage = 2.4 if int(GameState.combat_state.get("units", {}).get("stone_warden", {}).get("count", 0)) > 0 else 3.0
         GameState.combat_state["fort_integrity"] = maxf(0.0, float(GameState.combat_state.get("fort_integrity", 100.0)) - base_damage)
         lost_goods = _apply_stock_losses()
     var outcome: String = "Победа" if won else "Поражение"
@@ -591,6 +698,9 @@ func _resolve_battle(enemy_power: int, kind: String, enemy_name: String) -> Dict
         summary += " Укрепления: -%.0f%%." % base_damage
     if lost_goods > 0:
         summary += " Потеряно складских единиц: %d." % lost_goods
+    var lucky_summary: String = str(luck_result.get("summary", ""))
+    if lucky_summary != "":
+        summary += " " + lucky_summary
     return {
         "id": int(GameState.combat_state.get("report_sequence", 0)) + 1,
         "kind": kind,
@@ -598,12 +708,61 @@ func _resolve_battle(enemy_power: int, kind: String, enemy_name: String) -> Dict
         "outcome": outcome,
         "won": won,
         "enemy_power": enemy_power,
+        "effective_enemy_power": effective_enemy_power,
         "own_power": own_power,
         "unit_losses": unit_losses,
         "enemy_unit_losses": enemy_losses,
         "fort_damage": base_damage,
         "goods_lost": lost_goods,
+        "lucky_effects": luck_result.get("effects", []),
+        "armor_reduction_percent": luck_result.get("armor_reduction_percent", 0.0),
+        "vitality_damage": luck_result.get("vitality_damage", 0),
         "timestamp": _now(),
+        "summary": summary
+    }
+
+func _resolve_lucky_strikes(enemy_power: int, kind: String) -> Dictionary:
+    var armor_reduction: float = 0.0
+    var vitality_damage: float = 0.0
+    var vitality_limit: float = float(enemy_power) * 0.20
+    var effects: Array[String] = []
+    var luck_bonus: float = float(get_tower_bonuses().get("luck", 0.0))
+    var cap: float = float(_mage_guild_rules.get("effect_caps", {}).get("final_luck_chance_percentage", 35.0))
+    var units: Dictionary = GameState.combat_state.get("units", {})
+    var definitions: Dictionary = _catalog.get("units", {})
+    for unit_id in units:
+        var saved: Dictionary = units[unit_id]
+        var count: int = maxi(0, int(saved.get("count", 0)))
+        if count <= 0:
+            continue
+        var definition: Dictionary = definitions.get(str(unit_id), {})
+        var chance: float = minf(cap, 2.0 + 0.5 * _unit_stat(definition, saved, "luck") + luck_bonus)
+        if _rng.randf() * 100.0 >= chance:
+            continue
+        var group_attack: float = float(count) * (_unit_stat(definition, saved, "attack") + _unit_stat(definition, saved, "luck") * 0.3)
+        match str(unit_id):
+            "rune_spearman":
+                armor_reduction += 6.0
+                effects.append("Рунный пробой −6% брони")
+            "coast_guard":
+                vitality_damage = minf(vitality_limit, vitality_damage + group_attack * 0.25)
+                effects.append("Караул: дополнительный удар")
+            "wind_rider":
+                vitality_damage = minf(vitality_limit, vitality_damage + group_attack * 0.35)
+                effects.append("Фланговый налёт: дополнительный урон")
+            "storm_drake":
+                armor_reduction += 4.0
+                vitality_damage = minf(vitality_limit, vitality_damage + group_attack * 0.15)
+                effects.append("Грозовой выдох: броня и живучесть")
+    armor_reduction = minf(24.0, armor_reduction)
+    var reduced_power: int = maxi(1, int(ceil(float(enemy_power) * (1.0 - armor_reduction / 100.0))))
+    var effective_power: int = maxi(1, int(ceil(float(reduced_power) - vitality_damage)))
+    var summary: String = "Удачные удары: %s." % ", ".join(effects) if not effects.is_empty() else ""
+    return {
+        "effective_enemy_power": effective_power,
+        "armor_reduction_percent": armor_reduction,
+        "vitality_damage": int(round(vitality_damage)),
+        "effects": effects,
         "summary": summary
     }
 
@@ -614,6 +773,8 @@ func _apply_casualties(won: bool, own_power: int, enemy_power: int, home_defense
     if total <= 1:
         return losses
     var ratio: float = (0.01 if won else 0.04) if home_defense else (0.025 if won else 0.12)
+    if home_defense and int(units.get("stone_warden", {}).get("count", 0)) > 0:
+        ratio *= 0.85
     if own_power <= 0:
         ratio = 0.0
     var loss_count: int = mini(total - 1, int(round(float(total) * ratio)))
@@ -666,31 +827,24 @@ func _apply_stock_losses() -> int:
     GameState.port_state[port_id] = port
     return target_loss - remaining
 
-func _award_crystal_for_victory(report: Dictionary) -> void:
+func _award_magic_shards_for_victory(report: Dictionary) -> void:
     var state: Dictionary = GameState.combat_state
     var victories: int = int(state.get("battle_victories", 0)) + 1
     state["battle_victories"] = victories
-    var interval: int = maxi(1, int(_rules().get("victories_between_crystal_rewards", 3)))
+    var rewards: Dictionary = _mage_guild_rules.get("shard_rewards", {})
+    var interval: int = maxi(1, int(rewards.get("first_and_each_nth_victory_interval", 3)))
     if victories != 1 and (victories - 1) % interval != 0:
         GameState.combat_state = state
         return
-    var order: Array = get_crystal_order()
-    if order.is_empty():
-        GameState.combat_state = state
-        return
-    var reward_index: int = int(state.get("next_crystal_reward", 0)) % order.size()
-    var crystal_id: String = str(order[reward_index])
-    var inventory: Dictionary = state.get("crystals", {})
-    inventory[crystal_id] = int(inventory.get(crystal_id, 0)) + 1
-    state["crystals"] = inventory
-    state["next_crystal_reward"] = reward_index + 1
-    report["crystal_reward"] = crystal_id
-    report["summary"] = str(report.get("summary", "")) + " Найден: %s." % get_crystal_name(crystal_id)
+    var shards: int = maxi(1, int(rewards.get("magic_shards_per_reward", 3)))
+    state["magic_shards"] = maxi(0, int(state.get("magic_shards", 0))) + shards
+    report["magic_shards_reward"] = shards
+    report["summary"] = str(report.get("summary", "")) + " Найдено осколков магии: %d." % shards
     GameState.combat_state = state
 
 func _store_report(report: Dictionary) -> void:
     if bool(report.get("won", false)):
-        _award_crystal_for_victory(report)
+        _award_magic_shards_for_victory(report)
     var state: Dictionary = GameState.combat_state
     var reports: Array = state.get("reports", [])
     reports.push_front(report)

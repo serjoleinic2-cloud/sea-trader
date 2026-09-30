@@ -416,6 +416,20 @@
       "args": []
     },
     {
+      "id": "MageGuildWindow",
+      "script": "res://systems/ui/mage_guild_window.gd",
+      "initialize": "initialize",
+      "args": [
+        "CombatSystem"
+      ],
+      "workspace_flag": "_open",
+      "navigation": {
+        "label": "Гильдия магов",
+        "method": "open",
+        "order": 70
+      }
+    },
+    {
       "id": "GarrisonWindow",
       "script": "res://systems/ui/garrison_window.gd",
       "initialize": "initialize",

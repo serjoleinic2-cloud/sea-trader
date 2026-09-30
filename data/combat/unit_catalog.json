@@ -110,7 +110,7 @@
   },
   "rules": {
     "max_garrison_level": 5,
-    "max_towers": 3,
+    "max_towers": 2,
     "garrison_upgrade_seconds": [
       0,
       60,
@@ -131,13 +131,12 @@
     "max_recruitment_batch": 20,
     "tower_slots_by_garrison_level": [
       0,
+      0,
+      1,
       1,
       2,
-      3,
-      3,
-      3
-    ],
-    "victories_between_crystal_rewards": 3
+      2
+    ]
   },
   "crystal_order": [
     "crystal_power",
@@ -147,24 +146,15 @@
   "crystals": {
     "crystal_power": {
       "name": "Кристалл атаки",
-      "description": "+8% к силе атаки отрядов",
-      "attack_bonus": 8,
-      "defense_bonus": 0,
-      "luck_bonus": 0
+      "description": "Усиливает атаку отрядов на 0,75% за уровень кристалла."
     },
     "crystal_guard": {
       "name": "Кристалл брони",
-      "description": "+8% к защите гарнизона",
-      "attack_bonus": 0,
-      "defense_bonus": 8,
-      "luck_bonus": 0
+      "description": "Усиливает броню отрядов на 0,75% за уровень кристалла."
     },
     "crystal_luck": {
       "name": "Кристалл удачи",
-      "description": "+8% к вкладу удачи в боевую силу",
-      "attack_bonus": 0,
-      "defense_bonus": 0,
-      "luck_bonus": 8
+      "description": "Повышает шанс удачного удара на 0,4 процентного пункта за уровень."
     }
   }
 }

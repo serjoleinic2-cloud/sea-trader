@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "max_level": 30,
+  "crystal_level_minimum": 1,
+  "effects_per_level": {
+    "crystal_power": {"attack_percent": 0.75},
+    "crystal_guard": {"defense_percent": 0.75},
+    "crystal_luck": {"luck_chance_percentage_points": 0.4}
+  },
+  "effect_caps": {
+    "attack_percent": 40.0,
+    "defense_percent": 40.0,
+    "luck_chance_percentage_points": 24.0,
+    "final_luck_chance_percentage": 35.0
+  },
+  "crystal_recipes": {
+    "crystal_power": {"name": "Кристалл атаки", "money": 350, "resource_parts": 4, "magic_shards": 3},
+    "crystal_guard": {"name": "Кристалл брони", "money": 350, "resource_parts": 4, "magic_shards": 3},
+    "crystal_luck": {"name": "Кристалл удачи", "money": 450, "resource_parts": 5, "magic_shards": 3}
+  },
+  "recipe_growth": {
+    "money_per_guild_level_after_first": 35,
+    "parts_per_ten_guild_levels": 1,
+    "shards_per_ten_guild_levels": 1
+  },
+  "shard_rewards": {
+    "first_and_each_nth_victory_interval": 3,
+    "magic_shards_per_reward": 3
+  }
+}

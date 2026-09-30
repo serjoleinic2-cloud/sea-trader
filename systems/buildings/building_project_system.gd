@@ -203,6 +203,8 @@ func get_effect_text(building_id: String, level: int) -> String:
 			return "Мастерская: откроет ремонт и улучшения, уровень %d." % level
 		"shipyard":
 			return "Верфь: строительство кораблей, уровень %d." % level
+		"mage_guild":
+			return "Уровень кристаллов: %d. Усиливает каждый сохранённый и установленный кристалл." % level
 		"market":
 			return "Рынок: будущая скидка и контракты, уровень %d." % level
 	return "Уровень здания: %d." % level

@@ -49,6 +49,13 @@
       "resource_nails": 9,
       "resource_rope": 5,
       "resource_paint": 2
+    },
+    "mage_guild": {
+      "resource_timber": 28,
+      "resource_nails": 16,
+      "resource_parts": 12,
+      "resource_glass": 10,
+      "resource_varnish": 5
     }
   },
   "growth_per_level": 0.12,

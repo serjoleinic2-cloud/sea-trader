@@ -271,7 +271,7 @@ func _build_defense_tab() -> void:
 	content.add_child(crystal_row)
 
 	var note := Label.new()
-	note.text = "На острове строятся одинаковые башни. Гарнизон 1, 2 и 3 уровня открывает по одной площадке; всего их не более трёх. В каждую подходит любой кристалл. Его можно снять и переставить."
+	note.text = "Башни открываются на 2 и 4 уровне гарнизона. Всего две универсальные площадки; в каждую устанавливается кристалл атаки, брони или удачи. Кристалл можно снять и переставить. Крафт и уровень кристаллов — в гильдии магов."
 	note.add_theme_font_size_override("font_size", 17)
 	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	content.add_child(note)
@@ -333,7 +333,7 @@ func _refresh() -> void:
 	_raid_bar.value = float(raid.get("percent", 0.0))
 	_raid_label.text = "Идёт вылазка к цели «%s»  •  %d%%  •  осталось %d сек." % [str(raid.get("target", "")), int(raid.get("percent", 0.0)), int(raid.get("seconds_left", 0))] if not raid.is_empty() else "Вылазок сейчас нет."
 
-	var can_build_more: bool = _system.get_towers().size() < mini(level, 3)
+	var can_build_more: bool = _system.get_towers().size() < _system.get_tower_slot_limit()
 	for tower_type in _tower_buttons:
 		var tower_button: Button = _tower_buttons[tower_type]
 		tower_button.disabled = not can_build_more or not _system.can_build_tower(str(tower_type))
@@ -352,7 +352,7 @@ func _refresh() -> void:
 
 func _format_towers(bonuses: Dictionary) -> String:
 	var towers: Array = _system.get_towers()
-	var slots: int = mini(_system.get_garrison_level(), 3)
+	var slots: int = _system.get_tower_slot_limit()
 	var contents: String = "Башен пока нет."
 	if not towers.is_empty():
 		contents = "Башни острова: "
@@ -366,7 +366,7 @@ func _format_towers(bonuses: Dictionary) -> String:
 	var available: int = 0
 	for count in inventory.values():
 		available += int(count)
-	return "%s  Площадки: %d / %d. Кристаллов в запасе: %d. Бонусы: сила +%.0f%%, защита +%.0f%%, скорость +%.0f%%." % [contents, towers.size(), slots, available, float(bonuses.get("attack", 0.0)), float(bonuses.get("defense", 0.0)), float(bonuses.get("speed", 0.0))]
+	return "%s  Площадки: %d / %d. Кристаллов в запасе: %d. Бонусы: атака +%.1f%%, броня +%.1f%%, шанс удачи +%.1f п.п." % [contents, towers.size(), slots, available, float(bonuses.get("attack", 0.0)), float(bonuses.get("defense", 0.0)), float(bonuses.get("luck", 0.0))]
 
 func _refresh_crystal_controls() -> void:
 	if _tower_slot_select == null or _crystal_select == null or _crystal_apply_button == null:

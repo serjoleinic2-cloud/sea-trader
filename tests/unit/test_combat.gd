@@ -47,7 +47,8 @@ func test_garrison_levels_unlock_units_and_towers_affect_defense() -> void:
     assert_eq(_system.get_garrison_level(), 2, "garrison progression is saved")
     assert_true(_system.can_recruit("rune_spearman", 1), "medium infantry unlocks at level two")
     var tower_result: Dictionary = _system.build_tower("guard")
-    assert_true(bool(tower_result.get("ok", false)), "level two supports two tower slots")
+    assert_true(bool(tower_result.get("ok", false)), "level two unlocks the first tower slot")
+    assert_eq(_system.get_tower_slot_limit(), 1, "level two has one tower slot")
     job = GameState.combat_state.construction_job
     job["completes_at"] = int(Time.get_unix_time_from_system())
     GameState.combat_state["construction_job"] = job
@@ -57,7 +58,8 @@ func test_garrison_levels_unlock_units_and_towers_affect_defense() -> void:
     assert_false(_system.get_tower_bonuses().has("speed"), "towers have no speed crystal bonus")
     var victory: Dictionary = _system.resolve_hidden_attack(1, "Разбойники")
     assert_true(bool(victory.get("report", {}).get("won", false)), "a successful defense is a crystal source")
-    assert_eq(int(_system.get_crystal_inventory().get("crystal_power", 0)), 1, "the first victory grants a predictable crystal")
+    assert_eq(_system.get_magic_shards(), 3, "the first victory grants three magic shards")
+    assert_eq(int(_system.get_crystal_inventory().get("crystal_power", 0)), 0, "crystals must be made at the Mage Guild")
     var install_result: Dictionary = _system.set_tower_crystal(0, "crystal_power")
     assert_true(bool(install_result.get("ok", false)), "any owned crystal fits the island tower")
     assert_gt(_system.get_tower_bonuses().attack, 0.0, "a socketed crystal gives its defined bonus")
@@ -65,6 +67,51 @@ func test_garrison_levels_unlock_units_and_towers_affect_defense() -> void:
     assert_true(bool(luck_install.get("ok", false)), "luck crystal can be installed in a tower")
     assert_gt(_system.get_tower_bonuses().luck, 0.0, "luck crystal improves the garrison luck contribution")
     assert_false(_system.get_tower_bonuses().has("speed"), "no crystal in a tower increases unit speed")
+
+func test_mage_guild_creates_crystals_and_levels_all_existing_crystals() -> void:
+    GameState.port_state.home["buildings"] = {"mage_guild": {"level": 1, "status": "active"}}
+    GameState.combat_state["magic_shards"] = 6
+    GameState.combat_state["towers"] = [{"type": "island", "crystal_id": "crystal_power"}]
+    var starting_money: float = GameState.player_state.money
+    var starting_parts: int = int(GameState.port_state.home.inventory.resource_parts)
+
+    var created: Dictionary = _system.create_crystal("crystal_power")
+    assert_true(bool(created.get("ok", false)), "the Mage Guild creates a crystal from parts and magic shards")
+    assert_eq(int(_system.get_crystal_inventory().crystal_power), 1)
+    assert_eq(_system.get_magic_shards(), 3)
+    assert_eq(float(GameState.player_state.money), starting_money - 350.0)
+    assert_eq(int(GameState.port_state.home.inventory.resource_parts), starting_parts - 4)
+    assert_eq(float(_system.get_tower_bonuses().attack), 0.75, "guild level one gives each crystal its first level")
+
+    GameState.port_state.home.buildings.mage_guild.level = 20
+    assert_eq(int(_system.get_crystal_level()), 20, "guild upgrades raise existing and installed crystals together")
+    assert_eq(float(_system.get_tower_bonuses().attack), 15.0, "level twenty crystal adds fifteen percent attack")
+    GameState.port_state.home.buildings.mage_guild.level = 30
+    GameState.combat_state.towers = [
+        {"type": "island", "crystal_id": "crystal_power"},
+        {"type": "island", "crystal_id": "crystal_power"}
+    ]
+    assert_eq(float(_system.get_tower_bonuses().attack), 40.0, "combined tower attack bonus is capped at forty percent")
+
+func test_towers_unlock_at_garrison_levels_two_and_four() -> void:
+    GameState.combat_state.garrison_level = 1
+    assert_eq(_system.get_tower_slot_limit(), 0)
+    GameState.combat_state.garrison_level = 2
+    assert_eq(_system.get_tower_slot_limit(), 1)
+    GameState.combat_state.garrison_level = 3
+    assert_eq(_system.get_tower_slot_limit(), 1)
+    GameState.combat_state.garrison_level = 4
+    assert_eq(_system.get_tower_slot_limit(), 2)
+    GameState.combat_state.garrison_level = 5
+    assert_eq(_system.get_tower_slot_limit(), 2)
+
+func test_unit_levels_use_approved_attribute_growth() -> void:
+    GameState.combat_state.units.coast_guard.level = 5
+    var coast_guard: Dictionary = _system.get_roster()[0]
+    assert_eq(int(coast_guard.attack), 4, "attack grows ten percent per level")
+    assert_eq(int(coast_guard.defense), 7, "defense grows ten percent per level")
+    assert_eq(int(coast_guard.speed), 8, "speed grows five percent per level")
+    assert_eq(int(coast_guard.luck), 7, "luck increases by one point per level")
 
 func test_hidden_defense_writes_report_without_battle_scene_and_limits_loss() -> void:
     GameState.port_state.home.inventory = {"resource_timber": 100, "resource_parts": 100}
