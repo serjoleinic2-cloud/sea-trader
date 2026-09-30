@@ -4,9 +4,21 @@
 
 Sea Trader is a cinematic fantasy maritime world: a working trade-and-exploration game with the scale and wonder of a fantasy film. The sea is beautiful, immense, and occasionally strange; warfare is not the world's defining identity.
 
-Mood references are broad only: the bioluminescent wonder, floating heights, and dramatic natural scale of *Avatar* and *Avatar: The Way of Water*; mythic Atlantean city imagery; and the monumental architecture and landscapes of *The Lord of the Rings*. Do not reproduce those franchises' characters, locations, symbols, or signature designs. Build an original visual language for Sea Trader.
+As of 2026-09-30, *Avatar: The Way of Water* is the direct art-direction reference for the Sea Trader environment. Earlier Atlantean and *The Lord of the Rings* references inform only maritime myth, scale, and monumentality. Do not reproduce any franchise's characters, locations, symbols, or signature designs; Sea Trader keeps original forms and worldbuilding.
 
 Use stylized realism: readable ship silhouettes, believable coastlines and scale, expressive lighting, and imaginative color. Art must remain legible on a phone and perform on mobile hardware.
+
+
+## Owner-locked visual style — 2026-09-30 (mandatory)
+
+This is the project's visual rule for **all** future graphics. Do not drift from it when adding a menu, scene, model, portrait, icon, effect, or promotional/gameplay asset. If an asset does not fit these references, redesign it to fit before adding it.
+
+- **Environment:** use the cinematic ocean world of *Avatar: The Way of Water* as the direct reference: clear turquoise shallows and lagoons, deep saturated blues, lush tropical shores, tall green cliffs, reefs, layered underwater light, and restrained bioluminescence at night. Build original Sea Trader islands, ports, skies, and landmarks.
+- **Heroes:** all heroes use the same mixed illustrated-realism fantasy style as `assets/characters/infantry_guardian.jpg` and `assets/characters/infantry_scout.jpg`: recognizable realistic faces and materials, painterly fantasy detail, maritime clothing/armor, blue-teal surroundings, and controlled gold/bronze accents. The two repository portraits are the current character-style anchors.
+- **Ships, buildings, props, creatures, and other objects:** keep believable silhouettes and materials with the same painterly, cinematic finish and ocean palette. Their detailing should feel handcrafted and maritime; do not mix in unrelated cartoon, anime, flat-vector, or hyper-real asset styles.
+- **Interface and icons:** make menus feel part of the same sea world: dark deep-sea panels, clear turquoise/cyan interaction accents, restrained brass/gold highlights, consistent illustrated card icons, and legible high-contrast text. PC/Steam layouts should use the available screen area and avoid scrollbars; arrange content to fit without cutting controls or labels.
+- **Effects and lighting:** water, wakes, spray, clouds, sunrise/sunset, underwater rays, and night glow follow the same cinematic color and material language. Keep effects readable and performance-scalable; glow must not overwhelm navigation or text.
+- **Consistency gate:** review every new or replaced visual asset against the environment reference, both character portraits, and the interface palette. Do not introduce another visual direction without the owner's explicit approval.
 
 ## Current implementation and source of truth
 
