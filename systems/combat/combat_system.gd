@@ -46,18 +46,28 @@ func _normalize_state() -> void:
     if not state.get("crystals", {}) is Dictionary:
         state["crystals"] = {}
     var crystal_inventory: Dictionary = state.get("crystals", {})
+    var old_wind_count: int = maxi(0, int(crystal_inventory.get("crystal_wind", 0)))
+    if old_wind_count > 0:
+        crystal_inventory["crystal_luck"] = maxi(0, int(crystal_inventory.get("crystal_luck", 0))) + old_wind_count
+    crystal_inventory.erase("crystal_wind")
     for crystal_id in _catalog.get("crystals", {}).keys():
         crystal_inventory[crystal_id] = maxi(0, int(crystal_inventory.get(crystal_id, 0)))
     state["crystals"] = crystal_inventory
-    var legacy_crystals: Dictionary = {"power": "crystal_power", "guard": "crystal_guard", "wind": "crystal_wind"}
+    var legacy_crystals: Dictionary = {"power": "crystal_power", "guard": "crystal_guard", "wind": "crystal_luck"}
     var towers: Array = state.get("towers", [])
     for index in range(towers.size()):
         var tower: Dictionary = towers[index]
         var old_type: String = str(tower.get("type", "island"))
-        if legacy_crystals.has(old_type) and str(tower.get("crystal_id", "")) == "":
-            tower["crystal_id"] = str(legacy_crystals[old_type])
+        var crystal_id: String = str(tower.get("crystal_id", ""))
+        if crystal_id == "crystal_wind":
+            crystal_id = "crystal_luck"
+        elif legacy_crystals.has(old_type) and crystal_id == "":
+            crystal_id = str(legacy_crystals[old_type])
+        if old_type in ["power", "guard", "wind"]:
             tower["type"] = "island"
-            towers[index] = tower
+        if crystal_id != str(tower.get("crystal_id", "")):
+            tower["crystal_id"] = crystal_id
+        towers[index] = tower
     state["towers"] = towers
     if int(state.get("battle_victories", -1)) < 0:
         state["battle_victories"] = 0
@@ -184,14 +194,14 @@ func get_towers() -> Array:
     return GameState.combat_state.get("towers", []).duplicate(true)
 
 func get_tower_bonuses() -> Dictionary:
-    var result: Dictionary = {"attack": 0.0, "defense": 0.0, "speed": 0.0}
+    var result: Dictionary = {"attack": 0.0, "defense": 0.0, "luck": 0.0}
     var defs: Dictionary = _catalog.get("crystals", {})
     for raw_tower in get_towers():
         var tower: Dictionary = raw_tower
         var definition: Dictionary = defs.get(str(tower.get("crystal_id", "")), {})
         result["attack"] += float(definition.get("attack_bonus", 0.0))
         result["defense"] += float(definition.get("defense_bonus", 0.0))
-        result["speed"] += float(definition.get("speed_bonus", 0.0))
+        result["luck"] += float(definition.get("luck_bonus", 0.0))
     for key in result:
         result[key] = minf(float(result[key]), 40.0)
     return result
@@ -200,11 +210,12 @@ func get_defense_power() -> int:
     var total: float = 0.0
     var units: Dictionary = GameState.combat_state.get("units", {})
     var defs: Dictionary = _catalog.get("units", {})
+    var bonuses: Dictionary = get_tower_bonuses()
     for unit_id in units:
         var saved: Dictionary = units[unit_id]
         var definition: Dictionary = defs.get(str(unit_id), {})
-        total += float(saved.get("count", 0)) * (_unit_stat(definition, saved, "defense") + _unit_stat(definition, saved, "luck") * 0.3)
-    var bonuses: Dictionary = get_tower_bonuses()
+        var luck_power: float = _unit_stat(definition, saved, "luck") * 0.3 * (1.0 + float(bonuses.luck) / 100.0)
+        total += float(saved.get("count", 0)) * (_unit_stat(definition, saved, "defense") + luck_power)
     var integrity: float = float(GameState.combat_state.get("fort_integrity", 100.0)) / 100.0
     return maxi(0, int(round(total * (1.0 + float(bonuses.defense) / 100.0) * integrity)))
 
@@ -212,12 +223,13 @@ func get_attack_power() -> int:
     var total: float = 0.0
     var units: Dictionary = GameState.combat_state.get("units", {})
     var defs: Dictionary = _catalog.get("units", {})
+    var bonuses: Dictionary = get_tower_bonuses()
     for unit_id in units:
         var saved: Dictionary = units[unit_id]
         var definition: Dictionary = defs.get(str(unit_id), {})
-        total += float(saved.get("count", 0)) * (_unit_stat(definition, saved, "attack") + _unit_stat(definition, saved, "luck") * 0.3)
-    var bonuses: Dictionary = get_tower_bonuses()
-    return maxi(0, int(round(total * (1.0 + float(bonuses.attack) / 100.0))))
+        var luck_power: float = _unit_stat(definition, saved, "luck") * 0.3 * (1.0 + float(bonuses.luck) / 100.0)
+        total += float(saved.get("count", 0)) * (_unit_stat(definition, saved, "attack") + luck_power)
+    return maxi(0, int(round(total * (1.0 + float(bonuses.attack) / 100.0)))
 
 func get_average_speed() -> float:
     var weighted_speed: float = 0.0
@@ -230,7 +242,7 @@ func get_average_speed() -> float:
         count += unit_count
     if count <= 0:
         return 0.0
-    return weighted_speed / float(count) * (1.0 + float(get_tower_bonuses().speed) / 100.0)
+    return weighted_speed / float(count)
 
 func _unit_stat(definition: Dictionary, saved: Dictionary, stat: String) -> float:
     var level: int = int(saved.get("level", 1))
