@@ -137,6 +137,20 @@ func _add_auxiliary_ship_card(ship: Dictionary) -> void:
 	title.add_theme_font_size_override("font_size", 19)
 	title.text = str(ship.get("name", "Корабль")).to_upper()
 	box.add_child(title)
+	var take_status: Dictionary = _fleet_system.get_take_control_status(ship_id)
+	var take_button: Button = Button.new()
+	take_button.text = "Сесть за штурвал"
+	take_button.custom_minimum_size.y = 42
+	take_button.disabled = not bool(take_status.get("ok", false))
+	take_button.tooltip_text = str(take_status.get("message", ""))
+	take_button.pressed.connect(_take_control.bind(ship_id))
+	box.add_child(take_button)
+	if not bool(take_status.get("ok", false)):
+		var take_hint: Label = Label.new()
+		take_hint.text = str(take_status.get("message", ""))
+		take_hint.add_theme_font_size_override("font_size", 16)
+		take_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		box.add_child(take_hint)
 	var route_label: Label = Label.new()
 	route_label.add_theme_font_size_override("font_size", 17)
 	if bool(voyage.get("in_transit", false)):
@@ -167,20 +181,6 @@ func _add_auxiliary_ship_card(ship: Dictionary) -> void:
 	select_button.custom_minimum_size.y = 36
 	select_button.pressed.connect(_select_ship.bind(ship_id))
 	box.add_child(select_button)
-	var take_status: Dictionary = _fleet_system.get_take_control_status(ship_id)
-	var take_button: Button = Button.new()
-	take_button.text = "Сесть за штурвал"
-	take_button.custom_minimum_size.y = 42
-	take_button.disabled = not bool(take_status.get("ok", false))
-	take_button.tooltip_text = str(take_status.get("message", ""))
-	take_button.pressed.connect(_take_control.bind(ship_id))
-	box.add_child(take_button)
-	if not bool(take_status.get("ok", false)):
-		var take_hint: Label = Label.new()
-		take_hint.text = str(take_status.get("message", ""))
-		take_hint.add_theme_font_size_override("font_size", 16)
-		take_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		box.add_child(take_hint)
 
 func _format_duration(seconds: float) -> String:
 	var total: int = maxi(0, int(ceil(seconds)))
