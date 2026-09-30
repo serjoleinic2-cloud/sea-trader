@@ -125,7 +125,10 @@ func _refresh() -> void:
 	var fleet_systems: Array[Node] = get_tree().get_nodes_in_group("fleet_system")
 	var ship_type: Dictionary = fleet_systems[0].get_ship_type(ship_type_id) if not fleet_systems.is_empty() else {}
 	var icon_path: String = str(ship_type.get("ui_icon", ""))
-	_ship_icon.texture = load(icon_path) as Texture2D if icon_path != "" and ResourceLoader.exists(icon_path) else null
+	if icon_path != "" and ResourceLoader.exists(icon_path):
+		_ship_icon.texture = load(icon_path) as Texture2D
+	else:
+		_ship_icon.texture = null
 	_details.text = "%s\n%s\nГруз: %d · скорость: %d\nЭкипаж: %d–%d · допуск: ранг %d\nМатериалы передаются со склада в проект." % [
 		str(ship_type.get("role", ship_type.get("name", "Корабль"))),
 		str(ship_type.get("era", "")),
