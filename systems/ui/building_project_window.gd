@@ -114,7 +114,10 @@ func _refresh() -> void:
 		return
 	var building_id: String = str(project.get("building_id", ""))
 	var icon_path: String = _system.get_building_icon_path(building_id)
-	_building_icon.texture = load(icon_path) as Texture2D if icon_path != "" and ResourceLoader.exists(icon_path) else null
+	if icon_path != "" and ResourceLoader.exists(icon_path):
+		_building_icon.texture = load(icon_path) as Texture2D
+	else:
+		_building_icon.texture = null
 	var level: int = int(project.get("target_level", 1))
 	var required: Dictionary = project.get("required_materials", {})
 	var reserved: Dictionary = project.get("materials", {})
