@@ -39,7 +39,7 @@ func _ready() -> void:
 	_title.add_theme_font_size_override("font_size", 30)
 	box.add_child(_title)
 	_ship_icon = TextureRect.new()
-	_ship_icon.custom_minimum_size = Vector2(0, 160)
+	_ship_icon.custom_minimum_size = Vector2(0, 120)
 	_ship_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	_ship_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	box.add_child(_ship_icon)
@@ -59,7 +59,7 @@ func _ready() -> void:
 	save_name_button.pressed.connect(_save_name.bind(""))
 	box.add_child(save_name_button)
 	var scroll: ScrollContainer = ScrollContainer.new()
-	scroll.custom_minimum_size.y = 510
+	scroll.custom_minimum_size.y = 340
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	box.add_child(scroll)
 	_material_list = VBoxContainer.new()
@@ -113,6 +113,7 @@ func _refresh() -> void:
 		child.queue_free()
 	var project: Dictionary = _system.get_project()
 	if project.is_empty():
+		_ship_icon.texture = null
 		_details.text = _notice
 		_build_button.disabled = true
 		return
