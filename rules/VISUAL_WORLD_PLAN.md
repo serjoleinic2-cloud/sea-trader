@@ -99,7 +99,7 @@ Ship tiers need distinct silhouettes: small boat, barque, schooner, freighter, a
 
 The owner has now selected *Avatar: The Way of Water* as the direct visual reference for the **environment**. Use its cinematic ocean-world qualities: luminous turquoise shallows and lagoons, saturated blue depths, tropical coastlines, lush cliffs and vegetation, layered underwater light, reefs, and restrained bioluminescence at night. The Sea Trader world must keep original coastlines, ports, ships, symbols, and landmark designs; use the film as an art-direction reference, not as a source for copied assets or locations.
 
-The **heroes** follow the mixed illustrated-realism style of the existing repository portraits: `assets/characters/infantry_guardian.jpg` and `assets/characters/infantry_scout.jpg`. Their faces and materials read close to realistic, with painterly fantasy detail, maritime clothing or armor, blue/teal surroundings, and restrained gold/bronze accents. New heroes should feel like they belong in the vivid ocean environment while remaining recognizably in this established Sea Trader character style.
+The **heroes and troops** use the mixed illustrated-realism finish of the existing repository portraits: `assets/characters/infantry_guardian.jpg` and `assets/characters/infantry_scout.jpg` are references for face rendering, painterly detail, and material treatment only. Their old clothing is not the equipment target. Player soldiers must wear fitted, advanced future armor with open faces, readable ancient geometry in the trim, cyan runes, restrained brass, and functional futuristic weapons. They should look supplied, trained, and technologically capable — never dressed in rags or primitive kit.
 
 ## Implemented visual foundation — 2026-09-27
 
