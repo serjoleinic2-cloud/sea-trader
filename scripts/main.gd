@@ -160,8 +160,8 @@ func _ready() -> void:
 
 func _show_race_selection() -> void:
 	var factions: Array = GameData.get_factions()
-	if factions.size() != 5:
-		_show_startup_error("Каталог пяти рас не найден или повреждён.")
+	if factions.size() != 6:
+		_show_startup_error("Каталог шести рас не найден или повреждён.")
 		return
 	_race_selection_screen = load("res://systems/ui/race_selection_screen.gd").new()
 	_race_selection_screen.name = "RaceSelectionScreen"

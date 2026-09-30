@@ -12,7 +12,8 @@ const FACTION_ART: Dictionary = {
 	"surr": {"emblem": preload("res://assets/ui/emblems/surr.svg")},
 	"meridians": {"emblem": preload("res://assets/ui/emblems/meridian.svg")},
 	"aery": {"emblem": preload("res://assets/ui/emblems/aery.svg")},
-	"crystari": {"emblem": preload("res://assets/ui/emblems/crystari.svg")}
+	"crystari": {"emblem": preload("res://assets/ui/emblems/crystari.svg")},
+	"humans": {"emblem": preload("res://assets/ui/emblems/humans.svg")}
 }
 var _cache: Dictionary = {}
 
@@ -86,7 +87,7 @@ func get_faction_emblem(faction_id: String) -> Texture2D:
 
 func get_faction_portrait(faction_id: String) -> Texture2D:
 	var faction: Dictionary = get_faction(faction_id)
-	var path: String = str(faction.get("portrait", ""))
+	var path: String = str(faction.get("captain_portrait", faction.get("portrait", "")))
 	if path == "" or not ResourceLoader.exists(path):
 		return get_faction_emblem(faction_id)
 	var portrait: Resource = load(path)
@@ -103,8 +104,8 @@ func validate() -> Array[String]:
 	errors.append_array(validator.validate_building_rules(read("res://data/ports/building_rules.json"), read("res://data/ports/building_catalog.json"), read(GOODS)))
 	var faction_ids: Dictionary = {}
 	var factions: Array = get_factions()
-	if factions.size() != 5:
-		errors.append("faction_catalog.factions: expected exactly five factions")
+	if factions.size() != 6:
+		errors.append("faction_catalog.factions: expected exactly six factions")
 	for faction_value in factions:
 		if not faction_value is Dictionary:
 			errors.append("faction_catalog.factions: expected objects")
@@ -116,8 +117,8 @@ func validate() -> Array[String]:
 		else:
 			faction_ids[faction_id] = true
 			if not FACTION_ART.has(faction_id):
-				errors.append("faction_catalog." + faction_id + ": missing preloaded portrait/emblem assets")
-		for field in ["name", "portrait", "emblem", "trade_identity", "combat_identity"]:
+				errors.append("faction_catalog." + faction_id + ": missing fixed emblem asset")
+		for field in ["name", "portrait", "captain_portrait", "emblem", "trade_identity", "combat_identity", "origin_description", "origin_focus", "origin_strength", "origin_weakness"]:
 			if not faction.has(field):
 				errors.append("faction_catalog." + faction_id + ": missing " + field)
 	var required_positive: Dictionary = {

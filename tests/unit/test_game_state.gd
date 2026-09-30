@@ -15,13 +15,17 @@ func test_default_origin_race_is_unselected() -> void:
 	GameState.reset_to_defaults()
 	assert_eq(GameState.player_state.get("origin_race_id", "missing"), "", "New game waits for race choice")
 
-func test_faction_catalog_has_five_emblems() -> void:
+func test_faction_catalog_has_six_captains_and_emblems() -> void:
 	var factions: Array = GameData.get_factions()
-	assert_eq(factions.size(), 5, "Faction selector needs five choices")
+	assert_eq(factions.size(), 6, "Faction selector needs six choices")
 	var ids: Dictionary = {}
 	for faction in factions:
 		assert_true(faction.has("emblem"), "Each race must have a fixed emblem")
 		assert_true(ResourceLoader.exists(str(faction.get("emblem", ""))), "Each emblem must resolve to an asset")
+		assert_true(faction.has("captain_portrait"), "Each race needs a full-body captain artwork")
+		assert_true(ResourceLoader.exists(str(faction.get("captain_portrait", ""))), "Each captain artwork must resolve to an asset")
+		for field in ["origin_description", "origin_focus", "origin_strength", "origin_weakness"]:
+			assert_true(str(faction.get(field, "")).length() > 0, "Race dossier must include " + field)
 		assert_not_null(GameData.get_faction_emblem(str(faction.get("id", ""))))
 		assert_not_null(GameData.get_faction_portrait(str(faction.get("id", ""))))
 		assert_false(ids.has(str(faction.get("id", ""))), "Faction IDs must be unique")

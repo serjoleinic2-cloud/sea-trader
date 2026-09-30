@@ -4,7 +4,7 @@
 
 | Действие | Путь выполнения | Состояние |
 | --- | --- | --- |
-| Новый запуск | Main → GameData → RaceSelectionScreen → GameState.player_state.origin_race_id → SaveSystem → WorldGenerator → Ship → модули | Выбранная раса, мир и остальные разделы GameState |
+| Новый запуск | Main → GameData (каталог шести народов) → RaceSelectionScreen (шесть капитанов: галерея → досье → предупреждение → подтверждение) → GameState.player_state.origin_race_id → SaveSystem → WorldGenerator → Ship → модули | Выбор необратим в этом сохранении; раса, мир и остальные разделы GameState |
 | Продолжение | Main → GameData/ModuleLoader → SaveSystem → WorldGenerator → Ship → модули | Восстановленные разделы GameState; старым сохранениям назначается постоянная раса по умолчанию |
 | Ручное управление | SensorInput/InputAdapter → ShipControl → ShipPhysics | ship_state, world_state |
 | Исследование океана | Main → WorldGenerator.generate_chunk → PortSystem / Approach3DView | Seed-карта, известные области и текущая 3D-геометрия |

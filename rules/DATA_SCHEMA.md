@@ -41,7 +41,7 @@ stats:
   total_earned: float
 ```
 
-`origin_race_id` references `data/world/faction_catalog.json`. The first-run choice is stored in the ordinary player save and is not a gameplay-stat bonus. Saves predating race choice receive a stable default during load without resetting progress.
+`origin_race_id` references `data/world/faction_catalog.json`. The first-run choice is stored in the ordinary player save and cannot be changed in that save. The race dossier defines each people's narrative focus, strengths, and weaknesses; numeric race modifiers are not yet wired into economy or combat. Saves predating race choice receive a stable default during load without resetting progress.
 
 ### WorldState
 ```
