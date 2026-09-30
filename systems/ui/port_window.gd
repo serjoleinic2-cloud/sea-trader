@@ -348,7 +348,7 @@ func _rebuild_building_list(port_id: String) -> void:
 		button.add_theme_font_size_override("font_size", 18)
 		button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		button.vertical_icon_alignment = VERTICAL_ALIGNMENT_TOP
-		button.icon_max_width = 128
+		button.add_theme_constant_override("icon_max_width", 128)
 		button.expand_icon = true
 		if icon_path != "" and ResourceLoader.exists(icon_path):
 			button.icon = load(icon_path) as Texture2D
