@@ -72,6 +72,13 @@ The world uses reusable, modular 3D scenes so new islands, ports, statues, and s
 
 Ship tiers need distinct silhouettes: small boat, barque, schooner, freighter, and tanker. All visual assets remain a presentation layer over the same game systems.
 
+
+## Owner direction — environment and hero art — 2026-09-30
+
+The owner has now selected *Avatar: The Way of Water* as the direct visual reference for the **environment**. Use its cinematic ocean-world qualities: luminous turquoise shallows and lagoons, saturated blue depths, tropical coastlines, lush cliffs and vegetation, layered underwater light, reefs, and restrained bioluminescence at night. The Sea Trader world must keep original coastlines, ports, ships, symbols, and landmark designs; use the film as an art-direction reference, not as a source for copied assets or locations.
+
+The **heroes** follow the mixed illustrated-realism style of the existing repository portraits: `assets/characters/infantry_guardian.jpg` and `assets/characters/infantry_scout.jpg`. Their faces and materials read close to realistic, with painterly fantasy detail, maritime clothing or armor, blue/teal surroundings, and restrained gold/bronze accents. New heroes should feel like they belong in the vivid ocean environment while remaining recognizably in this established Sea Trader character style.
+
 ## Implemented visual foundation — 2026-09-27
 
 The shared 3D renderer now supports the first sailing-view slice:
