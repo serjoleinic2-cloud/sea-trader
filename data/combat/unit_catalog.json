@@ -141,29 +141,29 @@
   "crystal_order": [
     "crystal_power",
     "crystal_guard",
-    "crystal_wind"
+    "crystal_luck"
   ],
   "crystals": {
     "crystal_power": {
-      "name": "Кристалл силы",
-      "description": "+8% к силе отрядов",
+      "name": "Кристалл атаки",
+      "description": "+8% к силе атаки отрядов",
       "attack_bonus": 8,
       "defense_bonus": 0,
-      "speed_bonus": 0
+      "luck_bonus": 0
     },
     "crystal_guard": {
-      "name": "Кристалл защиты",
-      "description": "+8% к защите базы",
+      "name": "Кристалл брони",
+      "description": "+8% к защите гарнизона",
       "attack_bonus": 0,
       "defense_bonus": 8,
-      "speed_bonus": 0
+      "luck_bonus": 0
     },
-    "crystal_wind": {
-      "name": "Кристалл ветра",
-      "description": "+8% к скорости отрядов",
+    "crystal_luck": {
+      "name": "Кристалл удачи",
+      "description": "+8% к вкладу удачи в боевую силу",
       "attack_bonus": 0,
       "defense_bonus": 0,
-      "speed_bonus": 8
+      "luck_bonus": 8
     }
   }
 }
