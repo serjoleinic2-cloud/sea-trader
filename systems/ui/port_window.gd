@@ -257,9 +257,9 @@ func _process(_delta: float) -> void:
 	_bottom_menu.size = Vector2(minf(1220.0 if desktop_layout else 920.0, viewport_size.x - 24.0), 82.0)
 	if _content_scroll != null:
 		var card_section: bool = _current_section == "construction" or _current_section == "shipyard"
-		var disable_card_scroll: bool = desktop_layout and viewport_size.y >= 680.0 and card_section
+		var disable_card_scroll: bool = desktop_layout and viewport_size.y >= 760.0 and card_section
 		_content_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED if disable_card_scroll else ScrollContainer.SCROLL_MODE_AUTO
-		_content_scroll.custom_minimum_size.y = minf(440.0, maxf(240.0, viewport_size.y - 260.0)) if desktop_layout else 300.0
+		_content_scroll.custom_minimum_size.y = minf(480.0, maxf(320.0, viewport_size.y - 240.0)) if desktop_layout else 300.0
 	_bottom_menu.position = Vector2((viewport_size.x - _bottom_menu.size.x) * 0.5, viewport_size.y - _bottom_menu.size.y - 14.0)
 	var is_home: bool = docked_port == str(GameState.world_state.get("home_port_id", ""))
 	if is_home and docked_port != _last_home_port_id:
@@ -356,7 +356,7 @@ func _rebuild_building_list(port_id: String) -> void:
 		var icon_path: String = str(building.get("ui_icon", ""))
 		var button: Button = Button.new()
 		var card_width: float = clampf((viewport_size.x - 160.0) / 4.0, 200.0, 300.0) if desktop_layout else 224.0
-		button.custom_minimum_size = Vector2(card_width, 190.0)
+		button.custom_minimum_size = Vector2(card_width, 210.0)
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		button.text = _get_building_name(building_id) + "\n" + _get_building_state(port, building_id)
 		button.add_theme_font_size_override("font_size", 18)
@@ -412,7 +412,7 @@ func _rebuild_shipyard_list() -> void:
 		var button: Button = Button.new()
 		var card_columns: float = float(grid.columns)
 		var card_width: float = clampf((viewport_size.x - 180.0) / card_columns, 190.0, 280.0) if desktop_layout else 224.0
-		button.custom_minimum_size = Vector2(card_width, 190.0)
+		button.custom_minimum_size = Vector2(card_width, 210.0)
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		button.add_theme_font_size_override("font_size", 17)
 		button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
