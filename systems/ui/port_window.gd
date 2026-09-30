@@ -253,7 +253,10 @@ func _process(_delta: float) -> void:
 	var is_home: bool = docked_port == str(GameState.world_state.get("home_port_id", ""))
 	if is_home and docked_port != _last_home_port_id:
 		_last_home_port_id = docked_port
-		_rebuild_building_list(docked_port)
+		if _current_section == "shipyard" and _is_shipyard_active(docked_port):
+			_rebuild_shipyard_list()
+		else:
+			_rebuild_building_list(docked_port)
 	elif not is_home:
 		_last_home_port_id = ""
 	_bottom_menu.visible = true
