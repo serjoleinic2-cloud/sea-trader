@@ -81,6 +81,11 @@ func initialize(main: Node) -> void:
 	# These two controls were useful during the first prototype, but duplicate
 	# the one bottom navigation bar on a phone-sized screen.
 	_hide_duplicate_floating_controls()
+	# Apply one nautical palette to controls created by each menu.
+	_apply_menu_style(_toolbar)
+	_apply_menu_style(_more_panel)
+	for window in main.get_children():
+		_apply_menu_style(window)
 
 func _add_toolbar_button(item: Dictionary) -> void:
 	var button: Button = Button.new()
@@ -176,6 +181,39 @@ func _wrap_port(port: Node) -> void:
 	content.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	panel.add_child(content)
 
+func _apply_menu_style(node: Node) -> void:
+	if node is Button and not node.has_meta("sea_menu_style"):
+		var button: Button = node
+		var normal := StyleBoxFlat.new()
+		normal.bg_color = Color("#19313c")
+		normal.border_color = Color("#496b79")
+		normal.set_border_width_all(1)
+		var hover := StyleBoxFlat.new()
+		hover.bg_color = Color("#274a55")
+		hover.border_color = Color("#d9b765")
+		hover.set_border_width_all(2)
+		var pressed := StyleBoxFlat.new()
+		pressed.bg_color = Color("#705631")
+		pressed.border_color = Color("#f0d18a")
+		pressed.set_border_width_all(2)
+		var disabled := StyleBoxFlat.new()
+		disabled.bg_color = Color("#182328")
+		disabled.border_color = Color("#34464c")
+		disabled.set_border_width_all(1)
+		button.add_theme_stylebox_override("normal", normal)
+		button.add_theme_stylebox_override("hover", hover)
+		button.add_theme_stylebox_override("pressed", pressed)
+		button.add_theme_stylebox_override("focus", hover)
+		button.add_theme_stylebox_override("disabled", disabled)
+		button.add_theme_color_override("font_color", Color("#f1ead8"))
+		button.add_theme_color_override("font_hover_color", Color("#ffe5a4"))
+		button.add_theme_color_override("font_pressed_color", Color("#fff4d6"))
+		button.add_theme_color_override("font_disabled_color", Color("#869398"))
+		button.set_meta("sea_menu_style", true)
+	for child in node.get_children():
+		_apply_menu_style(child)
+
+
 func _disable_scrolling(node: Node) -> void:
 	if node is ScrollContainer:
 		var scroll: ScrollContainer = node
@@ -218,6 +256,13 @@ func _open_tool(node_name: String, method: String) -> void:
 func _process(_delta: float) -> void:
 	if _main == null:
 		return
+	for entry in _entries:
+		if bool(entry["window"].get(str(entry["flag"]))):
+			_apply_menu_style(entry["window"])
+	var port_controls: Node = _main.get_node_or_null("PortWindow")
+	if port_controls != null:
+		_apply_menu_style(port_controls)
+	_apply_menu_style(self)
 	var selected: Node = null
 	for entry in _entries:
 		var window: Node = entry["window"]
