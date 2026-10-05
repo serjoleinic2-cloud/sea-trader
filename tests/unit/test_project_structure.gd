@@ -1,5 +1,59 @@
 extends "res://tests/test_base.gd"
 
+func test_entire_fleet_has_independent_models_and_portraits() -> void:
+	var view = load("res://systems/rendering/approach_3d_view.gd").new()
+	view._asset_catalog = GameData.read("res://data/world/world_asset_catalog.json")
+	var root := Node3D.new()
+	var scenes: Dictionary = {}
+	var visuals: Dictionary = GameData.read("res://data/world/ship_visuals.json").ships
+	for ship in GameData.get_ships():
+		var id := str(ship.id)
+		assert_true(visuals.has(id), "Missing visual for " + id)
+		var model: Node3D = view._attach_catalog_scene(root, "ships", id, float(visuals[id].display_length))
+		assert_not_null(model, "Catalog routing must instantiate " + id)
+		assert_false(scenes.has(visuals[id].scene), "Ships must have independent hull assets")
+		scenes[visuals[id].scene] = true
+		assert_true(load(str(ship.ui_icon)) is Texture2D, "Shipyard portrait must load for " + id)
+	assert_eq(scenes.size(), 14)
+	root.free()
+	view.free()
+
+func test_combat_cutter_has_a_distinct_faction_hull_for_every_race() -> void:
+	var variants: Dictionary = GameData.read("res://data/world/faction_ship_visuals.json").get("factions", {})
+	for faction in GameData.get_factions():
+		var faction_id: String = str(faction.id)
+		var cutter: Dictionary = variants.get(faction_id, {}).get("ship_combat_cutter", {})
+		var path: String = str(cutter.get("scene", ""))
+		assert_true(path != "", "Missing combat cutter faction model for " + faction_id)
+		assert_true(load(path) is PackedScene, "Faction combat cutter must be an importable model for " + faction_id)
+
+func test_starter_sloop_model_and_catalog_routing() -> void:
+	var view = load("res://systems/rendering/approach_3d_view.gd").new()
+	view._asset_catalog = GameData.read("res://data/world/world_asset_catalog.json")
+	var root := Node3D.new()
+	var starter: Node3D = view._attach_catalog_scene(root, "ships", "ship_sloop", 3.48)
+	assert_true(starter != null)
+	if starter != null:
+		assert_eq(starter.get_meta("world_asset_id"), "starter_sloop")
+		assert_gt(starter.get_child(0).get_child_count(), 0)
+		assert_true(is_equal_approx(starter.scale.x, 3.48 / 6.15))
+		view._ship = starter
+		view._add_ship_lanterns(starter)
+		view._update_ship_lanterns(0.0)
+		var lamp: OmniLight3D = starter.get_node("KeroseneLantern/WarmLight")
+		assert_false(lamp.visible)
+		view._update_ship_lanterns(1.0)
+		assert_true(lamp.visible)
+		assert_gt(lamp.light_energy, 0.9)
+		assert_gt(lamp.light_color.r, lamp.light_color.b)
+	var barque: Node3D = view._attach_catalog_scene(root, "ships", "ship_barque", 3.48)
+	assert_true(barque != null)
+	if barque != null:
+		assert_eq(barque.get_meta("world_asset_id"), "ship_barque")
+	assert_true(view._attach_catalog_scene(root, "ships", "unknown_ship", 3.48) == null)
+	root.free()
+	view.free()
+
 func before_each() -> void:
 	GameState.reset_to_defaults()
 	SaveSystem.delete_save()
@@ -50,6 +104,7 @@ func test_active_ship_uses_saved_type_and_preserves_saved_upgrades() -> void:
 	ship.free()
 
 func test_unknown_saved_ship_stops_before_any_save_write() -> void:
+	GameState.player_state["origin_race_confirmed"] = true
 	GameState.world_state.seed = 42
 	GameState.world_state.world_gen_version = "1"
 	GameState.ship_state.ship_id = "removed_ship"

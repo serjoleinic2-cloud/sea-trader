@@ -6,6 +6,7 @@ const DEFAULT_FONT_SIZE: int = 16
 const MINIMUM_READABLE_SIZE: int = 18
 
 var _scale: float = 1.25
+var _game_theme = preload("res://systems/ui/game_ui_theme.gd").new()
 
 func _ready() -> void:
 	add_to_group("ui_accessibility")
@@ -56,6 +57,7 @@ func _apply_branch(node: Node) -> void:
 func _apply_control(control: Control) -> void:
 	if not is_instance_valid(control):
 		return
+	_game_theme.apply_control(control)
 	if _uses_font_size(control):
 		if not control.has_meta("ui_base_font_size"):
 			var base_size: int = DEFAULT_FONT_SIZE
@@ -63,7 +65,8 @@ func _apply_control(control: Control) -> void:
 				base_size = control.get_theme_font_size("font_size")
 			control.set_meta("ui_base_font_size", base_size)
 		var stored_size: int = int(control.get_meta("ui_base_font_size", DEFAULT_FONT_SIZE))
-		control.add_theme_font_size_override("font_size", maxi(MINIMUM_READABLE_SIZE, int(round(stored_size * _scale))))
+		var minimum_size: int = 11 if control.has_meta("compact_hud") else (14 if control.has_meta("compact_description") else MINIMUM_READABLE_SIZE)
+		control.add_theme_font_size_override("font_size", maxi(minimum_size, int(round(stored_size * _scale))))
 	if control is Button:
 		if not control.has_meta("ui_base_min_height"):
 			control.set_meta("ui_base_min_height", maxf(36.0, control.custom_minimum_size.y))

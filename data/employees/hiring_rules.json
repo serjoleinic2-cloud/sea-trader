@@ -17,12 +17,11 @@
     "navigation": "Навигация"
   },
   "employment_types": {
-    "contract": {"name": "Контрактный", "description": "Фиксированные параметры на выбранное число рейсов. Не получает опыт."},
+    "contract": {"name": "Штатный", "description": "Legacy alias; all crew hired from the labor exchange now remain in the company until dismissed."},
     "permanent": {"name": "Постоянный", "description": "Остаётся в компании, получает опыт и осваивает выбранные навыки."}
   },
   "progression": {
     "mastery_per_voyage": 4,
-    "skill_progress_per_voyage": 5,
     "maximum_skill_slots": 3
   },
   "skills": {
@@ -32,5 +31,5 @@
     "field_repair": {"name": "Полевой ремонт", "description": "До +5% к ремонту", "stat": "repair", "max_bonus": 5},
     "coastal_memory": {"name": "Память берегов", "description": "До +5% к навигации", "stat": "navigation", "max_bonus": 5}
   },
-  "balance_status": "Provisional schematic personnel salaries and bonuses."
+  "balance_status": "Permanent crew; action-specific skill growth is intentionally gradual. Salaries and thresholds need playtest balancing."
 }

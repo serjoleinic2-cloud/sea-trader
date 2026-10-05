@@ -37,7 +37,11 @@ func set_collision_data_provider(provider: Callable) -> void:
 
 
 func is_navigation_move_blocked(current_pos: Vector2, proposed_pos: Vector2) -> bool:
-	return _resolve_navigation_collisions(current_pos, proposed_pos).distance_to(proposed_pos) > 0.01
+	# Route planning is a query; a rejected hypothetical move must not stop the ship.
+	var saved_speed: float = _speed
+	var blocked: bool = _resolve_navigation_collisions(current_pos, proposed_pos).distance_to(proposed_pos) > 0.01
+	_speed = saved_speed
+	return blocked
 
 
 func setup(ship_data: Dictionary, initialize_state: bool = true) -> void:
@@ -175,7 +179,10 @@ func _update_heading(delta: float) -> void:
 	var speed_factor: float = lerp(1.0, float(_ship_data.get("turn_speed_reduction", 0.35)), speed_ratio)
 
 	var turn_rate: float = float(_ship_data.get("turn_rate", 1.6)) * maneuv * steering_ratio * speed_factor
-	_heading += _steering * turn_rate * delta
+	# Steering while backing up turns the stern in the same requested
+	# direction as forward steering; invert the bow rotation during reverse.
+	var travel_direction: float = -1.0 if _speed < 0.0 else 1.0
+	_heading += _steering * turn_rate * delta * travel_direction
 
 
 # ============================================================================
@@ -211,13 +218,47 @@ func _resolve_navigation_collisions(current_pos: Vector2, proposed_pos: Vector2)
 		if not (raw_island is Dictionary):
 			continue
 		var island: Dictionary = raw_island
+		for obstacle in island.get("navigation_obstacles", []):
+			var polygon: PackedVector2Array = obstacle
+			if polygon.size() < 3:
+				continue
+			var bounds := Rect2(polygon[0], Vector2.ZERO)
+			for vertex in polygon:
+				bounds = bounds.expand(vertex)
+			if not bounds.grow(COLLISION_CLEARANCE).intersects(Rect2(current_pos, proposed_pos - current_pos).abs().grow(0.01), true):
+				continue
+			var start_clearance := _polygon_clearance(current_pos, polygon)
+			if start_clearance < COLLISION_CLEARANCE:
+				# A legacy save inside a newly solid pier can move back into free water.
+				if _polygon_clearance(proposed_pos, polygon) <= start_clearance + 0.001:
+					_speed = 0.0
+					return current_pos
+				var previous_clearance := start_clearance
+				var samples: int = maxi(1, ceili(current_pos.distance_to(proposed_pos) / 15.0))
+				for sample_index in range(1, samples + 1):
+					var clearance := _polygon_clearance(current_pos.lerp(proposed_pos, float(sample_index) / samples), polygon)
+					if clearance + 0.001 < previous_clearance:
+						_speed = 0.0
+						return current_pos
+					previous_clearance = clearance
+			elif _obstacle_segment_blocked(current_pos, proposed_pos, polygon):
+				_speed = 0.0
+				return current_pos
 		var center: Vector2 = Vector2(island.get("position", Vector2.ZERO))
 		var radius: float = float(island.get("radius", 0.0))
 		if radius <= 0.0:
 			continue
+		if Geometry2D.get_closest_point_to_segment(center, current_pos, proposed_pos).distance_to(center) >= radius + COLLISION_CLEARANCE:
+			continue
 		var current_distance: float = current_pos.distance_to(center)
 		var proposed_distance: float = proposed_pos.distance_to(center)
 		var current_is_blocked: bool = _island_blocks_position(current_pos, center, radius, island)
+		var coast: PackedVector2Array = island.get("coast_polygon", PackedVector2Array())
+		if coast.size() >= 3 and not current_is_blocked:
+			if _harbor_segment_blocked(current_pos, proposed_pos, center, radius, island, coast):
+				_speed = 0.0
+				return current_pos
+			continue
 		var move_distance: float = current_pos.distance_to(proposed_pos)
 		var sample_count: int = maxi(1, ceili(move_distance / maxf(1.0, COLLISION_CLEARANCE * 0.5)))
 
@@ -259,14 +300,74 @@ func _resolve_navigation_collisions(current_pos: Vector2, proposed_pos: Vector2)
 			return current_pos
 	return proposed_pos
 
+func _polygon_clearance(point: Vector2, polygon: PackedVector2Array) -> float:
+	var distance: float = INF
+	for index in polygon.size():
+		distance = minf(distance, point.distance_to(Geometry2D.get_closest_point_to_segment(point, polygon[index], polygon[(index + 1) % polygon.size()])))
+	return -distance if Geometry2D.is_point_in_polygon(point, polygon) else distance
+
+func _obstacle_segment_blocked(start: Vector2, finish: Vector2, polygon: PackedVector2Array) -> bool:
+	if _polygon_clearance(finish, polygon) < COLLISION_CLEARANCE:
+		return true
+	for index in polygon.size():
+		var first := polygon[index]
+		var second := polygon[(index + 1) % polygon.size()]
+		if Geometry2D.segment_intersects_segment(start, finish, first, second) != null:
+			return true
+		if first.distance_to(Geometry2D.get_closest_point_to_segment(first, start, finish)) < COLLISION_CLEARANCE:
+			return true
+		if second.distance_to(Geometry2D.get_closest_point_to_segment(second, start, finish)) < COLLISION_CLEARANCE:
+			return true
+		if finish.distance_to(Geometry2D.get_closest_point_to_segment(finish, first, second)) < COLLISION_CLEARANCE:
+			return true
+	return false
+
+
+func _harbor_segment_blocked(start: Vector2, finish: Vector2, center: Vector2, radius: float, island: Dictionary, coast: PackedVector2Array) -> bool:
+	if _island_blocks_position(finish, center, radius, island):
+		return true
+	for index in range(coast.size()):
+		var first: Vector2 = coast[index]
+		var second: Vector2 = coast[(index + 1) % coast.size()]
+		if Geometry2D.segment_intersects_segment(start, finish, first, second) != null:
+			return true
+		if first.distance_to(Geometry2D.get_closest_point_to_segment(first, start, finish)) < COLLISION_CLEARANCE:
+			return true
+	var delta := finish - start
+	var relative := start - center
+	var length_sq := delta.length_squared()
+	if length_sq <= 0.0001:
+		return false
+	for reef_radius in [float(island.get("reef_inner_radius", 0.0)) - COLLISION_CLEARANCE, float(island.get("reef_outer_radius", 0.0)) + COLLISION_CLEARANCE]:
+		var b := 2.0 * relative.dot(delta)
+		var c: float = relative.length_squared() - float(reef_radius) * float(reef_radius)
+		var discriminant: float = b * b - 4.0 * length_sq * c
+		if discriminant < 0:
+			continue
+		for t in [(-b - sqrt(discriminant)) / (2 * length_sq), (-b + sqrt(discriminant)) / (2 * length_sq)]:
+			if t >= 0 and t <= 1 and _island_blocks_position(start + delta * t, center, radius, island):
+				return true
+	return false
 
 func _island_blocks_position(position: Vector2, center: Vector2, radius: float, island: Dictionary) -> bool:
 	if position.distance_to(center) >= radius + COLLISION_CLEARANCE:
 		return false
+	var polygon: PackedVector2Array = island.get("coast_polygon", PackedVector2Array())
+	if polygon.size() >= 3:
+		if Geometry2D.is_point_in_polygon(position, polygon):
+			return true
+		for index in range(polygon.size()):
+			if position.distance_to(Geometry2D.get_closest_point_to_segment(position, polygon[index], polygon[(index + 1) % polygon.size()])) < COLLISION_CLEARANCE:
+				return true
+		var offset := position - center
+		var in_reef := offset.length() >= float(island.get("reef_inner_radius", INF)) - COLLISION_CLEARANCE and offset.length() <= float(island.get("reef_outer_radius", 0.0)) + COLLISION_CLEARANCE
+		var in_entrance := absf(wrapf(offset.angle() - float(island.get("bay_angle", 0.0)), -PI, PI)) < float(island.get("bay_width", 0.34))
+		return in_reef and not in_entrance
 	var bay_angle: float = float(island.get("bay_angle", 1000.0))
 	var bay_width: float = float(island.get("bay_width", 0.0))
 	var offset: Vector2 = position - center
-	var in_bay: bool = bay_angle < 900.0 and bay_width > 0.0 and absf(wrapf(offset.angle() - bay_angle, -PI, PI)) <= bay_width and offset.length() >= radius * 0.72
+	var bay_depth: float = clampf(float(island.get("bay_depth", 0.72)), 0.65, 0.9)
+	var in_bay: bool = bay_angle < 900.0 and bay_width > 0.0 and absf(wrapf(offset.angle() - bay_angle, -PI, PI)) <= bay_width and offset.length() >= radius * bay_depth
 	return not in_bay
 
 

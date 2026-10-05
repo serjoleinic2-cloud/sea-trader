@@ -12,6 +12,9 @@ var _fleet_traffic: Node2D
 var _ship: Node2D
 var _approach_view: Node
 var _world_data: Dictionary = {}
+var _navigation_islands: Array = []
+var _navigation_world: Dictionary = {}
+var _home_visual_id: String = ""
 var _is_new_game: bool = false
 var _world_migrated: bool = false
 var _world_ready: bool = false
@@ -68,6 +71,12 @@ var _shipyard_window: CanvasLayer = null
 
 func _process(_delta: float) -> void:
 	if _world_ready:
+		var home := str(GameState.world_state.get("home_port_id", ""))
+		if home != _home_visual_id:
+			_home_visual_id = home
+			_refresh_navigation_islands()
+			_world_renderer.setup(_navigation_world)
+			_approach_view.sync_generated_world(_navigation_world)
 		_ensure_streamed_world()
 
 func _ensure_streamed_world() -> void:
@@ -104,7 +113,7 @@ func _ensure_streamed_world() -> void:
 	GameState.world_state["explored_chunks"] = explored_chunks
 
 	if _approach_view != null and _approach_view.has_method("sync_generated_world"):
-		_approach_view.call("sync_generated_world", _world_data)
+		_approach_view.call("sync_generated_world", _navigation_world)
 	if world_changed:
 		if _active_route_autopilot != null and _active_route_autopilot.has_method("set_hazard_zones"):
 			_active_route_autopilot.call("set_hazard_zones", _world_data.get("hazard_zones", []))
@@ -137,6 +146,7 @@ func _load_stream_chunk(coordinate: Vector2i, requested_generation_version: int 
 	var all_ports: Dictionary = _world_data.get("ports", {})
 	all_ports.merge(ports, true)
 	_world_data["ports"] = all_ports
+	_refresh_navigation_islands()
 	if _port_system != null and _port_system.has_method("register_world_ports"):
 		_port_system.call("register_world_ports", ports)
 	return true
@@ -210,8 +220,10 @@ func _start_game() -> void:
 	_approach_view = load("res://systems/rendering/approach_3d_view.gd").new()
 	_approach_view.name = "Approach3DView"
 	add_child(_approach_view)
-	_approach_view.call("initialize", _world_data, _world_renderer, _ship, _trader_traffic, _fleet_traffic)
+	_approach_view.call("initialize", _navigation_world, _world_renderer, _ship, _trader_traffic, _fleet_traffic)
 	_modules.start(self, {"$ship": _ship, "$ports": _world_data.ports, "$main": self})
+	if _active_route_autopilot != null:
+		_active_route_autopilot.call("set_navigation_islands", _navigation_islands)
 	if _active_route_autopilot != null and _active_route_autopilot.has_method("set_hazard_zones"):
 		_active_route_autopilot.call("set_hazard_zones", _world_data.get("hazard_zones", []))
 	if _fleet_system != null and _fleet_system.has_method("set_hazard_zones"):
@@ -273,6 +285,7 @@ func _initialize_world() -> bool:
 		else:
 			_world_data = _world_generator.generate(world_seed, int(saved_version))
 	var world_data: Dictionary = _world_data
+	_refresh_navigation_islands()
 	_chunk_size = float(world_data.get("chunk_size", 4096.0))
 	_loaded_chunks.clear()
 	_loaded_chunks["0:0"] = true
@@ -298,9 +311,9 @@ func _initialize_world() -> bool:
 	# Generated port geometry is handed to consumers, never copied over progress.
 
 	if _world_renderer.has_method("setup"):
-		_world_renderer.setup(world_data)
-	_initialize_trader_traffic(world_data)
-	_initialize_fleet_traffic(world_data)
+		_world_renderer.setup(_navigation_world)
+	_initialize_trader_traffic(_navigation_world)
+	_initialize_fleet_traffic(_navigation_world)
 	if _world_renderer.has_method("set_camera"):
 		_world_renderer.set_camera(null)
 
@@ -334,6 +347,7 @@ func _initialize_fleet_traffic(world_data: Dictionary) -> void:
 	_fleet_traffic.name = "FleetTraffic"
 	_world.add_child(_fleet_traffic)
 	_fleet_traffic.initialize(world_data)
+	_trader_traffic.external_traffic = Callable(_fleet_traffic, "get_vessel_snapshots")
 
 func _load_or_create_state() -> bool:
 	_is_new_game = false
@@ -392,6 +406,28 @@ func _spawn_ship() -> void:
 
 
 
+func _refresh_navigation_islands() -> void:
+	_navigation_world = preload("res://systems/world/home_harbor_layout.gd").new().decorate(_world_data, str(GameState.world_state.get("home_port_id", "")))
+	_navigation_islands = _navigation_world.get("islands", [])
+	# Coastal ports were placed at 70% of the island radius. Give those saved
+	# harbors a narrow water channel without moving ports or changing the seed.
+	for port_value in _world_data.get("ports", {}).values():
+		var port: Dictionary = port_value
+		if str(port.get("harbor_type", "")) != "coastal":
+			continue
+		for island in _navigation_islands:
+			if str(island.get("id", "")) == str(port.get("island_id", "")):
+				if bool(island.get("home_city", false)) or bool(island.get("port_city", false)):
+					continue
+				island["bay_angle"] = float(port.get("harbor_angle", 0.0))
+				island["bay_width"] = 0.24
+				island["bay_depth"] = 0.65
+	if _active_route_autopilot != null:
+		_active_route_autopilot.call("set_navigation_islands", _navigation_islands)
+	for renderer in [_trader_traffic, _fleet_traffic]:
+		if renderer != null and renderer.has_method("set_navigation_world"):
+			renderer.set_navigation_world(_navigation_world)
+
 func _get_navigation_collision_data() -> Dictionary:
 	var vessels: Array[Dictionary] = []
 	for renderer in [_trader_traffic, _fleet_traffic]:
@@ -400,7 +436,7 @@ func _get_navigation_collision_data() -> Dictionary:
 			for snapshot in snapshots:
 				if snapshot is Dictionary:
 					vessels.append(snapshot)
-	return {"islands": _world_data.get("islands", []), "vessels": vessels}
+	return {"islands": _navigation_islands, "vessels": vessels}
 
 func get_module(module_id: String) -> Node:
 	return _modules.services.get(module_id)
@@ -419,6 +455,8 @@ func _show_startup_error(message: String) -> void:
 # ============================================================================
 
 func _input(event: InputEvent) -> void:
+	var inspection: Node = get_tree().get_first_node_in_group("ship_inspection_window")
+	if inspection != null and bool(inspection.get("_is_open")): return
 	if event is InputEventKey and event.pressed and not event.echo:
 		if event.keycode == KEY_E or event.physical_keycode == KEY_E:
 			_handle_dock_key()

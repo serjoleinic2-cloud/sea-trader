@@ -76,9 +76,21 @@ func test_large_distant_fleet_pays_more_and_contract_is_not_charged_twice() -> v
 	assert_gt(large.cash, small.cash)
 	assert_gt(model.voyage_quote(ship, {}, [employee], 5000, 50).cash, large.cash)
 	employee.employment_type = "contract"
-	var prepaid: Dictionary = model.voyage_quote(ship, {}, [employee], 1000, 50)
+	var prepaid: Dictionary = model.voyage_quote(ship, GameData.get_ship("ship_tanker"), [employee], 1000, 50)
 	assert_almost_eq(large.cash - prepaid.cash, 36.0, 0.001)
 	assert_almost_eq(large.economic_cost, prepaid.economic_cost, 0.001)
+
+func test_later_ship_tier_has_higher_service_cost_at_same_size_and_route() -> void:
+	var ship: Dictionary = {"crew": ["c"], "cargo_capacity": 50}
+	var crew: Array = [{"employee_instance_id": "c", "employment_type": "permanent", "salary_per_voyage": 0, "stats": {}}]
+	var small_definition: Dictionary = GameData.get_ship("ship_sloop").duplicate(true)
+	var advanced_definition: Dictionary = small_definition.duplicate(true)
+	advanced_definition["tier"] = 5
+	var small: Dictionary = model.voyage_quote(ship, small_definition, crew, 1000, 0)
+	var advanced: Dictionary = model.voyage_quote(ship, advanced_definition, crew, 1000, 0)
+	assert_gt(advanced.repair, small.repair)
+	assert_gt(advanced.port_fee, small.port_fee)
+	assert_gt(advanced.cash, small.cash)
 
 func test_production_cannot_drain_reserve_or_overfill_cap() -> void:
 	var recipe: Dictionary = GameData.read("res://data/ports/production_recipes.json").recipes[0]

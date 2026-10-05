@@ -67,6 +67,9 @@ func _equivalent(a: Variant, b: Variant) -> bool:
 			if not _equivalent(a[index], b[index]):
 				return false
 		return true
+	if (a is int or a is float) and (b is int or b is float):
+		# JSON decimal encoding can lose the last few bits of a float (e.g. PI/4).
+		return absf(float(a) - float(b)) <= 1e-12 * maxf(1.0, maxf(absf(float(a)), absf(float(b))))
 	return a == b
 
 func assert_ne(a: Variant, b: Variant, msg: String = "") -> void:

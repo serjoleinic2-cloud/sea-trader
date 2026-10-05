@@ -122,13 +122,24 @@ func _draw_islands(chart_rect: Rect2) -> void:
 			continue
 		var seed_value: float = float(posmod(hash(str(island.get("id", world_position))), 997)) * 0.01
 		var coastline := PackedVector2Array()
-		for point_index in range(49):
+		var shared_coast: PackedVector2Array = island.get("coast_polygon", PackedVector2Array())
+		for point in shared_coast:
+			coastline.append(_to_chart(point))
+		for point_index in range(49 if shared_coast.is_empty() else 0):
 			var angle: float = TAU * float(point_index) / 48.0
 			var irregularity: float = 1.0 + sin(angle * 3.0 + seed_value) * 0.07 + sin(angle * 5.0 - seed_value * 1.7) * 0.035
 			var point_radius: float = radius_px * irregularity
 			coastline.append(center + Vector2(cos(angle) * point_radius, -sin(angle) * point_radius))
 		draw_colored_polygon(coastline, Color("#536d58"))
 		draw_polyline(coastline, Color("#b3ae78"), 2.0, true)
+		if not shared_coast.is_empty():
+			var opening := float(island.get("bay_angle", 0.0))
+			for index in range(40):
+				var angle := float(index) * TAU / 40.0
+				if absf(wrapf(angle - opening, -PI, PI)) < 0.34:
+					continue
+				draw_circle(_to_chart(world_position + Vector2.from_angle(angle) * float(island.get("reef_inner_radius", radius))), 2.0, Color("7ca9a2"))
+			continue
 		for contour_index in range(1, 4):
 			var contour_radius: float = radius_px * (0.78 - float(contour_index - 1) * 0.18)
 			if contour_radius > 5.0:
@@ -154,12 +165,15 @@ func _draw_known_ports() -> void:
 		if not Rect2(Vector2.ZERO, size).grow(24.0).has_point(point):
 			continue
 		if port_id == home_id:
-			draw_circle(point, 10.0, Color("#e9c85d"))
+			draw_circle(point, 10.0, Color("#65d27d"))
 			draw_arc(point, 17.0, 0.0, TAU, 32, Color("#ffec9a"), 2.0)
 			_draw_label(point + Vector2(17.0, -10.0), "★ " + _port_system.get_port_name(port_id), Color("#ffe58a"))
 		else:
-			draw_circle(point, 6.0, Color("#8fc9a1"))
-			_draw_label(point + Vector2(11.0, 5.0), _port_system.get_port_name(port_id), Color("#d5e5e6"))
+			var state: Dictionary = GameState.port_state.get(port_id, {})
+			var allied: bool = bool(state.get("captured_by_player", false)) or bool(state.get("tribute_active", false))
+			var marker_color := Color("#65d27d") if allied else Color("#8fc9a1")
+			draw_circle(point, 7.0 if allied else 6.0, marker_color)
+			_draw_label(point + Vector2(11.0, 5.0), _port_system.get_port_name(port_id), Color("#a9f0ad") if allied else Color("#d5e5e6"))
 
 
 func _draw_route() -> void:

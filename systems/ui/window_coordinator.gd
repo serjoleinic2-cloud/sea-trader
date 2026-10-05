@@ -2,6 +2,7 @@ extends CanvasLayer
 
 ## One workspace panel at a time; existing windows retain their own actions/state.
 var _entries: Array = []
+var _game_theme = preload("res://systems/ui/game_ui_theme.gd").new()
 var _main: Node
 var _toolbar: HBoxContainer
 var _more_button: Button
@@ -13,25 +14,88 @@ var _cancel: Button
 var _text_scale_button: Button
 var _accessibility: Node
 var _garrison_button: Button
+var _readouts: Label
+var _resource_bar: HBoxContainer
+var _resource_values: Dictionary = {}
+var _extra_resources_button: Button
+var _extra_resources_panel: PanelContainer
+var _extra_resources_list: VBoxContainer
+var _extra_resource_values: Dictionary = {}
+var _goods_names: Dictionary = {}
+var _port_button: Button
+var _port_expanded: bool = false
+var _details: String = ""
+var _last_docked: String = ""
+var _merchant_button: Button
+var _encyclopedia: Node
+var _top_height: float = 84.0
+const HUD_ART := "res://assets/ui/styles/approved_hud/"
 
 func initialize(main: Node) -> void:
 	_main = main
-	layer = 90
+	add_to_group("window_coordinator")
+	# Keep the shared HUD and its dropdowns above every in-game window, including
+	# the ship inspection overlay (layer 110).
+	layer = 130
 	process_priority = 1000
 	for window in main.get_children():
-		_disable_scrolling(window)
+		_enable_vertical_scrolling(window)
 		if not window.has_meta("workspace_flag"):
 			continue
-		var panel: PanelContainer = window.get("_panel")
+		var panel: Control = window.get("_panel")
 		if panel == null:
 			continue
 		var flag: String = str(window.get_meta("workspace_flag"))
 		_entries.append({"window": window, "flag": flag, "was_open": false, "panel": panel})
 		window.layer = 60
-		_wrap_panel(window, panel, flag)
+		if panel is PanelContainer:
+			_wrap_panel(window, panel as PanelContainer, flag)
 	_toolbar = HBoxContainer.new()
-	_toolbar.add_theme_constant_override("separation", 8)
+	_toolbar.add_theme_constant_override("separation", 6)
 	add_child(_toolbar)
+	_readouts = Label.new()
+	_readouts.name = "TopReadouts"
+	_readouts.add_theme_font_size_override("font_size", 16)
+	add_child(_readouts)
+	_resource_bar = HBoxContainer.new()
+	_resource_bar.name = "TopResourceBar"
+	_resource_bar.add_theme_constant_override("separation", 8)
+	_resource_bar.alignment = BoxContainer.ALIGNMENT_END
+	_resource_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_resource_bar)
+	for good in GameData.read("res://data/resources/goods_catalog.json").get("resources", []):
+		_goods_names[str(good.get("id", ""))] = str(good.get("display_name", good.get("id", "")))
+	_create_resource_chip("КАЗНА", "money", "Деньги игрока")
+	_create_resource_chip("ДЕРЕВО", "resource_timber", "Древесина на домашнем складе")
+	_create_resource_chip("ДЕТАЛИ", "resource_parts", "Запчасти на домашнем складе")
+	_create_resource_chip("РЫБА", "resource_fish", "Рыба на домашнем складе")
+	_create_resource_chip("ОСКОЛКИ", "magic_shards", "Магические осколки")
+	_create_extra_resources_menu()
+	var backdrop := TextureRect.new()
+	backdrop.name = "TopMenuBackdrop"
+	backdrop.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	backdrop.texture = load(HUD_ART + "chart_backdrop.png")
+	backdrop.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	backdrop.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	add_child(backdrop)
+	move_child(backdrop, 0)
+	_add_toolbar_button({"label": "КАРТА", "node_name": "NavigationHUD", "method": "_toggle_panel", "icon": "map"})
+	_port_button = Button.new()
+	_port_button.text = "ПОРТ"
+	_style_primary_button(_port_button, "port")
+	_port_button.pressed.connect(func(): _port_expanded = not _port_expanded; _details = ""; _close_all_workspaces())
+	_toolbar.add_child(_port_button)
+	_merchant_button = Button.new()
+	_merchant_button.text = "ТОРГОВЕЦ"
+	_merchant_button.pressed.connect(func(): _details = "" if _details == "MerchantOfferHUD" else "MerchantOfferHUD"; _main.get_node("MerchantOfferHUD")._is_open = _details == "MerchantOfferHUD"; _port_expanded = false; _close_all_workspaces())
+	var fleet_hub := Button.new()
+	fleet_hub.text = "ФЛОТ И ВЕРФЬ"
+	fleet_hub.name = "Menu_FleetShipyard"
+	_style_primary_button(fleet_hub, "fleet")
+	fleet_hub.pressed.connect(_open_fleet_hub)
+	_toolbar.add_child(fleet_hub)
+	_add_toolbar_button({"label": "КАПИТАН", "node_name": "CaptainCabinet", "icon": "captain"})
+	_add_toolbar_button({"label": "ЗАДАНИЯ", "node_name": "TransportContractWindow", "icon": "tasks"})
 	var navigation: Array = []
 	for window in main.get_children():
 		if window.has_meta("navigation"):
@@ -40,23 +104,35 @@ func initialize(main: Node) -> void:
 			navigation.append(item)
 	navigation.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return int(a.get("order", 0)) < int(b.get("order", 0)))
 	for item in navigation:
-		if str(item.get("node_name", "")) in ["NavigationHUD", "LogisticsWindow", "CaptainCabinet"]:
-			_add_toolbar_button(item)
-		else:
+		if str(item.get("node_name", "")) not in ["NavigationHUD", "CaptainCabinet", "FleetWindow"]:
 			_more_navigation.append(item)
 	_garrison_button = Button.new()
 	_garrison_button.text = "ГАРНИЗОН"
 	_garrison_button.custom_minimum_size = Vector2(155, 44)
 	_garrison_button.add_theme_font_size_override("font_size", 20)
 	_garrison_button.pressed.connect(_open_garrison)
-	_toolbar.add_child(_garrison_button)
 	_more_button = Button.new()
-	_more_button.text = "ЕЩЁ  ⋮"
-	_more_button.custom_minimum_size = Vector2(135, 44)
-	_more_button.add_theme_font_size_override("font_size", 20)
+	_more_button.text = "⋮"
+	_more_button.set_meta("compact_hud", true)
+	_more_button.tooltip_text = "Другие разделы"
+	_more_button.custom_minimum_size = Vector2(40, 48)
 	_more_button.pressed.connect(_toggle_more)
 	_toolbar.add_child(_more_button)
 	_create_more_panel()
+	_encyclopedia = load("res://systems/ui/encyclopedia_window.gd").new()
+	_encyclopedia.name = "EncyclopediaWindow"
+	add_child(_encyclopedia)
+	var encyclopedia_button := Button.new()
+	encyclopedia_button.text = "Энциклопедия"
+	encyclopedia_button.pressed.connect(func(): _more_panel.hide(); _encyclopedia.open())
+	_add_more_button(encyclopedia_button)
+	_add_more_button(_merchant_button)
+	_add_more_button(_garrison_button)
+	for item in [["Корабль", "ShipStatusHUD"], ["Первый рейс", "FirstVoyageGuide"]]:
+		var button := Button.new()
+		button.text = item[0]
+		button.pressed.connect(_toggle_details.bind(str(item[1])))
+		_add_more_button(button)
 	var accessibility_nodes: Array[Node] = get_tree().get_nodes_in_group("ui_accessibility")
 	if not accessibility_nodes.is_empty():
 		_accessibility = accessibility_nodes[0]
@@ -69,7 +145,7 @@ func initialize(main: Node) -> void:
 	_cancel.text = "Ручное управление"
 	_cancel.custom_minimum_size.y = 44
 	_cancel.pressed.connect(_cancel_voyage)
-	_toolbar.add_child(_cancel)
+	_add_more_button(_cancel)
 	_status = Label.new()
 	_status.add_theme_font_size_override("font_size", 18)
 	_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -77,7 +153,7 @@ func initialize(main: Node) -> void:
 	var port: Node = main.get_node_or_null("PortWindow")
 	if port != null:
 		_wrap_port(port)
-		_disable_scrolling(port)
+		_enable_vertical_scrolling(port)
 	# These two controls were useful during the first prototype, but duplicate
 	# the one bottom navigation bar on a phone-sized screen.
 	_hide_duplicate_floating_controls()
@@ -86,14 +162,140 @@ func initialize(main: Node) -> void:
 	_apply_menu_style(_more_panel)
 	for window in main.get_children():
 		_apply_menu_style(window)
+	var town = load("res://systems/ui/harbor_town_view.gd").new()
+	town.name = "HarborTownView"
+	main.add_child(town)
+	town.initialize(main)
 
 func _add_toolbar_button(item: Dictionary) -> void:
 	var button: Button = Button.new()
 	button.text = str(item.get("label", ""))
-	button.custom_minimum_size = Vector2(135, 44)
-	button.add_theme_font_size_override("font_size", 20)
+	button.name = "Menu_" + str(item.get("node_name", ""))
+	_style_primary_button(button, str(item.get("icon", "")))
 	button.pressed.connect(_open_tool.bind(str(item.get("node_name", "")), str(item.get("method", ""))))
 	_toolbar.add_child(button)
+
+func _style_primary_button(button: Button, icon_name: String) -> void:
+	button.set_meta("compact_hud", true)
+	button.custom_minimum_size = Vector2(88, 42)
+	button.add_theme_font_size_override("font_size", 12)
+	if not icon_name.is_empty():
+		button.icon = load(HUD_ART + icon_name + ".png")
+		button.expand_icon = false
+		button.add_theme_constant_override("icon_max_width", 24)
+
+func _toggle_details(node_name: String) -> void:
+	_details = "" if _details == node_name else node_name
+	_port_expanded = false
+	_more_panel.hide()
+	_close_all_workspaces()
+
+func _create_resource_chip(title: String, resource_id: String, tooltip: String) -> void:
+	var chip := PanelContainer.new()
+	chip.tooltip_text = tooltip
+	chip.set_meta("preserve_art_style", true)
+	var style := StyleBoxTexture.new()
+	style.texture = load(HUD_ART + "button_frame.png")
+	for side in ["left", "right"]:
+		style.set("texture_margin_" + side, 17.0)
+		style.set("content_margin_" + side, 9.0)
+	for side in ["top", "bottom"]:
+		style.set("texture_margin_" + side, 9.0)
+		style.set("content_margin_" + side, 5.0)
+	chip.add_theme_stylebox_override("panel", style)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 5)
+	chip.add_child(row)
+	var icon := TextureRect.new()
+	icon.texture = load(HUD_ART + resource_id + ".png")
+	icon.custom_minimum_size = Vector2(26, 30)
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	row.add_child(icon)
+	var label := Label.new()
+	label.text = "%s  —" % title
+	label.set_meta("compact_hud", true)
+	label.add_theme_font_size_override("font_size", 11)
+	label.add_theme_color_override("font_color", Color("e8d7a9"))
+	row.add_child(label)
+	_resource_bar.add_child(chip)
+	_resource_values[resource_id] = label
+
+func _refresh_resource_bar() -> void:
+	var home_id: String = str(GameState.world_state.get("home_port_id", ""))
+	var home: Dictionary = GameState.port_state.get(home_id, {})
+	var inventory: Dictionary = home.get("inventory", {})
+	var values: Dictionary = {
+		"money": int(GameState.player_state.get("money", 0)),
+		"resource_timber": int(inventory.get("resource_timber", 0)),
+		"resource_parts": int(inventory.get("resource_parts", 0)),
+		"resource_fish": int(inventory.get("resource_fish", 0)),
+		"magic_shards": int(GameState.combat_state.get("magic_shards", 0))
+	}
+	for key in _resource_values:
+		var label: Label = _resource_values[key]
+		var amount: int = int(values.get(key, 0))
+		var number: String = String.num_int64(amount) if amount < 10000 else "%.1fk" % (float(amount) / 1000.0)
+		label.text = "%s\n%s" % [{"money": "КАЗНА", "resource_timber": "ДЕРЕВО", "resource_parts": "ДЕТАЛИ", "resource_fish": "РЫБА", "magic_shards": "ОСКОЛКИ"}[key], number]
+		label.get_parent().get_parent().tooltip_text = "%s: %d" % [_goods_names.get(key, {"money": "Казна", "magic_shards": "Осколки"}.get(key, key)), amount]
+	var extras: Array[String] = []
+	for key in inventory:
+		if int(inventory[key]) > 0 and not _resource_values.has(str(key)):
+			extras.append(str(key))
+	extras.sort()
+	var current_ids: Array = _extra_resource_values.keys()
+	current_ids.sort()
+	var listed_ids: Array = extras.duplicate()
+	listed_ids.sort()
+	if current_ids != listed_ids:
+		_rebuild_extra_resource_rows(extras)
+	for key in extras:
+		var label: Label = _extra_resource_values[key]
+		label.text = "%s  %s" % [_goods_names.get(key, key), _format_resource_amount(int(inventory[key]))]
+	_extra_resources_button.visible = not extras.is_empty()
+	_extra_resources_button.text = "ЕЩЁ  +%d" % extras.size()
+
+func _format_resource_amount(amount: int) -> String:
+	return String.num_int64(amount) if amount < 10000 else "%.1fk" % (float(amount) / 1000.0)
+
+func _create_extra_resources_menu() -> void:
+	_extra_resources_button = Button.new()
+	_extra_resources_button.name = "MoreResourcesButton"
+	_extra_resources_button.text = "ЕЩЁ"
+	_extra_resources_button.set_meta("compact_hud", true)
+	_extra_resources_button.add_theme_font_size_override("font_size", 12)
+	_extra_resources_button.tooltip_text = "Другие товары домашнего склада"
+	_extra_resources_button.pressed.connect(_toggle_extra_resources)
+	_resource_bar.add_child(_extra_resources_button)
+	_extra_resources_panel = PanelContainer.new()
+	_extra_resources_panel.name = "MoreResourcesPanel"
+	_extra_resources_panel.custom_minimum_size = Vector2(280, 0)
+	add_child(_extra_resources_panel)
+	var scroll := ScrollContainer.new()
+	scroll.name = "ResourceScroll"
+	scroll.custom_minimum_size = Vector2(280, 0)
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_extra_resources_panel.add_child(scroll)
+	_extra_resources_list = VBoxContainer.new()
+	_extra_resources_list.name = "ResourceList"
+	_extra_resources_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(_extra_resources_list)
+	_extra_resources_panel.hide()
+
+func _rebuild_extra_resource_rows(resource_ids: Array[String]) -> void:
+	for row in _extra_resources_list.get_children():
+		row.queue_free()
+	_extra_resource_values.clear()
+	for resource_id in resource_ids:
+		var label := Label.new()
+		label.name = "Resource_" + resource_id
+		label.text = "%s  —" % _goods_names.get(resource_id, resource_id)
+		label.custom_minimum_size = Vector2(250, 28)
+		label.add_theme_font_size_override("font_size", 15)
+		_extra_resources_list.add_child(label)
+		_extra_resource_values[resource_id] = label
 
 func _create_more_panel() -> void:
 	_more_panel = PanelContainer.new()
@@ -108,10 +310,21 @@ func _create_more_panel() -> void:
 	for side in ["left", "top", "right", "bottom"]:
 		margin.add_theme_constant_override("margin_" + side, 12)
 	_more_panel.add_child(margin)
+	var stack := VBoxContainer.new()
+	stack.add_theme_constant_override("separation", 6)
+	margin.add_child(stack)
+	var banner: Control = load("res://systems/ui/faction_window_banner.gd").new()
+	banner.call("set_faction", str(GameState.player_state.get("origin_race_id", "humans")))
+	stack.add_child(banner)
 	_more_list = VBoxContainer.new()
 	_more_list.name = "MoreList"
 	_more_list.add_theme_constant_override("separation", 7)
-	margin.add_child(_more_list)
+	var scroll := ScrollContainer.new()
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	stack.add_child(scroll)
+	_more_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(_more_list)
 	for item in _more_navigation:
 		var button: Button = Button.new()
 		var node_name: String = str(item.get("node_name", ""))
@@ -130,10 +343,34 @@ func _add_more_button(button: Button) -> void:
 
 func _toggle_more() -> void:
 	_more_panel.visible = not _more_panel.visible
+	_extra_resources_panel.hide()
+	if _more_panel.visible:
+		_more_panel.z_index = 4096
+		_more_panel.move_to_front()
+
+func _toggle_extra_resources() -> void:
+	_extra_resources_panel.visible = not _extra_resources_panel.visible
+	_more_panel.hide()
+	if _extra_resources_panel.visible:
+		_extra_resources_panel.z_index = 4096
+		_extra_resources_panel.move_to_front()
 
 func _open_more_tool(node_name: String, method: String) -> void:
 	_more_panel.hide()
 	_open_tool(node_name, method)
+
+func _open_fleet_hub() -> void:
+	var docked_id := str(GameState.ship_state.get("docked_port_id", ""))
+	var home_id := str(GameState.world_state.get("home_port_id", ""))
+	if docked_id == home_id and home_id != "":
+		var port: Node = _main.get_node_or_null("PortWindow")
+		if port != null:
+			_close_all_workspaces()
+			_details = ""
+			_port_expanded = true
+			port.call("_open_section", "shipyard")
+		return
+	_open_tool("FleetWindow", "_toggle")
 
 func _hide_duplicate_floating_controls() -> void:
 	var fleet: Node = _main.get_node_or_null("FleetWindow")
@@ -154,73 +391,75 @@ func _wrap_panel(window: Node, panel: PanelContainer, flag: String) -> void:
 	panel.remove_child(content)
 	var column: VBoxContainer = VBoxContainer.new()
 	panel.add_child(column)
+	var banner: Control = load("res://systems/ui/faction_window_banner.gd").new()
+	banner.call("set_faction", str(GameState.player_state.get("origin_race_id", "humans")))
+	column.add_child(banner)
+	var header := HBoxContainer.new()
+	column.add_child(header)
+	var emblem := TextureRect.new()
+	emblem.texture = GameData.get_faction_emblem(str(GameState.player_state.get("origin_race_id", "humans")))
+	emblem.custom_minimum_size = Vector2(36, 42)
+	emblem.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	emblem.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	header.add_child(emblem)
+	var title := Label.new()
+	var navigation: Dictionary = window.get_meta("navigation", {})
+	title.text = str(navigation.get("label", str(window.name)))
+	if title.text == str(window.name):
+		title.text = {"ShipyardWindow": "Верфь", "BuildingProjectWindow": "Строительство", "GarrisonWindow": "Гарнизон", "MageGuildWindow": "Гильдия магов", "PortServiceWindow": "Обслуживание корабля"}.get(str(window.name), "Sea Trader")
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	title.add_theme_font_size_override("font_size", 24)
+	header.add_child(title)
 	var close: Button = Button.new()
-	close.text = "Закрыть  ×  [Esc]"
-	close.custom_minimum_size.y = 46
+	close.name = "CloseButton"
+	close.text = "×"
+	close.tooltip_text = "Закрыть · Esc"
+	close.custom_minimum_size = Vector2(48, 46)
 	close.add_theme_font_size_override("font_size", 20)
 	close.pressed.connect(_close_window.bind(window, flag))
-	column.add_child(close)
+	header.add_child(close)
 	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	column.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	if str(window.name) == "NavigationHUD":
+	if str(window.name) in ["NavigationHUD", "BuildingProjectWindow", "ShipyardWindow"] or _contains_scroll_container(content):
 		content.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		column.add_child(content)
 	else:
-		# Desktop workspaces use a fit-to-screen panel; a second nested
-		# viewport made controls disappear below a scrollable card.
+		# Keep the close button visible while long workspace content scrolls.
+		var scroll := ScrollContainer.new()
+		scroll.name = "WorkspaceScroll"
+		scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+		scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+		column.add_child(scroll)
 		content.size_flags_vertical = Control.SIZE_EXPAND_FILL
-		column.add_child(content)
+		scroll.add_child(content)
 	_hide_duplicate_close(content)
 
+func _contains_scroll_container(node: Node) -> bool:
+	for child in node.get_children():
+		if child is ScrollContainer or _contains_scroll_container(child):
+			return true
+	return false
+
 func _wrap_port(port: Node) -> void:
-	var panel: PanelContainer = port.get("_sheet")
-	var content: Control = panel.get_child(0)
-	panel.remove_child(content)
-	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	content.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	panel.add_child(content)
+	port.install_art_layout()
 
 func _apply_menu_style(node: Node) -> void:
-	if node is Button and not node.has_meta("sea_menu_style"):
-		var button: Button = node
-		var normal := StyleBoxFlat.new()
-		normal.bg_color = Color("#19313c")
-		normal.border_color = Color("#496b79")
-		normal.set_border_width_all(1)
-		var hover := StyleBoxFlat.new()
-		hover.bg_color = Color("#274a55")
-		hover.border_color = Color("#d9b765")
-		hover.set_border_width_all(2)
-		var pressed := StyleBoxFlat.new()
-		pressed.bg_color = Color("#705631")
-		pressed.border_color = Color("#f0d18a")
-		pressed.set_border_width_all(2)
-		var disabled := StyleBoxFlat.new()
-		disabled.bg_color = Color("#182328")
-		disabled.border_color = Color("#34464c")
-		disabled.set_border_width_all(1)
-		button.add_theme_stylebox_override("normal", normal)
-		button.add_theme_stylebox_override("hover", hover)
-		button.add_theme_stylebox_override("pressed", pressed)
-		button.add_theme_stylebox_override("focus", hover)
-		button.add_theme_stylebox_override("disabled", disabled)
-		button.add_theme_color_override("font_color", Color("#f1ead8"))
-		button.add_theme_color_override("font_hover_color", Color("#ffe5a4"))
-		button.add_theme_color_override("font_pressed_color", Color("#fff4d6"))
-		button.add_theme_color_override("font_disabled_color", Color("#869398"))
-		button.set_meta("sea_menu_style", true)
+	if node is Control:
+		_game_theme.apply_control(node)
 	for child in node.get_children():
 		_apply_menu_style(child)
 
 
-func _disable_scrolling(node: Node) -> void:
+func _enable_vertical_scrolling(node: Node) -> void:
 	if node is ScrollContainer:
 		var scroll: ScrollContainer = node
 		scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-		scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+		scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
 	for child in node.get_children():
-		_disable_scrolling(child)
+		_enable_vertical_scrolling(child)
 
 
 func _hide_duplicate_close(node: Node) -> void:
@@ -263,6 +502,8 @@ func _process(_delta: float) -> void:
 	if port_controls != null:
 		_apply_menu_style(port_controls)
 	_apply_menu_style(self)
+	_more_panel.z_index = 4096
+	_extra_resources_panel.z_index = 4096
 	var selected: Node = null
 	for entry in _entries:
 		var window: Node = entry["window"]
@@ -275,56 +516,108 @@ func _process(_delta: float) -> void:
 				_close_window(entry["window"], str(entry["flag"]))
 	var has_modal: bool = false
 	var viewport: Vector2 = get_viewport().get_visible_rect().size
+	_refresh_resource_bar()
+	_layout_top_bar(viewport)
 	for entry in _entries:
 		var opened: bool = bool(entry["window"].get(str(entry["flag"])))
 		entry["was_open"] = opened
-		var panel: PanelContainer = entry["panel"]
+		var panel: Control = entry["panel"]
 		panel.visible = opened
 		if opened:
 			has_modal = true
 			if str(entry["window"].name) == "NavigationHUD":
-				panel.size = viewport
-				panel.position = Vector2.ZERO
+				panel.position = Vector2(0, _top_height + 4)
+				panel.size = Vector2(viewport.x, maxf(120.0, viewport.y - panel.position.y - 12.0))
 			else:
-				panel.size = Vector2(minf(1440.0, viewport.x - 40.0), maxf(200.0, viewport.y - 104.0))
-				panel.position = Vector2((viewport.x - panel.size.x) * 0.5, 52.0)
+				var natural_size := panel.get_combined_minimum_size()
+				var available := Vector2(maxf(120.0, viewport.x - 40.0), maxf(120.0, viewport.y - _top_height - 20.0))
+				var target_size := Vector2(maxf(natural_size.x, minf(1440.0, available.x)), maxf(natural_size.y, available.y))
+				var shrink := minf(1.0, minf(available.x / maxf(1.0, target_size.x), available.y / maxf(1.0, target_size.y)))
+				panel.scale = Vector2.ONE * shrink
+				panel.size = target_size
+				panel.position = Vector2((viewport.x - target_size.x * shrink) * 0.5, _top_height + 4.0)
 	var docked_port_id: String = str(GameState.ship_state.get("docked_port_id", ""))
 	var home_port_id: String = str(GameState.world_state.get("home_port_id", ""))
 	var docked: bool = docked_port_id != ""
+	if docked_port_id != _last_docked:
+		_last_docked = docked_port_id
+		_port_expanded = false
+		_details = ""
+	_port_button.disabled = not docked
+	var ship: Dictionary = GameState.ship_state
+	var cargo: int = 0
+	for item in ship.get("cargo", []):
+		cargo += int(item.get("quantity", 0))
+	_readouts.text = ""
+	_readouts.position = Vector2(12, 4)
+	_readouts.size = Vector2(viewport.x - 24, 24)
+	_readouts.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	_extra_resources_panel.size = Vector2(280.0, minf(320.0, viewport.y - 100.0))
+	_extra_resources_panel.position = Vector2(
+		viewport.x - _extra_resources_panel.size.x - 12.0,
+		_top_height + 4.0
+	)
+	if _extra_resources_panel.visible:
+		_extra_resources_panel.move_to_front()
+	var guide: CanvasLayer = _main.get_node_or_null("FirstVoyageGuide")
+	if guide != null:
+		guide.visible = not has_modal and _details == "FirstVoyageGuide"
 	var at_home: bool = docked and docked_port_id == home_port_id
 	_garrison_button.visible = at_home and not has_modal
 	_refresh_more_availability(docked)
-	for node_name in ["ShipStatusHUD", "MapStatusHUD", "WorldEventHUD"]:
+	for node_name in ["ShipStatusHUD", "MapStatusHUD", "WorldEventHUD", "MerchantOfferHUD"]:
 		var hud: CanvasLayer = _main.get_node_or_null(node_name)
 		if hud != null:
-			hud.visible = not has_modal and not docked and node_name != "MapStatusHUD"
-	_main.get_node("PortWindow").visible = not has_modal
+			hud.visible = not has_modal and _details == node_name
+	_merchant_button.visible = bool(_main.get_node("MerchantOfferHUD").get("_button").visible)
+	_main.get_node("MerchantOfferHUD").get("_panel").position = Vector2(maxf(12, viewport.x - 435), _top_height + 4)
+	_main.get_node("PortWindow").visible = not has_modal and docked and _port_expanded
 	if has_modal:
-		_more_panel.hide()
+		_extra_resources_panel.hide()
 		_main.get_node("MerchantOfferHUD").get("_button").hide()
 	_main.get_node("FleetWindow").get("_button").hide()
+	_main.get_node("MerchantOfferHUD").get("_button").hide()
 	_main.get_node("CrewWindow").get("_button").hide()
 	_main.get_node("NavigationHUD").get("_toggle_button").hide()
-	_main.get_node("NavigationHUD").get("_course_label").visible = not has_modal and not docked
-	var map_open: bool = bool(_main.get_node("NavigationHUD").get("_is_open"))
-	_toolbar.visible = not map_open
-	_toolbar.position = Vector2(maxf(12.0, (viewport.x - _toolbar.size.x) * 0.5), viewport.y - _toolbar.size.y - 12.0 if has_modal or not docked else 12.0)
+	_main.get_node("NavigationHUD").get("_course_label").hide()
+	_toolbar.visible = true
 	_more_panel.size = Vector2(260.0, minf(330.0, viewport.y - 100.0))
 	_more_panel.position = Vector2(
-		clampf(_toolbar.position.x + _toolbar.size.x - _more_panel.size.x, 12.0, viewport.x - _more_panel.size.x - 12.0),
-		_toolbar.position.y - _more_panel.size.y - 10.0 if not docked else _toolbar.position.y + _toolbar.size.y + 10.0
+		clampf(_toolbar.position.x + _toolbar.size.x * _toolbar.scale.x - _more_panel.size.x, 12.0, viewport.x - _more_panel.size.x - 12.0),
+		_top_height + 4.0
 	)
-	if has_modal or docked:
-		_more_panel.hide()
+	if _more_panel.visible:
+		_more_panel.move_to_front()
 	_cancel.visible = bool(GameState.voyage_state.get("active_autopilot", false))
-	_status.visible = not has_modal and not docked
-	_status.position = Vector2(12, 320)
-	_status.size.x = 350
+	_status.visible = false
+	_readouts.tooltip_text = str(GameState.world_state.get("autopilot_notice", ""))
+	_status.position = Vector2(maxf(12, viewport.x - 330), 37)
+	_status.size.x = 315
 	_status.text = str(GameState.world_state.get("autopilot_notice", ""))
 	if docked and not has_modal:
 		var port_panel: PanelContainer = _main.get_node("PortWindow").get("_sheet")
-		port_panel.size = Vector2(minf(1480.0, viewport.x - 40.0), maxf(200.0, viewport.y - 116.0))
-		port_panel.position = Vector2((viewport.x - port_panel.size.x) * 0.5, 58.0)
+		port_panel.size = Vector2(minf(1480.0, viewport.x - 40.0), maxf(200.0, viewport.y - _top_height - 24.0))
+		port_panel.position = Vector2((viewport.x - port_panel.size.x) * 0.5, _top_height + 4.0)
+
+func _layout_top_bar(viewport: Vector2) -> void:
+	var menu_min: Vector2 = _toolbar.get_combined_minimum_size()
+	var stock_min: Vector2 = _resource_bar.get_combined_minimum_size()
+	var available: float = maxf(1.0, viewport.x - 24.0)
+	_toolbar.size = Vector2(menu_min.x, maxf(48, menu_min.y))
+	_resource_bar.size = Vector2(stock_min.x, maxf(42, stock_min.y))
+	var menu_scale: float = minf(1.0, available / maxf(1.0, menu_min.x))
+	var stock_scale: float = minf(1.0, available / maxf(1.0, stock_min.x))
+	_toolbar.scale = Vector2.ONE * menu_scale
+	_resource_bar.scale = Vector2.ONE * stock_scale
+	_toolbar.position = Vector2(12, 8)
+	if menu_min.x + stock_min.x + 24.0 <= available:
+		_resource_bar.position = Vector2(viewport.x - stock_min.x - 12, 11)
+		_top_height = maxf(_toolbar.size.y, _resource_bar.size.y) + 16.0
+	else:
+		var second_row_y: float = 12.0 + _toolbar.size.y * menu_scale
+		_resource_bar.position = Vector2(viewport.x - stock_min.x * stock_scale - 12, second_row_y)
+		_top_height = second_row_y + _resource_bar.size.y * stock_scale + 8.0
+	get_node("TopMenuBackdrop").size = Vector2(viewport.x, _top_height)
 
 func _refresh_more_availability(docked: bool) -> void:
 	if _more_panel == null:
@@ -358,6 +651,14 @@ func _refresh_text_scale_button() -> void:
 
 func _unhandled_key_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
+		_more_panel.hide()
+		_extra_resources_panel.hide()
+		_port_expanded = false
+		_details = ""
 		for entry in _entries:
 			_close_window(entry["window"], str(entry["flag"]))
 		get_viewport().set_input_as_handled()
+
+func _close_all_workspaces() -> void:
+	for entry in _entries:
+		_close_window(entry["window"], str(entry["flag"]))

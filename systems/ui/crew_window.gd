@@ -13,6 +13,10 @@ var _refresh_timer: float = 0.0
 var _stat_labels: Dictionary = {}
 var _requirements: Dictionary = {}
 var _skill_catalog: Dictionary = {}
+var _captain_portrait: TextureRect
+var _crew_portrait_atlas: Texture2D
+const CREW_ATLAS := "res://assets/characters/crew/crew_portrait_atlas.png"
+const RACE_ROWS := {"humans": 0, "nerids": 1, "surr": 2, "meridians": 3, "aery": 4, "crystari": 5}
 
 func _ready() -> void:
 	layer = 30
@@ -41,6 +45,11 @@ func _ready() -> void:
 	title.text = "ЭКИПАЖ ТЕКУЩЕГО КОРАБЛЯ"
 	title.add_theme_font_size_override("font_size", 24)
 	box.add_child(title)
+	_captain_portrait = TextureRect.new()
+	_captain_portrait.custom_minimum_size = Vector2(0, 200)
+	_captain_portrait.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_captain_portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	box.add_child(_captain_portrait)
 	_summary = Label.new()
 	_summary.add_theme_font_size_override("font_size", 19)
 	_summary.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -70,6 +79,7 @@ func initialize(system: Node) -> void:
 	_stat_labels = system.get_stat_labels()
 	_skill_catalog = system.get_skill_catalog()
 	_requirements = GameData.get_crew_requirements()
+	_crew_portrait_atlas = load(CREW_ATLAS) as Texture2D if ResourceLoader.exists(CREW_ATLAS) else null
 
 func _process(delta: float) -> void:
 	var viewport: Vector2 = get_viewport().get_visible_rect().size
@@ -97,6 +107,7 @@ func _refresh() -> void:
 	for child in _list.get_children():
 		child.queue_free()
 	var raw_crew: Variant = GameState.ship_state.get("crew", [])
+	_captain_portrait.texture = GameData.get_faction_portrait(str(GameState.player_state.get("origin_race_id", "humans")))
 	var crew_ids: Array = raw_crew if raw_crew is Array else []
 	var ship_id: String = str(GameState.ship_state.get("ship_id", "default"))
 	var limits: Dictionary = _requirements.get(ship_id, _requirements.get("default", {}))
@@ -111,12 +122,12 @@ func _refresh() -> void:
 		var stats: Dictionary = _system.get_effective_stats(employee)
 		for stat_id in totals:
 			totals[stat_id] = int(totals[stat_id]) + int(stats.get(stat_id, 0))
-		_add_employee_card(employee, stats)
+		_add_employee_card(employee, stats, assigned_count)
 	var maximum_crew: int = int(limits.get("max_crew", 1))
 	for slot_index in range(assigned_count, maximum_crew):
 		_add_empty_slot(slot_index + 1)
 	_summary.text = (
-		"Назначено: %d / %d • постоянные сотрудники развиваются в рейсах\n"
+		"Занятые ячейки: %d / %d • штатные сотрудники остаются, пока вы их не замените или не уволите\n"
 		+ "Итог: скорость %+d%% | погрузка %+d%% | топливо %+d%% | ремонт %+d%% | навигация %+d%%"
 	) % [
 		assigned_count,
@@ -143,25 +154,41 @@ func _add_empty_slot(slot_number: int) -> void:
 	label.add_theme_font_size_override("font_size", 18)
 	card.add_child(label)
 
-func _add_employee_card(employee: Dictionary, stats: Dictionary) -> void:
+func _add_employee_card(employee: Dictionary, stats: Dictionary, slot_number: int) -> void:
 	var permanent: bool = str(employee.get("employment_type", "contract")) == "permanent"
 	var border: Color = Color(0.78, 0.62, 0.24, 1.0) if permanent else Color(0.18, 0.42, 0.56, 1.0)
 	var card: PanelContainer = _make_card(Color(0.08, 0.11, 0.15, 1.0), border)
 	var box: VBoxContainer = VBoxContainer.new()
 	box.add_theme_constant_override("separation", 7)
 	card.add_child(box)
-	var employment_name: String = "ПОСТОЯННЫЙ" if permanent else "КОНТРАКТНЫЙ"
+	var profile := HBoxContainer.new()
+	profile.add_theme_constant_override("separation", 12)
+	box.add_child(profile)
+	var portrait := TextureRect.new()
+	portrait.texture = _get_employee_portrait(employee)
+	portrait.custom_minimum_size = Vector2(112, 132)
+	portrait.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	profile.add_child(portrait)
+	var profile_text := VBoxContainer.new()
+	profile_text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	profile.add_child(profile_text)
 	var header: Label = Label.new()
-	header.text = "ПОРТРЕТ %d  •  %s\n%s — %s %d ранга" % [
-		int(employee.get("portrait_id", 0)) + 1,
-		employment_name,
+	header.text = "ЯЧЕЙКА %d  •  %s\n%s — %s, ранг %d" % [
+		slot_number,
+		str(employee.get("race_name", "Экипаж")),
 		str(employee.get("name", "")),
 		str(employee.get("role_name", "")),
 		int(employee.get("rank", 1))
 	]
 	header.add_theme_font_size_override("font_size", 20)
 	header.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	box.add_child(header)
+	profile_text.add_child(header)
+	var salary: Label = Label.new()
+	salary.text = "Штатный член экипажа · %s за рейс" % str(round(float(employee.get("salary_per_voyage", 0.0))))
+	salary.add_theme_font_size_override("font_size", 15)
+	salary.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	profile_text.add_child(salary)
 	if permanent:
 		_add_permanent_progress(box, employee)
 	else:
@@ -188,6 +215,18 @@ func _add_employee_card(employee: Dictionary, stats: Dictionary) -> void:
 	dismiss_button.pressed.connect(_dismiss_employee.bind(str(employee.get("employee_instance_id", ""))))
 	box.add_child(dismiss_button)
 
+func _get_employee_portrait(employee: Dictionary) -> Texture2D:
+	if _crew_portrait_atlas == null:
+		return null
+	var column: int = posmod(int(employee.get("portrait_id", 0)), 3)
+	var row: int = int(RACE_ROWS.get(str(employee.get("race_id", "humans")), 0))
+	var cell_width: float = float(_crew_portrait_atlas.get_width()) / 3.0
+	var cell_height: float = float(_crew_portrait_atlas.get_height()) / 6.0
+	var atlas := AtlasTexture.new()
+	atlas.atlas = _crew_portrait_atlas
+	atlas.region = Rect2(column * cell_width + 2.0, row * cell_height + 2.0, cell_width - 4.0, cell_height - 4.0)
+	return atlas
+
 func _add_permanent_progress(box: VBoxContainer, employee: Dictionary) -> void:
 	var mastery: int = int(employee.get("mastery_percent", 0))
 	var mastery_label: Label = Label.new()
@@ -199,6 +238,16 @@ func _add_permanent_progress(box: VBoxContainer, employee: Dictionary) -> void:
 	mastery_bar.custom_minimum_size.y = 24
 	box.add_child(mastery_bar)
 	var skills: Array = employee.get("skills", [])
+	var active_skill_id: String = str(employee.get("active_skill_id", ""))
+	if active_skill_id != "":
+		var active_skill: Dictionary = _skill_catalog.get(active_skill_id, {})
+		var action_stat: String = str(active_skill.get("stat", ""))
+		var action_label: String = str(_stat_labels.get(action_stat, action_stat))
+		var action_hint: Label = Label.new()
+		action_hint.text = "Навык развивается медленно от действия «%s». Нужны сотни профильных действий для полного бонуса." % action_label
+		action_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		action_hint.add_theme_font_size_override("font_size", 15)
+		box.add_child(action_hint)
 	if skills.is_empty():
 		var empty_skills: Label = Label.new()
 		empty_skills.text = "Навыки: ещё не выбраны. Первый выбор откроется при 100% профессии."

@@ -20,6 +20,7 @@
     "wear_per_distance": 0.001,
     "repair_price": 6,
     "food_per_person": 2,
+    "tier_service_factor": 0.18,
     "capacity_scale": 200,
     "load_factor": 0.3,
     "minimum_leg_seconds": 45

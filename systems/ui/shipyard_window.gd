@@ -9,6 +9,7 @@ var _title: Label
 var _ship_icon: TextureRect
 var _details: Label
 var _name_input: LineEdit
+var _name_notice: Label
 var _material_list: VBoxContainer
 var _build_button: Button
 var _notice: String = ""
@@ -31,55 +32,74 @@ func _ready() -> void:
 	for side in ["left", "top", "right", "bottom"]:
 		margin.add_theme_constant_override("margin_" + side, 22)
 	_panel.add_child(margin)
-	var box: VBoxContainer = VBoxContainer.new()
-	box.add_theme_constant_override("separation", 12)
-	margin.add_child(box)
+	var layout := HBoxContainer.new()
+	layout.add_theme_constant_override("separation",24)
+	margin.add_child(layout)
+	var controls := ScrollContainer.new()
+	controls.name = "LeftControls"
+	controls.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	controls.size_flags_stretch_ratio = 1.15
+	controls.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	layout.add_child(controls)
+	var box := VBoxContainer.new()
+	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	box.add_theme_constant_override("separation",8)
+	controls.add_child(box)
 	_title = Label.new()
 	_title.text = "ВЕРФЬ — СТРОИТЕЛЬСТВО КОРАБЛЯ"
-	_title.add_theme_font_size_override("font_size", 30)
+	_title.add_theme_font_size_override("font_size", 16)
 	box.add_child(_title)
 	_ship_icon = TextureRect.new()
 	_ship_icon.custom_minimum_size = Vector2(0, 120)
 	_ship_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	_ship_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	box.add_child(_ship_icon)
+	_ship_icon.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_ship_icon.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	layout.add_child(_ship_icon)
+	var inspect := Button.new()
+	inspect.text = "Осмотреть корабль в 3D"
+	inspect.pressed.connect(func(): preload("res://systems/ui/ship_inspection_window.gd").show_ship(self,str(_system.get_project().get("ship_type_id","ship_sloop"))))
+	box.add_child(inspect)
 	_details = Label.new()
-	_details.add_theme_font_size_override("font_size", 22)
+	_details.set_meta("compact_description", true)
+	_details.add_theme_font_size_override("font_size", 14)
 	_details.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	box.add_child(_details)
 	_name_input = LineEdit.new()
 	_name_input.placeholder_text = "Имя или номер корабля"
-	_name_input.add_theme_font_size_override("font_size", 23)
+	_name_input.add_theme_font_size_override("font_size", 15)
 	_name_input.text_submitted.connect(_save_name)
 	box.add_child(_name_input)
+	_name_notice = Label.new()
+	_name_notice.add_theme_font_size_override("font_size", 12)
+	_name_notice.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_name_notice.modulate = Color(0.82, 0.88, 0.78)
+	box.add_child(_name_notice)
 	var save_name_button: Button = Button.new()
 	save_name_button.text = "Сохранить имя"
-	save_name_button.add_theme_font_size_override("font_size", 21)
+	save_name_button.add_theme_font_size_override("font_size", 16)
 	save_name_button.custom_minimum_size.y = 46
 	save_name_button.pressed.connect(_save_name.bind(""))
 	box.add_child(save_name_button)
-	var scroll: ScrollContainer = ScrollContainer.new()
-	scroll.custom_minimum_size.y = 340
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	box.add_child(scroll)
 	_material_list = VBoxContainer.new()
-	_material_list.add_theme_constant_override("separation", 8)
-	scroll.add_child(_material_list)
+	_material_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_material_list.add_theme_constant_override("separation",8)
+	box.add_child(_material_list)
 	_build_button = Button.new()
 	_build_button.text = "ПОСТРОИТЬ И СПУСТИТЬ НА ВОДУ"
-	_build_button.add_theme_font_size_override("font_size", 22)
+	_build_button.add_theme_font_size_override("font_size", 16)
 	_build_button.custom_minimum_size.y = 54
 	_build_button.pressed.connect(_finish_project)
 	box.add_child(_build_button)
 	var cancel_button: Button = Button.new()
 	cancel_button.text = "Отменить проект и вернуть материалы"
-	cancel_button.add_theme_font_size_override("font_size", 20)
+	cancel_button.add_theme_font_size_override("font_size", 16)
 	cancel_button.custom_minimum_size.y = 46
 	cancel_button.pressed.connect(_cancel_project)
 	box.add_child(cancel_button)
 	var close_button: Button = Button.new()
 	close_button.text = "Закрыть"
-	close_button.add_theme_font_size_override("font_size", 20)
+	close_button.add_theme_font_size_override("font_size", 16)
 	close_button.custom_minimum_size.y = 46
 	close_button.pressed.connect(_close)
 	box.add_child(close_button)
@@ -117,7 +137,11 @@ func _refresh() -> void:
 		_details.text = _notice
 		_build_button.disabled = true
 		return
-	_name_input.text = str(project.get("name", ""))
+	# Refreshes can happen while the player is typing (for example after a UI
+	# update). Never replace an in-progress name with the saved project value.
+	if not _name_input.has_focus():
+		_name_input.text = str(project.get("name", ""))
+	_name_notice.text = _notice
 	var required: Dictionary = project.get("required_materials", {})
 	var materials: Dictionary = project.get("materials", {})
 	var ready: bool = _system.is_project_ready(project)
@@ -149,7 +173,8 @@ func _refresh() -> void:
 func _add_material_row(resource_id: String, current: int, required: int) -> void:
 	var box: VBoxContainer = VBoxContainer.new()
 	var label: Label = Label.new()
-	label.add_theme_font_size_override("font_size", 23)
+	label.set_meta("compact_description", true)
+	label.add_theme_font_size_override("font_size", 15)
 	label.text = "%s: %d / %d — %d%%" % [
 		_system.get_goods_name(resource_id),
 		current,
@@ -175,9 +200,13 @@ func _commit_slider(value_changed: bool, slider: HSlider, resource_id: String) -
 	_refresh()
 
 func _save_name(_submitted_text: String = "") -> void:
-	var result: Dictionary = _system.set_project_name(_name_input.text)
+	var chosen_name: String = _name_input.text.strip_edges().left(28)
+	var result: Dictionary = _system.set_project_name(chosen_name)
 	_notice = str(result.get("message", ""))
+	if bool(result.get("ok", false)):
+		_notice = "Имя корабля «%s» сохранено." % chosen_name
 	_refresh()
+	_name_input.release_focus()
 
 func _finish_project() -> void:
 	var result: Dictionary = _system.finish_project()

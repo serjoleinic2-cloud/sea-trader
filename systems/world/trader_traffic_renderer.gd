@@ -1,158 +1,223 @@
 extends Node2D
 
-## Sparse ambient merchant traffic plus the real visiting merchant at the home port.
-
-var _world_size: Vector2 = Vector2(4096, 4096)
+## Ambient traffic uses the same coast/reef authority as the player ship.
+var _world_size := Vector2(4096, 4096)
 var _vessels: Array = []
 var _ports: Dictionary = {}
+var _islands: Array = []
+var _home_id: String = ""
+var _clock: float = 0.0
+var _visuals: Dictionary = {}
+var _harbor_passage: int = -1
+var external_traffic: Callable
+var _guard = preload("res://systems/ship/ship_physics.gd").new()
+var _planner = preload("res://systems/navigation/coast_route_planner.gd").new()
+const TYPES := ["ship_barque", "ship_schooner", "premium_salvage_schooner", "premium_royal_schooner", "ship_freighter", "premium_golden_clipper"]
+const FACTIONS := ["humans", "nerids", "surr", "meridians", "aery", "crystari"]
+const MAX_HARBOR_SHIPS := 2
+const HARBOR_STAY_SECONDS := 75.0
+const HARBOR_REENTRY_SECONDS := 18.0
+
+func _ready() -> void:
+	add_to_group("trader_traffic_renderer")
 
 func initialize(world_data: Dictionary) -> void:
-	var raw_size: Variant = world_data.get("world_size", Vector2(4096, 4096))
-	if raw_size is Vector2 or raw_size is Vector2i:
-		_world_size = Vector2(raw_size)
-	var raw_ports: Variant = world_data.get("ports", {})
-	if raw_ports is Dictionary:
-		_ports = raw_ports
-	var ship_sizes: Array[float] = [7.0, 10.0, 14.0, 9.0, 18.0, 11.0]
-	var ship_colors: Array[Color] = [
-		Color(0.9, 0.9, 0.82, 1.0),
-		Color(0.75, 0.72, 0.55, 1.0),
-		Color(0.8, 0.45, 0.22, 1.0),
-		Color(0.65, 0.85, 0.95, 1.0),
-		Color(0.55, 0.58, 0.62, 1.0),
-		Color(0.95, 0.72, 0.30, 1.0)
-	]
-	for index in range(ship_sizes.size()):
-		var start: Vector2 = Vector2(
-			fposmod(320.0 + index * 643.0, _world_size.x),
-			fposmod(510.0 + index * 389.0, _world_size.y)
-		)
-		var destination: Vector2 = Vector2(
-			fposmod(2100.0 + index * 287.0, _world_size.x),
-			fposmod(1200.0 + index * 521.0, _world_size.y)
-		)
-		_vessels.append({
-			"position": start,
-			"destination": destination,
-			"speed": 18.0 + index * 3.0,
-			"size": ship_sizes[index],
-			"color": ship_colors[index]
-		})
-	queue_redraw()
+	_visuals = GameData.read("res://data/world/ship_visuals.json").get("ships", {})
+	_guard.set_collision_data_provider(func(): return {"islands": _islands})
+	set_navigation_world(world_data)
+
+func _exit_tree() -> void:
+	_guard.free()
+
+func set_navigation_world(world_data: Dictionary) -> void:
+	_ports = world_data.get("ports", {})
+	_islands = world_data.get("islands", [])
+	var home := str(GameState.world_state.get("home_port_id", ""))
+	if _vessels.is_empty() or home != _home_id:
+		_home_id = home
+		_seed_traffic()
+	else:
+		for vessel in _vessels:
+			vessel["route"] = PackedVector2Array()
+
+func _home_geometry() -> Dictionary:
+	var port: Dictionary = _ports.get(_home_id, {})
+	if port.is_empty():
+		return {}
+	for island in _islands:
+		if str(island.get("id", "")) == str(port.get("island_id", "")):
+			return island
+	return {}
+
+func _seed_traffic() -> void:
+	_vessels.clear()
+	_harbor_passage = -1
+	var home := _home_geometry()
+	for index in range(6):
+		var start := Vector2(320 + index * 643, 510 + index * 389)
+		var berth := start + Vector2(1300, 900)
+		if not home.is_empty():
+			var port: Dictionary = _ports[_home_id]
+			var forward := Vector2.from_angle(float(home.get("bay_angle", 0.0)))
+			var side := forward.orthogonal()
+			var anchor := Vector2(port.position)
+			var direction := -1.0 if index % 2 == 0 else 1.0
+			berth = _berth_position(index % MAX_HARBOR_SHIPS)
+			var holding_lane: float = 300.0 + float(index / 2) * _display_length({"ship_type_id": TYPES[0]}) * 2.2
+			start = anchor + forward * (float(home.radius) * 1.35 + float(index / 2) * 260.0) + side * direction * holding_lane
+		start = _safe_water(start)
+		berth = _safe_water(berth)
+		var reserved := index < MAX_HARBOR_SHIPS
+		_vessels.append({"position": start, "destination": berth if reserved else start, "berth": berth,
+			"offshore": start, "route": PackedVector2Array(), "heading": (berth - start).normalized(),
+			"speed": 32.0 + index * 3, "wait": float(index) * 8.0, "inbound": reserved,
+			"berth_reserved": reserved, "berth_slot": index % MAX_HARBOR_SHIPS if reserved else -1, "at_berth": false,
+			"ship_type_id": TYPES[index], "faction_id": FACTIONS[index], "size": 55.0})
+
+func _safe_water(point: Vector2) -> Vector2:
+	if not _guard.is_navigation_move_blocked(point + Vector2(0.1, 0), point) and not _guard.is_navigation_move_blocked(point - Vector2(0.1, 0), point):
+		return point
+	for distance in [100.0, 220.0, 450.0, 900.0, 1800.0, 3600.0]:
+		for index in range(16):
+			var candidate: Vector2 = point + Vector2.from_angle(index * TAU / 16.0) * float(distance)
+			if not _guard.is_navigation_move_blocked(candidate + Vector2(0.1, 0), candidate) and not _guard.is_navigation_move_blocked(candidate - Vector2(0.1, 0), candidate):
+				return candidate
+	return point
 
 func _process(delta: float) -> void:
+	_clock += delta
 	for index in range(_vessels.size()):
 		var vessel: Dictionary = _vessels[index]
-		var position: Vector2 = vessel.get("position", Vector2.ZERO)
-		var destination: Vector2 = vessel.get("destination", Vector2.ZERO)
-		var speed: float = float(vessel.get("speed", 20.0))
-		var candidate: Vector2 = position.move_toward(destination, speed * delta)
-		var player_position: Vector2 = Vector2(GameState.ship_state.get("position", Vector2.ZERO))
-		var clearance: float = float(vessel.get("size", 8.0)) * 0.9 + 30.0
-		var blocked: bool = candidate.distance_to(player_position) < clearance
-		for other_index in range(_vessels.size()):
-			if other_index == index:
+		if float(vessel.get("wait", 0.0)) > 0:
+			vessel.wait = maxf(0, float(vessel.wait) - delta)
+			continue
+		if bool(vessel.get("at_berth", false)):
+			vessel["at_berth"] = false
+			vessel["inbound"] = false
+			vessel["destination"] = vessel.offshore
+			vessel["route"] = PackedVector2Array()
+		if not bool(vessel.get("berth_reserved", false)):
+			var free_slot := _free_berth_slot()
+			if free_slot < 0:
+				vessel.wait = 2.0
 				continue
-			var other: Dictionary = _vessels[other_index]
-			var other_position: Vector2 = Vector2(other.get("position", Vector2.ZERO))
-			var other_clearance: float = (float(vessel.get("size", 8.0)) + float(other.get("size", 8.0))) * 0.55
-			if candidate.distance_to(other_position) < other_clearance:
+			vessel["berth_reserved"] = true
+			vessel["berth_slot"] = free_slot
+			vessel["berth"] = _berth_position(free_slot)
+			vessel["inbound"] = true
+			vessel["destination"] = vessel.berth
+			vessel["route"] = PackedVector2Array()
+		var position := Vector2(vessel.position)
+		var destination := Vector2(vessel.destination)
+		var route: PackedVector2Array = vessel.route
+		if route.is_empty():
+			route = _planner.plan(position, destination, _islands, Callable(_guard, "is_navigation_move_blocked"))
+			vessel.route = route
+		if route.is_empty():
+			vessel.wait = 3.0 # No safe route: wait rather than cross land.
+			continue
+		var target: Vector2 = route[0]
+		var candidate := position.move_toward(target, float(vessel.speed) * delta)
+		var blocked := _guard.is_navigation_move_blocked(position, candidate)
+		var length := _display_length(vessel)
+		if candidate.distance_to(Vector2(GameState.ship_state.get("position", Vector2.ZERO))) < length + _player_length():
+			blocked = true
+		for other in _vessels:
+			if other == vessel:
+				continue
+			if Geometry2D.get_closest_point_to_segment(Vector2(other.position), position, candidate).distance_to(Vector2(other.position)) < length + _display_length(other):
 				blocked = true
 				break
+		if external_traffic.is_valid():
+			for other in external_traffic.call():
+				if Geometry2D.get_closest_point_to_segment(Vector2(other.position), position, candidate).distance_to(Vector2(other.position)) < length + float(other.get("length", 100.0)):
+					blocked = true
 		if blocked:
-			vessel["position"] = position
-		elif position.distance_to(destination) <= speed * delta:
-			vessel["position"] = destination
-			vessel["destination"] = Vector2(
-				fposmod(destination.x + 1177.0 + index * 73.0, _world_size.x),
-				fposmod(destination.y + 809.0 + index * 131.0, _world_size.y)
-			)
-		else:
-			vessel["position"] = candidate
-		_vessels[index] = vessel
+			continue
+		var home: Dictionary = _home_geometry()
+		if not home.is_empty():
+			var anchor: Vector2 = _ports[_home_id].position
+			var channel_radius: float = float(home.get("visual_radius", home.radius)) * 0.55
+			if candidate.distance_to(anchor) < channel_radius:
+				if _harbor_passage != -1 and _harbor_passage != index:
+					continue
+				_harbor_passage = index
+			elif _harbor_passage == index:
+				_harbor_passage = -1
+		vessel.heading = (target - position).normalized() if target != position else vessel.heading
+		vessel.position = candidate
+		if candidate.distance_to(target) < 0.2:
+			route.remove_at(0)
+			vessel.route = route
+			if route.is_empty():
+				if _harbor_passage == index:
+					_harbor_passage = -1
+				if bool(vessel.inbound):
+					vessel["at_berth"] = true
+					vessel.wait = HARBOR_STAY_SECONDS
+				else:
+					vessel["berth_reserved"] = false
+					vessel["wait"] = HARBOR_REENTRY_SECONDS + float(index % 3) * 5.0
+
+func _reserved_berths() -> int:
+	var count := 0
+	for vessel in _vessels:
+		if bool(vessel.get("berth_reserved", false)):
+			count += 1
+	return count
+
+func _free_berth_slot() -> int:
+	for slot in range(MAX_HARBOR_SHIPS):
+		var taken := false
+		for vessel in _vessels:
+			if bool(vessel.get("berth_reserved", false)) and int(vessel.get("berth_slot", -1)) == slot:
+				taken = true
+				break
+		if not taken:
+			return slot
+	return -1
+
+func _berth_position(slot: int) -> Vector2:
+	var home := _home_geometry()
+	if home.is_empty() or not _ports.has(_home_id):
+		return Vector2.ZERO
+	var port: Dictionary = _ports[_home_id]
+	var forward := Vector2.from_angle(float(home.get("bay_angle", 0.0)))
+	var side := forward.orthogonal()
+	var gap: float = _display_length({"ship_type_id": TYPES[0]}) * 2.1
+	var direction := -1.0 if slot == 0 else 1.0
+	return Vector2(port.position) + side * direction * gap * 0.5
 	if is_visible_in_tree():
 		queue_redraw()
 
-func _draw() -> void:
-	for vessel in _vessels:
-		_draw_ambient_vessel(vessel)
-	_draw_visiting_merchant()
+func _display_length(vessel: Dictionary) -> float:
+	var player: Dictionary = _visuals.get(str(GameState.ship_state.get("ship_id", "ship_sloop")), {})
+	var own: Dictionary = _visuals.get(str(vessel.get("ship_type_id", "ship_barque")), {})
+	return maxf(float(player.get("display_length", 3.48)), float(own.get("display_length", 4.5))) / 0.04
 
+func _player_length() -> float:
+	return float(_visuals.get(str(GameState.ship_state.get("ship_id", "ship_sloop")), {}).get("display_length", 3.48)) / 0.04
 
 func get_vessel_snapshots() -> Array[Dictionary]:
 	var snapshots: Array[Dictionary] = []
 	for index in range(_vessels.size()):
 		var vessel: Dictionary = _vessels[index]
-		var position: Vector2 = Vector2(vessel.get("position", Vector2.ZERO))
-		var destination: Vector2 = Vector2(vessel.get("destination", position + Vector2.UP))
-		var direction: Vector2 = (destination - position).normalized()
-		if direction.length_squared() < 0.001:
-			direction = Vector2.UP
-		snapshots.append({
-			"id": "ambient_%02d" % index,
-			"position": position,
-			"heading": direction,
-			"length": float(vessel.get("size", 8.0)) * 2.0,
-			"color": vessel.get("color", Color.WHITE),
-			"kind": "merchant"
-		})
-	var merchant: Dictionary = GameState.economy_state.get("merchant", {})
-	var offer: Dictionary = merchant.get("active_offer", {})
-	var home_port_id: String = str(GameState.world_state.get("home_port_id", ""))
-	if not offer.is_empty() and int(offer.get("quantity_available", 0)) > 0 and _ports.has(home_port_id):
-		var port: Dictionary = _ports[home_port_id]
-		var port_position: Vector2 = Vector2(port.get("position", Vector2.ZERO))
-		var visitor_index: int = int(offer.get("visitor_index", 0))
-		var size: float = 17.0 + float(visitor_index % 3) * 4.0
-		snapshots.append({
-			"id": "visiting_merchant",
-			"position": port_position + Vector2(42.0, -38.0 + sin(float(Time.get_ticks_msec()) / 550.0) * 2.0),
-			"heading": Vector2(1.0, 0.25).normalized(),
-			"length": size * 2.0,
-			"color": Color(0.18, 0.86, 0.38, 1.0),
-			"kind": "visiting_merchant"
-		})
+		var ship_id := str(vessel.ship_type_id)
+		if ship_id == str(GameState.ship_state.get("ship_id", "ship_sloop")):
+			ship_id = TYPES[(index + 1) % TYPES.size()]
+		snapshots.append({"id": "ambient_%02d" % index, "position": vessel.position,
+			"heading": vessel.heading, "length": _display_length(vessel), "ship_type_id": ship_id,
+			"faction_id": vessel.faction_id, "kind": "merchant", "color": Color("adc3ba")})
+	var offer: Dictionary = GameState.economy_state.get("merchant", {}).get("active_offer", {})
+	if not offer.is_empty() and int(offer.get("quantity_available", 0)) > 0 and not _vessels.is_empty():
+		# The offer belongs to an existing vessel; no duplicate hull at its berth.
+		snapshots[0]["has_merchant_offer"] = true
 	return snapshots
 
-func _draw_ambient_vessel(vessel: Dictionary) -> void:
-	var position: Vector2 = vessel.get("position", Vector2.ZERO)
-	var destination: Vector2 = vessel.get("destination", Vector2.ZERO)
-	var size: float = float(vessel.get("size", 8.0))
-	var color: Color = vessel.get("color", Color.WHITE)
-	var direction: Vector2 = (destination - position).normalized()
-	var side: Vector2 = Vector2(-direction.y, direction.x)
-	var points: PackedVector2Array = PackedVector2Array([
-		position + direction * size,
-		position - direction * size * 0.7 + side * size * 0.55,
-		position - direction * size * 0.7 - side * size * 0.55
-	])
-	draw_colored_polygon(points, color)
-
-func _draw_visiting_merchant() -> void:
-	var merchant: Dictionary = GameState.economy_state.get("merchant", {})
-	var raw_offer: Variant = merchant.get("active_offer", {})
-	if not (raw_offer is Dictionary):
-		return
-	var offer: Dictionary = raw_offer
-	if offer.is_empty() or int(offer.get("quantity_available", 0)) <= 0:
-		return
-	var home_port_id: String = str(GameState.world_state.get("home_port_id", ""))
-	if home_port_id == "" or not _ports.has(home_port_id):
-		return
-	var port: Dictionary = _ports[home_port_id]
-	var port_position: Vector2 = Vector2(port.get("position", Vector2.ZERO))
-	var visitor_index: int = int(offer.get("visitor_index", 0))
-	var size: float = 17.0 + float(visitor_index % 3) * 4.0
-	var bob: float = sin(float(Time.get_ticks_msec()) / 550.0) * 2.0
-	var position: Vector2 = port_position + Vector2(42.0, -38.0 + bob)
-	var direction: Vector2 = Vector2(1.0, 0.25).normalized()
-	var side: Vector2 = Vector2(-direction.y, direction.x)
-	var hull: PackedVector2Array = PackedVector2Array([
-		position + direction * size,
-		position - direction * size * 0.85 + side * size * 0.62,
-		position - direction * size * 0.85 - side * size * 0.62
-	])
-	draw_colored_polygon(hull, Color(0.18, 0.86, 0.38, 1.0))
-	draw_polyline(hull, Color(0.84, 1.0, 0.78, 1.0), 2.0, true)
-	draw_line(position, position - direction * size * 0.35 + side * size * 1.15, Color(0.95, 0.9, 0.65, 1.0), 2.0)
-	draw_string(ThemeDB.fallback_font, position + Vector2(-38.0, -size - 11.0), "ТОРГОВЕЦ", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color(0.65, 1.0, 0.70, 1.0))
+func _draw() -> void:
+	for vessel in get_vessel_snapshots():
+		var at := Vector2(vessel.position)
+		var forward := Vector2(vessel.heading)
+		var side := forward.orthogonal()
+		var half := float(vessel.length) * 0.5
+		draw_colored_polygon(PackedVector2Array([at + forward * half, at - forward * half + side * half * 0.3, at - forward * half - side * half * 0.3]), Color("b9c6ab"))

@@ -10,6 +10,7 @@ const FOG_RADIUS_CHUNKS: int = 6
 const FOG_HEIGHT: float = 28.0
 const DAY_CYCLE_SECONDS: float = 300.0
 const STAR_DOME_RADIUS: float = 420.0
+const OceanSurface = preload("res://systems/rendering/ocean_surface.gd")
 
 var _world_data: Dictionary = {}
 var _map_world: CanvasItem
@@ -22,6 +23,7 @@ var _ship: Node3D
 var _trader_traffic: Node
 var _fleet_traffic: Node
 var _water: MeshInstance3D
+var _sailing_gulls: Node3D
 var _island_nodes: Dictionary = {}
 var _hazard_nodes: Dictionary = {}
 var _rendered_island_data: Dictionary = {}
@@ -34,12 +36,13 @@ var _transition_factor: float = 0.0
 var _chunk_size: float = 4096.0
 var _camera_initialized: bool = false
 var _environment: Environment
-var _sky_material: ProceduralSkyMaterial
+var _sky_material: ShaderMaterial
 var _sunlight: DirectionalLight3D
 var _water_shader_material: ShaderMaterial
 var _star_dome: Node3D
 var _wake_material: StandardMaterial3D
 var _day_clock: float = 0.0
+var _wave_clock: float = 0.0
 var _orbit_dragging: bool = false
 var _manual_close_view: bool = false
 var _camera_orbit_yaw: float = 0.0
@@ -94,11 +97,20 @@ func initialize(world_data: Dictionary, map_world: CanvasItem, map_ship: CanvasI
 	if _fleet_traffic != null:
 		_fleet_traffic.set_process(false)
 	_subviewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	_subviewport.msaa_3d = Viewport.MSAA_4X
 	_sync_generated_world(_world_data)
 
 
 func _process(delta: float) -> void:
+	_wave_clock += delta
+	if _water_shader_material != null:
+		_water_shader_material.set_shader_parameter("ocean_time", _wave_clock)
 	_day_clock = fposmod(_day_clock + delta, DAY_CYCLE_SECONDS)
+	if str(GameState.ship_state.get("docked_port_id", "")) != "":
+		_viewport_container.hide()
+		_subviewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
+		return
+	_viewport_container.show()
 	_update_ambience(delta)
 	if _world_data.is_empty() or _camera == null:
 		return
@@ -136,6 +148,13 @@ func _process(delta: float) -> void:
 
 
 func _input(event: InputEvent) -> void:
+	var inspection: Node = get_tree().get_first_node_in_group("ship_inspection_window")
+	if inspection != null and bool(inspection.get("_is_open")):
+		_orbit_dragging = false
+		return
+	if str(GameState.ship_state.get("docked_port_id", "")) != "":
+		_orbit_dragging = false
+		return
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT:
 		_orbit_dragging = event.pressed
 		if event.pressed:
@@ -199,13 +218,11 @@ func _build_scene() -> void:
 
 	var environment_node := WorldEnvironment.new()
 	_environment = Environment.new()
-	_sky_material = ProceduralSkyMaterial.new()
-	_sky_material.sky_top_color = Color("3f86b6")
-	_sky_material.sky_horizon_color = Color("a7d3e3")
-	_sky_material.ground_bottom_color = Color("15344a")
-	_sky_material.ground_horizon_color = Color("a7d3e3")
+	_sky_material = ShaderMaterial.new()
+	_sky_material.shader = load("res://assets/world/materials/tropical_sky.gdshader")
 	var sky := Sky.new()
 	sky.sky_material = _sky_material
+	sky.process_mode = Sky.PROCESS_MODE_REALTIME
 	_environment.background_mode = Environment.BG_SKY
 	_environment.sky = sky
 	_environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
@@ -217,6 +234,8 @@ func _build_scene() -> void:
 	_sunlight = DirectionalLight3D.new()
 	_sunlight.rotation_degrees = Vector3(-42.0, -28.0, 0.0)
 	_sunlight.light_energy = 1.25
+	_sunlight.shadow_enabled = true
+	_sunlight.directional_shadow_max_distance = 180.0
 	_scene_root.add_child(_sunlight)
 
 	_add_water()
@@ -224,6 +243,10 @@ func _build_scene() -> void:
 	_scene_root.add_child(_ship)
 	_add_ship_wake()
 	_build_star_dome()
+	_sailing_gulls = load("res://systems/rendering/seabird_flock.gd").new()
+	_sailing_gulls.periodic = true
+	_sailing_gulls.name = "SailingGulls"
+	_scene_root.add_child(_sailing_gulls)
 	_camera = Camera3D.new()
 	_camera.current = true
 	_camera.fov = 58.0
@@ -233,28 +256,11 @@ func _build_scene() -> void:
 func _add_water() -> void:
 	var plane := PlaneMesh.new()
 	plane.size = Vector2(2400.0, 2400.0)
-	plane.subdivide_width = 80
-	plane.subdivide_depth = 80
-	var shader := Shader.new()
-	shader.code = """
-	shader_type spatial;
-	uniform vec3 deep_water = vec3(0.035, 0.20, 0.30);
-	uniform vec3 light_water = vec3(0.10, 0.36, 0.46);
-	uniform vec3 twilight_reflection = vec3(0.8, 0.36, 0.19);
-	uniform float twilight_amount = 0.0;
-	void vertex() {
-		VERTEX.y += sin(VERTEX.x * 0.12 + TIME * 1.1) * 0.10;
-		VERTEX.y += sin(VERTEX.z * 0.17 + TIME * 0.8) * 0.08;
-	}
-	void fragment() {
-		float bands = sin((UV.x * 47.0 + UV.y * 23.0 + TIME * 0.15) * 6.28318);
-		float glint = smoothstep(0.62, 0.96, bands) * 0.20;
-		vec3 sea_color = mix(deep_water, light_water, glint);
-		ALBEDO = mix(sea_color, twilight_reflection, twilight_amount * (0.10 + glint * 0.45));
-		ROUGHNESS = 0.28;
-		METALLIC = 0.08;
-	}
-	"""
+	# A 512² grid gives long swells enough vertices to form visible rounded crests
+	# at close camera distance without compute-shader-only rendering features.
+	plane.subdivide_width = 512
+	plane.subdivide_depth = 512
+	var shader: Shader = load("res://assets/world/materials/tropical_ocean.gdshader")
 	_water = MeshInstance3D.new()
 	_water.name = "AnimatedOcean"
 	_water.mesh = plane
@@ -380,14 +386,21 @@ func _update_ambience(_delta: float) -> void:
 	# Sunrise begins at cycle wrap; sunset begins at 75% of the cycle.
 	# That gives the prototype a 3:1 daylight-to-night ratio.
 	var night: float = smoothstep(0.75, 0.87, phase) * (1.0 - smoothstep(0.94, 1.0, phase))
+	_update_ship_lanterns(night)
+	for root in _island_nodes.values():
+		var base: Node = root.get_node_or_null("FactionHarbor")
+		if base == null: base = root.get_node_or_null("HomeBase3D")
+		if base != null:
+			base.set_night_strength(smoothstep(0.08, 0.55, night))
+		for district in root.get_children():
+			if district.name.begins_with("NpcPortDistrict"):
+				district.set_night_strength(smoothstep(0.08, 0.55, night))
 	var dusk: float = _cyclic_pulse(phase, 0.75, 0.01, 0.085)
 	var dawn: float = _cyclic_pulse(phase, 0.0, 0.01, 0.085)
 	var twilight: float = maxf(dusk, dawn)
 	if _sky_material != null:
-		_sky_material.sky_top_color = Color("3f86b6").lerp(Color("06142a"), night).lerp(Color("7895b4"), twilight * 0.35)
-		_sky_material.sky_horizon_color = Color("a7d3e3").lerp(Color("111d35"), night).lerp(Color("f0a06f"), twilight)
-		_sky_material.ground_bottom_color = Color("15344a").lerp(Color("071322"), night)
-		_sky_material.ground_horizon_color = Color("a7d3e3").lerp(Color("18243b"), night).lerp(Color("e98e64"), twilight)
+		_sky_material.set_shader_parameter("night_amount", night)
+		_sky_material.set_shader_parameter("twilight_amount", twilight)
 	if _environment != null:
 		_environment.ambient_light_color = Color("b9d5df").lerp(Color("293955"), night).lerp(Color("e6a879"), twilight * 0.42)
 		_environment.ambient_light_energy = lerpf(0.65, 0.22, night) + twilight * 0.06
@@ -417,11 +430,76 @@ func _cyclic_pulse(phase: float, center: float, core: float, fade: float) -> flo
 	var wrapped_distance: float = absf(wrapf(phase - center, -0.5, 0.5))
 	return 1.0 - smoothstep(core, core + fade, wrapped_distance)
 
+func _add_ship_lanterns(ship: Node3D, positions: Array = [], cast_light: bool = true) -> void:
+	var brass := _material(Color("806132"), 0.5)
+	if positions.is_empty():
+		positions = [[0.45, 1.38, 2.64], [-0.58, 0.94, -1.9]]
+	for coordinates in positions:
+		var at := Vector3(float(coordinates[0]), float(coordinates[1]), float(coordinates[2]))
+		var lantern := Node3D.new()
+		lantern.name = "KeroseneLantern"
+		lantern.position = at
+		ship.add_child(lantern)
+		_add_box(lantern, Vector3(0.18, 0.035, 0.18), Vector3(0, -0.105, 0), brass)
+		_add_box(lantern, Vector3(0.20, 0.05, 0.20), Vector3(0, 0.12, 0), brass)
+		for x in [-0.075, 0.075]:
+			for z in [-0.075, 0.075]:
+				_add_box(lantern, Vector3(0.015, 0.22, 0.015), Vector3(x, 0, z), brass)
+		var glow := _material(Color("efb765"), 0.45)
+		glow.emission_enabled = true
+		glow.emission = Color("ffad42")
+		var flame := _add_box(lantern, Vector3(0.08, 0.16, 0.08), Vector3.ZERO, glow)
+		flame.name = "WarmFlame"
+		var light := OmniLight3D.new()
+		light.name = "WarmLight"
+		light.light_color = Color("ffb65c")
+		light.omni_range = 4.0
+		light.omni_attenuation = 1.5
+		light.shadow_enabled = false
+		if cast_light:
+			lantern.add_child(light)
+		else:
+			light.free()
+
+
+func _update_ship_lanterns(night: float) -> void:
+	if not is_instance_valid(_ship):
+		return
+	_update_lanterns_for(_ship, night)
+	for model in _traffic_models.values():
+		if is_instance_valid(model):
+			_update_lanterns_for(model, night)
+
+func _update_lanterns_for(ship: Node3D, night: float) -> void:
+	var strength: float = smoothstep(0.08, 0.55, night)
+	var flicker: float = 1.0 + sin(_wave_clock * 9.1) * 0.025 + sin(_wave_clock * 13.7) * 0.015
+	for lantern in ship.get_children():
+		if not str(lantern.name).begins_with("KeroseneLantern"):
+			continue
+		var light: OmniLight3D = lantern.get_node_or_null("WarmLight")
+		if light != null:
+			light.light_energy = strength * 1.1 * flicker
+			light.visible = strength > 0.01
+		var flame: MeshInstance3D = lantern.get_node("WarmFlame")
+		flame.material_override.emission_energy_multiplier = strength * 2.5 * flicker
+
+
 func _make_ship() -> Node3D:
 	var ship_id: String = str(GameState.ship_state.get("ship_id", "ship_sloop"))
-	var registered_ship: Node3D = _attach_catalog_scene(_scene_root, "ships", ship_id, 3.48)
+	var visual: Dictionary = GameData.read("res://data/world/ship_visuals.json").get("ships", {}).get(ship_id, {})
+	var faction_id: String = str(GameState.player_state.get("origin_race_id", "humans"))
+	var registered_ship: Node3D = _attach_catalog_scene(_scene_root, "ships", ship_id, float(visual.get("display_length", 3.48)), faction_id)
 	if registered_ship != null:
+		_scene_root.remove_child(registered_ship)
 		registered_ship.name = "CloseViewShip"
+		_add_ship_lanterns(registered_ship, visual.get("lamps", []))
+		var heraldry = load("res://systems/rendering/faction_base_style.gd").new()
+		heraldry.apply_ship(registered_ship, faction_id)
+		var flag: Node3D = heraldry.make_flag(faction_id)
+		var anchor: Array = visual.get("flag_at", [0.0, 1.3, 2.6])
+		flag.position = Vector3(float(anchor[0]), float(anchor[1]), float(anchor[2]))
+		flag.scale = Vector3.ONE * 0.28
+		registered_ship.add_child(flag)
 		return registered_ship
 	var ship := Node3D.new()
 	ship.name = "CloseViewShip"
@@ -471,9 +549,16 @@ func _sync_generated_world(world_data: Dictionary) -> void:
 			continue
 		keep_islands[island_id] = true
 		visible_islands[island_id] = island
+		var island_port: Dictionary = _find_port_for_island(island_id)
+		var is_home: bool = not island_port.is_empty() and str(island_port.get("id", "")) == str(GameState.world_state.get("home_port_id", ""))
 		if _island_nodes.has(island_id):
-			continue
+			var existing: Node3D = _island_nodes[island_id]
+			if bool(existing.get_meta("home_base", false)) == is_home:
+				continue
+			existing.queue_free()
+			_island_nodes.erase(island_id)
 		var island_root := Node3D.new()
+		island_root.set_meta("home_base", is_home)
 		island_root.name = island_id
 		island_root.position = Vector3(map_position.x * MAP_TO_METERS, 0.0, map_position.y * MAP_TO_METERS)
 		_scene_root.add_child(island_root)
@@ -537,12 +622,47 @@ func _build_island(island_root: Node3D, island: Dictionary) -> void:
 	var radius: float = map_radius * MAP_TO_METERS
 	var landform: String = str(island.get("landform", "small_island"))
 	var port: Dictionary = _find_port_for_island(current_id)
+	var harbor_key: String = str(island.get("harbor_variant", ""))
+	if harbor_key != "":
+		var spec: Dictionary = GameData.read("res://data/world/faction_harbors.json").variants[harbor_key]
+		var harbor = load("res://systems/rendering/faction_harbor_3d.gd").new()
+		harbor.name = "FactionHarbor"
+		island_root.add_child(harbor)
+		harbor.rotation.y = PI * 0.5 - float(island.get("bay_angle", 0.0))
+		harbor.scale = Vector3.ONE * float(island.visual_radius) * MAP_TO_METERS / float(spec.reference_radius)
+		harbor.setup(harbor_key)
+		return
+	if not port.is_empty() and (bool(island.get("port_city", false)) or str(port.get("id", "")) == str(GameState.world_state.get("home_port_id", ""))):
+		var base = load("res://systems/rendering/home_base_3d.gd").new()
+		base.name = "HomeBase3D"
+		island_root.add_child(base)
+		var toward_port: Vector2 = Vector2(port.get("position", island_position)) - island_position
+		base.rotation.y = -toward_port.angle() - PI * 0.5
+		var reference: float = float(GameData.read("res://data/world/home_base_visuals.json").get("reference_radius_m", 60.0))
+		base.scale = Vector3.ONE * float(island.get("visual_radius", map_radius)) * MAP_TO_METERS / reference
+		if bool(island.get("port_city", false)):
+			base.setup("", 18 + posmod(hash(str(port.get("id", ""))), 13))
+			base.set_showcase_faction(str(port.get("owner_race_id", "humans")))
+		else:
+			base.setup(str(port.get("id", "")))
+		return
 	var port_angle: float = INF
 	if not port.is_empty():
 		var port_offset: Vector2 = Vector2(port.get("position", island_position)) - island_position
 		if port_offset.length_squared() > 0.01:
 			port_angle = port_offset.angle()
-	var custom_model: Node3D = _attach_catalog_scene(island_root, "islands", current_id, radius * 2.0)
+	var asset_identity: String = str(island.get("world_asset_identity", current_id))
+	var custom_model: Node3D = _attach_catalog_scene(island_root, "islands", asset_identity, radius * 2.0)
+	if custom_model == null and port.is_empty():
+		var route_spec: Dictionary = GameData.read("res://data/world/faction_harbors.json").get("route_islands", [])[posmod(hash(current_id), 2)]
+		var green_path: String = str(route_spec.scene)
+		var green_scene = load(green_path) as PackedScene
+		if green_scene != null:
+			custom_model = green_scene.instantiate() as Node3D
+			custom_model.name = "GreenRouteIsland"
+			custom_model.scale = Vector3.ONE * radius / float(route_spec.reference_radius)
+			island_root.add_child(custom_model)
+			load("res://systems/rendering/faction_base_style.gd").new().apply_surface_details(custom_model)
 	if custom_model == null:
 		# The 3D shoreline varies deterministically while staying inside the
 		# navigation circle used by collision and save data.
@@ -647,9 +767,13 @@ func _add_floating_island(parent: Node3D, main_radius: float, seed_value: int) -
 		floating.add_child(cloud)
 
 
-func _attach_catalog_scene(parent: Node3D, category: String, identity: String, target_size_m: float) -> Node3D:
+func _attach_catalog_scene(parent: Node3D, category: String, identity: String, target_size_m: float, faction_id: String = "") -> Node3D:
 	var categories: Dictionary = _asset_catalog.get("categories", {})
 	var entries: Array = categories.get(category, [])
+	if category == "ships" and faction_id != "":
+		var racial: Dictionary = GameData.read("res://data/world/faction_ship_visuals.json").get("factions", {}).get(faction_id, {}).get(identity, {})
+		if not racial.is_empty():
+			entries = [racial]
 	if entries.is_empty() or identity == "":
 		return null
 	var available: Array[Dictionary] = []
@@ -657,6 +781,9 @@ func _attach_catalog_scene(parent: Node3D, category: String, identity: String, t
 		if not (raw_entry is Dictionary):
 			continue
 		var entry: Dictionary = raw_entry
+		var identities: Array = entry.get("identities", [])
+		if not identities.is_empty() and not identities.has(identity):
+			continue
 		var scene_path: String = str(entry.get("scene", ""))
 		if scene_path != "" and ResourceLoader.exists(scene_path):
 			available.append(entry)
@@ -669,9 +796,11 @@ func _attach_catalog_scene(parent: Node3D, category: String, identity: String, t
 	var instance: Node = packed_scene.instantiate()
 	var wrapper := Node3D.new()
 	wrapper.name = "Asset_" + identity.replace("/", "_").replace(":", "_")
+	wrapper.set_meta("world_asset_id", str(chosen.get("id", "")))
 	parent.add_child(wrapper)
 	wrapper.add_child(instance)
 	var reference_size: float = maxf(0.01, float(chosen.get("reference_size_m", target_size_m)))
+	wrapper.set_meta("reference_length", reference_size)
 	var asset_scale: float = target_size_m / reference_size * float(chosen.get("scale", 1.0))
 	wrapper.scale = Vector3.ONE * asset_scale
 	wrapper.rotation_degrees.y = float(chosen.get("rotation_y_degrees", 0.0))
@@ -696,14 +825,15 @@ func _build_port(island_root: Node3D, port: Dictionary, island_position: Vector2
 	if outward_2d.length_squared() < 0.01:
 		outward_2d = Vector2.RIGHT
 	var outward := Vector3(outward_2d.x, 0.0, outward_2d.y)
+	var pier_yaw: float = atan2(outward.x, outward.z)
+	var pier_right := Vector3(outward.z, 0.0, -outward.x)
+	var bay_radius: float = maxf(2.0, float(port.get("harbor_radius", island_radius * 0.18)) * MAP_TO_METERS)
+	_add_port_shoals(island_root, Vector3(local_port.x, 0.0, local_port.y), outward, pier_right, pier_yaw, bay_radius)
 	var registered_port: Node3D = _attach_catalog_scene(island_root, "ports", str(port.get("id", "port")), 8.0)
 	if registered_port != null:
 		registered_port.position += Vector3(local_port.x, 0.0, local_port.y)
 		registered_port.rotation.y = atan2(outward.x, outward.z)
 		return
-	var pier_yaw: float = atan2(outward.x, outward.z)
-	var pier_right := Vector3(outward.z, 0.0, -outward.x)
-	var bay_radius: float = maxf(2.0, float(port.get("harbor_radius", island_radius * 0.18)) * MAP_TO_METERS)
 	var bay_water := CylinderMesh.new()
 	bay_water.top_radius = bay_radius
 	bay_water.bottom_radius = bay_radius
@@ -716,39 +846,50 @@ func _build_port(island_root: Node3D, port: Dictionary, island_position: Vector2
 	bay_surface.position = Vector3(local_port.x, 0.05, local_port.y)
 	island_root.add_child(bay_surface)
 	var dock_start: Vector3 = Vector3(local_port.x, 0.12, local_port.y) + outward * 1.1
-	var pier := _add_box(island_root, Vector3(1.45, 0.24, 7.2), dock_start + outward * 3.2, _material(Color("765238"), 0.95))
-	pier.rotation.y = pier_yaw
-	for side_value in [-1.0, 1.0]:
-		var side: float = float(side_value)
-		for distance_value in [0.8, 3.5, 6.1]:
-			var distance: float = float(distance_value)
-			var piling_at: Vector3 = dock_start + outward * distance + pier_right * side * 0.58 + Vector3(0.0, -0.12, 0.0)
-			_add_cylinder(island_root, 0.12, 0.12, 0.95, piling_at, Color("4b3829"))
+	for berth_side in [-1.0, 1.0]:
+		var pier_center := Vector3(local_port.x, 0.12, local_port.y) + outward * 2.6 + pier_right * float(berth_side) * 5.0
+		var pier := _add_box(island_root, Vector3(1.45, 0.24, 7.2), pier_center, _material(Color("765238"), 0.95))
+		pier.name = "SolidBerthPier"
+		pier.rotation.y = pier_yaw
+		for side_value in [-1.0, 1.0]:
+			for distance_value in [-3.0, 0.0, 3.0]:
+				var piling_at: Vector3 = pier_center + outward * float(distance_value) + pier_right * float(side_value) * 0.58 + Vector3(0.0, -0.12, 0.0)
+				_add_cylinder(island_root, 0.12, 0.12, 0.95, piling_at, Color("4b3829"))
 
 	# Warehouses and small port buildings sit between the beach and the pier.
 	var landward: Vector3 = -outward
 	var settlement_center: Vector3 = Vector3(local_port.x, 0.0, local_port.y) + landward * 1.8
-	var home_port_id: String = str(GameState.world_state.get("home_port_id", ""))
-	if str(port.get("id", "")) == home_port_id or bool(port.get("monumental", false)):
-		_add_harbor_gate(island_root, dock_start + outward * 5.0, pier_right, bay_radius)
-	var registered_building: Node3D = _attach_catalog_scene(island_root, "buildings", str(port.get("id", "port")) + "_warehouse", 2.6)
-	if registered_building != null:
-		registered_building.position += settlement_center + landward * 2.0 + Vector3(0.0, 1.0, 0.0)
-	else:
-		var wall := _material(Color("d8c8a0"), 0.93)
-		var roof := _material(Color("9c4939"), 0.9)
-		_add_box(island_root, Vector3(2.6, 1.25, 1.7), settlement_center + Vector3(0.0, 2.46, 0.0), wall)
-		var warehouse_roof := _add_box(island_root, Vector3(2.9, 0.2, 1.95), settlement_center + Vector3(0.0, 3.18, 0.0), roof)
-		warehouse_roof.rotation.z = deg_to_rad(-4.0)
-		_add_box(island_root, Vector3(0.85, 0.7, 0.7), settlement_center + landward * 2.0 + Vector3(0.0, 2.18, 0.0), wall)
-		_add_box(island_root, Vector3(1.0, 0.16, 0.85), settlement_center + landward * 2.0 + Vector3(0.0, 2.61, 0.0), _material(Color("bd7650"), 0.92))
+	var district = load("res://systems/rendering/npc_port_district.gd").new()
+	district.name = "NpcPortDistrict_" + str(port.get("id", "port"))
+	district.position = settlement_center
+	district.rotation.y = pier_yaw
+	island_root.add_child(district)
+	var owner: String = load("res://systems/world/port_faction_resolver.gd").new().resolve(port, int(GameState.world_state.get("seed", 0)))
+	district.setup(owner, island_radius)
 
-	# A low-poly lighthouse marks the harbour approach; its body is built from
-	# alternating painted sections so it remains recognizable at phone scale.
-	var lighthouse_at: Vector3 = settlement_center + landward * (island_radius * 0.12)
-	_add_cylinder(island_root, 0.58, 0.38, 2.5, lighthouse_at + Vector3(0.0, 1.4, 0.0), Color("e6dfc9"))
-	_add_cylinder(island_root, 0.43, 0.43, 0.35, lighthouse_at + Vector3(0.0, 2.75, 0.0), Color("a74935"))
-	_add_cylinder(island_root, 0.38, 0.34, 0.22, lighthouse_at + Vector3(0.0, 3.02, 0.0), Color("f2d789"))
+
+func _add_port_shoals(parent: Node3D, harbor: Vector3, outward: Vector3, right: Vector3, yaw: float, bay_radius: float) -> void:
+	# Submerged sand tongues tint the water lagoon-green before the steep shore begins.
+	var sand := _material(Color("d6bf86"), 0.96)
+	for side_value in [-1.0, 1.0]:
+		for index in range(3):
+			var side: float = float(side_value)
+			var along: float = -0.45 + float(index) * 0.54
+			var spread: float = 0.58 + float(index % 2) * 0.36
+			var patch := MeshInstance3D.new()
+			patch.name = "SubmergedSandShoal"
+			var shape := SphereMesh.new()
+			shape.radius = 1.0
+			shape.height = 1.7
+			shape.radial_segments = 28
+			shape.rings = 12
+			patch.mesh = shape
+			patch.material_override = sand
+			patch.scale = Vector3(bay_radius * 0.34, 0.035, bay_radius * (0.32 + float(index % 2) * 0.08))
+			patch.rotation.y = yaw + float(index - 1) * 0.22
+			patch.position = harbor + outward * bay_radius * along + right * side * bay_radius * spread + Vector3(0.0, -0.26, 0.0)
+			parent.add_child(patch)
+	return
 
 
 func _add_harbor_gate(parent: Node3D, center: Vector3, pier_right: Vector3, bay_radius: float) -> void:
@@ -852,21 +993,43 @@ func _sync_traffic(traffic_renderer: Node, traffic_group: String) -> void:
 		var model_key: String = traffic_group + ":" + vessel_id
 		keep_models[model_key] = true
 		var model: Node3D = _traffic_models.get(model_key) as Node3D
+		var wanted_identity := str(vessel.get("ship_type_id", "ship_barque"))
+		var faction_id: String = str(GameState.player_state.get("origin_race_id", "humans")) if traffic_group == "fleet" else str(vessel.get("faction_id", "humans"))
+		wanted_identity += ":" + faction_id
+		if is_instance_valid(model) and str(model.get_meta("ship_identity", wanted_identity)) != wanted_identity:
+			model.queue_free()
+			model = null
 		if model == null or not is_instance_valid(model):
 			var identity: String = str(vessel.get("ship_type_id", vessel.get("kind", "merchant")))
-			var target_length: float = maxf(0.6, float(vessel.get("length", 24.0)) * MAP_TO_METERS)
-			model = _attach_catalog_scene(_scene_root, "ships", identity, target_length)
+			if GameData.get_ship(identity).is_empty():
+				identity = "ship_barque"
+			var target_length: float = maxf(3.48, float(vessel.get("length", 87.0)) * MAP_TO_METERS)
+			model = _attach_catalog_scene(_scene_root, "ships", identity, target_length, faction_id)
 			if model == null:
 				model = _make_traffic_ship(vessel)
 				_scene_root.add_child(model)
+			else:
+				var visual: Dictionary = GameData.read("res://data/world/ship_visuals.json").get("ships", {}).get(identity, {})
+				var heraldry = load("res://systems/rendering/faction_base_style.gd").new()
+				heraldry.apply_ship(model, faction_id)
+				_add_ship_lanterns(model, visual.get("lamps", []), false)
+				var flag: Node3D = heraldry.make_flag(faction_id)
+				var anchor: Array = visual.get("flag_at", [0.0, 1.3, 2.6])
+				flag.position = Vector3(float(anchor[0]), float(anchor[1]), float(anchor[2]))
+				flag.scale = Vector3.ONE * 0.28
+				model.add_child(flag)
 			model.name = "Traffic_" + model_key.replace(":", "_").replace("/", "_")
 			_traffic_models[model_key] = model
+			model.set_meta("ship_identity", wanted_identity)
+		if model.has_meta("reference_length"):
+			model.scale = Vector3.ONE * maxf(3.48, float(vessel.get("length", 87.0)) * MAP_TO_METERS) / float(model.get_meta("reference_length"))
 		var position: Vector2 = Vector2(vessel.get("position", Vector2.ZERO))
 		var heading: Vector2 = Vector2(vessel.get("heading", Vector2.UP))
 		if heading.length_squared() < 0.001:
 			heading = Vector2.UP
 		model.position = Vector3(position.x * MAP_TO_METERS, 0.12, position.y * MAP_TO_METERS)
 		model.rotation.y = -heading.angle() - PI * 0.5
+		OceanSurface.float_ship(model, position * MAP_TO_METERS, heading.angle(), maxf(3.48, float(vessel.get("length", 87.0)) * MAP_TO_METERS), _wave_clock)
 
 	for raw_model_key in _traffic_models.keys():
 		var model_key: String = str(raw_model_key)
@@ -904,7 +1067,12 @@ func _update_camera(ship_position: Vector2, close_factor: float, delta: float) -
 	var yaw: float = -heading - PI * 0.5
 	_ship.rotation.y = lerp_angle(_ship.rotation.y, yaw, 1.0 - exp(-delta * 5.0))
 	var ship_world_position := Vector3(ship_position.x * MAP_TO_METERS, 0.0, ship_position.y * MAP_TO_METERS)
+	if _sailing_gulls != null:
+		_sailing_gulls.position = ship_world_position
 	_ship.position = ship_world_position
+	# Visual motion only: navigation, collision and the camera keep a stable base.
+	var visual: Dictionary = GameData.read("res://data/world/ship_visuals.json").get("ships", {}).get(str(GameState.ship_state.get("ship_id", "ship_sloop")), {})
+	OceanSurface.float_ship(_ship, ship_position * MAP_TO_METERS, -_ship.rotation.y - PI * 0.5, float(visual.get("display_length", 3.48)), _wave_clock)
 
 	var forward := Vector3(cos(heading), 0.0, sin(heading))
 	var map_zoom: Vector2 = Vector2.ONE

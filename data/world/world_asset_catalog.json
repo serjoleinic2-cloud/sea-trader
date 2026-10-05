@@ -4,12 +4,126 @@
   "categories": {
     "islands": [],
     "ports": [],
-    "ships": [],
+    "ships": [
+      {
+        "id": "starter_sloop",
+        "scene": "res://assets/world/ships/starter_sloop.glb",
+        "identities": [
+          "ship_sloop"
+        ],
+        "reference_size_m": 6.15
+      },
+      {
+        "id": "ship_barque",
+        "scene": "res://assets/world/ships/ship_barque/ship_barque.glb",
+        "identities": [
+          "ship_barque"
+        ],
+        "reference_size_m": 8.5
+      },
+      {
+        "id": "ship_schooner",
+        "scene": "res://assets/world/ships/ship_schooner/ship_schooner.glb",
+        "identities": [
+          "ship_schooner"
+        ],
+        "reference_size_m": 12
+      },
+      {
+        "id": "ship_freighter",
+        "scene": "res://assets/world/ships/ship_freighter/ship_freighter.glb",
+        "identities": [
+          "ship_freighter"
+        ],
+        "reference_size_m": 16
+      },
+      {
+        "id": "ship_tanker",
+        "scene": "res://assets/world/ships/ship_tanker/ship_tanker.glb",
+        "identities": [
+          "ship_tanker"
+        ],
+        "reference_size_m": 21
+      },
+      {
+        "id": "ship_combat_cutter",
+        "scene": "res://assets/world/ships/ship_combat_cutter/ship_combat_cutter.glb",
+        "identities": [
+          "ship_combat_cutter"
+        ],
+        "reference_size_m": 8.5
+      },
+      {
+        "id": "premium_golden_clipper",
+        "scene": "res://assets/world/ships/premium_golden_clipper/premium_golden_clipper.glb",
+        "identities": [
+          "premium_golden_clipper"
+        ],
+        "reference_size_m": 14
+      },
+      {
+        "id": "premium_sea_swallow",
+        "scene": "res://assets/world/ships/premium_sea_swallow/premium_sea_swallow.glb",
+        "identities": [
+          "premium_sea_swallow"
+        ],
+        "reference_size_m": 8.5
+      },
+      {
+        "id": "premium_salvage_schooner",
+        "scene": "res://assets/world/ships/premium_salvage_schooner/premium_salvage_schooner.glb",
+        "identities": [
+          "premium_salvage_schooner"
+        ],
+        "reference_size_m": 12
+      },
+      {
+        "id": "premium_royal_schooner",
+        "scene": "res://assets/world/ships/premium_royal_schooner/premium_royal_schooner.glb",
+        "identities": [
+          "premium_royal_schooner"
+        ],
+        "reference_size_m": 12
+      },
+      {
+        "id": "premium_steam_freighter",
+        "scene": "res://assets/world/ships/premium_steam_freighter/premium_steam_freighter.glb",
+        "identities": [
+          "premium_steam_freighter"
+        ],
+        "reference_size_m": 16
+      },
+      {
+        "id": "premium_trade_giant",
+        "scene": "res://assets/world/ships/premium_trade_giant/premium_trade_giant.glb",
+        "identities": [
+          "premium_trade_giant"
+        ],
+        "reference_size_m": 21
+      },
+      {
+        "id": "premium_ghost_frigate",
+        "scene": "res://assets/world/ships/premium_ghost_frigate/premium_ghost_frigate.glb",
+        "identities": [
+          "premium_ghost_frigate"
+        ],
+        "reference_size_m": 15
+      },
+      {
+        "id": "premium_imperial_yacht",
+        "scene": "res://assets/world/ships/premium_imperial_yacht/premium_imperial_yacht.glb",
+        "identities": [
+          "premium_imperial_yacht"
+        ],
+        "reference_size_m": 13.5
+      }
+    ],
     "buildings": [],
     "sea_objects": []
   },
   "entry_fields": {
     "id": "Уникальный ключ модели",
+    "identities": "Необязательный список ID объектов, которым подходит модель",
     "scene": "Путь res:// к сцене Godot или импортированной модели GLB",
     "reference_size_m": "Размер модели в метрах, используемый для нормализации масштаба",
     "scale": "Необязательный дополнительный множитель масштаба",

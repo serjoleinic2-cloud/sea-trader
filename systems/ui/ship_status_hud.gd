@@ -1,46 +1,92 @@
 extends CanvasLayer
 
-## Read-only ship state shown while sailing.
-
-const PANEL_SIZE := Vector2(390, 370)
-
+## Read-only sailing instruments; cargo scrolls separately.
+const PANEL_SIZE := Vector2(350, 340)
 var _panel: PanelContainer
 var _label: Label
 var _port_system: Node
 var _goods: Dictionary = {}
-var _world_size: Vector2 = Vector2(4096.0, 4096.0)
+var _world_size: Vector2 = Vector2(4096, 4096)
+var _title: Label
+var _money: Label
+var _course: Label
+var _icon: TextureRect
+var _bars: Dictionary = {}
+var _meter_labels: Dictionary = {}
+var _cargo_scroll: ScrollContainer
+var _last_ship_id: String = ""
 
 func _ready() -> void:
 	layer = 20
 	_panel = PanelContainer.new()
-	_panel.size = PANEL_SIZE
-	var style: StyleBoxFlat = StyleBoxFlat.new()
-	style.bg_color = Color(0.02, 0.03, 0.04, 1.0)
-	_panel.add_theme_stylebox_override("panel", style)
+	_panel.name = "ShipInstruments"
 	add_child(_panel)
-	var margin: MarginContainer = MarginContainer.new()
+	var margin := MarginContainer.new()
 	for side in ["left", "top", "right", "bottom"]:
-		margin.add_theme_constant_override("margin_" + side, 12)
+		margin.add_theme_constant_override("margin_" + side, 8)
 	_panel.add_child(margin)
-	var scroll: ScrollContainer = ScrollContainer.new()
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	margin.add_child(scroll)
+	var stack := VBoxContainer.new()
+	stack.add_theme_constant_override("separation", 4)
+	margin.add_child(stack)
+	var header := HBoxContainer.new()
+	stack.add_child(header)
+	var crest := TextureRect.new()
+	crest.texture = GameData.get_faction_emblem(str(GameState.player_state.get("origin_race_id", "humans")))
+	crest.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	crest.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	crest.custom_minimum_size = Vector2(40, 48)
+	header.add_child(crest)
+	_title = Label.new()
+	_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_title.add_theme_font_size_override("font_size", 20)
+	header.add_child(_title)
+	_icon = TextureRect.new()
+	_icon.custom_minimum_size = Vector2(72, 48)
+	_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	header.add_child(_icon)
+	_money = Label.new()
+	stack.add_child(_money)
+	for key in ["hull", "fuel", "cargo"]:
+		var row := HBoxContainer.new()
+		var label := Label.new()
+		label.custom_minimum_size.x = 86
+		label.text = {"hull": "Корпус", "fuel": "Топливо", "cargo": "Трюм"}[key]
+		row.add_child(label)
+		var bar := ProgressBar.new()
+		bar.custom_minimum_size = Vector2(95, 14)
+		bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		bar.show_percentage = false
+		row.add_child(bar)
+		var value := Label.new()
+		value.custom_minimum_size.x = 62
+		value.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		row.add_child(value)
+		_bars[key] = bar
+		_meter_labels[key] = value
+		stack.add_child(row)
+	_course = Label.new()
+	_course.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	stack.add_child(_course)
+	_cargo_scroll = ScrollContainer.new()
+	_cargo_scroll.name = "CargoScroll"
+	_cargo_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_cargo_scroll.custom_minimum_size.y = 24
+	_cargo_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	stack.add_child(_cargo_scroll)
 	_label = Label.new()
 	_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_label.add_theme_color_override("font_color", Color(0.9, 1.0, 0.9, 1.0))
-	_label.add_theme_font_size_override("font_size", 19)
 	_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	scroll.add_child(_label)
+	_label.add_theme_color_override("font_color", Color("aec4cb"))
+	_cargo_scroll.add_child(_label)
 
-func initialize(port_system: Node) -> void:
+func initialize(port_system: Node, goods_catalog: Dictionary = {}) -> void:
 	_port_system = port_system
-	var goods_catalog: Dictionary = GameData.read("res://data/resources/goods_catalog.json")
-	var raw_resources: Variant = goods_catalog.get("resources", [])
-	if raw_resources is Array:
-		for raw_resource in raw_resources:
-			var resource: Dictionary = raw_resource
-			var resource_id: String = str(resource.get("id", ""))
-			_goods[resource_id] = str(resource.get("display_name", resource_id))
+	if goods_catalog.is_empty():
+		goods_catalog = GameData.read("res://data/resources/goods_catalog.json")
+	for resource in goods_catalog.get("resources", []):
+		_goods[str(resource.get("id", ""))] = str(resource.get("display_name", ""))
 
 func set_world_size(world_size: Vector2) -> void:
 	_world_size = world_size
@@ -48,82 +94,56 @@ func set_world_size(world_size: Vector2) -> void:
 func _process(_delta: float) -> void:
 	if _label == null:
 		return
-	var viewport_size: Vector2 = get_viewport().get_visible_rect().size
-	var panel_position: Vector2 = Vector2(maxf(12.0, (viewport_size.x - PANEL_SIZE.x) * 0.5), 12.0)
-	_panel.position = panel_position
-	_panel.size = Vector2(minf(PANEL_SIZE.x, viewport_size.x - 24.0), minf(PANEL_SIZE.y, viewport_size.y - 150.0))
+	var viewport: Vector2 = get_viewport().get_visible_rect().size
+	_panel.position = Vector2(12, 84)
+	_panel.size = Vector2(minf(PANEL_SIZE.x, viewport.x - 24), minf(PANEL_SIZE.y, viewport.y - 130))
 	var ship: Dictionary = GameState.ship_state
-	var cargo_units: int = _get_cargo_units(ship)
-	var gear_text: String = " | задний ход" if bool(ship.get("reverse_gear", false)) else ""
-	var docked_port: String = str(ship.get("docked_port_id", ""))
-	var dock_hint: String = ""
-	if docked_port != "":
-		dock_hint = "
-E: выйти из порта"
-	elif _port_system != null and _port_system.has_method("get_dock_candidate") and _port_system.get_dock_candidate() != "":
-		dock_hint = "
-E: пришвартоваться"
-	var autopilot_text: String = ""
+	var id: String = str(ship.get("ship_id", "ship_sloop"))
+	if id != _last_ship_id:
+		_last_ship_id = id
+		var definition: Dictionary = GameData.get_ship(id)
+		_title.text = str(ship.get("name", definition.get("name", "Корабль")))
+		if _title.text == "":
+			_title.text = str(definition.get("name", "Корабль"))
+		var path: String = str(definition.get("ui_icon", ""))
+		_icon.texture = load(path) as Texture2D if ResourceLoader.exists(path) else null
+	var cargo: int = _get_cargo_units(ship)
+	_meter("hull", float(ship.get("hull", 0)), float(ship.get("hull_max", 100)))
+	_meter("fuel", float(ship.get("fuel", 0)), float(ship.get("fuel_max", 100)))
+	_meter("cargo", cargo, float(ship.get("cargo_capacity", 0)))
+	_money.text = "Казна  %s" % String.num(float(GameState.player_state.get("money", 0)), 0)
+	var speed: float = Vector2(ship.get("velocity", Vector2.ZERO)).length()
+	var gear: String = " · задний ход" if bool(ship.get("reverse_gear", false)) else ""
+	_course.text = "Ход %.0f%s" % [speed, gear]
+	var docked: String = str(ship.get("docked_port_id", ""))
+	if docked != "":
+		_course.text += " · E: выйти из порта"
+	elif _port_system != null and _port_system.get_dock_candidate() != "":
+		_course.text += " · E: швартовка"
 	if bool(GameState.voyage_state.get("active_autopilot", false)) and _port_system != null:
-		var destination_id: String = str(GameState.voyage_state.get("autopilot_destination_id", ""))
-		var distance_left: float = ship.get("position", Vector2.ZERO).distance_to(_port_system.get_port_position(destination_id))
-		var speed: float = ship.get("velocity", Vector2.ZERO).length()
-		var eta: String = "—" if speed <= 0.1 else "%d сек" % int(ceil(distance_left / speed))
-		autopilot_text = "\nАВТОПИЛОТ: %s\nДо порта: %.0f | прибытие: %s" % [_port_system.get_port_name(destination_id), distance_left, eta]
-	_label.text = (
-		"КОРАБЛЬ
-"
-		+ "Деньги: %.0f
-"
-		+ "Скорость: %.1f%s
-"
-		+ "Топливо: %.1f / %.0f
-"
-		+ "Корпус: %.0f / 100
-"
-		+ "Трюм: %d / %d
-"
-		+ "Груз:
-%s
-"
-		+ "Координаты: %d, %d
-"
-		+ "Стоянка: %s"
-		+ "%s"
-		+ "%s"
-	) % [
-		float(GameState.player_state.get("money", 0.0)),
-		ship.get("velocity", Vector2.ZERO).length(), gear_text,
-		float(ship.get("fuel", 0.0)), float(ship.get("fuel_max", 0.0)),
-		float(ship.get("hull", 0.0)),
-		cargo_units, int(ship.get("cargo_capacity", 0)),
-		_get_cargo_text(ship),
-		int(ship.get("position", Vector2.ZERO).x), int(ship.get("position", Vector2.ZERO).y),
-		docked_port if docked_port != "" else "в море", dock_hint, autopilot_text
-	]
+		var target: String = str(GameState.voyage_state.get("autopilot_destination_id", ""))
+		_course.text += "\nАвтопилот → " + _port_system.get_port_name(target)
+	_label.text = _get_cargo_text(ship)
+
+func _meter(key: String, value: float, capacity: float) -> void:
+	var bar: ProgressBar = _bars[key]
+	bar.max_value = maxf(1, capacity)
+	bar.value = value
+	_meter_labels[key].text = "%d/%d" % [int(value), int(capacity)]
+	bar.modulate = Color("ff8c7d") if key == "hull" and value < capacity * 0.25 else Color.WHITE
 
 func _get_cargo_units(ship: Dictionary) -> int:
-	var raw_cargo: Variant = ship.get("cargo", [])
-	if not (raw_cargo is Array):
-		return 0
 	var total: int = 0
-	for raw_item in raw_cargo:
-		var item: Dictionary = raw_item
+	for item in ship.get("cargo", []):
 		total += int(item.get("quantity", 0))
 	return total
 
 func _get_cargo_text(ship: Dictionary) -> String:
-	var raw_cargo: Variant = ship.get("cargo", [])
-	if not (raw_cargo is Array) or raw_cargo.is_empty():
-		return "— пусто"
 	var entries: Array[String] = []
-	for raw_item in raw_cargo:
-		var item: Dictionary = raw_item
-		var resource_id: String = str(item.get("resource_id", ""))
-		var resource_name: String = str(_goods.get(resource_id, resource_id))
-		entries.append("• %s: %d" % [resource_name, int(item.get("quantity", 0))])
-	return "
-".join(entries)
+	for item in ship.get("cargo", []):
+		var id: String = str(item.get("resource_id", ""))
+		entries.append("%s × %d" % [str(_goods.get(id, id)), int(item.get("quantity", 0))])
+	return "Трюм свободен" if entries.is_empty() else "\n".join(entries)
 
 func _unhandled_key_input(event: InputEvent) -> void:
 	if _port_system == null or not event is InputEventKey or not event.pressed or event.echo:

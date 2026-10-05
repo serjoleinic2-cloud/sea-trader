@@ -8,6 +8,8 @@ var _panel: PanelContainer
 var _details: Label
 var _building_icon: TextureRect
 var _material_list: VBoxContainer
+var _progress_label: Label
+var _progress_bar: ProgressBar
 var _start_button: Button
 var _cancel_button: Button
 var _notice: String = ""
@@ -32,43 +34,63 @@ func _ready() -> void:
 	for side in ["left", "top", "right", "bottom"]:
 		margin.add_theme_constant_override("margin_" + side, 22)
 	_panel.add_child(margin)
-	var box: VBoxContainer = VBoxContainer.new()
-	box.add_theme_constant_override("separation", 12)
-	margin.add_child(box)
+	var layout := HBoxContainer.new()
+	layout.add_theme_constant_override("separation",24)
+	margin.add_child(layout)
+	var controls := ScrollContainer.new()
+	controls.name = "LeftControls"
+	controls.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	controls.size_flags_stretch_ratio = 1.15
+	controls.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	layout.add_child(controls)
+	var box := VBoxContainer.new()
+	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	box.add_theme_constant_override("separation",8)
+	controls.add_child(box)
 	var title: Label = Label.new()
-	title.text = "ПРОЕКТ БАЗЫ"
-	title.add_theme_font_size_override("font_size", 30)
+	title.text = "СТРОИТЕЛЬСТВО ЗДАНИЯ"
+	title.add_theme_font_size_override("font_size", 16)
 	box.add_child(title)
 	_building_icon = TextureRect.new()
-	_building_icon.custom_minimum_size = Vector2(0, 104)
-	_building_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_building_icon.custom_minimum_size = Vector2(360, 320)
+	_building_icon.expand_mode = TextureRect.EXPAND_KEEP_SIZE
 	_building_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	box.add_child(_building_icon)
+	_building_icon.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	_building_icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	layout.add_child(_building_icon)
 	_details = Label.new()
-	_details.add_theme_font_size_override("font_size", 22)
+	_details.set_meta("compact_description", true)
+	_details.add_theme_font_size_override("font_size", 14)
 	_details.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	box.add_child(_details)
-	var scroll: ScrollContainer = ScrollContainer.new()
-	scroll.custom_minimum_size.y = 360
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	box.add_child(scroll)
+	_progress_label = Label.new()
+	_progress_label.add_theme_font_size_override("font_size", 14)
+	box.add_child(_progress_label)
+	_progress_bar = ProgressBar.new()
+	_progress_bar.min_value = 0.0
+	_progress_bar.max_value = 100.0
+	_progress_bar.show_percentage = false
+	_progress_bar.custom_minimum_size.y = 22
+	box.add_child(_progress_bar)
 	_material_list = VBoxContainer.new()
-	_material_list.add_theme_constant_override("separation", 10)
-	scroll.add_child(_material_list)
+	_material_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_material_list.add_theme_constant_override("separation",8)
+	box.add_child(_material_list)
 	_start_button = Button.new()
-	_start_button.add_theme_font_size_override("font_size", 22)
-	_start_button.custom_minimum_size.y = 54
+	_start_button.add_theme_font_size_override("font_size", 14)
+	_start_button.custom_minimum_size.y = 42
 	_start_button.pressed.connect(_start)
 	box.add_child(_start_button)
 	_cancel_button = Button.new()
 	_cancel_button.text = "Отменить проект и вернуть материалы"
-	_cancel_button.add_theme_font_size_override("font_size", 20)
+	_cancel_button.add_theme_font_size_override("font_size", 14)
 	_cancel_button.custom_minimum_size.y = 46
 	_cancel_button.pressed.connect(_cancel)
 	box.add_child(_cancel_button)
 	var close_button: Button = Button.new()
 	close_button.text = "Закрыть"
-	close_button.add_theme_font_size_override("font_size", 20)
+	close_button.add_theme_font_size_override("font_size", 14)
+	close_button.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	close_button.custom_minimum_size.y = 46
 	close_button.pressed.connect(_close)
 	box.add_child(close_button)
@@ -96,7 +118,7 @@ func _process(_delta: float) -> void:
 	_panel.size = Vector2(minf(920.0, viewport.x - 32.0), minf(1080.0, viewport.y - 32.0))
 	_panel.position = (viewport - _panel.size) * 0.5
 	var current_second: int = int(Time.get_unix_time_from_system())
-	if current_second != _last_refresh_second:
+	if current_second != _last_refresh_second and not Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT):
 		_last_refresh_second = current_second
 		_refresh()
 
@@ -107,24 +129,38 @@ func _refresh() -> void:
 		child.queue_free()
 	var project: Dictionary = _system.get_project(_building_id)
 	if project.is_empty():
+		_progress_label.hide()
+		_progress_bar.hide()
 		_details.text = _notice
 		_start_button.text = "ПРОЕКТ НЕДОСТУПЕН"
 		_start_button.disabled = true
 		_cancel_button.disabled = true
 		return
 	var building_id: String = str(project.get("building_id", ""))
-	var icon_path: String = _system.get_building_icon_path(building_id)
+	var icon_path: String = "res://assets/ui/ports/%s/%s.png" % [str(GameState.player_state.get("origin_race_id", "humans")), building_id]
+	if not ResourceLoader.exists(icon_path): icon_path = _system.get_building_icon_path(building_id)
 	if icon_path != "" and ResourceLoader.exists(icon_path):
 		_building_icon.texture = load(icon_path) as Texture2D
+		var native_size: Vector2 = _building_icon.texture.get_size()
+		_building_icon.custom_minimum_size = native_size
 	else:
 		_building_icon.texture = null
 	var level: int = int(project.get("target_level", 1))
 	var required: Dictionary = project.get("required_materials", {})
 	var reserved: Dictionary = project.get("materials", {})
 	var started: bool = _system.is_project_started(project)
-	_details.text = "%s — уровень %d / 30\nДопуск: %d | открытых портов: %d\nЭффект: %s\nСтатус: %s\n%s" % [
+	_progress_label.visible = started
+	_progress_bar.visible = started
+	if started:
+		var duration: float = maxf(1.0, float(project.get("duration_sec", 1)))
+		var remaining: int = _system.get_project_time_left(project)
+		var percent: int = clampi(int(round((1.0 - float(remaining) / duration) * 100.0)), 0, 100)
+		_progress_bar.value = percent
+		_progress_label.text = "Прогресс строительства: %d%% · осталось %s" % [percent, _format_remaining(remaining)]
+	_details.text = "%s — уровень %d / 30\n%s\nДопуск: %d | открытых портов: %d\nЭффект: %s\nСтатус: %s\n%s" % [
 		_system.get_building_name(building_id),
 		level,
+		_system.get_building_description(building_id),
 		int(project.get("required_rank", 1)),
 		int(project.get("required_ports", 1)),
 		_system.get_effect_text(building_id, level),
@@ -140,7 +176,8 @@ func _refresh() -> void:
 func _add_material_row(building_id: String, resource_id: String, current: int, required: int, started: bool) -> void:
 	var box: VBoxContainer = VBoxContainer.new()
 	var label: Label = Label.new()
-	label.add_theme_font_size_override("font_size", 23)
+	label.set_meta("compact_description", true)
+	label.add_theme_font_size_override("font_size", 14)
 	label.text = "%s: %d / %d — %d%%" % [
 		_system.get_goods_name(resource_id),
 		current,
@@ -165,6 +202,13 @@ func _commit_slider(value_changed: bool, slider: HSlider, building_id: String, r
 	if not bool(result.get("ok", false)):
 		_notice = str(result.get("message", ""))
 	_refresh()
+
+func _format_remaining(seconds: int) -> String:
+	var minutes: int = seconds / 60
+	var remainder: int = seconds % 60
+	if minutes > 0:
+		return "%d мин %02d сек" % [minutes, remainder]
+	return "%d сек" % remainder
 
 func _start() -> void:
 	var result: Dictionary = _system.start_project(_building_id)

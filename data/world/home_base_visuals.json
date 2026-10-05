@@ -1,0 +1,1769 @@
+{
+  "version": 2,
+  "reference_radius_m": 60.0,
+  "terrain": "res://assets/world/islands/home_island/home_island.glb",
+  "buildings": {
+    "dock": [
+      {
+        "level": 1,
+        "scene": "res://assets/world/buildings/dock/levels/level_01.glb"
+      },
+      {
+        "level": 2,
+        "scene": "res://assets/world/buildings/dock/levels/level_02.glb"
+      },
+      {
+        "level": 3,
+        "scene": "res://assets/world/buildings/dock/levels/level_03.glb"
+      },
+      {
+        "level": 4,
+        "scene": "res://assets/world/buildings/dock/levels/level_04.glb"
+      },
+      {
+        "level": 5,
+        "scene": "res://assets/world/buildings/dock/levels/level_05.glb"
+      },
+      {
+        "level": 6,
+        "scene": "res://assets/world/buildings/dock/levels/level_06.glb"
+      },
+      {
+        "level": 7,
+        "scene": "res://assets/world/buildings/dock/levels/level_07.glb"
+      },
+      {
+        "level": 8,
+        "scene": "res://assets/world/buildings/dock/levels/level_08.glb"
+      },
+      {
+        "level": 9,
+        "scene": "res://assets/world/buildings/dock/levels/level_09.glb"
+      },
+      {
+        "level": 10,
+        "scene": "res://assets/world/buildings/dock/levels/level_10.glb"
+      },
+      {
+        "level": 11,
+        "scene": "res://assets/world/buildings/dock/levels/level_11.glb"
+      },
+      {
+        "level": 12,
+        "scene": "res://assets/world/buildings/dock/levels/level_12.glb"
+      },
+      {
+        "level": 13,
+        "scene": "res://assets/world/buildings/dock/levels/level_13.glb"
+      },
+      {
+        "level": 14,
+        "scene": "res://assets/world/buildings/dock/levels/level_14.glb"
+      },
+      {
+        "level": 15,
+        "scene": "res://assets/world/buildings/dock/levels/level_15.glb"
+      },
+      {
+        "level": 16,
+        "scene": "res://assets/world/buildings/dock/levels/level_16.glb"
+      },
+      {
+        "level": 17,
+        "scene": "res://assets/world/buildings/dock/levels/level_17.glb"
+      },
+      {
+        "level": 18,
+        "scene": "res://assets/world/buildings/dock/levels/level_18.glb"
+      },
+      {
+        "level": 19,
+        "scene": "res://assets/world/buildings/dock/levels/level_19.glb"
+      },
+      {
+        "level": 20,
+        "scene": "res://assets/world/buildings/dock/levels/level_20.glb"
+      },
+      {
+        "level": 21,
+        "scene": "res://assets/world/buildings/dock/levels/level_21.glb"
+      },
+      {
+        "level": 22,
+        "scene": "res://assets/world/buildings/dock/levels/level_22.glb"
+      },
+      {
+        "level": 23,
+        "scene": "res://assets/world/buildings/dock/levels/level_23.glb"
+      },
+      {
+        "level": 24,
+        "scene": "res://assets/world/buildings/dock/levels/level_24.glb"
+      },
+      {
+        "level": 25,
+        "scene": "res://assets/world/buildings/dock/levels/level_25.glb"
+      },
+      {
+        "level": 26,
+        "scene": "res://assets/world/buildings/dock/levels/level_26.glb"
+      },
+      {
+        "level": 27,
+        "scene": "res://assets/world/buildings/dock/levels/level_27.glb"
+      },
+      {
+        "level": 28,
+        "scene": "res://assets/world/buildings/dock/levels/level_28.glb"
+      },
+      {
+        "level": 29,
+        "scene": "res://assets/world/buildings/dock/levels/level_29.glb"
+      },
+      {
+        "level": 30,
+        "scene": "res://assets/world/buildings/dock/levels/level_30.glb"
+      }
+    ],
+    "warehouse": [
+      {
+        "level": 1,
+        "scene": "res://assets/world/buildings/warehouse/levels/level_01.glb"
+      },
+      {
+        "level": 2,
+        "scene": "res://assets/world/buildings/warehouse/levels/level_02.glb"
+      },
+      {
+        "level": 3,
+        "scene": "res://assets/world/buildings/warehouse/levels/level_03.glb"
+      },
+      {
+        "level": 4,
+        "scene": "res://assets/world/buildings/warehouse/levels/level_04.glb"
+      },
+      {
+        "level": 5,
+        "scene": "res://assets/world/buildings/warehouse/levels/level_05.glb"
+      },
+      {
+        "level": 6,
+        "scene": "res://assets/world/buildings/warehouse/levels/level_06.glb"
+      },
+      {
+        "level": 7,
+        "scene": "res://assets/world/buildings/warehouse/levels/level_07.glb"
+      },
+      {
+        "level": 8,
+        "scene": "res://assets/world/buildings/warehouse/levels/level_08.glb"
+      },
+      {
+        "level": 9,
+        "scene": "res://assets/world/buildings/warehouse/levels/level_09.glb"
+      },
+      {
+        "level": 10,
+        "scene": "res://assets/world/buildings/warehouse/levels/level_10.glb"
+      },
+      {
+        "level": 11,
+        "scene": "res://assets/world/buildings/warehouse/levels/level_11.glb"
+      },
+      {
+        "level": 12,
+        "scene": "res://assets/world/buildings/warehouse/levels/level_12.glb"
+      },
+      {
+        "level": 13,
+        "scene": "res://assets/world/buildings/warehouse/levels/level_13.glb"
+      },
+      {
+        "level": 14,
+        "scene": "res://assets/world/buildings/warehouse/levels/level_14.glb"
+      },
+      {
+        "level": 15,
+        "scene": "res://assets/world/buildings/warehouse/levels/level_15.glb"
+      },
+      {
+        "level": 16,
+        "scene": "res://assets/world/buildings/warehouse/levels/level_16.glb"
+      },
+      {
+        "level": 17,
+        "scene": "res://assets/world/buildings/warehouse/levels/level_17.glb"
+      },
+      {
+        "level": 18,
+        "scene": "res://assets/world/buildings/warehouse/levels/level_18.glb"
+      },
+      {
+        "level": 19,
+        "scene": "res://assets/world/buildings/warehouse/levels/level_19.glb"
+      },
+      {
+        "level": 20,
+        "scene": "res://assets/world/buildings/warehouse/levels/level_20.glb"
+      },
+      {
+        "level": 21,
+        "scene": "res://assets/world/buildings/warehouse/levels/level_21.glb"
+      },
+      {
+        "level": 22,
+        "scene": "res://assets/world/buildings/warehouse/levels/level_22.glb"
+      },
+      {
+        "level": 23,
+        "scene": "res://assets/world/buildings/warehouse/levels/level_23.glb"
+      },
+      {
+        "level": 24,
+        "scene": "res://assets/world/buildings/warehouse/levels/level_24.glb"
+      },
+      {
+        "level": 25,
+        "scene": "res://assets/world/buildings/warehouse/levels/level_25.glb"
+      },
+      {
+        "level": 26,
+        "scene": "res://assets/world/buildings/warehouse/levels/level_26.glb"
+      },
+      {
+        "level": 27,
+        "scene": "res://assets/world/buildings/warehouse/levels/level_27.glb"
+      },
+      {
+        "level": 28,
+        "scene": "res://assets/world/buildings/warehouse/levels/level_28.glb"
+      },
+      {
+        "level": 29,
+        "scene": "res://assets/world/buildings/warehouse/levels/level_29.glb"
+      },
+      {
+        "level": 30,
+        "scene": "res://assets/world/buildings/warehouse/levels/level_30.glb"
+      }
+    ],
+    "workshop": [
+      {
+        "level": 1,
+        "scene": "res://assets/world/buildings/workshop/levels/level_01.glb"
+      },
+      {
+        "level": 2,
+        "scene": "res://assets/world/buildings/workshop/levels/level_02.glb"
+      },
+      {
+        "level": 3,
+        "scene": "res://assets/world/buildings/workshop/levels/level_03.glb"
+      },
+      {
+        "level": 4,
+        "scene": "res://assets/world/buildings/workshop/levels/level_04.glb"
+      },
+      {
+        "level": 5,
+        "scene": "res://assets/world/buildings/workshop/levels/level_05.glb"
+      },
+      {
+        "level": 6,
+        "scene": "res://assets/world/buildings/workshop/levels/level_06.glb"
+      },
+      {
+        "level": 7,
+        "scene": "res://assets/world/buildings/workshop/levels/level_07.glb"
+      },
+      {
+        "level": 8,
+        "scene": "res://assets/world/buildings/workshop/levels/level_08.glb"
+      },
+      {
+        "level": 9,
+        "scene": "res://assets/world/buildings/workshop/levels/level_09.glb"
+      },
+      {
+        "level": 10,
+        "scene": "res://assets/world/buildings/workshop/levels/level_10.glb"
+      },
+      {
+        "level": 11,
+        "scene": "res://assets/world/buildings/workshop/levels/level_11.glb"
+      },
+      {
+        "level": 12,
+        "scene": "res://assets/world/buildings/workshop/levels/level_12.glb"
+      },
+      {
+        "level": 13,
+        "scene": "res://assets/world/buildings/workshop/levels/level_13.glb"
+      },
+      {
+        "level": 14,
+        "scene": "res://assets/world/buildings/workshop/levels/level_14.glb"
+      },
+      {
+        "level": 15,
+        "scene": "res://assets/world/buildings/workshop/levels/level_15.glb"
+      },
+      {
+        "level": 16,
+        "scene": "res://assets/world/buildings/workshop/levels/level_16.glb"
+      },
+      {
+        "level": 17,
+        "scene": "res://assets/world/buildings/workshop/levels/level_17.glb"
+      },
+      {
+        "level": 18,
+        "scene": "res://assets/world/buildings/workshop/levels/level_18.glb"
+      },
+      {
+        "level": 19,
+        "scene": "res://assets/world/buildings/workshop/levels/level_19.glb"
+      },
+      {
+        "level": 20,
+        "scene": "res://assets/world/buildings/workshop/levels/level_20.glb"
+      },
+      {
+        "level": 21,
+        "scene": "res://assets/world/buildings/workshop/levels/level_21.glb"
+      },
+      {
+        "level": 22,
+        "scene": "res://assets/world/buildings/workshop/levels/level_22.glb"
+      },
+      {
+        "level": 23,
+        "scene": "res://assets/world/buildings/workshop/levels/level_23.glb"
+      },
+      {
+        "level": 24,
+        "scene": "res://assets/world/buildings/workshop/levels/level_24.glb"
+      },
+      {
+        "level": 25,
+        "scene": "res://assets/world/buildings/workshop/levels/level_25.glb"
+      },
+      {
+        "level": 26,
+        "scene": "res://assets/world/buildings/workshop/levels/level_26.glb"
+      },
+      {
+        "level": 27,
+        "scene": "res://assets/world/buildings/workshop/levels/level_27.glb"
+      },
+      {
+        "level": 28,
+        "scene": "res://assets/world/buildings/workshop/levels/level_28.glb"
+      },
+      {
+        "level": 29,
+        "scene": "res://assets/world/buildings/workshop/levels/level_29.glb"
+      },
+      {
+        "level": 30,
+        "scene": "res://assets/world/buildings/workshop/levels/level_30.glb"
+      }
+    ],
+    "market": [
+      {
+        "level": 1,
+        "scene": "res://assets/world/buildings/market/levels/level_01.glb"
+      },
+      {
+        "level": 2,
+        "scene": "res://assets/world/buildings/market/levels/level_02.glb"
+      },
+      {
+        "level": 3,
+        "scene": "res://assets/world/buildings/market/levels/level_03.glb"
+      },
+      {
+        "level": 4,
+        "scene": "res://assets/world/buildings/market/levels/level_04.glb"
+      },
+      {
+        "level": 5,
+        "scene": "res://assets/world/buildings/market/levels/level_05.glb"
+      },
+      {
+        "level": 6,
+        "scene": "res://assets/world/buildings/market/levels/level_06.glb"
+      },
+      {
+        "level": 7,
+        "scene": "res://assets/world/buildings/market/levels/level_07.glb"
+      },
+      {
+        "level": 8,
+        "scene": "res://assets/world/buildings/market/levels/level_08.glb"
+      },
+      {
+        "level": 9,
+        "scene": "res://assets/world/buildings/market/levels/level_09.glb"
+      },
+      {
+        "level": 10,
+        "scene": "res://assets/world/buildings/market/levels/level_10.glb"
+      },
+      {
+        "level": 11,
+        "scene": "res://assets/world/buildings/market/levels/level_11.glb"
+      },
+      {
+        "level": 12,
+        "scene": "res://assets/world/buildings/market/levels/level_12.glb"
+      },
+      {
+        "level": 13,
+        "scene": "res://assets/world/buildings/market/levels/level_13.glb"
+      },
+      {
+        "level": 14,
+        "scene": "res://assets/world/buildings/market/levels/level_14.glb"
+      },
+      {
+        "level": 15,
+        "scene": "res://assets/world/buildings/market/levels/level_15.glb"
+      },
+      {
+        "level": 16,
+        "scene": "res://assets/world/buildings/market/levels/level_16.glb"
+      },
+      {
+        "level": 17,
+        "scene": "res://assets/world/buildings/market/levels/level_17.glb"
+      },
+      {
+        "level": 18,
+        "scene": "res://assets/world/buildings/market/levels/level_18.glb"
+      },
+      {
+        "level": 19,
+        "scene": "res://assets/world/buildings/market/levels/level_19.glb"
+      },
+      {
+        "level": 20,
+        "scene": "res://assets/world/buildings/market/levels/level_20.glb"
+      },
+      {
+        "level": 21,
+        "scene": "res://assets/world/buildings/market/levels/level_21.glb"
+      },
+      {
+        "level": 22,
+        "scene": "res://assets/world/buildings/market/levels/level_22.glb"
+      },
+      {
+        "level": 23,
+        "scene": "res://assets/world/buildings/market/levels/level_23.glb"
+      },
+      {
+        "level": 24,
+        "scene": "res://assets/world/buildings/market/levels/level_24.glb"
+      },
+      {
+        "level": 25,
+        "scene": "res://assets/world/buildings/market/levels/level_25.glb"
+      },
+      {
+        "level": 26,
+        "scene": "res://assets/world/buildings/market/levels/level_26.glb"
+      },
+      {
+        "level": 27,
+        "scene": "res://assets/world/buildings/market/levels/level_27.glb"
+      },
+      {
+        "level": 28,
+        "scene": "res://assets/world/buildings/market/levels/level_28.glb"
+      },
+      {
+        "level": 29,
+        "scene": "res://assets/world/buildings/market/levels/level_29.glb"
+      },
+      {
+        "level": 30,
+        "scene": "res://assets/world/buildings/market/levels/level_30.glb"
+      }
+    ],
+    "shipyard": [
+      {
+        "level": 1,
+        "scene": "res://assets/world/buildings/shipyard/levels/level_01.glb"
+      },
+      {
+        "level": 2,
+        "scene": "res://assets/world/buildings/shipyard/levels/level_02.glb"
+      },
+      {
+        "level": 3,
+        "scene": "res://assets/world/buildings/shipyard/levels/level_03.glb"
+      },
+      {
+        "level": 4,
+        "scene": "res://assets/world/buildings/shipyard/levels/level_04.glb"
+      },
+      {
+        "level": 5,
+        "scene": "res://assets/world/buildings/shipyard/levels/level_05.glb"
+      },
+      {
+        "level": 6,
+        "scene": "res://assets/world/buildings/shipyard/levels/level_06.glb"
+      },
+      {
+        "level": 7,
+        "scene": "res://assets/world/buildings/shipyard/levels/level_07.glb"
+      },
+      {
+        "level": 8,
+        "scene": "res://assets/world/buildings/shipyard/levels/level_08.glb"
+      },
+      {
+        "level": 9,
+        "scene": "res://assets/world/buildings/shipyard/levels/level_09.glb"
+      },
+      {
+        "level": 10,
+        "scene": "res://assets/world/buildings/shipyard/levels/level_10.glb"
+      },
+      {
+        "level": 11,
+        "scene": "res://assets/world/buildings/shipyard/levels/level_11.glb"
+      },
+      {
+        "level": 12,
+        "scene": "res://assets/world/buildings/shipyard/levels/level_12.glb"
+      },
+      {
+        "level": 13,
+        "scene": "res://assets/world/buildings/shipyard/levels/level_13.glb"
+      },
+      {
+        "level": 14,
+        "scene": "res://assets/world/buildings/shipyard/levels/level_14.glb"
+      },
+      {
+        "level": 15,
+        "scene": "res://assets/world/buildings/shipyard/levels/level_15.glb"
+      },
+      {
+        "level": 16,
+        "scene": "res://assets/world/buildings/shipyard/levels/level_16.glb"
+      },
+      {
+        "level": 17,
+        "scene": "res://assets/world/buildings/shipyard/levels/level_17.glb"
+      },
+      {
+        "level": 18,
+        "scene": "res://assets/world/buildings/shipyard/levels/level_18.glb"
+      },
+      {
+        "level": 19,
+        "scene": "res://assets/world/buildings/shipyard/levels/level_19.glb"
+      },
+      {
+        "level": 20,
+        "scene": "res://assets/world/buildings/shipyard/levels/level_20.glb"
+      },
+      {
+        "level": 21,
+        "scene": "res://assets/world/buildings/shipyard/levels/level_21.glb"
+      },
+      {
+        "level": 22,
+        "scene": "res://assets/world/buildings/shipyard/levels/level_22.glb"
+      },
+      {
+        "level": 23,
+        "scene": "res://assets/world/buildings/shipyard/levels/level_23.glb"
+      },
+      {
+        "level": 24,
+        "scene": "res://assets/world/buildings/shipyard/levels/level_24.glb"
+      },
+      {
+        "level": 25,
+        "scene": "res://assets/world/buildings/shipyard/levels/level_25.glb"
+      },
+      {
+        "level": 26,
+        "scene": "res://assets/world/buildings/shipyard/levels/level_26.glb"
+      },
+      {
+        "level": 27,
+        "scene": "res://assets/world/buildings/shipyard/levels/level_27.glb"
+      },
+      {
+        "level": 28,
+        "scene": "res://assets/world/buildings/shipyard/levels/level_28.glb"
+      },
+      {
+        "level": 29,
+        "scene": "res://assets/world/buildings/shipyard/levels/level_29.glb"
+      },
+      {
+        "level": 30,
+        "scene": "res://assets/world/buildings/shipyard/levels/level_30.glb"
+      }
+    ],
+    "mage_guild": [
+      {
+        "level": 1,
+        "scene": "res://assets/world/buildings/mage_guild/levels/level_01.glb"
+      },
+      {
+        "level": 2,
+        "scene": "res://assets/world/buildings/mage_guild/levels/level_02.glb"
+      },
+      {
+        "level": 3,
+        "scene": "res://assets/world/buildings/mage_guild/levels/level_03.glb"
+      },
+      {
+        "level": 4,
+        "scene": "res://assets/world/buildings/mage_guild/levels/level_04.glb"
+      },
+      {
+        "level": 5,
+        "scene": "res://assets/world/buildings/mage_guild/levels/level_05.glb"
+      },
+      {
+        "level": 6,
+        "scene": "res://assets/world/buildings/mage_guild/levels/level_06.glb"
+      },
+      {
+        "level": 7,
+        "scene": "res://assets/world/buildings/mage_guild/levels/level_07.glb"
+      },
+      {
+        "level": 8,
+        "scene": "res://assets/world/buildings/mage_guild/levels/level_08.glb"
+      },
+      {
+        "level": 9,
+        "scene": "res://assets/world/buildings/mage_guild/levels/level_09.glb"
+      },
+      {
+        "level": 10,
+        "scene": "res://assets/world/buildings/mage_guild/levels/level_10.glb"
+      },
+      {
+        "level": 11,
+        "scene": "res://assets/world/buildings/mage_guild/levels/level_11.glb"
+      },
+      {
+        "level": 12,
+        "scene": "res://assets/world/buildings/mage_guild/levels/level_12.glb"
+      },
+      {
+        "level": 13,
+        "scene": "res://assets/world/buildings/mage_guild/levels/level_13.glb"
+      },
+      {
+        "level": 14,
+        "scene": "res://assets/world/buildings/mage_guild/levels/level_14.glb"
+      },
+      {
+        "level": 15,
+        "scene": "res://assets/world/buildings/mage_guild/levels/level_15.glb"
+      },
+      {
+        "level": 16,
+        "scene": "res://assets/world/buildings/mage_guild/levels/level_16.glb"
+      },
+      {
+        "level": 17,
+        "scene": "res://assets/world/buildings/mage_guild/levels/level_17.glb"
+      },
+      {
+        "level": 18,
+        "scene": "res://assets/world/buildings/mage_guild/levels/level_18.glb"
+      },
+      {
+        "level": 19,
+        "scene": "res://assets/world/buildings/mage_guild/levels/level_19.glb"
+      },
+      {
+        "level": 20,
+        "scene": "res://assets/world/buildings/mage_guild/levels/level_20.glb"
+      },
+      {
+        "level": 21,
+        "scene": "res://assets/world/buildings/mage_guild/levels/level_21.glb"
+      },
+      {
+        "level": 22,
+        "scene": "res://assets/world/buildings/mage_guild/levels/level_22.glb"
+      },
+      {
+        "level": 23,
+        "scene": "res://assets/world/buildings/mage_guild/levels/level_23.glb"
+      },
+      {
+        "level": 24,
+        "scene": "res://assets/world/buildings/mage_guild/levels/level_24.glb"
+      },
+      {
+        "level": 25,
+        "scene": "res://assets/world/buildings/mage_guild/levels/level_25.glb"
+      },
+      {
+        "level": 26,
+        "scene": "res://assets/world/buildings/mage_guild/levels/level_26.glb"
+      },
+      {
+        "level": 27,
+        "scene": "res://assets/world/buildings/mage_guild/levels/level_27.glb"
+      },
+      {
+        "level": 28,
+        "scene": "res://assets/world/buildings/mage_guild/levels/level_28.glb"
+      },
+      {
+        "level": 29,
+        "scene": "res://assets/world/buildings/mage_guild/levels/level_29.glb"
+      },
+      {
+        "level": 30,
+        "scene": "res://assets/world/buildings/mage_guild/levels/level_30.glb"
+      }
+    ],
+    "fishing_wharf": [
+      {
+        "level": 1,
+        "scene": "res://assets/world/buildings/fishing_wharf/levels/level_01.glb"
+      },
+      {
+        "level": 2,
+        "scene": "res://assets/world/buildings/fishing_wharf/levels/level_02.glb"
+      },
+      {
+        "level": 3,
+        "scene": "res://assets/world/buildings/fishing_wharf/levels/level_03.glb"
+      },
+      {
+        "level": 4,
+        "scene": "res://assets/world/buildings/fishing_wharf/levels/level_04.glb"
+      },
+      {
+        "level": 5,
+        "scene": "res://assets/world/buildings/fishing_wharf/levels/level_05.glb"
+      },
+      {
+        "level": 6,
+        "scene": "res://assets/world/buildings/fishing_wharf/levels/level_06.glb"
+      },
+      {
+        "level": 7,
+        "scene": "res://assets/world/buildings/fishing_wharf/levels/level_07.glb"
+      },
+      {
+        "level": 8,
+        "scene": "res://assets/world/buildings/fishing_wharf/levels/level_08.glb"
+      },
+      {
+        "level": 9,
+        "scene": "res://assets/world/buildings/fishing_wharf/levels/level_09.glb"
+      },
+      {
+        "level": 10,
+        "scene": "res://assets/world/buildings/fishing_wharf/levels/level_10.glb"
+      },
+      {
+        "level": 11,
+        "scene": "res://assets/world/buildings/fishing_wharf/levels/level_11.glb"
+      },
+      {
+        "level": 12,
+        "scene": "res://assets/world/buildings/fishing_wharf/levels/level_12.glb"
+      },
+      {
+        "level": 13,
+        "scene": "res://assets/world/buildings/fishing_wharf/levels/level_13.glb"
+      },
+      {
+        "level": 14,
+        "scene": "res://assets/world/buildings/fishing_wharf/levels/level_14.glb"
+      },
+      {
+        "level": 15,
+        "scene": "res://assets/world/buildings/fishing_wharf/levels/level_15.glb"
+      },
+      {
+        "level": 16,
+        "scene": "res://assets/world/buildings/fishing_wharf/levels/level_16.glb"
+      },
+      {
+        "level": 17,
+        "scene": "res://assets/world/buildings/fishing_wharf/levels/level_17.glb"
+      },
+      {
+        "level": 18,
+        "scene": "res://assets/world/buildings/fishing_wharf/levels/level_18.glb"
+      },
+      {
+        "level": 19,
+        "scene": "res://assets/world/buildings/fishing_wharf/levels/level_19.glb"
+      },
+      {
+        "level": 20,
+        "scene": "res://assets/world/buildings/fishing_wharf/levels/level_20.glb"
+      },
+      {
+        "level": 21,
+        "scene": "res://assets/world/buildings/fishing_wharf/levels/level_21.glb"
+      },
+      {
+        "level": 22,
+        "scene": "res://assets/world/buildings/fishing_wharf/levels/level_22.glb"
+      },
+      {
+        "level": 23,
+        "scene": "res://assets/world/buildings/fishing_wharf/levels/level_23.glb"
+      },
+      {
+        "level": 24,
+        "scene": "res://assets/world/buildings/fishing_wharf/levels/level_24.glb"
+      },
+      {
+        "level": 25,
+        "scene": "res://assets/world/buildings/fishing_wharf/levels/level_25.glb"
+      },
+      {
+        "level": 26,
+        "scene": "res://assets/world/buildings/fishing_wharf/levels/level_26.glb"
+      },
+      {
+        "level": 27,
+        "scene": "res://assets/world/buildings/fishing_wharf/levels/level_27.glb"
+      },
+      {
+        "level": 28,
+        "scene": "res://assets/world/buildings/fishing_wharf/levels/level_28.glb"
+      },
+      {
+        "level": 29,
+        "scene": "res://assets/world/buildings/fishing_wharf/levels/level_29.glb"
+      },
+      {
+        "level": 30,
+        "scene": "res://assets/world/buildings/fishing_wharf/levels/level_30.glb"
+      }
+    ],
+    "timber_yard": [
+      {
+        "level": 1,
+        "scene": "res://assets/world/buildings/timber_yard/levels/level_01.glb"
+      },
+      {
+        "level": 2,
+        "scene": "res://assets/world/buildings/timber_yard/levels/level_02.glb"
+      },
+      {
+        "level": 3,
+        "scene": "res://assets/world/buildings/timber_yard/levels/level_03.glb"
+      },
+      {
+        "level": 4,
+        "scene": "res://assets/world/buildings/timber_yard/levels/level_04.glb"
+      },
+      {
+        "level": 5,
+        "scene": "res://assets/world/buildings/timber_yard/levels/level_05.glb"
+      },
+      {
+        "level": 6,
+        "scene": "res://assets/world/buildings/timber_yard/levels/level_06.glb"
+      },
+      {
+        "level": 7,
+        "scene": "res://assets/world/buildings/timber_yard/levels/level_07.glb"
+      },
+      {
+        "level": 8,
+        "scene": "res://assets/world/buildings/timber_yard/levels/level_08.glb"
+      },
+      {
+        "level": 9,
+        "scene": "res://assets/world/buildings/timber_yard/levels/level_09.glb"
+      },
+      {
+        "level": 10,
+        "scene": "res://assets/world/buildings/timber_yard/levels/level_10.glb"
+      },
+      {
+        "level": 11,
+        "scene": "res://assets/world/buildings/timber_yard/levels/level_11.glb"
+      },
+      {
+        "level": 12,
+        "scene": "res://assets/world/buildings/timber_yard/levels/level_12.glb"
+      },
+      {
+        "level": 13,
+        "scene": "res://assets/world/buildings/timber_yard/levels/level_13.glb"
+      },
+      {
+        "level": 14,
+        "scene": "res://assets/world/buildings/timber_yard/levels/level_14.glb"
+      },
+      {
+        "level": 15,
+        "scene": "res://assets/world/buildings/timber_yard/levels/level_15.glb"
+      },
+      {
+        "level": 16,
+        "scene": "res://assets/world/buildings/timber_yard/levels/level_16.glb"
+      },
+      {
+        "level": 17,
+        "scene": "res://assets/world/buildings/timber_yard/levels/level_17.glb"
+      },
+      {
+        "level": 18,
+        "scene": "res://assets/world/buildings/timber_yard/levels/level_18.glb"
+      },
+      {
+        "level": 19,
+        "scene": "res://assets/world/buildings/timber_yard/levels/level_19.glb"
+      },
+      {
+        "level": 20,
+        "scene": "res://assets/world/buildings/timber_yard/levels/level_20.glb"
+      },
+      {
+        "level": 21,
+        "scene": "res://assets/world/buildings/timber_yard/levels/level_21.glb"
+      },
+      {
+        "level": 22,
+        "scene": "res://assets/world/buildings/timber_yard/levels/level_22.glb"
+      },
+      {
+        "level": 23,
+        "scene": "res://assets/world/buildings/timber_yard/levels/level_23.glb"
+      },
+      {
+        "level": 24,
+        "scene": "res://assets/world/buildings/timber_yard/levels/level_24.glb"
+      },
+      {
+        "level": 25,
+        "scene": "res://assets/world/buildings/timber_yard/levels/level_25.glb"
+      },
+      {
+        "level": 26,
+        "scene": "res://assets/world/buildings/timber_yard/levels/level_26.glb"
+      },
+      {
+        "level": 27,
+        "scene": "res://assets/world/buildings/timber_yard/levels/level_27.glb"
+      },
+      {
+        "level": 28,
+        "scene": "res://assets/world/buildings/timber_yard/levels/level_28.glb"
+      },
+      {
+        "level": 29,
+        "scene": "res://assets/world/buildings/timber_yard/levels/level_29.glb"
+      },
+      {
+        "level": 30,
+        "scene": "res://assets/world/buildings/timber_yard/levels/level_30.glb"
+      }
+    ]
+  },
+  "placements": {
+    "dock": [
+      -30,
+      25,
+      90,
+      -0.06
+    ],
+    "warehouse": [
+      -29,
+      9,
+      0,
+      3.4
+    ],
+    "workshop": [
+      -42,
+      -7,
+      0,
+      5.0
+    ],
+    "market": [
+      0,
+      1,
+      0,
+      3.0
+    ],
+    "shipyard": [
+      31,
+      19,
+      0,
+      2.1
+    ],
+    "mage_guild": [
+      0,
+      -22,
+      0,
+      9.4
+    ],
+    "fishing_wharf": [
+      37,
+      38,
+      -90,
+      -0.06
+    ],
+    "timber_yard": [
+      40,
+      -7,
+      0,
+      4.8
+    ]
+  },
+  "tower_positions": [
+    [
+      -34,
+      44
+    ],
+    [
+      35,
+      44
+    ]
+  ],
+  "tower": "res://assets/world/buildings/island_tower/island_tower.glb",
+  "coastline": [
+    [
+      59.99999999390972,
+      0.0
+    ],
+    [
+      60.97671508642038,
+      2.6623008761368063
+    ],
+    [
+      61.63089014725445,
+      5.392004210896329
+    ],
+    [
+      61.81574904125361,
+      8.138197751516708
+    ],
+    [
+      61.487448059286166,
+      10.841896067762493
+    ],
+    [
+      60.713233663377416,
+      13.459799854964439
+    ],
+    [
+      59.64414596684411,
+      15.98160074505988
+    ],
+    [
+      58.46162843271327,
+      18.432880640727642
+    ],
+    [
+      57.31557858262352,
+      20.86116456382041
+    ],
+    [
+      56.273482972502045,
+      23.30923984918178
+    ],
+    [
+      55.29597604612098,
+      25.784937095461572
+    ],
+    [
+      54.245420304783124,
+      28.23837845400076
+    ],
+    [
+      52.924170791466,
+      30.555784253090618
+    ],
+    [
+      51.13106395235608,
+      32.5740802474921
+    ],
+    [
+      48.72013204225058,
+      34.114203718556276
+    ],
+    [
+      45.64518354933051,
+      35.02478120865456
+    ],
+    [
+      41.97768943686918,
+      35.22346372415133
+    ],
+    [
+      37.89285673056475,
+      34.722405894792416
+    ],
+    [
+      33.62830289260757,
+      33.62830289260757
+    ],
+    [
+      29.428475683907774,
+      32.11554568735889
+    ],
+    [
+      25.492494148447076,
+      30.380771485598675
+    ],
+    [
+      21.941255188011407,
+      28.594400473000206
+    ],
+    [
+      18.81195822766681,
+      26.866260645758267
+    ],
+    [
+      16.07780252136088,
+      25.23709472952339
+    ],
+    [
+      13.681820413371621,
+      23.69760809599266
+    ],
+    [
+      11.570050119477276,
+      22.225859487676455
+    ],
+    [
+      9.71160282987296,
+      20.826599477902775
+    ],
+    [
+      8.100133219863926,
+      19.55545147642433
+    ],
+    [
+      6.739573114562494,
+      18.516824949023906
+    ],
+    [
+      5.6232909241191225,
+      17.83480026711244
+    ],
+    [
+      4.71778096450416,
+      17.606998258510814
+    ],
+    [
+      3.959161706894769,
+      17.858624378663414
+    ],
+    [
+      3.2646575565171965,
+      18.514793047553542
+    ],
+    [
+      2.5545194929285637,
+      19.403501944448717
+    ],
+    [
+      1.775252390368146,
+      20.291227672510015
+    ],
+    [
+      0.9143343685974752,
+      20.941700011229443
+    ],
+    [
+      1.296900960297047e-15,
+      21.18
+    ],
+    [
+      -0.9143343685974727,
+      20.941700011229443
+    ],
+    [
+      -1.7752523903681436,
+      20.291227672510015
+    ],
+    [
+      -2.5545194929285615,
+      19.40350194444872
+    ],
+    [
+      -3.2646575565171942,
+      18.514793047553542
+    ],
+    [
+      -3.9591617068947627,
+      17.858624378663418
+    ],
+    [
+      -4.717780964504162,
+      17.606998258510828
+    ],
+    [
+      -5.623290924119121,
+      17.83480026711244
+    ],
+    [
+      -6.739573114562485,
+      18.516824949023903
+    ],
+    [
+      -8.100133219863922,
+      19.55545147642433
+    ],
+    [
+      -9.71160282987296,
+      20.826599477902786
+    ],
+    [
+      -11.570050119477296,
+      22.22585948767647
+    ],
+    [
+      -13.681820413371602,
+      23.697608095992646
+    ],
+    [
+      -16.077802521360855,
+      25.23709472952337
+    ],
+    [
+      -18.81195822766681,
+      26.866260645758267
+    ],
+    [
+      -21.941255188011404,
+      28.5944004730002
+    ],
+    [
+      -25.49249414844708,
+      30.380771485598682
+    ],
+    [
+      -29.428475683907774,
+      32.115545687358896
+    ],
+    [
+      -33.628302892607564,
+      33.62830289260757
+    ],
+    [
+      -37.892856730564745,
+      34.72240589479242
+    ],
+    [
+      -41.97768943686917,
+      35.223463724151344
+    ],
+    [
+      -45.64518354933048,
+      35.024781208654574
+    ],
+    [
+      -48.72013204225061,
+      34.11420371855629
+    ],
+    [
+      -51.131063952356065,
+      32.57408024749211
+    ],
+    [
+      -52.924170791466,
+      30.55578425309065
+    ],
+    [
+      -54.24542030478312,
+      28.238378454000756
+    ],
+    [
+      -55.29597604612098,
+      25.784937095461576
+    ],
+    [
+      -56.273482972502045,
+      23.309239849181786
+    ],
+    [
+      -57.315578582623516,
+      20.86116456382042
+    ],
+    [
+      -58.46162843271326,
+      18.432880640727657
+    ],
+    [
+      -59.64414596684411,
+      15.981600745059872
+    ],
+    [
+      -60.71323366337741,
+      13.459799854964457
+    ],
+    [
+      -61.487448059286166,
+      10.84189606776249
+    ],
+    [
+      -61.81574904125361,
+      8.138197751516708
+    ],
+    [
+      -61.63089014725445,
+      5.392004210896331
+    ],
+    [
+      -60.97671508642038,
+      2.6623008761368103
+    ],
+    [
+      -59.99999999390972,
+      7.347880794138274e-15
+    ],
+    [
+      -58.90907143493277,
+      -2.572025604714048
+    ],
+    [
+      -57.912473001719235,
+      -5.066684864401559
+    ],
+    [
+      -57.15762961598549,
+      -7.524944695119779
+    ],
+    [
+      -56.689452489313595,
+      -9.99587999545662
+    ],
+    [
+      -56.442127543233816,
+      -12.51291842454701
+    ],
+    [
+      -56.26622290337043,
+      -15.076488988107622
+    ],
+    [
+      -55.981523880464685,
+      -17.650906679110406
+    ],
+    [
+      -55.43763233718822,
+      -20.177648028929987
+    ],
+    [
+      -54.56214749227207,
+      -22.60038148350024
+    ],
+    [
+      -53.38084281551994,
+      -24.89189580364514
+    ],
+    [
+      -52.003998880170464,
+      -27.07156831394667
+    ],
+    [
+      -50.584543835049054,
+      -29.205000000000005
+    ],
+    [
+      -49.262954943886314,
+      -31.383963554249444
+    ],
+    [
+      -48.1178779498408,
+      -33.69250086313328
+    ],
+    [
+      -47.138900253364625,
+      -36.1709503480549
+    ],
+    [
+      -46.229909269972666,
+      -38.79149981779314
+    ],
+    [
+      -45.24087384357675,
+      -41.455623042658814
+    ],
+    [
+      -44.016406871192856,
+      -44.01640687119285
+    ],
+    [
+      -42.44430726500947,
+      -46.31983334030105
+    ],
+    [
+      -40.488049001097444,
+      -48.25177785418827
+    ],
+    [
+      -38.19338557641377,
+      -49.774589157889736
+    ],
+    [
+      -35.66850288999295,
+      -50.93990130581885
+    ],
+    [
+      -33.04613802647249,
+      -51.87204623958767
+    ],
+    [
+      -30.441672955930102,
+      -52.72652422706633
+    ],
+    [
+      -27.921620187229642,
+      -53.636933335745375
+    ],
+    [
+      -25.49226014300136,
+      -54.66832829609633
+    ],
+    [
+      -23.11038148350023,
+      -55.79339640908235
+    ],
+    [
+      -20.710072534812262,
+      -56.90045664466408
+    ],
+    [
+      -18.234209309477848,
+      -57.83152347114287
+    ],
+    [
+      -15.658469380124897,
+      -58.438203295387694
+    ],
+    [
+      -12.999437282873892,
+      -58.63667229468062
+    ],
+    [
+      -10.305039385025891,
+      -58.4427825147418
+    ],
+    [
+      -7.632509466761126,
+      -57.97466517256446
+    ],
+    [
+      -5.023685418170653,
+      -57.420987082310006
+    ],
+    [
+      -2.488002555483233,
+      -56.984627214685474
+    ],
+    [
+      -1.043766466913289e-14,
+      -56.82
+    ],
+    [
+      2.4880025554832117,
+      -56.984627214685474
+    ],
+    [
+      5.023685418170632,
+      -57.42098708231
+    ],
+    [
+      7.632509466761102,
+      -57.97466517256444
+    ],
+    [
+      10.30503938502587,
+      -58.44278251474181
+    ],
+    [
+      12.999437282873815,
+      -58.63667229468063
+    ],
+    [
+      15.658469380124878,
+      -58.4382032953877
+    ],
+    [
+      18.234209309477876,
+      -57.831523471142866
+    ],
+    [
+      20.710072534812294,
+      -56.90045664466408
+    ],
+    [
+      23.110381483500262,
+      -55.793396409082334
+    ],
+    [
+      25.492260143001293,
+      -54.66832829609636
+    ],
+    [
+      27.921620187229568,
+      -53.6369333357454
+    ],
+    [
+      30.44167295593002,
+      -52.726524227066335
+    ],
+    [
+      33.046138026472455,
+      -51.87204623958766
+    ],
+    [
+      35.66850288999298,
+      -50.93990130581883
+    ],
+    [
+      38.193385576413746,
+      -49.77458915788975
+    ],
+    [
+      40.48804900109743,
+      -48.25177785418828
+    ],
+    [
+      42.444307265009456,
+      -46.319833340301074
+    ],
+    [
+      44.01640687119284,
+      -44.016406871192856
+    ],
+    [
+      45.240873843576736,
+      -41.455623042658836
+    ],
+    [
+      46.229909269972644,
+      -38.79149981779319
+    ],
+    [
+      47.13890025336462,
+      -36.17095034805495
+    ],
+    [
+      48.11787794984079,
+      -33.692500863133326
+    ],
+    [
+      49.262954943886335,
+      -31.38396355424942
+    ],
+    [
+      50.584543835049075,
+      -29.204999999999984
+    ],
+    [
+      52.00399888017045,
+      -27.071568313946685
+    ],
+    [
+      53.380842815519905,
+      -24.89189580364521
+    ],
+    [
+      54.562147492272054,
+      -22.600381483500282
+    ],
+    [
+      55.43763233718822,
+      -20.177648028929983
+    ],
+    [
+      55.981523880464685,
+      -17.650906679110403
+    ],
+    [
+      56.26622290337043,
+      -15.076488988107643
+    ],
+    [
+      56.44212754323382,
+      -12.512918424547008
+    ],
+    [
+      56.68945248931359,
+      -9.995879995456642
+    ],
+    [
+      57.15762961598547,
+      -7.52494469511985
+    ],
+    [
+      57.91247300171924,
+      -5.066684864401581
+    ],
+    [
+      58.909071434932756,
+      -2.5720256047140695
+    ]
+  ],
+  "building_scales": {
+    "dock": 1.15,
+    "warehouse": 1.7,
+    "workshop": 1.6,
+    "market": 1.8,
+    "shipyard": 1.8,
+    "mage_guild": 2.2,
+    "fishing_wharf": 1.15,
+    "timber_yard": 1.6
+  },
+  "tower_scale": 2.1,
+  "city_quarter": "res://assets/world/ports/home_base/city_quarter.glb",
+  "city_quarters": [
+    [
+      -23,
+      -9,
+      0,
+      2.073240116698913
+    ],
+    [
+      23,
+      -8,
+      180,
+      2.2006164003176654
+    ],
+    [
+      -35,
+      -22,
+      0,
+      5.063334580540137
+    ],
+    [
+      35,
+      -22,
+      180,
+      6.081101350912842
+    ],
+    [
+      -17,
+      -30,
+      90,
+      2.6103041405206175
+    ],
+    [
+      17,
+      -30,
+      -90,
+      2.7432878453495286
+    ],
+    [
+      -42,
+      8,
+      0,
+      1.16533333445329
+    ],
+    [
+      45,
+      7,
+      180,
+      1.1651143185674082
+    ],
+    [
+      -8,
+      -10,
+      0,
+      1.125
+    ],
+    [
+      9,
+      -10,
+      180,
+      1.125
+    ],
+    [
+      -25,
+      -23,
+      0,
+      3.847016580633018
+    ],
+    [
+      25,
+      -23,
+      180,
+      4.639416765349521
+    ],
+    [
+      -8,
+      -34,
+      0,
+      3.8300473519702543
+    ],
+    [
+      9,
+      -34,
+      180,
+      3.5713344174162343
+    ],
+    [
+      -44,
+      -12,
+      0,
+      2.7859475858673406
+    ],
+    [
+      44,
+      -12,
+      180,
+      2.9973902721700947
+    ]
+  ],
+  "flag_positions": [
+    [
+      -27,
+      49,
+      2.8
+    ],
+    [
+      27,
+      49,
+      2.8
+    ],
+    [
+      -15,
+      7,
+      1.2
+    ],
+    [
+      15,
+      7,
+      1.2
+    ],
+    [
+      0,
+      -17,
+      9.4
+    ],
+    [
+      -30,
+      31,
+      1.1
+    ],
+    [
+      32,
+      31,
+      1.1
+    ]
+  ]
+}

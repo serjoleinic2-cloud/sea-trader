@@ -45,6 +45,17 @@
       "bind": "_career_system"
     },
     {
+      "id": "MilitaryTransportSystem",
+      "script": "res://systems/fleet/military_transport_system.gd",
+      "initialize": "initialize",
+      "args": [
+        "$main"
+      ],
+      "after": [
+        "FleetSystem"
+      ]
+    },
+    {
       "id": "FleetSystem",
       "script": "res://systems/fleet/fleet_system.gd",
       "bind": "_fleet_system",

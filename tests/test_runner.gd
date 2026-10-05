@@ -4,6 +4,11 @@ extends Node
 ## Attach to a Node in tests/test_runner.tscn and run that scene.
 
 const TEST_FILES: Array = [
+	"res://tests/unit/test_military_transport.gd",
+	"res://tests/unit/test_combat_story_ui.gd",
+	"res://tests/unit/test_hybrid_harbors.gd",
+	"res://tests/unit/test_harbor_navigation.gd",
+	"res://tests/unit/test_home_base_visuals.gd",
 	"res://tests/unit/test_game_state.gd",
 	"res://tests/unit/test_event_bus.gd",
 	"res://tests/unit/test_save_system.gd",
@@ -57,4 +62,5 @@ func _run_file(path: String) -> void:
 	instance.run_all()
 	_total_pass += instance.passed
 	_total_fail += instance.failed
-	instance.queue_free()
+	# Tests run synchronously; release their nodes/resources before quitting.
+	instance.free()

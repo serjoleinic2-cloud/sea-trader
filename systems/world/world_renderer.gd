@@ -110,19 +110,27 @@ func _draw_waves(world_size: Vector2i) -> void:
 	var last_y: int = ceili(view_rect.end.y / spacing)
 	for row in range(first_y, last_y + 1):
 		for column in range(first_x, last_x + 1):
-			var seed_value: float = sin(float(column * 127 + row * 311) * 12.9898) * 43758.5453
-			var random_value: float = seed_value - floor(seed_value)
-			if random_value < 0.28:
+			# Independent per-cell offsets keep the lightweight map waves scattered;
+			# reusing one random value for X/Y made diagonal rows and square patches.
+			var cell := Vector2(float(column), float(row))
+			var seed_x: float = sin(cell.dot(Vector2(127.1, 311.7)) + 17.3) * 43758.5453
+			var seed_y: float = sin(cell.dot(Vector2(269.5, 183.3)) + 91.7) * 24634.6345
+			var seed_shape: float = sin(cell.dot(Vector2(74.7, 246.3)) + 43.1) * 56445.234
+			var random_x: float = seed_x - floor(seed_x)
+			var random_y: float = seed_y - floor(seed_y)
+			var random_value: float = seed_shape - floor(seed_shape)
+			if random_value < 0.34:
 				continue
-			var base_x: float = float(column) * spacing + random_value * 68.0
-			var base_y: float = float(row) * spacing + fposmod(random_value * 137.0, spacing)
-			var slide: float = sin(_wave_clock * 0.8 + float(row) * 0.73 + float(column)) * 7.0
+			var base_x: float = (float(column) + 0.12 + random_x * 0.76) * spacing
+			var base_y: float = (float(row) + 0.12 + random_y * 0.76) * spacing
+			var slide: float = sin(_wave_clock * 0.7 + random_x * TAU + random_y * 2.1) * 8.0
 			var start := Vector2(base_x + slide, base_y)
-			var length: float = 18.0 + random_value * 31.0
+			var length: float = 16.0 + random_y * 32.0
 			var wave_color := Color(0.62, 0.82, 0.91, 0.10 + random_value * 0.07)
-			draw_line(start, start + Vector2(length, -2.0 - random_value * 3.0), wave_color, 1.5, true)
+			var wave_direction := Vector2(length, -1.0 - random_x * 4.0).rotated((random_x - 0.5) * 0.32)
+			draw_line(start, start + wave_direction, wave_color, 1.2, true)
 			var secondary_color := Color(wave_color.r, wave_color.g, wave_color.b, wave_color.a * 0.55)
-			draw_line(start + Vector2(5.0, 4.0), start + Vector2(length * 0.67, 3.0), secondary_color, 1.0, true)
+			draw_line(start + Vector2(4.0, 3.0), start + wave_direction * 0.62 + Vector2(4.0, 3.0), secondary_color, 1.0, true)
 
 
 func _draw_grid(world_size: Vector2i) -> void:

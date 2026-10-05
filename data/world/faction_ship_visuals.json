@@ -1,0 +1,689 @@
+{
+  "version": 1,
+  "factions": {
+    "humans": {
+      "ship_sloop": {
+        "id": "humans_ship_sloop",
+        "scene": "res://assets/world/ships/factions/humans/ship_sloop.glb",
+        "reference_size_m": 6.15,
+        "identities": [
+          "ship_sloop"
+        ]
+      },
+      "ship_barque": {
+        "id": "humans_ship_barque",
+        "scene": "res://assets/world/ships/factions/humans/ship_barque.glb",
+        "reference_size_m": 8.5,
+        "identities": [
+          "ship_barque"
+        ]
+      },
+      "ship_schooner": {
+        "id": "humans_ship_schooner",
+        "scene": "res://assets/world/ships/factions/humans/ship_schooner.glb",
+        "reference_size_m": 12.0,
+        "identities": [
+          "ship_schooner"
+        ]
+      },
+      "ship_freighter": {
+        "id": "humans_ship_freighter",
+        "scene": "res://assets/world/ships/factions/humans/ship_freighter.glb",
+        "reference_size_m": 16.0,
+        "identities": [
+          "ship_freighter"
+        ]
+      },
+      "ship_tanker": {
+        "id": "humans_ship_tanker",
+        "scene": "res://assets/world/ships/factions/humans/ship_tanker.glb",
+        "reference_size_m": 21.0,
+        "identities": [
+          "ship_tanker"
+        ]
+      },
+      "ship_combat_cutter": {
+        "id": "humans_ship_combat_cutter",
+        "scene": "res://assets/world/ships/factions/humans/ship_combat_cutter.glb",
+        "reference_size_m": 8.5,
+        "identities": [
+          "ship_combat_cutter"
+        ]
+      },
+      "premium_golden_clipper": {
+        "id": "humans_premium_golden_clipper",
+        "scene": "res://assets/world/ships/factions/humans/premium_golden_clipper.glb",
+        "reference_size_m": 14.0,
+        "identities": [
+          "premium_golden_clipper"
+        ]
+      },
+      "premium_sea_swallow": {
+        "id": "humans_premium_sea_swallow",
+        "scene": "res://assets/world/ships/factions/humans/premium_sea_swallow.glb",
+        "reference_size_m": 8.5,
+        "identities": [
+          "premium_sea_swallow"
+        ]
+      },
+      "premium_salvage_schooner": {
+        "id": "humans_premium_salvage_schooner",
+        "scene": "res://assets/world/ships/factions/humans/premium_salvage_schooner.glb",
+        "reference_size_m": 12.0,
+        "identities": [
+          "premium_salvage_schooner"
+        ]
+      },
+      "premium_royal_schooner": {
+        "id": "humans_premium_royal_schooner",
+        "scene": "res://assets/world/ships/factions/humans/premium_royal_schooner.glb",
+        "reference_size_m": 12.0,
+        "identities": [
+          "premium_royal_schooner"
+        ]
+      },
+      "premium_steam_freighter": {
+        "id": "humans_premium_steam_freighter",
+        "scene": "res://assets/world/ships/factions/humans/premium_steam_freighter.glb",
+        "reference_size_m": 16.0,
+        "identities": [
+          "premium_steam_freighter"
+        ]
+      },
+      "premium_trade_giant": {
+        "id": "humans_premium_trade_giant",
+        "scene": "res://assets/world/ships/factions/humans/premium_trade_giant.glb",
+        "reference_size_m": 21.0,
+        "identities": [
+          "premium_trade_giant"
+        ]
+      },
+      "premium_ghost_frigate": {
+        "id": "humans_premium_ghost_frigate",
+        "scene": "res://assets/world/ships/factions/humans/premium_ghost_frigate.glb",
+        "reference_size_m": 15.0,
+        "identities": [
+          "premium_ghost_frigate"
+        ]
+      },
+      "premium_imperial_yacht": {
+        "id": "humans_premium_imperial_yacht",
+        "scene": "res://assets/world/ships/factions/humans/premium_imperial_yacht.glb",
+        "reference_size_m": 13.5,
+        "identities": [
+          "premium_imperial_yacht"
+        ]
+      }
+    },
+    "nerids": {
+      "ship_sloop": {
+        "id": "nerids_ship_sloop",
+        "scene": "res://assets/world/ships/factions/nerids/ship_sloop.glb",
+        "reference_size_m": 6.15,
+        "identities": [
+          "ship_sloop"
+        ]
+      },
+      "ship_barque": {
+        "id": "nerids_ship_barque",
+        "scene": "res://assets/world/ships/factions/nerids/ship_barque.glb",
+        "reference_size_m": 8.5,
+        "identities": [
+          "ship_barque"
+        ]
+      },
+      "ship_schooner": {
+        "id": "nerids_ship_schooner",
+        "scene": "res://assets/world/ships/factions/nerids/ship_schooner.glb",
+        "reference_size_m": 12.0,
+        "identities": [
+          "ship_schooner"
+        ]
+      },
+      "ship_freighter": {
+        "id": "nerids_ship_freighter",
+        "scene": "res://assets/world/ships/factions/nerids/ship_freighter.glb",
+        "reference_size_m": 16.0,
+        "identities": [
+          "ship_freighter"
+        ]
+      },
+      "ship_tanker": {
+        "id": "nerids_ship_tanker",
+        "scene": "res://assets/world/ships/factions/nerids/ship_tanker.glb",
+        "reference_size_m": 21.0,
+        "identities": [
+          "ship_tanker"
+        ]
+      },
+      "ship_combat_cutter": {
+        "id": "nerids_ship_combat_cutter",
+        "scene": "res://assets/world/ships/factions/nerids/ship_combat_cutter.glb",
+        "reference_size_m": 8.5,
+        "identities": [
+          "ship_combat_cutter"
+        ]
+      },
+      "premium_golden_clipper": {
+        "id": "nerids_premium_golden_clipper",
+        "scene": "res://assets/world/ships/factions/nerids/premium_golden_clipper.glb",
+        "reference_size_m": 14.0,
+        "identities": [
+          "premium_golden_clipper"
+        ]
+      },
+      "premium_sea_swallow": {
+        "id": "nerids_premium_sea_swallow",
+        "scene": "res://assets/world/ships/factions/nerids/premium_sea_swallow.glb",
+        "reference_size_m": 8.5,
+        "identities": [
+          "premium_sea_swallow"
+        ]
+      },
+      "premium_salvage_schooner": {
+        "id": "nerids_premium_salvage_schooner",
+        "scene": "res://assets/world/ships/factions/nerids/premium_salvage_schooner.glb",
+        "reference_size_m": 12.0,
+        "identities": [
+          "premium_salvage_schooner"
+        ]
+      },
+      "premium_royal_schooner": {
+        "id": "nerids_premium_royal_schooner",
+        "scene": "res://assets/world/ships/factions/nerids/premium_royal_schooner.glb",
+        "reference_size_m": 12.0,
+        "identities": [
+          "premium_royal_schooner"
+        ]
+      },
+      "premium_steam_freighter": {
+        "id": "nerids_premium_steam_freighter",
+        "scene": "res://assets/world/ships/factions/nerids/premium_steam_freighter.glb",
+        "reference_size_m": 16.0,
+        "identities": [
+          "premium_steam_freighter"
+        ]
+      },
+      "premium_trade_giant": {
+        "id": "nerids_premium_trade_giant",
+        "scene": "res://assets/world/ships/factions/nerids/premium_trade_giant.glb",
+        "reference_size_m": 21.0,
+        "identities": [
+          "premium_trade_giant"
+        ]
+      },
+      "premium_ghost_frigate": {
+        "id": "nerids_premium_ghost_frigate",
+        "scene": "res://assets/world/ships/factions/nerids/premium_ghost_frigate.glb",
+        "reference_size_m": 15.0,
+        "identities": [
+          "premium_ghost_frigate"
+        ]
+      },
+      "premium_imperial_yacht": {
+        "id": "nerids_premium_imperial_yacht",
+        "scene": "res://assets/world/ships/factions/nerids/premium_imperial_yacht.glb",
+        "reference_size_m": 13.5,
+        "identities": [
+          "premium_imperial_yacht"
+        ]
+      }
+    },
+    "surr": {
+      "ship_sloop": {
+        "id": "surr_ship_sloop",
+        "scene": "res://assets/world/ships/factions/surr/ship_sloop.glb",
+        "reference_size_m": 6.15,
+        "identities": [
+          "ship_sloop"
+        ]
+      },
+      "ship_barque": {
+        "id": "surr_ship_barque",
+        "scene": "res://assets/world/ships/factions/surr/ship_barque.glb",
+        "reference_size_m": 8.5,
+        "identities": [
+          "ship_barque"
+        ]
+      },
+      "ship_schooner": {
+        "id": "surr_ship_schooner",
+        "scene": "res://assets/world/ships/factions/surr/ship_schooner.glb",
+        "reference_size_m": 12.0,
+        "identities": [
+          "ship_schooner"
+        ]
+      },
+      "ship_freighter": {
+        "id": "surr_ship_freighter",
+        "scene": "res://assets/world/ships/factions/surr/ship_freighter.glb",
+        "reference_size_m": 16.0,
+        "identities": [
+          "ship_freighter"
+        ]
+      },
+      "ship_tanker": {
+        "id": "surr_ship_tanker",
+        "scene": "res://assets/world/ships/factions/surr/ship_tanker.glb",
+        "reference_size_m": 21.0,
+        "identities": [
+          "ship_tanker"
+        ]
+      },
+      "ship_combat_cutter": {
+        "id": "surr_ship_combat_cutter",
+        "scene": "res://assets/world/ships/factions/surr/ship_combat_cutter.glb",
+        "reference_size_m": 8.5,
+        "identities": [
+          "ship_combat_cutter"
+        ]
+      },
+      "premium_golden_clipper": {
+        "id": "surr_premium_golden_clipper",
+        "scene": "res://assets/world/ships/factions/surr/premium_golden_clipper.glb",
+        "reference_size_m": 14.0,
+        "identities": [
+          "premium_golden_clipper"
+        ]
+      },
+      "premium_sea_swallow": {
+        "id": "surr_premium_sea_swallow",
+        "scene": "res://assets/world/ships/factions/surr/premium_sea_swallow.glb",
+        "reference_size_m": 8.5,
+        "identities": [
+          "premium_sea_swallow"
+        ]
+      },
+      "premium_salvage_schooner": {
+        "id": "surr_premium_salvage_schooner",
+        "scene": "res://assets/world/ships/factions/surr/premium_salvage_schooner.glb",
+        "reference_size_m": 12.0,
+        "identities": [
+          "premium_salvage_schooner"
+        ]
+      },
+      "premium_royal_schooner": {
+        "id": "surr_premium_royal_schooner",
+        "scene": "res://assets/world/ships/factions/surr/premium_royal_schooner.glb",
+        "reference_size_m": 12.0,
+        "identities": [
+          "premium_royal_schooner"
+        ]
+      },
+      "premium_steam_freighter": {
+        "id": "surr_premium_steam_freighter",
+        "scene": "res://assets/world/ships/factions/surr/premium_steam_freighter.glb",
+        "reference_size_m": 16.0,
+        "identities": [
+          "premium_steam_freighter"
+        ]
+      },
+      "premium_trade_giant": {
+        "id": "surr_premium_trade_giant",
+        "scene": "res://assets/world/ships/factions/surr/premium_trade_giant.glb",
+        "reference_size_m": 21.0,
+        "identities": [
+          "premium_trade_giant"
+        ]
+      },
+      "premium_ghost_frigate": {
+        "id": "surr_premium_ghost_frigate",
+        "scene": "res://assets/world/ships/factions/surr/premium_ghost_frigate.glb",
+        "reference_size_m": 15.0,
+        "identities": [
+          "premium_ghost_frigate"
+        ]
+      },
+      "premium_imperial_yacht": {
+        "id": "surr_premium_imperial_yacht",
+        "scene": "res://assets/world/ships/factions/surr/premium_imperial_yacht.glb",
+        "reference_size_m": 13.5,
+        "identities": [
+          "premium_imperial_yacht"
+        ]
+      }
+    },
+    "meridians": {
+      "ship_sloop": {
+        "id": "meridians_ship_sloop",
+        "scene": "res://assets/world/ships/factions/meridians/ship_sloop.glb",
+        "reference_size_m": 6.15,
+        "identities": [
+          "ship_sloop"
+        ]
+      },
+      "ship_barque": {
+        "id": "meridians_ship_barque",
+        "scene": "res://assets/world/ships/factions/meridians/ship_barque.glb",
+        "reference_size_m": 8.5,
+        "identities": [
+          "ship_barque"
+        ]
+      },
+      "ship_schooner": {
+        "id": "meridians_ship_schooner",
+        "scene": "res://assets/world/ships/factions/meridians/ship_schooner.glb",
+        "reference_size_m": 12.0,
+        "identities": [
+          "ship_schooner"
+        ]
+      },
+      "ship_freighter": {
+        "id": "meridians_ship_freighter",
+        "scene": "res://assets/world/ships/factions/meridians/ship_freighter.glb",
+        "reference_size_m": 16.0,
+        "identities": [
+          "ship_freighter"
+        ]
+      },
+      "ship_tanker": {
+        "id": "meridians_ship_tanker",
+        "scene": "res://assets/world/ships/factions/meridians/ship_tanker.glb",
+        "reference_size_m": 21.0,
+        "identities": [
+          "ship_tanker"
+        ]
+      },
+      "ship_combat_cutter": {
+        "id": "meridians_ship_combat_cutter",
+        "scene": "res://assets/world/ships/factions/meridians/ship_combat_cutter.glb",
+        "reference_size_m": 8.5,
+        "identities": [
+          "ship_combat_cutter"
+        ]
+      },
+      "premium_golden_clipper": {
+        "id": "meridians_premium_golden_clipper",
+        "scene": "res://assets/world/ships/factions/meridians/premium_golden_clipper.glb",
+        "reference_size_m": 14.0,
+        "identities": [
+          "premium_golden_clipper"
+        ]
+      },
+      "premium_sea_swallow": {
+        "id": "meridians_premium_sea_swallow",
+        "scene": "res://assets/world/ships/factions/meridians/premium_sea_swallow.glb",
+        "reference_size_m": 8.5,
+        "identities": [
+          "premium_sea_swallow"
+        ]
+      },
+      "premium_salvage_schooner": {
+        "id": "meridians_premium_salvage_schooner",
+        "scene": "res://assets/world/ships/factions/meridians/premium_salvage_schooner.glb",
+        "reference_size_m": 12.0,
+        "identities": [
+          "premium_salvage_schooner"
+        ]
+      },
+      "premium_royal_schooner": {
+        "id": "meridians_premium_royal_schooner",
+        "scene": "res://assets/world/ships/factions/meridians/premium_royal_schooner.glb",
+        "reference_size_m": 12.0,
+        "identities": [
+          "premium_royal_schooner"
+        ]
+      },
+      "premium_steam_freighter": {
+        "id": "meridians_premium_steam_freighter",
+        "scene": "res://assets/world/ships/factions/meridians/premium_steam_freighter.glb",
+        "reference_size_m": 16.0,
+        "identities": [
+          "premium_steam_freighter"
+        ]
+      },
+      "premium_trade_giant": {
+        "id": "meridians_premium_trade_giant",
+        "scene": "res://assets/world/ships/factions/meridians/premium_trade_giant.glb",
+        "reference_size_m": 21.0,
+        "identities": [
+          "premium_trade_giant"
+        ]
+      },
+      "premium_ghost_frigate": {
+        "id": "meridians_premium_ghost_frigate",
+        "scene": "res://assets/world/ships/factions/meridians/premium_ghost_frigate.glb",
+        "reference_size_m": 15.0,
+        "identities": [
+          "premium_ghost_frigate"
+        ]
+      },
+      "premium_imperial_yacht": {
+        "id": "meridians_premium_imperial_yacht",
+        "scene": "res://assets/world/ships/factions/meridians/premium_imperial_yacht.glb",
+        "reference_size_m": 13.5,
+        "identities": [
+          "premium_imperial_yacht"
+        ]
+      }
+    },
+    "aery": {
+      "ship_sloop": {
+        "id": "aery_ship_sloop",
+        "scene": "res://assets/world/ships/factions/aery/ship_sloop.glb",
+        "reference_size_m": 6.15,
+        "identities": [
+          "ship_sloop"
+        ]
+      },
+      "ship_barque": {
+        "id": "aery_ship_barque",
+        "scene": "res://assets/world/ships/factions/aery/ship_barque.glb",
+        "reference_size_m": 8.5,
+        "identities": [
+          "ship_barque"
+        ]
+      },
+      "ship_schooner": {
+        "id": "aery_ship_schooner",
+        "scene": "res://assets/world/ships/factions/aery/ship_schooner.glb",
+        "reference_size_m": 12.0,
+        "identities": [
+          "ship_schooner"
+        ]
+      },
+      "ship_freighter": {
+        "id": "aery_ship_freighter",
+        "scene": "res://assets/world/ships/factions/aery/ship_freighter.glb",
+        "reference_size_m": 16.0,
+        "identities": [
+          "ship_freighter"
+        ]
+      },
+      "ship_tanker": {
+        "id": "aery_ship_tanker",
+        "scene": "res://assets/world/ships/factions/aery/ship_tanker.glb",
+        "reference_size_m": 21.0,
+        "identities": [
+          "ship_tanker"
+        ]
+      },
+      "ship_combat_cutter": {
+        "id": "aery_ship_combat_cutter",
+        "scene": "res://assets/world/ships/factions/aery/ship_combat_cutter.glb",
+        "reference_size_m": 8.5,
+        "identities": [
+          "ship_combat_cutter"
+        ]
+      },
+      "premium_golden_clipper": {
+        "id": "aery_premium_golden_clipper",
+        "scene": "res://assets/world/ships/factions/aery/premium_golden_clipper.glb",
+        "reference_size_m": 14.0,
+        "identities": [
+          "premium_golden_clipper"
+        ]
+      },
+      "premium_sea_swallow": {
+        "id": "aery_premium_sea_swallow",
+        "scene": "res://assets/world/ships/factions/aery/premium_sea_swallow.glb",
+        "reference_size_m": 8.5,
+        "identities": [
+          "premium_sea_swallow"
+        ]
+      },
+      "premium_salvage_schooner": {
+        "id": "aery_premium_salvage_schooner",
+        "scene": "res://assets/world/ships/factions/aery/premium_salvage_schooner.glb",
+        "reference_size_m": 12.0,
+        "identities": [
+          "premium_salvage_schooner"
+        ]
+      },
+      "premium_royal_schooner": {
+        "id": "aery_premium_royal_schooner",
+        "scene": "res://assets/world/ships/factions/aery/premium_royal_schooner.glb",
+        "reference_size_m": 12.0,
+        "identities": [
+          "premium_royal_schooner"
+        ]
+      },
+      "premium_steam_freighter": {
+        "id": "aery_premium_steam_freighter",
+        "scene": "res://assets/world/ships/factions/aery/premium_steam_freighter.glb",
+        "reference_size_m": 16.0,
+        "identities": [
+          "premium_steam_freighter"
+        ]
+      },
+      "premium_trade_giant": {
+        "id": "aery_premium_trade_giant",
+        "scene": "res://assets/world/ships/factions/aery/premium_trade_giant.glb",
+        "reference_size_m": 21.0,
+        "identities": [
+          "premium_trade_giant"
+        ]
+      },
+      "premium_ghost_frigate": {
+        "id": "aery_premium_ghost_frigate",
+        "scene": "res://assets/world/ships/factions/aery/premium_ghost_frigate.glb",
+        "reference_size_m": 15.0,
+        "identities": [
+          "premium_ghost_frigate"
+        ]
+      },
+      "premium_imperial_yacht": {
+        "id": "aery_premium_imperial_yacht",
+        "scene": "res://assets/world/ships/factions/aery/premium_imperial_yacht.glb",
+        "reference_size_m": 13.5,
+        "identities": [
+          "premium_imperial_yacht"
+        ]
+      }
+    },
+    "crystari": {
+      "ship_sloop": {
+        "id": "crystari_ship_sloop",
+        "scene": "res://assets/world/ships/factions/crystari/ship_sloop.glb",
+        "reference_size_m": 6.15,
+        "identities": [
+          "ship_sloop"
+        ]
+      },
+      "ship_barque": {
+        "id": "crystari_ship_barque",
+        "scene": "res://assets/world/ships/factions/crystari/ship_barque.glb",
+        "reference_size_m": 8.5,
+        "identities": [
+          "ship_barque"
+        ]
+      },
+      "ship_schooner": {
+        "id": "crystari_ship_schooner",
+        "scene": "res://assets/world/ships/factions/crystari/ship_schooner.glb",
+        "reference_size_m": 12.0,
+        "identities": [
+          "ship_schooner"
+        ]
+      },
+      "ship_freighter": {
+        "id": "crystari_ship_freighter",
+        "scene": "res://assets/world/ships/factions/crystari/ship_freighter.glb",
+        "reference_size_m": 16.0,
+        "identities": [
+          "ship_freighter"
+        ]
+      },
+      "ship_tanker": {
+        "id": "crystari_ship_tanker",
+        "scene": "res://assets/world/ships/factions/crystari/ship_tanker.glb",
+        "reference_size_m": 21.0,
+        "identities": [
+          "ship_tanker"
+        ]
+      },
+      "ship_combat_cutter": {
+        "id": "crystari_ship_combat_cutter",
+        "scene": "res://assets/world/ships/factions/crystari/ship_combat_cutter.glb",
+        "reference_size_m": 8.5,
+        "identities": [
+          "ship_combat_cutter"
+        ]
+      },
+      "premium_golden_clipper": {
+        "id": "crystari_premium_golden_clipper",
+        "scene": "res://assets/world/ships/factions/crystari/premium_golden_clipper.glb",
+        "reference_size_m": 14.0,
+        "identities": [
+          "premium_golden_clipper"
+        ]
+      },
+      "premium_sea_swallow": {
+        "id": "crystari_premium_sea_swallow",
+        "scene": "res://assets/world/ships/factions/crystari/premium_sea_swallow.glb",
+        "reference_size_m": 8.5,
+        "identities": [
+          "premium_sea_swallow"
+        ]
+      },
+      "premium_salvage_schooner": {
+        "id": "crystari_premium_salvage_schooner",
+        "scene": "res://assets/world/ships/factions/crystari/premium_salvage_schooner.glb",
+        "reference_size_m": 12.0,
+        "identities": [
+          "premium_salvage_schooner"
+        ]
+      },
+      "premium_royal_schooner": {
+        "id": "crystari_premium_royal_schooner",
+        "scene": "res://assets/world/ships/factions/crystari/premium_royal_schooner.glb",
+        "reference_size_m": 12.0,
+        "identities": [
+          "premium_royal_schooner"
+        ]
+      },
+      "premium_steam_freighter": {
+        "id": "crystari_premium_steam_freighter",
+        "scene": "res://assets/world/ships/factions/crystari/premium_steam_freighter.glb",
+        "reference_size_m": 16.0,
+        "identities": [
+          "premium_steam_freighter"
+        ]
+      },
+      "premium_trade_giant": {
+        "id": "crystari_premium_trade_giant",
+        "scene": "res://assets/world/ships/factions/crystari/premium_trade_giant.glb",
+        "reference_size_m": 21.0,
+        "identities": [
+          "premium_trade_giant"
+        ]
+      },
+      "premium_ghost_frigate": {
+        "id": "crystari_premium_ghost_frigate",
+        "scene": "res://assets/world/ships/factions/crystari/premium_ghost_frigate.glb",
+        "reference_size_m": 15.0,
+        "identities": [
+          "premium_ghost_frigate"
+        ]
+      },
+      "premium_imperial_yacht": {
+        "id": "crystari_premium_imperial_yacht",
+        "scene": "res://assets/world/ships/factions/crystari/premium_imperial_yacht.glb",
+        "reference_size_m": 13.5,
+        "identities": [
+          "premium_imperial_yacht"
+        ]
+      }
+    }
+  }
+}

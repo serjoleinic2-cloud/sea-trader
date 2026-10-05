@@ -1,0 +1,56 @@
+{
+  "original_highpoly_tree_triangles": 10827680,
+  "source_tree_instances": 4277,
+  "source_tree_triangles": 1069250,
+  "source_terrain_triangles": 126526,
+  "unique_tree_meshes": 7,
+  "tree_lod_triangles_by_mesh": {
+    "Low-poly broadleaf 00": [
+      100,
+      50
+    ],
+    "Low-poly broadleaf 06": [
+      100,
+      58
+    ],
+    "Low-poly broadleaf 01": [
+      100,
+      42
+    ],
+    "Low-poly broadleaf 04": [
+      100,
+      48
+    ],
+    "Low-poly broadleaf 02": [
+      100,
+      50
+    ],
+    "Low-poly broadleaf 03": [
+      100,
+      56
+    ],
+    "Low-poly broadleaf 05": [
+      100,
+      60
+    ]
+  },
+  "all_trees_at_lod1_triangles": 427700,
+  "all_trees_at_lod2_triangles": 222890,
+  "terrain_lods": {
+    "terrain_lod1": 43018,
+    "terrain_lod2": 11386
+  },
+  "house_instances": 20,
+  "town_triangles": 36720,
+  "cleared_trees_for_town": 89,
+  "house_roof_heights_m": [
+    7.06,
+    7.56,
+    7.06,
+    7.56,
+    8.02,
+    9.92
+  ],
+  "measured_fps": null,
+  "runtime_note": "These are geometry counts, not frame-rate measurements. LOD selection, spatial batches, culling, shaders and collisions still need Godot integration."
+}

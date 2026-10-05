@@ -9,6 +9,9 @@ func before_each() -> void:
 func after_each() -> void:
 	GameState.reset_to_defaults()
 
+func after_all() -> void:
+	career.free()
+
 func test_large_cargo_has_diminishing_progress() -> void:
 	var stats: Dictionary = GameState.player_state.stats
 	stats["total_sales"] = 50

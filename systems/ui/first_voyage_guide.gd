@@ -62,8 +62,6 @@ func _process(_delta: float) -> void:
 		return
 	var state: Dictionary = get_guide_state()
 	var phase: String = str(state.phase)
-	if phase == "accept" and _last_phase != phase and str(GameState.ship_state.get("docked_port_id", "")) != "":
-		_open_contract_window()
 	_last_phase = phase
 	_panel.visible = phase != "complete"
 	if not _panel.visible:
@@ -73,23 +71,30 @@ func _process(_delta: float) -> void:
 	_panel.position = Vector2(12.0, maxf(210.0, viewport.y - _panel.size.y - 76.0))
 	match str(state.phase):
 		"explore":
-			_text.text = "ПЕРВЫЙ РЕЙС\nНайдите серый знак ? и пришвартуйтесь клавишей E. Курс только подсказывает направление — кораблём управляете вы."
-			_action.text = "КУРС К БЛИЖАЙШЕМУ ?"
+			var nearest_id: String = _ports.get_nearest_undiscovered_port_id() if _ports != null else ""
+			var nearest_name: String = _ports.get_port_name(nearest_id) if nearest_id != "" else "неизвестному порту"
+			_text.text = "ПЕРВЫЙ РЕЙС\nДержите курс на порт «%s». У его причала нажмите E, чтобы бросить якорь." % nearest_name
+			_action.text = "КУРС К ПОРТУ ?"
+			_action.tooltip_text = "Курс подсказывает направление. Управляйте кораблём вручную."
 			_action.disabled = _ports == null or _ports.get_nearest_undiscovered_port_id() == ""
 		"accept":
-			_text.text = "ПОРТ ОТКРЫТ\nОкно первого заказа уже открыто. Нажмите «ПРИНЯТЬ ЗАКАЗ»."
+			var port_name: String = _ports.get_port_name(str(GameState.ship_state.get("docked_port_id", ""))) if _ports != null else ""
+			_text.text = "ПОРТ «%s»\nОкно первого заказа открыто. Нажмите «ПРИНЯТЬ ЗАКАЗ»." % port_name
 			_action.text = "ОТКРЫТЬ ЗАКАЗ"
 			_action.disabled = str(GameState.ship_state.get("docked_port_id", "")) == ""
 		"load":
-			_text.text = "ЗАКАЗ ПРИНЯТ\nОткройте заказ и загрузите опечатанный груз."
+			var port_name: String = _ports.get_port_name(str(GameState.ship_state.get("docked_port_id", ""))) if _ports != null else ""
+			_text.text = "ЗАКАЗ ПРИНЯТ В ПОРТУ «%s»\nЗагрузите опечатанный груз в трюм." % port_name
 			_action.text = "ОТКРЫТЬ ЗАКАЗ"
 			_action.disabled = false
 		"deliver":
-			_text.text = "ГРУЗ В ТРЮМЕ\nДоставьте его вручную в порт назначения. Автопилот для первого заказа не используется."
+			var destination_name: String = _ports.get_port_name(str(state.get("destination_port_id", ""))) if _ports != null else ""
+			_text.text = "ГРУЗ В ТРЮМЕ\nВезите его в порт «%s». У причала нажмите E. Автопилот для первого заказа не используется." % destination_name
 			_action.text = "УКАЗАТЬ КУРС"
 			_action.disabled = false
 		"complete_contract":
-			_text.text = "ВЫ В ПОРТУ НАЗНАЧЕНИЯ\nСдайте заказ и получите награду."
+			var destination_name: String = _ports.get_port_name(str(GameState.ship_state.get("docked_port_id", ""))) if _ports != null else ""
+			_text.text = "ВЫ В ПОРТУ «%s»\nСдайте заказ и получите награду." % destination_name
 			_action.text = "СДАТЬ ЗАКАЗ"
 			_action.disabled = false
 

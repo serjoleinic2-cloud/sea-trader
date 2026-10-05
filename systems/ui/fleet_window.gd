@@ -11,6 +11,9 @@ var _is_open: bool = false
 var _selected_ship_id: String = ""
 var _notice: String = ""
 var _origin_emblem: TextureRect
+var _crew_atlas: Texture2D
+const CREW_ATLAS := "res://assets/characters/crew/crew_portrait_atlas.png"
+const RACE_ROWS := {"humans": 0, "nerids": 1, "surr": 2, "meridians": 3, "aery": 4, "crystari": 5}
 
 func _ready() -> void:
 	layer = 31
@@ -58,6 +61,7 @@ func _ready() -> void:
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	box.add_child(scroll)
 	_list = VBoxContainer.new()
+	_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_list.add_theme_constant_override("separation", 8)
 	scroll.add_child(_list)
 	var close_button: Button = Button.new()
@@ -69,6 +73,7 @@ func _ready() -> void:
 
 func initialize(fleet_system: Node) -> void:
 	_fleet_system = fleet_system
+	_crew_atlas = load(CREW_ATLAS) as Texture2D if ResourceLoader.exists(CREW_ATLAS) else null
 	if _origin_emblem != null:
 		_origin_emblem.texture = _get_origin_emblem()
 
@@ -109,6 +114,14 @@ func _refresh() -> void:
 	_add_build_section(home_port_id, docked_port_id)
 	if _selected_ship_id != "":
 		_add_selected_ship_actions()
+	_compact_buttons(_panel)
+
+func _compact_buttons(node: Node) -> void:
+	for child in node.get_children():
+		if child is Button:
+			var button := child as Button
+			button.size_flags_horizontal = Control.SIZE_EXPAND_FILL if bool(button.get_meta("wide_action", false)) else Control.SIZE_SHRINK_BEGIN
+		_compact_buttons(child)
 
 func _create_card() -> VBoxContainer:
 	var panel: PanelContainer = PanelContainer.new()
@@ -120,22 +133,33 @@ func _create_card() -> VBoxContainer:
 	_list.add_child(panel)
 	var box: VBoxContainer = VBoxContainer.new()
 	box.add_theme_constant_override("separation", 6)
-	panel.add_child(box)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation",18)
+	panel.add_child(row)
+	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(box)
+	var art := VBoxContainer.new()
+	art.custom_minimum_size.x = 210
+	row.add_child(art)
+	box.set_meta("portrait_column",art)
 	return box
 
 func _add_active_ship_card() -> void:
 	var box: VBoxContainer = _create_card()
+	_add_ship_portrait(box, str(GameState.ship_state.get("ship_id", "ship_sloop")))
 	var crew: Array = _fleet_system.get_ship_crew("active_ship")
+	var definition: Dictionary = _fleet_system.get_ship_type(str(GameState.ship_state.get("ship_id", "ship_sloop")))
 	var title: Label = Label.new()
 	title.add_theme_font_size_override("font_size", 19)
-	title.text = "★ ТЕКУЩИЙ КОРАБЛЬ — под вашим управлением | экипаж: %d" % crew.size()
+	title.text = "★ %s — под вашим управлением | ячейки экипажа: %d / %d · нанять минимум %d" % [str(definition.get("name", "Текущий корабль")), crew.size(), int(definition.get("max_crew", 1)), maxi(0, int(definition.get("min_crew", 1)) - 1)]
+	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	box.add_child(title)
 	var crew_label: Label = Label.new()
 	crew_label.add_theme_font_size_override("font_size", 17)
 	crew_label.text = _get_crew_text(crew)
 	box.add_child(crew_label)
 	var details: Button = Button.new()
-	details.text = "Экипаж: контракты и характеристики"
+	details.text = "Экипаж: навыки и замена сотрудников"
 	details.custom_minimum_size.y = 44
 	details.pressed.connect(_open_active_crew)
 	box.add_child(details)
@@ -147,8 +171,13 @@ func _open_active_crew() -> void:
 
 func _add_auxiliary_ship_card(ship: Dictionary) -> void:
 	var box: VBoxContainer = _create_card()
+	_add_ship_portrait(box, str(ship.get("ship_type_id", "ship_sloop")))
 	var ship_id: String = str(ship.get("instance_id", ""))
+	if str(ship.get("ship_type_id","")) == "ship_combat_cutter" and ship.get("autopilot",{}).is_empty():
+		_add_transport_controls(box,ship)
+		return
 	var crew: Array = ship.get("crew", [])
+	var definition: Dictionary = _fleet_system.get_ship_type(str(ship.get("ship_type_id", "")))
 	var voyage: Dictionary = _fleet_system.get_auxiliary_voyage_status(ship_id)
 	var title: Label = Label.new()
 	title.add_theme_font_size_override("font_size", 19)
@@ -185,8 +214,9 @@ func _add_auxiliary_ship_card(ship: Dictionary) -> void:
 	box.add_child(route_label)
 	var cargo_label: Label = Label.new()
 	cargo_label.add_theme_font_size_override("font_size", 17)
-	cargo_label.text = "Груз: %d / %d | Экипаж: %d" % [
-		int(voyage.get("cargo_units", 0)), int(ship.get("cargo_capacity", 0)), crew.size()
+	cargo_label.text = "Груз: %d / %d | Ячейки экипажа: %d / %d · минимум для рейса %d" % [
+		int(voyage.get("cargo_units", 0)), int(ship.get("cargo_capacity", 0)), crew.size(),
+		int(definition.get("max_crew", 1)), int(definition.get("min_crew", 1))
 	]
 	box.add_child(cargo_label)
 	var crew_label: Label = Label.new()
@@ -198,6 +228,71 @@ func _add_auxiliary_ship_card(ship: Dictionary) -> void:
 	select_button.custom_minimum_size.y = 36
 	select_button.pressed.connect(_select_ship.bind(ship_id))
 	box.add_child(select_button)
+
+func _add_ship_portrait(box: VBoxContainer, ship_type_id: String) -> void:
+	var definition: Dictionary = GameData.get_ship(ship_type_id)
+	var path := str(definition.get("ui_icon", ""))
+	if not ResourceLoader.exists(path):
+		return
+	var icon := TextureRect.new()
+	icon.texture = load(path) as Texture2D
+	icon.custom_minimum_size = Vector2(160, 120)
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	var art: Node = box.get_meta("portrait_column",box)
+	art.add_child(icon)
+	var inspect := Button.new()
+	inspect.text = "Осмотреть в 3D"
+	inspect.pressed.connect(func(): preload("res://systems/ui/ship_inspection_window.gd").show_ship(self, ship_type_id))
+	box.add_child(inspect)
+
+func _add_transport_controls(box: VBoxContainer, ship: Dictionary) -> void:
+	var system: Node = get_tree().get_first_node_in_group("military_transport_system")
+	if system == null: return
+	var id: String = str(ship.instance_id)
+	var count: Dictionary = system.capacity(ship)
+	var label := Label.new()
+	label.text = "%s — %s\nДесант: %d / %d · Орудия: %d / %d · Корпус: %d\nПеревод отрядов между гарнизоном и транспортом — на своей базе." % [str(ship.get("name","Транспорт")),str(ship.get("status","Готов")),int(count.soldiers),int(count.soldier_capacity),int(count.artillery),int(count.artillery_capacity),int(ship.get("hull",145))]
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	label.set_meta("compact_description",true)
+	label.add_theme_font_size_override("font_size",14)
+	box.add_child(label)
+	var available: bool = system._at_home(ship) and not system._locked(id)
+	var escort := Button.new()
+	escort.text = "Оставить транспорт на базе" if bool(ship.get("escort_enabled",false)) else "Включить в сопровождение"
+	escort.disabled = not available
+	escort.pressed.connect(func():
+		var result: Dictionary = system.set_escort(id,not bool(ship.get("escort_enabled",false)))
+		_notice = str(result.message)
+		_refresh())
+	box.add_child(escort)
+	var units: Dictionary = GameData.read("res://data/combat/unit_catalog.json").get("units",{})
+	for unit_id in units:
+		var aboard: int = int(ship.get("embarked_units",{}).get(unit_id,{}).get("count",0))
+		var garrison: int = int(GameState.combat_state.get("units",{}).get(unit_id,{}).get("count",0))
+		if aboard+garrison == 0: continue
+		var row := HBoxContainer.new()
+		box.add_child(row)
+		var title := Label.new()
+		title.text = "%s · на борту %d · в гарнизоне %d" % [str(units[unit_id].get("name",unit_id)),aboard,garrison]
+		title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		title.set_meta("compact_description",true)
+		title.add_theme_font_size_override("font_size",14)
+		row.add_child(title)
+		for step in [-1,1,10]:
+			var button := Button.new()
+			button.text = "−1" if step < 0 else "+%d" % step
+			button.tooltip_text = "В гарнизон" if step < 0 else "Погрузить из гарнизона"
+			button.disabled = not available or (aboard < 1 if step < 0 else garrison < step)
+			button.pressed.connect(_transfer_troops.bind(id,str(unit_id),absi(step),step>0))
+			row.add_child(button)
+
+func _transfer_troops(id: String, unit_id: String, amount: int, embark: bool) -> void:
+	var system: Node = get_tree().get_first_node_in_group("military_transport_system")
+	var result: Dictionary = system.transfer_units(id,unit_id,amount,embark)
+	_notice = str(result.message)
+	_refresh()
 
 func _format_duration(seconds: float) -> String:
 	var total: int = maxi(0, int(ceil(seconds)))
@@ -259,6 +354,7 @@ func _add_selected_ship_actions() -> void:
 				other_port_id = str(route.get("port_a_id", ""))
 			var route_button: Button = Button.new()
 			route_button.custom_minimum_size.y = 38
+			route_button.set_meta("wide_action", true)
 			route_button.text = "Переход без груза в %s — %.0f" % [_fleet_system._port_system.get_port_name(other_port_id), float(_fleet_system.quote_leg(_selected_ship_id, route_key, 0).get("cash", 0.0))]
 			route_button.pressed.connect(_start_autopilot.bind(_selected_ship_id, route_key))
 			box.add_child(route_button)
@@ -269,34 +365,79 @@ func _add_selected_ship_actions() -> void:
 		stop_button.custom_minimum_size.y = 38
 		stop_button.pressed.connect(_stop_autopilot.bind(_selected_ship_id))
 		box.add_child(stop_button)
+	_add_auxiliary_crew_slots(box, ship)
+
+func _add_auxiliary_crew_slots(box: VBoxContainer, ship: Dictionary) -> void:
 	var crew_title: Label = Label.new()
-	crew_title.text = "Перевести сотрудника на выбранный корабль:"
-	crew_title.add_theme_font_size_override("font_size", 18)
+	crew_title.text = "ЯЧЕЙКИ ЭКИПАЖА · найм на бирже, перемещение между кораблями в одном порту"
+	crew_title.add_theme_font_size_override("font_size", 16)
+	crew_title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	box.add_child(crew_title)
-	var assigned_any: bool = false
-	for raw_employee in GameState.employee_state:
-		var employee: Dictionary = raw_employee
-		var employee_id: String = str(employee.get("employee_instance_id", ""))
-		if crew.has(employee_id):
+	var crew: Array = ship.get("crew", [])
+	var definition: Dictionary = _fleet_system.get_ship_type(str(ship.get("ship_type_id", "")))
+	for slot_index in range(int(definition.get("max_crew", 1))):
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 8)
+		box.add_child(row)
+		var employee: Dictionary = _fleet_system.get_employee(str(crew[slot_index])) if slot_index < crew.size() else {}
+		if employee.is_empty():
+			var vacant := Label.new()
+			vacant.text = "ЯЧЕЙКА %d · СВОБОДНА" % (slot_index + 1)
+			vacant.custom_minimum_size.x = 170
+			vacant.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+			row.add_child(vacant)
+			var eligible: Array = _fleet_system.get_assignable_employees(_selected_ship_id)
+			if eligible.is_empty():
+				var hire_hint := Label.new()
+				hire_hint.text = "Наймите сотрудника на бирже или пришвартуйте корабли в одном порту для перевода."
+				hire_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+				hire_hint.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+				row.add_child(hire_hint)
+			else:
+				var selector := OptionButton.new()
+				selector.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+				for candidate in eligible:
+					selector.add_item("%s · %s" % [str(candidate.get("name", "")), str(candidate.get("role_name", "член экипажа"))])
+					selector.set_item_metadata(selector.item_count - 1, str(candidate.get("employee_instance_id", "")))
+				row.add_child(selector)
+				var board_button := Button.new()
+				board_button.text = "Посадить"
+				board_button.pressed.connect(func():
+					if selector.item_count > 0:
+						_assign_employee(str(selector.get_item_metadata(selector.selected)), _selected_ship_id)
+				)
+				row.add_child(board_button)
 			continue
-		assigned_any = true
-		var employee_button: Button = Button.new()
-		employee_button.custom_minimum_size.y = 36
-		employee_button.text = "%s — %s" % [str(employee.get("name", "")), str(employee.get("role_name", ""))]
-		employee_button.pressed.connect(_assign_employee.bind(employee_id, _selected_ship_id))
-		box.add_child(employee_button)
-	if not assigned_any:
-		var empty: Label = Label.new()
-		empty.text = "Нет свободных сотрудников. Наймите их в любом порту."
-		empty.add_theme_font_size_override("font_size", 17)
-		box.add_child(empty)
-	for employee_id in crew:
-		var employee: Dictionary = _fleet_system.get_employee(str(employee_id))
-		var return_button: Button = Button.new()
-		return_button.custom_minimum_size.y = 34
-		return_button.text = "Вернуть: " + str(employee.get("name", "сотрудник")) + " на текущий корабль"
-		return_button.pressed.connect(_assign_employee.bind(str(employee_id), "active_ship"))
-		box.add_child(return_button)
+		var portrait := TextureRect.new()
+		portrait.texture = _get_employee_portrait(employee)
+		portrait.custom_minimum_size = Vector2(54, 64)
+		portrait.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+		row.add_child(portrait)
+		var info := Label.new()
+		info.text = "ЯЧЕЙКА %d · %s\n%s · %s" % [slot_index + 1, str(employee.get("name", "")), str(employee.get("race_name", "")), str(employee.get("role_name", ""))]
+		info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(info)
+		var return_status: Dictionary = _fleet_system.get_employee_assignment_status(str(employee.get("employee_instance_id", "")), "active_ship")
+		var return_button := Button.new()
+		return_button.text = "Перевести"
+		return_button.disabled = not bool(return_status.get("ok", false))
+		return_button.tooltip_text = str(return_status.get("message", ""))
+		return_button.pressed.connect(_assign_employee.bind(str(employee.get("employee_instance_id", "")), "active_ship"))
+		row.add_child(return_button)
+
+func _get_employee_portrait(employee: Dictionary) -> Texture2D:
+	if _crew_atlas == null:
+		return null
+	var column: int = posmod(int(employee.get("portrait_id", 0)), 3)
+	var row: int = int(RACE_ROWS.get(str(employee.get("race_id", "humans")), 0))
+	var cell_width: float = float(_crew_atlas.get_width()) / 3.0
+	var cell_height: float = float(_crew_atlas.get_height()) / 6.0
+	var atlas := AtlasTexture.new()
+	atlas.atlas = _crew_atlas
+	atlas.region = Rect2(column * cell_width + 2.0, row * cell_height + 2.0, cell_width - 4.0, cell_height - 4.0)
+	return atlas
 
 func _get_selected_ship() -> Dictionary:
 	for raw_ship in GameState.fleet_state:

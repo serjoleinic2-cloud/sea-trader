@@ -18,6 +18,10 @@ func validate(ships: Dictionary, goods: Dictionary, buildings: Dictionary, produ
 		var resolved: Dictionary = defaults.duplicate(true)
 		resolved.merge(ship_ids[id], true)
 		for field in ["base_speed", "cargo_capacity", "fuel_capacity", "base_maneuverability", "hull_max", "engine_max", "steering_max", "cargo_hold_max", "min_crew", "max_crew", "command_rank_required", "tier", "acceleration", "deceleration", "brake_force", "turn_rate", "roll_smooth_speed"]:
+			if field == "cargo_capacity" and bool(resolved.get("military_transport",false)) and float(resolved.get(field,-1)) == 0:
+				check_positive(resolved,"soldier_capacity","ships."+str(id),errors)
+				check_positive(resolved,"artillery_capacity","ships."+str(id),errors)
+				continue
 			_positive(resolved, field, "ships." + str(id), errors)
 		if int(resolved.get("min_crew", 0)) > int(resolved.get("max_crew", 0)):
 			errors.append("ships." + str(id) + ": min_crew exceeds max_crew")

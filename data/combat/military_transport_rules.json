@@ -1,0 +1,12 @@
+{
+  "ship_type_id": "ship_combat_cutter",
+  "soldier_capacity": 60,
+  "artillery_capacity": 6,
+  "artillery_units": ["crystal_mortar"],
+  "formation_aft_lengths": 2.0,
+  "formation_left_lengths": 1.5,
+  "max_raid_distance": 1200,
+  "repath_seconds": 2.0,
+  "stuck_repath_seconds": 3.0,
+  "catchup_speed_multiplier": 1.35
+}

@@ -50,6 +50,7 @@ var world_state: Dictionary = {
 # Ship State — Phase 03: added fuel_max, cargo_capacity
 # ============================================================================
 var ship_state: Dictionary = {
+	"reverse_gear": false,
 	"ship_id": "",
 	"position": Vector2.ZERO,
 	"velocity": Vector2.ZERO,
@@ -101,6 +102,7 @@ func default_combat_state() -> Dictionary:
 		"towers": [],
 		"crystals": {"crystal_power": 0, "crystal_guard": 0, "crystal_wind": 0},
 		"magic_shards": 0,
+		"envoys": 5,
 		"mage_guild_starter_shards_awarded": false,
 		"battle_victories": 0,
 		"next_crystal_reward": 0,
@@ -230,6 +232,7 @@ func reset_to_defaults() -> void:
 		"chunk_generation_version": 1
 	}
 	ship_state = {
+		"reverse_gear": false,
 		"ship_id": "",
 		"position": Vector2.ZERO,
 		"velocity": Vector2.ZERO,

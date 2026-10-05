@@ -76,6 +76,37 @@ func test_zero_fuel_rejected_without_undocking() -> void:
 	assert_false(bool(GameState.voyage_state.get("active_autopilot", false)))
 	assert_true(str(result.message).contains("топлива"))
 
+func test_later_tier_active_ship_requires_hired_crew_for_autopilot() -> void:
+	GameState.ship_state["ship_id"] = "ship_tanker"
+	GameState.ship_state["crew"] = []
+	var result: Dictionary = _pilot.start(_destination, "resource_timber", 5)
+	assert_false(result.ok)
+	assert_eq(GameState.ship_state.docked_port_id, "home")
+	assert_true(str(result.message).contains("членов экипажа"))
+
+func test_active_autopilot_charges_crew_provisions_once_at_departure() -> void:
+	GameState.employee_state = [{"employee_instance_id": "captain"}, {"employee_instance_id": "navigator"}]
+	GameState.ship_state["crew"] = ["captain", "navigator"]
+	var money_before: float = float(GameState.player_state.money)
+	assert_true(_pilot.start(_destination, "resource_timber", 5).ok)
+	assert_eq(GameState.player_state.money, money_before - 6.0)
+	# Save restoration must not bill the same sailing again.
+	var restored: Node = load("res://systems/navigation/active_route_autopilot.gd").new()
+	add_child(restored)
+	restored.initialize(_ship, _ports)
+	assert_eq(GameState.player_state.money, money_before - 6.0)
+	restored.free()
+
+func test_active_autopilot_rejects_departure_without_provision_money() -> void:
+	GameState.employee_state = [{"employee_instance_id": "captain"}]
+	GameState.ship_state["crew"] = ["captain"]
+	GameState.player_state["money"] = 1.0
+	var result: Dictionary = _pilot.start(_destination, "resource_timber", 5)
+	assert_false(result.ok)
+	assert_eq(GameState.ship_state.docked_port_id, "home")
+	assert_eq(GameState.player_state.money, 1.0)
+	assert_true(str(result.message).contains("провизию"))
+
 func test_missing_cargo_and_unknown_route_are_rejected() -> void:
 	assert_false(_pilot.start(_destination, "resource_timber", 6).ok)
 	GameState.known_routes_state.clear()
@@ -145,7 +176,7 @@ func test_base_unload_does_not_pay_money() -> void:
 	for index in range(300):
 		_advance()
 	assert_eq(GameState.ship_state.docked_port_id, "home")
-	assert_eq(GameState.player_state.money, 1000.0)
+	assert_eq(GameState.player_state.money, 998.0)
 	assert_eq(GameState.port_state.home.inventory.resource_timber, 55)
 
 func test_failed_fleet_departure_does_not_charge_or_remove_stock() -> void:
@@ -200,13 +231,13 @@ func test_fleet_contract_expires_on_arrival_and_blocks_next_trip() -> void:
 	assert_false(_market.start_single_trip("aux", _destination, "home", "resource_timber", 5).ok)
 
 func test_career_transitions_and_maximum() -> void:
-	GameState.player_state.stats = {"total_sales": 135}
+	GameState.player_state.stats = {"total_distance": 135000}
 	assert_eq(_career.get_command_progress().rank, 10)
 	assert_eq(_career.get_command_progress().next_activity, 150)
-	GameState.player_state.stats.total_sales = 150
+	GameState.player_state.stats.total_distance = 150000
 	assert_eq(_career.get_command_progress().stage_id, "bosun")
 	assert_eq(_career.get_command_progress().stage_level, 1)
-	GameState.player_state.stats.total_sales = 100000
+	GameState.player_state.stats.total_distance = 100000000
 	assert_eq(_career.get_command_progress().rank, 50)
 	assert_eq(_career.get_command_progress().next_activity, 0)
 	assert_eq(_career.get_hiring_rank_limit(), 5)
@@ -221,10 +252,10 @@ func test_repeat_dock_undock_does_not_farm_experience() -> void:
 func test_every_career_boundary_has_a_reachable_next_rank() -> void:
 	var stages: Array = SaveSystem._read_json("res://data/progression/career_ladder.json").stages
 	for stage in stages:
-		GameState.player_state.stats = {"total_sales": int(stage.activity_at_first_rank)}
+		GameState.player_state.stats = {"total_distance": 1000 * int(stage.activity_at_first_rank)}
 		assert_eq(_career.get_command_progress().rank, int(stage.first_rank))
 		assert_eq(_career.get_command_progress().stage_level, 1)
-		GameState.player_state.stats.total_sales += 9 * int(stage.activity_per_rank)
+		GameState.player_state.stats.total_distance += 9000 * int(stage.activity_per_rank)
 		assert_eq(_career.get_command_progress().rank, int(stage.last_rank))
 		assert_eq(_career.get_command_progress().stage_level, 10)
 		if int(stage.last_rank) < 50:
@@ -291,7 +322,7 @@ func test_unplanned_autopilot_is_paid_empty_repositioning_without_reward() -> vo
 
 func test_trade_line_loads_multiple_goods_on_one_route_leg() -> void:
 	_add_fleet()
-	var cost: float = float(_fleet.quote_leg("aux", "route", 0).cash)
+	var cost: float = float(_fleet.quote_leg("aux", "route", 7).cash)
 	var second_good: String = ""
 	for good in _market.get_goods():
 		var candidate: String = str(good.get("id", ""))
@@ -300,7 +331,8 @@ func test_trade_line_loads_multiple_goods_on_one_route_leg() -> void:
 			break
 	assert_ne(second_good, "", "test port must accept at least two resources")
 	GameState.port_state.home.inventory[second_good] = 50
-	GameState.port_state[_destination].market_stock[second_good] = 50
+	GameState.port_state[_destination].market_stock[second_good] = 0
+	GameState.port_state[_destination].market_demand[second_good] = 60
 	var legs: Array = [
 		{"source_id": "home", "target_id": _destination, "resource_id": "resource_timber", "quantity": 4},
 		{"source_id": "home", "target_id": _destination, "resource_id": second_good, "quantity": 3},
@@ -312,9 +344,12 @@ func test_trade_line_loads_multiple_goods_on_one_route_leg() -> void:
 	assert_eq(GameState.fleet_state[0].cargo[0].quantity, 4)
 	assert_eq(GameState.fleet_state[0].cargo[1].quantity, 3)
 	assert_almost_eq(GameState.player_state.money, 1000.0 - cost, 0.001)
+	var revenue: float = float(_market.quote_sale(_destination, "resource_timber", 4).revenue) + float(_market.quote_sale(_destination, second_good, 3).revenue)
 	_arrive_fleet()
-	assert_almost_eq(GameState.player_state.money, 1000.0 - cost, 0.001)
+	assert_almost_eq(GameState.player_state.money, 1000.0 - cost + revenue, 0.001)
 	assert_true(GameState.fleet_state[0].cargo.is_empty())
+	_arrive_fleet()
+	assert_almost_eq(GameState.player_state.money, 1000.0 - cost + revenue, 0.001, "A settled arrival cannot pay twice")
 
 func test_auxiliary_voyage_status_has_saved_route_progress_and_cargo() -> void:
 	_add_fleet()
@@ -330,8 +365,8 @@ func test_auxiliary_voyage_status_has_saved_route_progress_and_cargo() -> void:
 	assert_eq(status.cargo_units, 5)
 
 func test_next_hull_unlocks_after_previous_career_stage() -> void:
-	GameState.player_state.stats = {"total_sales": 135}
+	GameState.player_state.stats = {"total_distance": 135000}
 	assert_false(_fleet.get_ship_access("ship_barque").ok)
-	GameState.player_state.stats = {"total_sales": 150}
+	GameState.player_state.stats = {"total_distance": 150000}
 	assert_true(_fleet.get_ship_access("ship_barque").ok)
 	assert_false(_fleet.get_ship_access("ship_schooner").ok)

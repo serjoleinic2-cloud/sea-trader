@@ -1,6 +1,7 @@
 extends "res://tests/test_base.gd"
 
 var _system: Node
+var _transport: Node
 
 func before_each() -> void:
     SaveSystem.delete_save()
@@ -13,8 +14,12 @@ func before_each() -> void:
     _system = load("res://systems/combat/combat_system.gd").new()
     add_child(_system)
     _system.initialize()
+    _transport = preload("res://systems/fleet/military_transport_system.gd").new()
+    add_child(_transport)
+    _transport.initialize(null)
 
 func after_each() -> void:
+    if is_instance_valid(_transport): _transport.free()
     if is_instance_valid(_system):
         _system.free()
     SaveSystem.delete_save()
@@ -156,6 +161,74 @@ func test_player_raid_exposes_progress_then_report() -> void:
     assert_true(_system.get_player_raid_status().is_empty(), "active operation clears on result")
     assert_eq(GameState.combat_state.reports.size(), 1, "result appears in combat log")
 
+func test_foreign_port_raid_uses_embarked_force_and_damages_transport() -> void:
+    GameState.ship_state.docked_port_id = "foreign"
+    GameState.ship_state.ship_id = "ship_combat_cutter"
+    GameState.ship_state.name = "Морской сокол"
+    GameState.ship_state.hull = 145.0
+    GameState.world_state.home_port_id = "home"
+    GameState.port_state["foreign"] = {"level": 2}
+    GameState.combat_state.units.crystal_mortar = {"count": 4, "level": 1, "experience": 0}
+    var infantry_before: Dictionary = GameState.combat_state.units.duplicate(true)
+    _prepare_transport()
+    var result: Dictionary = _system.start_port_raid("foreign", "Совет прилива", 20, 5)
+    assert_true(bool(result.get("ok", false)), "captain can take a combat ship into a foreign-port raid")
+    assert_gt(int(GameState.combat_state.active_raid.naval_power), 0)
+    var raid: Dictionary = GameState.combat_state.active_raid
+    raid["completes_at"] = int(Time.get_unix_time_from_system())
+    GameState.combat_state["active_raid"] = raid
+    _system._complete_player_raid()
+    assert_true(GameState.combat_state.active_raid.is_empty())
+    var stationed: Dictionary = GameState.port_state.foreign.occupation_garrison
+    var casualty_total := 0
+    for loss in GameState.combat_state.reports[0].unit_losses.values():
+        casualty_total += int(loss)
+    assert_true(stationed.is_empty(), "survivors stay aboard until the player confirms an occupation roster")
+    assert_eq(_count_units(GameState.fleet_state[0].embarked_units), _count_units(infantry_before) - casualty_total, "all surviving troops remain aboard until the handover is confirmed")
+    assert_eq(GameState.fleet_state[0].embarked_units.crystal_mortar.count, infantry_before.crystal_mortar.count - int(GameState.combat_state.reports[0].unit_losses.get("crystal_mortar", 0)), "surviving artillery remains aboard pending the player's allocation")
+    assert_eq(GameState.fleet_state[0].hull, 136.0, "returning from a winning naval raid records hull damage")
+    assert_eq(GameState.combat_state.reports[0].attacking_ship, "Морской сокол")
+    assert_false(bool(GameState.combat_state.reports[0].port_captured), "bot ports remain available for trade")
+    assert_true(bool(GameState.combat_state.reports[0].tribute_started), "victory starts tribute instead of removing the port")
+    assert_eq(GameState.combat_state.units, infantry_before,"home defenders are untouched")
+    assert_eq(GameState.ship_state.hull,145.0,"flagship does not take transport damage")
+    assert_true(bool(GameState.port_state.foreign.tribute_active), "tribute persists in the port state")
+    var allocation: Dictionary = _system.set_tribute_occupation_roster("foreign", {"coast_guard": 2, "crystal_mortar": 1})
+    assert_true(bool(allocation.get("ok", false)), "occupation allocation can be explicitly saved")
+    assert_eq(allocation.get("stationed", {}), {"coast_guard": 2, "crystal_mortar": 1}, "the chosen troops and artillery are shown in the island garrison")
+    assert_eq(_count_units(GameState.fleet_state[0].embarked_units), _count_units(infantry_before) - casualty_total - 3, "confirmed units are removed from the transport")
+    assert_false(bool(_system.start_port_raid("foreign", "Совет прилива", 20).get("ok", false)), "a tribute port cannot be raided again")
+
+func test_failed_port_raid_loses_more_troops_and_mortars_without_capture() -> void:
+    GameState.ship_state.docked_port_id = "foreign"
+    GameState.ship_state.ship_id = "ship_combat_cutter"
+    GameState.ship_state.hull = 145.0
+    GameState.world_state.home_port_id = "home"
+    GameState.port_state["foreign"] = {"level": 2}
+    GameState.combat_state.units = {
+        "coast_guard": {"count": 12, "level": 1, "experience": 0},
+        "crystal_mortar": {"count": 5, "level": 1, "experience": 0}
+    }
+    _prepare_transport()
+    var result: Dictionary = _system.start_port_raid("foreign", "Крепость шторма", 2000, 5)
+    assert_true(bool(result.get("ok", false)), "captain can attempt a difficult port raid")
+    var raid: Dictionary = GameState.combat_state.active_raid
+    raid["completes_at"] = int(Time.get_unix_time_from_system())
+    GameState.combat_state["active_raid"] = raid
+    _system._complete_player_raid()
+    var report: Dictionary = GameState.combat_state.reports[0]
+    assert_false(bool(report.get("won", true)), "overwhelming port defenses defeat the attacking force")
+    assert_gte(int(report.get("unit_losses", {}).get("coast_guard", 0)), 1, "failed raid loses warriors")
+    assert_gte(int(report.get("unit_losses", {}).get("crystal_mortar", 0)), 1, "failed raid loses artillery")
+    assert_false(bool(report.get("port_captured", false)), "failed raid leaves the port in enemy hands")
+    assert_false(bool(GameState.port_state.foreign.get("captured_by_player", false)), "failed raid does not mark the port captured")
+
+func _count_units(units: Dictionary) -> int:
+    var total := 0
+    for saved in units.values():
+        total += int(saved.get("count", 0))
+    return total
+
 func test_legacy_wind_crystals_migrate_to_luck_without_losing_inventory() -> void:
     GameState.combat_state.crystals = {"crystal_wind": 2, "crystal_power": 1}
     GameState.combat_state.towers = [{"type": "wind", "crystal_id": "crystal_wind"}]
@@ -173,3 +246,7 @@ func test_old_current_save_migrates_with_default_combat_state() -> void:
     assert_true(migrated.has("combat_state"), "0.2.0 save gets safe default garrison state")
     assert_eq(migrated.combat_state.units.coast_guard.count, 8, "old save receives the starter guard")
     assert_true(SaveSystem._valid_save(migrated), "migrated save passes validation")
+
+func _prepare_transport() -> void:
+    GameState.ship_state.ship_id = "ship_sloop"
+    GameState.fleet_state = [{"instance_id":"raid_transport","ship_type_id":"ship_combat_cutter","name":"Морской сокол","hull":145.0,"escort_enabled":true,"escort_state":{"initialized":true,"position":Vector2(GameState.ship_state.position)},"embarked_units":GameState.combat_state.units.duplicate(true)}]

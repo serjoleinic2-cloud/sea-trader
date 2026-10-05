@@ -28,6 +28,7 @@ func _process(_delta: float) -> void:
     _complete_recruitment()
     _complete_construction()
     _complete_player_raid()
+    _process_tribute_income()
     var state: Dictionary = GameState.combat_state
     if _now() >= int(state.get("next_defense_at", 0)) and not bool(state.get("active_raid", {}).get("active", false)):
         var home_power: int = maxi(1, get_defense_power())
@@ -334,9 +335,9 @@ func get_defense_power() -> int:
     var integrity: float = float(GameState.combat_state.get("fort_integrity", 100.0)) / 100.0
     return maxi(0, int(round(total * (1.0 + float(bonuses.defense) / 100.0) * integrity)))
 
-func get_attack_power() -> int:
+func get_attack_power(roster: Variant = null) -> int:
     var total: float = 0.0
-    var units: Dictionary = GameState.combat_state.get("units", {})
+    var units: Dictionary = GameState.combat_state.get("units", {}) if roster == null else roster
     var defs: Dictionary = _catalog.get("units", {})
     var bonuses: Dictionary = get_tower_bonuses()
     for unit_id in units:
@@ -628,6 +629,63 @@ func start_player_raid(target_name: String, enemy_power: int, duration_seconds: 
         return _result(false, "Не удалось сохранить операцию.")
     return _result(true, "Бой начат. Отряды выдвинулись к цели.")
 
+func start_port_raid(port_id: String, target_name: String, enemy_power: int, duration_seconds: int = 45) -> Dictionary:
+    if port_id == "" or str(GameState.ship_state.get("docked_port_id", "")) != port_id:
+        return _result(false, "Подойди к порту и пришвартуйся перед боем.")
+    if port_id == get_home_port_id():
+        return _result(false, "Этот вызов доступен только в чужом порту.")
+    var port_state: Dictionary = GameState.port_state.get(port_id, {})
+    if bool(port_state.get("captured_by_player", false)):
+        return _result(false, "Этот порт уже захвачен.")
+    if int(port_state.get("base_immunity_until", 0)) > _now():
+        return _result(false, "База игрока защищена иммунитетом после поражения на 3 дня.")
+    if bool(port_state.get("tribute_active", false)):
+        return _result(false, "Порт платит дань и защищён от повторного нападения до восстания.")
+    if int(port_state.get("revolt_immunity_until", 0)) > _now():
+        return _result(false, "Остров получил иммунитет после восстания до %s." % Time.get_datetime_string_from_unix_time(int(port_state.get("revolt_immunity_until", 0)), true))
+    if int(GameState.combat_state.get("envoys", 1)) <= 0:
+        return _result(false, "Нужен свободный посланник для управления данью.")
+    var port_systems: Array[Node] = get_tree().get_nodes_in_group("port_system")
+    var owner_race := str(port_state.get("owner_race_id", ""))
+    if owner_race.is_empty() and not port_systems.is_empty() and port_systems[0].has_method("get_port_faction_id"):
+        owner_race = str(port_systems[0].call("get_port_faction_id", port_id))
+    var player_race := str(GameState.player_state.get("origin_race_id", ""))
+    if not owner_race.is_empty() and not player_race.is_empty() and owner_race == player_race:
+        return _result(false, "На порты своей расы нападать нельзя.")
+    var transport_system: Node = get_tree().get_first_node_in_group("military_transport_system")
+    var transports: Array = transport_system.raid_transports() if transport_system != null else []
+    if transports.is_empty():
+        return _result(false, "Для рейда нужен транспорт сопровождения с войсками рядом с портом.")
+    if bool(GameState.combat_state.get("active_raid", {}).get("active", false)):
+        return _result(false, "Операция уже идёт.")
+    var naval_power: int = 0
+    var transport_ids: Array = []
+    var names: Array[String] = []
+    for transport in transports:
+        var definition: Dictionary = GameData.get_ship(str(transport.ship_type_id))
+        var hull_ratio: float = clampf(float(transport.get("hull",definition.get("hull_max",145)))/float(definition.get("hull_max",145)),0.0,1.0)
+        if hull_ratio <= 0: continue
+        naval_power += int(round(float(definition.get("naval_attack",72))*hull_ratio))
+        transport_ids.append(str(transport.instance_id))
+        names.append(str(transport.get("name","Транспорт")))
+    if transport_ids.is_empty(): return _result(false,"Транспорты требуют ремонта.")
+    GameState.combat_state["active_raid"] = {
+        "active": true,
+        "target": target_name,
+        "target_port_id": port_id,
+        "enemy_power": maxi(1, enemy_power),
+        "naval_power": naval_power,
+        "attacking_ship": ", ".join(names),
+        "transport_ids": transport_ids,
+        "envoy_reserved": true,
+        "started_at": _now(),
+        "completes_at": _now() + maxi(5, duration_seconds)
+    }
+    if not SaveSystem.save_game():
+        GameState.combat_state["active_raid"] = {}
+        return _result(false, "Не удалось сохранить поход.")
+    return _result(true, "Десант высаживается с транспортов: %s." % ", ".join(names))
+
 func get_player_raid_status() -> Dictionary:
     var raid: Dictionary = GameState.combat_state.get("active_raid", {})
     if raid.is_empty() or not bool(raid.get("active", false)):
@@ -682,20 +740,240 @@ func _complete_player_raid() -> void:
     var raid: Dictionary = GameState.combat_state.get("active_raid", {})
     if raid.is_empty() or not bool(raid.get("active", false)) or _now() < int(raid.get("completes_at", 0)):
         return
-    var report: Dictionary = _resolve_battle(int(raid.get("enemy_power", 1)), "player_raid", str(raid.get("target", "Цель")))
+    var transport_ids: Array = raid.get("transport_ids", [])
+    var transports: Array = []
+    var aboard: Dictionary = {}
+    var attack_power: int = 0
+    for ship in GameState.fleet_state:
+        if not transport_ids.has(str(ship.get("instance_id",""))): continue
+        transports.append(ship)
+        attack_power += get_attack_power(ship.get("embarked_units",{}))
+        for id in ship.get("embarked_units",{}):
+            var cohort: Dictionary = ship.embarked_units[id]
+            if not aboard.has(id):
+                aboard[id] = cohort.duplicate(true)
+            else:
+                aboard[id]["count"] = int(aboard[id].count)+int(cohort.get("count",0))
+                aboard[id]["level"] = mini(int(aboard[id].get("level",1)),int(cohort.get("level",1)))
+    var report: Dictionary = _resolve_battle(int(raid.get("enemy_power", 1)), "player_raid", str(raid.get("target", "Цель")), aboard if not transport_ids.is_empty() else null, attack_power if not transport_ids.is_empty() else -1)
+    var remaining_losses: Dictionary = report.get("unit_losses",{}).duplicate(true)
+    for ship in transports:
+        for id in ship.get("embarked_units",{}):
+            var cohort: Dictionary = ship.embarked_units[id]
+            var lost: int = mini(int(cohort.get("count",0)),int(remaining_losses.get(id,0)))
+            cohort["count"] = int(cohort.get("count",0))-lost
+            remaining_losses[id] = int(remaining_losses.get(id,0))-lost
+            if int(cohort.count)>0: cohort["experience"] = int(cohort.get("experience",0))+(10 if bool(report.won) else 5)
+
+    if int(raid.get("naval_power", 0)) > 0:
+        var damage: float = 9.0 if bool(report.get("won", false)) else 30.0
+        if transport_ids.is_empty():
+            # Finish operations from legacy saves without changing their participants.
+            GameState.ship_state["hull"] = maxf(1.0, float(GameState.ship_state.get("hull",100.0))-damage)
+        for ship in transports:
+            ship["hull"] = maxf(1.0,float(ship.get("hull",145.0))-damage)
+        report["attacking_ship"] = str(raid.get("attacking_ship", "Боевой катер"))
+        report["ship_hull_damage"] = damage
+        var target_port_id: String = str(raid.get("target_port_id", ""))
+        report["participants"] = aboard.duplicate(true)
+        report["target_port_id"] = target_port_id
+        report["battle_cards"] = {"attacker": aboard.duplicate(true), "attacker_losses": report.get("unit_losses", {}).duplicate(true), "defender": report.get("enemy_roster", {}).duplicate(true), "defender_losses": report.get("enemy_unit_loss_roster", {}).duplicate(true)}
+        if target_port_id != "" and not bool(report.get("won", false)):
+            var failed_target: Dictionary = GameState.port_state.get(target_port_id, {})
+            if bool(failed_target.get("is_online_player", false)):
+                failed_target["base_immunity_until"] = _now() + 3 * 86400
+                GameState.port_state[target_port_id] = failed_target
+                report["base_immunity_until"] = int(failed_target["base_immunity_until"])
+                report["summary"] = str(report.get("summary", "")) + " База защищена иммунитетом на три дня."
+        if bool(report.get("won", false)) and target_port_id != "":
+            var target_port: Dictionary = GameState.port_state.get(target_port_id, {})
+            report["occupation_transport_ids"] = transport_ids.duplicate()
+            if bool(target_port.get("is_online_player", false)):
+                _capture_online_player_port(target_port_id, target_port, aboard, transport_ids, report)
+            else:
+                _start_bot_port_tribute(target_port_id, target_port, aboard, transport_ids, report)
+        else:
+            report["port_captured"] = false
+        var port_result := "под вашим флагом" if bool(report.get("online_island_captured", false)) else ("платит дань" if bool(report.get("tribute_started", false)) else ("удержан противником" if not bool(report.get("won", false)) else "освобождён"))
+        report["summary"] = "Эскадра: %s. Повреждение каждого транспорта: %.0f. Остров %s. %s" % [str(raid.get("attacking_ship", "Капитан")), damage, port_result, str(report.get("summary", ""))]
     GameState.combat_state["active_raid"] = {}
     _store_report(report)
 
-func _resolve_battle(enemy_power: int, kind: String, enemy_name: String) -> Dictionary:
+func _capture_online_player_port(port_id: String, port: Dictionary, aboard: Dictionary, transport_ids: Array, report: Dictionary) -> void:
+    port["captured_by_player"] = true
+    port["tribute_active"] = false
+    port["owner_race_id"] = str(GameState.player_state.get("origin_race_id", "humans"))
+    var survivors: Dictionary = {}
+    for unit_id in aboard:
+        survivors[unit_id] = maxi(0, int(aboard[unit_id].get("count", 0)) - int(report.get("unit_losses", {}).get(unit_id, 0)))
+    port["occupation_garrison"] = {}
+    port["occupation_initial_roster"] = survivors
+    port["occupation_transport_ids"] = transport_ids.duplicate()
+    port["occupation_envoy"] = false
+    GameState.port_state[port_id] = port
+    for port_system in get_tree().get_nodes_in_group("port_system"):
+        port_system.call("mark_port_captured", port_id)
+    report["port_captured"] = true
+    report["online_island_captured"] = true
+    report["summary"] = str(report.get("summary", "")) + " Остров игрока перешёл под ваш флаг."
+
+func _start_bot_port_tribute(port_id: String, port: Dictionary, aboard: Dictionary, transport_ids: Array, report: Dictionary) -> void:
+    # Bot ports remain in the trade network and pay tribute instead of disappearing.
+    port["captured_by_player"] = false
+    port["tribute_active"] = true
+    port["tribute_rate"] = 0.10
+    var daily_profit: int = maxi(100, int(port.get("daily_profit", port.get("ai_daily_profit", 0))))
+    if daily_profit <= 100:
+        daily_profit = 100 + int(port.get("level", 1)) * 50
+    port["ai_daily_profit"] = daily_profit
+    port["tribute_daily_amount"] = maxi(1, int(round(float(daily_profit) * 0.10)))
+    port["tribute_started_at"] = _now()
+    port["tribute_last_tick"] = _now()
+    port["tribute_revolt_at"] = _now() + 7 * 86400 + posmod(hash(port_id), 8) * 86400
+    var occupation_roster: Dictionary = {}
+    for unit_id in aboard.keys():
+        var survivors: int = maxi(0, int(aboard[unit_id].get("count", 0)) - int(report.get("unit_losses", {}).get(unit_id, 0)))
+        occupation_roster[unit_id] = survivors
+    # Keep all survivors aboard until the player chooses an occupation force in
+    # the post-battle handover screen. The previous invisible 20% auto-deployment
+    # made it unclear which troops had actually left the transports.
+    port["occupation_garrison"] = {}
+    port["occupation_initial_roster"] = occupation_roster
+    port["occupation_envoy"] = true
+    port["occupation_transport_ids"] = transport_ids.duplicate()
+    GameState.combat_state["envoys"] = maxi(0, int(GameState.combat_state.get("envoys", 5)) - 1)
+    GameState.port_state[port_id] = port
+    report["port_captured"] = false
+    report["tribute_started"] = true
+    report["tribute_daily_amount"] = int(port.get("tribute_daily_amount", 0))
+    report["tribute_transition"] = "Представитель острова приносит дань. Посланник остаётся на месте; выберите, сколько выживших бойцов высадить для контроля."
+
+func _process_tribute_income() -> void:
+    var now := _now()
+    var changed := false
+    for raw_id in GameState.port_state.keys():
+        var port: Dictionary = GameState.port_state[raw_id]
+        if not bool(port.get("tribute_active", false)):
+            continue
+        var last := int(port.get("tribute_last_tick", now))
+        var days := maxi(0, (now - last) / 86400)
+        if days > 0:
+            GameState.player_state["money"] = float(GameState.player_state.get("money", 0.0)) + float(port.get("tribute_daily_amount", 0)) * days
+            port["tribute_last_tick"] = last + days * 86400
+            changed = true
+        if int(port.get("tribute_revolt_at", 0)) > 0 and now >= int(port.get("tribute_revolt_at", 0)):
+            var stationed: Dictionary = port.get("occupation_garrison", {})
+            var stationed_power := 0
+            var stationed_total := 0
+            for unit_id in stationed.keys():
+                var unit: Dictionary = _catalog.get("units", {}).get(str(unit_id), {})
+                stationed_power += int(stationed[unit_id]) * maxi(1, int(unit.get("attack", 1)) + int(unit.get("defense", 1)))
+                stationed_total += int(stationed[unit_id])
+            var rebel_power := maxi(8, int(port.get("level", 1)) * 20 + _rng.randi_range(0, 35))
+            var revolt_won := stationed_power >= rebel_power
+            var garrison_losses := mini(stationed_total, maxi(1, int(ceil(float(stationed_total) * (0.18 if revolt_won else 0.42))))) if stationed_total > 0 else 0
+            var rebel_count := maxi(1, int(ceil(float(rebel_power) / 8.0)))
+            var rebel_losses := mini(rebel_count, maxi(1, int(ceil(float(rebel_count) * (0.44 if revolt_won else 0.10)))))
+            var losses_left := garrison_losses
+            for unit_id in stationed.keys():
+                var loss := mini(int(stationed[unit_id]), losses_left)
+                stationed[unit_id] = int(stationed[unit_id]) - loss
+                losses_left -= loss
+            var occupation_losses := {"all_units": garrison_losses}
+            if revolt_won:
+                port["occupation_garrison"] = stationed
+                port["tribute_revolt_at"] = now + 7 * 86400 + posmod(hash(str(raw_id)), 8) * 86400
+                port["rebellion_suppressed_at"] = now
+            else:
+                var envoy_returned: bool = bool(port.get("occupation_envoy", false))
+                port["tribute_active"] = false
+                port["rebellion_active"] = true
+                port["revolt_declared_at"] = now
+                port["revolt_immunity_until"] = now + 3 * 86400
+                port["occupation_garrison"] = {}
+                port["occupation_envoy"] = false
+                port["occupation_transport_ids"] = []
+                GameState.combat_state["envoys"] = int(GameState.combat_state.get("envoys", 0)) + (1 if envoy_returned else 0)
+            var revolt_report: Dictionary = {
+                "id": int(GameState.combat_state.get("report_sequence", 0)) + 1,
+                "kind": "tribute_revolt",
+                "target": str(port.get("name", raw_id)),
+                "target_port_id": str(raw_id),
+                "won": revolt_won,
+                "revolt": true,
+                "battle_cards": {"defender_losses": rebel_losses, "occupation_losses": occupation_losses, "rebels": true},
+                "casualties_text": "гарнизон %d, мятежники %d" % [garrison_losses, rebel_losses],
+                "summary": "Письмо экстренное: бунт подавлен, дань восстановлена. Потери гарнизона: %d; мятежников: %d." % [garrison_losses, rebel_losses] if revolt_won else "Письмо экстренное: остров освободился и получил иммунитет на 3 дня. Потери гарнизона: %d; мятежников: %d." % [garrison_losses, rebel_losses]
+            }
+            _store_report(revolt_report)
+            changed = true
+        GameState.port_state[raw_id] = port
+    if changed:
+        SaveSystem.save_game()
+
+func set_tribute_occupation_roster(port_id: String, requested: Dictionary) -> Dictionary:
+    var port: Dictionary = GameState.port_state.get(port_id, {})
+    if port.is_empty() or (not bool(port.get("tribute_active", false)) and not bool(port.get("captured_by_player", false))):
+        return {"ok": false, "message": "Остров больше не находится под вашим контролем.", "stationed": {}}
+    var stationed: Dictionary = {}
+    var original_roster: Dictionary = port.get("occupation_initial_roster", {})
+    var ids: Array = port.get("occupation_transport_ids", [])
+    var available_by_unit: Dictionary = {}
+    for ship in GameState.fleet_state:
+        if not ids.has(str(ship.get("instance_id", ""))):
+            continue
+        var cargo: Dictionary = ship.get("embarked_units", {})
+        for raw_id in cargo.keys():
+            var unit_id := str(raw_id)
+            var cohort: Dictionary = cargo[unit_id]
+            available_by_unit[unit_id] = int(available_by_unit.get(unit_id, 0)) + int(cohort.get("count", 0))
+    for raw_id in original_roster.keys():
+        var unit_id := str(raw_id)
+        var take := mini(maxi(0, int(requested.get(unit_id, 0))), mini(int(original_roster[raw_id]), int(available_by_unit.get(unit_id, 0))))
+        if take > 0:
+            stationed[unit_id] = take
+    _remove_embarked_occupation(ids, stationed)
+    port["occupation_garrison"] = stationed
+    port["occupation_enhanced"] = true
+    GameState.port_state[port_id] = port
+    SaveSystem.save_game()
+    var total := 0
+    for count in stationed.values():
+        total += int(count)
+    return {"ok": true, "stationed": stationed.duplicate(true), "total": total, "message": "На острове оставлено бойцов: %d." % total}
+
+func _remove_embarked_occupation(transport_ids: Array, occupation: Dictionary) -> void:
+    var remaining: Dictionary = occupation.duplicate(true)
+    for ship in GameState.fleet_state:
+        if not transport_ids.has(str(ship.get("instance_id", ""))):
+            continue
+        var cargo: Dictionary = ship.get("embarked_units", {})
+        for unit_id in remaining.keys():
+            if int(remaining[unit_id]) <= 0 or not cargo.has(unit_id):
+                continue
+            var cohort: Dictionary = cargo[unit_id]
+            var moved := mini(int(cohort.get("count", 0)), int(remaining[unit_id]))
+            cohort["count"] = int(cohort.get("count", 0)) - moved
+            cargo[unit_id] = cohort
+            remaining[unit_id] = int(remaining[unit_id]) - moved
+        ship["embarked_units"] = cargo
+
+func _resolve_battle(enemy_power: int, kind: String, enemy_name: String, roster: Variant = null, embarked_power: int = -1) -> Dictionary:
     var own_power: int = get_defense_power() if kind == "defense" else get_attack_power()
+    if embarked_power >= 0: own_power = embarked_power
+    var naval_operation: bool = kind == "player_raid" and int(GameState.combat_state.get("active_raid", {}).get("naval_power", 0)) > 0
+    if kind == "player_raid":
+        own_power += int(GameState.combat_state.get("active_raid", {}).get("naval_power", 0))
     enemy_power = maxi(1, enemy_power)
-    var luck_result: Dictionary = _resolve_lucky_strikes(enemy_power, kind)
+    var luck_result: Dictionary = _resolve_lucky_strikes(enemy_power, kind, roster)
     var effective_enemy_power: int = int(luck_result.get("effective_enemy_power", enemy_power))
     var won: bool = own_power >= effective_enemy_power
-    var unit_losses: Dictionary = _apply_casualties(won, own_power, effective_enemy_power, kind == "defense")
-    _award_unit_experience(won)
+    var unit_losses: Dictionary = _apply_naval_casualties(won, roster) if naval_operation else _apply_casualties(won, own_power, effective_enemy_power, kind == "defense")
+    _award_unit_experience(won, roster)
     var enemy_unit_count: int = maxi(1, int(ceil(float(enemy_power) / 8.0)))
     var enemy_losses: int = mini(enemy_unit_count, int(ceil(float(enemy_unit_count) * (0.30 if won else 0.08))))
+    var enemy_roster: Dictionary = _make_enemy_roster(enemy_unit_count)
+    var enemy_loss_roster: Dictionary = _make_enemy_losses(enemy_roster, enemy_losses)
     var base_damage: float = 0.0
     var lost_goods: int = 0
     if kind == "defense" and not won:
@@ -703,7 +981,8 @@ func _resolve_battle(enemy_power: int, kind: String, enemy_name: String) -> Dict
         GameState.combat_state["fort_integrity"] = maxf(0.0, float(GameState.combat_state.get("fort_integrity", 100.0)) - base_damage)
         lost_goods = _apply_stock_losses()
     var outcome: String = "Победа" if won else "Поражение"
-    var summary: String = "%s. Ваши потери: %d отрядов; потери противника: %d." % [outcome, _sum_losses(unit_losses), enemy_losses]
+    var loss_ratio: String = "" if not naval_operation else (" Боевые потери при захвате снижены." if won else " Войска и артиллерия понесли тяжёлые потери при отступлении.")
+    var summary: String = "%s. Ваши потери: %d отрядов; потери противника: %d.%s" % [outcome, _sum_losses(unit_losses), enemy_losses, loss_ratio]
     if base_damage > 0.0:
         summary += " Укрепления: -%.0f%%." % base_damage
     if lost_goods > 0:
@@ -722,6 +1001,8 @@ func _resolve_battle(enemy_power: int, kind: String, enemy_name: String) -> Dict
         "own_power": own_power,
         "unit_losses": unit_losses,
         "enemy_unit_losses": enemy_losses,
+        "enemy_roster": enemy_roster,
+        "enemy_unit_loss_roster": enemy_loss_roster,
         "fort_damage": base_damage,
         "goods_lost": lost_goods,
         "lucky_effects": luck_result.get("effects", []),
@@ -731,14 +1012,43 @@ func _resolve_battle(enemy_power: int, kind: String, enemy_name: String) -> Dict
         "summary": summary
     }
 
-func _resolve_lucky_strikes(enemy_power: int, kind: String) -> Dictionary:
+func _make_enemy_roster(total: int) -> Dictionary:
+    var roster: Dictionary = {}
+    var order: Array = _catalog.get("unit_order", [])
+    if order.is_empty():
+        return roster
+    var weights: Array[float] = [0.30, 0.22, 0.16, 0.12, 0.14, 0.06]
+    var assigned := 0
+    for index in order.size():
+        var unit_id := str(order[index])
+        var count := int(floor(float(total) * weights[mini(index, weights.size() - 1)]))
+        roster[unit_id] = count
+        assigned += count
+    for index in total - assigned:
+        var unit_id := str(order[index % order.size()])
+        roster[unit_id] = int(roster.get(unit_id, 0)) + 1
+    return roster
+
+func _make_enemy_losses(roster: Dictionary, total_losses: int) -> Dictionary:
+    var losses: Dictionary = {}
+    var left := total_losses
+    for unit_id in roster.keys():
+        if left <= 0:
+            break
+        var lost := mini(int(roster[unit_id]), maxi(1, int(ceil(float(total_losses) * float(roster[unit_id]) / maxi(1, _sum_losses(roster))))))
+        lost = mini(lost, left)
+        losses[unit_id] = lost
+        left -= lost
+    return losses
+
+func _resolve_lucky_strikes(enemy_power: int, kind: String, roster: Variant = null) -> Dictionary:
     var armor_reduction: float = 0.0
     var vitality_damage: float = 0.0
     var vitality_limit: float = float(enemy_power) * 0.20
     var effects: Array[String] = []
     var luck_bonus: float = float(get_tower_bonuses().get("luck", 0.0))
     var cap: float = float(_mage_guild_rules.get("effect_caps", {}).get("final_luck_chance_percentage", 35.0))
-    var units: Dictionary = GameState.combat_state.get("units", {})
+    var units: Dictionary = GameState.combat_state.get("units", {}) if roster == null else roster
     var definitions: Dictionary = _catalog.get("units", {})
     for unit_id in units:
         var saved: Dictionary = units[unit_id]
@@ -804,8 +1114,22 @@ func _apply_casualties(won: bool, own_power: int, enemy_power: int, home_defense
     GameState.combat_state["units"] = units
     return losses
 
-func _award_unit_experience(won: bool) -> void:
-    var units: Dictionary = GameState.combat_state.get("units", {})
+func _apply_naval_casualties(won: bool, roster: Variant = null) -> Dictionary:
+    var losses: Dictionary = {}
+    var units: Dictionary = GameState.combat_state.get("units", {}) if roster == null else roster
+    var ratio: float = 0.08 if won else 0.25
+    for id in units:
+        var cohort: Dictionary = units[id]
+        var count: int = maxi(0,int(cohort.get("count",0)))
+        if count <= 0: continue
+        var lost: int = mini(count,maxi(1,int(ceil(count*ratio))))
+        cohort["count"] = count-lost
+        losses[id] = lost
+    if roster == null: GameState.combat_state["units"] = units
+    return losses
+
+func _award_unit_experience(won: bool, roster: Variant = null) -> void:
+    var units: Dictionary = GameState.combat_state.get("units", {}) if roster == null else roster
     var earned: int = 10 if won else 5
     for unit_id in units:
         var saved: Dictionary = units[unit_id]
@@ -813,7 +1137,7 @@ func _award_unit_experience(won: bool) -> void:
             continue
         saved["experience"] = int(saved.get("experience", 0)) + earned
         units[unit_id] = saved
-    GameState.combat_state["units"] = units
+    if roster == null: GameState.combat_state["units"] = units
 
 func _apply_stock_losses() -> int:
     var port_id: String = get_home_port_id()

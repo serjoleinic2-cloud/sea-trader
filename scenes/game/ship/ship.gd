@@ -19,6 +19,8 @@ var _physics: Node
 var _control: Node
 var _sensor: Node
 var _adapter: Node
+var _port_system: Node
+var _anchor_prompt: Label
 
 # Ship data loaded from JSON
 var _ship_data: Dictionary = {}
@@ -32,6 +34,7 @@ func _ready() -> void:
 	_init_systems()
 	_position_ship()
 	_hud.visible = false
+	_create_anchor_prompt()
 
 	# Connect collision
 	$Area2D.body_entered.connect(_on_body_entered)
@@ -44,6 +47,58 @@ func _physics_process(delta: float) -> void:
 	_physics.physics_tick(delta)
 	_sync_visual()
 	_update_hud()
+	_update_anchor_prompt()
+
+func _create_anchor_prompt() -> void:
+	var layer := CanvasLayer.new()
+	layer.name = "AnchorPromptLayer"
+	layer.layer = 25
+	add_child(layer)
+	_anchor_prompt = Label.new()
+	_anchor_prompt.name = "AnchorPrompt"
+	_anchor_prompt.custom_minimum_size = Vector2(220, 42)
+	_anchor_prompt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_anchor_prompt.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_anchor_prompt.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_anchor_prompt.add_theme_font_size_override("font_size", 15)
+	_anchor_prompt.add_theme_color_override("font_color", Color("fff1cb"))
+	_anchor_prompt.add_theme_color_override("font_outline_color", Color("182a31"))
+	_anchor_prompt.add_theme_constant_override("outline_size", 3)
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.025, 0.075, 0.09, 0.88)
+	style.border_color = Color("d0ad63")
+	style.set_border_width_all(1)
+	style.set_corner_radius_all(8)
+	style.content_margin_left = 8
+	style.content_margin_right = 8
+	style.content_margin_top = 4
+	style.content_margin_bottom = 4
+	_anchor_prompt.add_theme_stylebox_override("normal", style)
+	layer.add_child(_anchor_prompt)
+
+func _update_anchor_prompt() -> void:
+	if _anchor_prompt == null:
+		return
+	if _port_system == null or not is_instance_valid(_port_system):
+		var systems: Array[Node] = get_tree().get_nodes_in_group("port_system")
+		if not systems.is_empty():
+			_port_system = systems[0]
+	if _port_system == null:
+		_anchor_prompt.hide()
+		return
+	var docked_id: String = str(GameState.ship_state.get("docked_port_id", ""))
+	var nearby_id: String = str(_port_system.get_dock_candidate())
+	if docked_id != "":
+		_anchor_prompt.hide()
+		return
+	elif nearby_id != "":
+		_anchor_prompt.text = "E  ·  БРОСИТЬ ЯКОРЬ\n%s" % str(_port_system.get_port_name(nearby_id))
+	else:
+		_anchor_prompt.hide()
+		return
+	var screen_position: Vector2 = get_global_transform_with_canvas() * Vector2(0, -38)
+	_anchor_prompt.position = screen_position - Vector2(_anchor_prompt.custom_minimum_size.x * 0.5, 62)
+	_anchor_prompt.show()
 
 func set_navigation_collision_provider(provider: Callable) -> void:
 	if _physics != null and _physics.has_method("set_collision_data_provider"):

@@ -1,0 +1,59 @@
+{
+  "version": 1,
+  "profiles": {
+    "nerids": {
+      "scene": "res://assets/world/buildings/styles/nerids/architecture.glb",
+      "palette": [
+        "#073B49",
+        "#20C9CE",
+        "#B98B4B",
+        "#C9E8DF"
+      ]
+    },
+    "surr": {
+      "scene": "res://assets/world/buildings/styles/surr/architecture.glb",
+      "palette": [
+        "#20242B",
+        "#DB4B19",
+        "#A96A34",
+        "#14A9B4"
+      ]
+    },
+    "meridians": {
+      "scene": "res://assets/world/buildings/styles/meridians/architecture.glb",
+      "palette": [
+        "#091D32",
+        "#25B9BF",
+        "#D4A451",
+        "#B2C9C0"
+      ]
+    },
+    "aery": {
+      "scene": "res://assets/world/buildings/styles/aery/architecture.glb",
+      "palette": [
+        "#123248",
+        "#2D9EB4",
+        "#D7B377",
+        "#F0D7A2"
+      ]
+    },
+    "crystari": {
+      "scene": "res://assets/world/buildings/styles/crystari/architecture.glb",
+      "palette": [
+        "#202733",
+        "#7654B5",
+        "#21B8BF",
+        "#B7965A"
+      ]
+    },
+    "humans": {
+      "scene": "res://assets/world/buildings/styles/humans/architecture.glb",
+      "palette": [
+        "#132b43",
+        "#2bbcc1",
+        "#c49a58",
+        "#d9e2e0"
+      ]
+    }
+  }
+}

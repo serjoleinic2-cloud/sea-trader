@@ -20,6 +20,7 @@ var _hiring_system: Node = null
 
 
 func _ready() -> void:
+	add_to_group("port_system")
 	set_process(true)
 
 
@@ -32,6 +33,7 @@ func initialize(ship: Node2D, world_ports: Dictionary, hiring_system: Node = nul
 	_port_chunk_size = float(world_config.get("streaming", {}).get("chunk_size", 4096.0))
 	for port_id in _world_ports:
 		_index_port_in_chunk(str(port_id), _world_ports[port_id])
+		_restore_captured_port_faction(str(port_id))
 	_ports_in_range.clear()
 	var config: Dictionary = GameData.read("res://data/ports/port_template.json")
 	_discovery_radius = float(config.get("discovery_radius", 0.0))
@@ -41,6 +43,20 @@ func register_world_ports(ports: Dictionary) -> void:
 	for port_id in ports:
 		_world_ports[str(port_id)] = ports[port_id]
 		_index_port_in_chunk(str(port_id), ports[port_id])
+		_restore_captured_port_faction(str(port_id))
+
+func mark_port_captured(port_id: String) -> void:
+	var port: Dictionary = _world_ports.get(port_id, {})
+	if port.is_empty():
+		return
+	port["owner_race_id"] = str(GameState.player_state.get("origin_race_id", "humans"))
+	port["captured_by_player"] = true
+	_world_ports[port_id] = port
+
+func _restore_captured_port_faction(port_id: String) -> void:
+	if not bool(GameState.port_state.get(port_id, {}).get("captured_by_player", false)):
+		return
+	mark_port_captured(port_id)
 
 func _index_port_in_chunk(port_id: String, raw_port: Variant) -> void:
 	if not (raw_port is Dictionary):
@@ -369,6 +385,16 @@ func get_port_name(port_id: String) -> String:
 	if not is_port_discovered(port_id):
 		return "Неисследованный остров"
 	return str(_world_ports[port_id].get("name", port_id))
+
+func get_port_faction_id(port_id: String) -> String:
+	var saved: Dictionary = GameState.port_state.get(port_id, {})
+	var generated: Dictionary = _world_ports.get(port_id, {})
+	for source in [saved, generated]:
+		for key in ["owner_race_id", "faction_id"]:
+			var value := str(source.get(key, ""))
+			if not value.is_empty():
+				return value
+	return ""
 
 func is_port_discovered(port_id: String) -> bool:
 	return GameState.player_state.get("visited_port_ids", []).has(port_id)

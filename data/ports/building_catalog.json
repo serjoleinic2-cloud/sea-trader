@@ -5,6 +5,7 @@
       "building_id": "dock",
       "display_name": "Причал",
       "role": "Ship service capacity and port access.",
+      "description": "Принимает корабли, открывает портовые услуги и увеличивает число судов, которые могут одновременно обслуживаться у базы.",
       "max_level": 30,
       "effect_ids": [
         "docking_access",
@@ -16,6 +17,7 @@
       "building_id": "warehouse",
       "display_name": "Склад",
       "role": "Cargo storage and market stock capacity.",
+      "description": "Хранит товары, созданные или доставленные на базу, и увеличивает вместимость складских запасов для торговли.",
       "max_level": 30,
       "effect_ids": [
         "cargo_storage",
@@ -27,6 +29,7 @@
       "building_id": "workshop",
       "display_name": "Мастерская",
       "role": "Repair and ship improvement access.",
+      "description": "Позволяет ремонтировать корабли и открывает доступ к их улучшениям.",
       "max_level": 30,
       "effect_ids": [
         "repair_access",
@@ -38,6 +41,7 @@
       "building_id": "market",
       "display_name": "Рынок",
       "role": "Trading offers, prices and contract availability.",
+      "description": "Развивает торговлю базы: открывает заявки торговцам и повышает качество доступных сделок и контрактов.",
       "max_level": 30,
       "effect_ids": [
         "trade_offers",
@@ -49,6 +53,7 @@
       "building_id": "shipyard",
       "display_name": "Верфь",
       "role": "New ship tiers and ship construction access.",
+      "description": "Позволяет строить корабли и постепенно открывает более крупные и продвинутые типы судов.",
       "max_level": 30,
       "effect_ids": [
         "ship_purchase",
@@ -60,6 +65,7 @@
       "building_id": "mage_guild",
       "display_name": "Гильдия магов",
       "role": "Создание кристаллов для башен и усиление их свойств.",
+      "description": "Создаёт кристаллы для башен и усиливает их магические свойства.",
       "max_level": 30,
       "effect_ids": [
         "crystal_crafting",
@@ -71,6 +77,7 @@
       "building_id": "fishing_wharf",
       "display_name": "Рыбацкий причал",
       "role": "Производство рыбы для склада.",
+      "description": "Добывает рыбу и пополняет ею склад базы для снабжения и торговли.",
       "max_level": 30,
       "effect_ids": [
         "produce_fish"
@@ -81,6 +88,7 @@
       "building_id": "timber_yard",
       "display_name": "Лесной терминал",
       "role": "Производство древесины для склада.",
+      "description": "Заготавливает древесину и пополняет ею склад базы для строительства и торговли.",
       "max_level": 30,
       "effect_ids": [
         "produce_timber"

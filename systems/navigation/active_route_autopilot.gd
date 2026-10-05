@@ -9,10 +9,29 @@ var _cargo_resource_id: String = ""
 var _cargo_quantity: int = 0
 var _active: bool = false
 var _rules: Dictionary = {}
+var _balance_rules: Dictionary = {}
 var _goods: Dictionary = {}
 var _hazard_zones: Array = []
 var _detour_waypoint: Vector2 = Vector2.ZERO
 var _has_detour_waypoint: bool = false
+var _navigation_islands: Array = []
+var _coast_waypoints: PackedVector2Array = PackedVector2Array()
+
+func set_navigation_islands(islands: Array) -> void:
+	_navigation_islands = islands.duplicate(true)
+	if _active:
+		_update_detour(GameState.ship_state.position, _port_system.get_port_position(_destination_port_id))
+
+func _plan_coast_route(start: Vector2, destination: Vector2) -> void:
+	_coast_waypoints.clear()
+	if _navigation_islands.is_empty() or not _ship.has_method("is_navigation_move_blocked"):
+		return
+	var planner: RefCounted = preload("res://systems/navigation/coast_route_planner.gd").new()
+	var route: PackedVector2Array = planner.plan(start, destination, _navigation_islands, Callable(_ship, "is_navigation_move_blocked"))
+	# The final destination remains owned by the ordinary arrival logic.
+	if route.size() > 1:
+		route.remove_at(route.size() - 1)
+		_coast_waypoints = route
 
 func _ready() -> void:
 	add_to_group("active_route_autopilot_system")
@@ -22,6 +41,7 @@ func initialize(ship: Node2D, port_system: Node) -> void:
 	_ship = ship
 	_port_system = port_system
 	_rules = GameData.read("res://data/economy/logistics_rules.json")
+	_balance_rules = GameData.read("res://data/economy/balance_rules.json")
 	for good in GameData.read("res://data/resources/goods_catalog.json").get("resources", []):
 		_goods[str(good.get("id", ""))] = str(good.get("display_name", ""))
 	if bool(GameState.voyage_state.get("active_autopilot", false)):
@@ -67,9 +87,18 @@ func validate_start(destination_id: String, resource_id: String = "", quantity: 
 			known = true
 	if not known:
 		return {"ok": false, "message": "Сначала пройдите этот маршрут вручную."}
+	var definition: Dictionary = GameData.get_ship(str(GameState.ship_state.get("ship_id", "ship_sloop")))
+	var hired_crew_required: int = maxi(0, int(definition.get("min_crew", 1)) - 1) # The player fills the command position.
+	var hired_crew: Variant = GameState.ship_state.get("crew", [])
+	var hired_crew_count: int = hired_crew.size() if hired_crew is Array else 0
+	if hired_crew_count < hired_crew_required:
+		return {"ok": false, "message": "Для этого корабля нужно ещё %d членов экипажа. Наймите их на бирже и назначьте в ячейки." % (hired_crew_required - hired_crew_count)}
 	var needed: float = maxf(0.01, fuel_needed(destination_id))
 	if float(GameState.ship_state.get("fuel", 0.0)) < needed:
 		return {"ok": false, "message": "Не хватает топлива: нужно %.1f, в баке %.1f. Заправьтесь в сервисе порта." % [needed, float(GameState.ship_state.get("fuel", 0.0))]}
+	var food_cost: float = _voyage_food_cost()
+	if float(GameState.player_state.get("money", 0.0)) < food_cost:
+		return {"ok": false, "message": "Не хватает денег на провизию экипажа: нужно %.0f." % food_cost}
 	if float(GameState.ship_state.get("hull", 0.0)) <= 0.0 or float(GameState.ship_state.get("engine", 0.0)) <= 0.0:
 		return {"ok": false, "message": "Перед выходом требуется ремонт корабля."}
 	if quantity < 0 or (quantity > 0 and (resource_id == "" or _get_cargo_quantity(resource_id) < quantity)):
@@ -88,6 +117,8 @@ func start(destination_port_id: String, resource_id: String = "", quantity: int 
 	_cargo_resource_id = resource_id
 	_cargo_quantity = maxi(0, quantity)
 	_active = true
+	var food_cost: float = _voyage_food_cost()
+	GameState.player_state["money"] = float(GameState.player_state.get("money", 0.0)) - food_cost
 	_has_detour_waypoint = false
 	_update_detour(GameState.ship_state.get("position", _ship.global_position), _port_system.get_port_position(destination_port_id))
 	GameState.voyage_state["active_autopilot"] = true
@@ -95,7 +126,7 @@ func start(destination_port_id: String, resource_id: String = "", quantity: int 
 	GameState.voyage_state["autopilot_resource_id"] = resource_id
 	GameState.voyage_state["autopilot_quantity"] = quantity
 	GameState.world_state["destination_port_id"] = destination_port_id
-	GameState.world_state["autopilot_notice"] = "Автопилот запущен: " + _port_system.get_port_name(destination_port_id)
+	GameState.world_state["autopilot_notice"] = "Автопилот запущен: %s. Провизия экипажа: %.0f монет." % [_port_system.get_port_name(destination_port_id), food_cost]
 	if str(GameState.ship_state.get("docked_port_id", "")) != "":
 		if not _port_system.undock():
 			_stop("Не удалось сохранить выход из порта.")
@@ -104,7 +135,12 @@ func start(destination_port_id: String, resource_id: String = "", quantity: int 
 	var cargo_text: String = ""
 	if _cargo_resource_id != "" and _cargo_quantity > 0:
 		cargo_text = " с грузом «%s» × %d" % [str(_goods.get(_cargo_resource_id, _cargo_resource_id)), _cargo_quantity]
-	return {"ok": true, "message": "Автопилот ведёт корабль в %s%s." % [_port_system.get_port_name(destination_port_id), cargo_text]}
+	return {"ok": true, "message": "Автопилот ведёт корабль в %s%s. Провизия экипажа: %.0f монет." % [_port_system.get_port_name(destination_port_id), cargo_text, food_cost]}
+
+func _voyage_food_cost() -> float:
+	var fleet_rules: Dictionary = _balance_rules.get("fleet", {})
+	var crew: Variant = GameState.ship_state.get("crew", [])
+	return float(crew.size() + 1) * float(fleet_rules.get("food_per_person", 2.0))
 
 func _physics_process(delta: float) -> void:
 	if not _active or _ship == null or delta <= 0.0:
@@ -119,12 +155,16 @@ func _physics_process(delta: float) -> void:
 		_has_detour_waypoint = false
 		_update_detour(current, destination)
 	var target: Vector2 = _detour_waypoint if _has_detour_waypoint else destination
+	while not _coast_waypoints.is_empty() and current.distance_to(_coast_waypoints[0]) <= 2.0:
+		_coast_waypoints.remove_at(0)
+	if not _coast_waypoints.is_empty():
+		target = _coast_waypoints[0]
 	var distance: float = current.distance_to(target)
 	var arrival_distance: float = float(_rules.get("arrival_distance", 2.0))
 	var rate: float = _fuel_rate()
 	# Dock only after physically reaching the port. The former fuel-range test
 	# was also true at the start of a fully fueled trip, causing instant travel.
-	if not _has_detour_waypoint and distance <= arrival_distance:
+	if _coast_waypoints.is_empty() and not _has_detour_waypoint and distance <= arrival_distance:
 		_ship.global_position = destination
 		GameState.ship_state["position"] = destination
 		GameState.ship_state["fuel"] = maxf(0.0, fuel - distance * rate)
@@ -150,13 +190,14 @@ func _physics_process(delta: float) -> void:
 	var traveled: float = current.distance_to(next)
 	GameState.ship_state["position"] = next
 	GameState.ship_state["velocity"] = (next - current) / maxf(delta, 0.001)
+	GameState.ship_state["heading"] = (next - current).angle()
 	GameState.ship_state["fuel"] = maxf(0.0, fuel - traveled * rate)
 	GameState.world_state["current_position"] = next
 	var stats: Dictionary = GameState.player_state.get("stats", {})
 	stats["total_distance"] = float(stats.get("total_distance", 0.0)) + traveled
 	GameState.player_state["stats"] = stats
 	_ship.global_position = next
-	if not _has_detour_waypoint:
+	if not _has_detour_waypoint and _coast_waypoints.is_empty():
 		_update_detour(next, destination)
 
 func _update_detour(start: Vector2, destination: Vector2) -> void:
@@ -176,6 +217,7 @@ func _update_detour(start: Vector2, destination: Vector2) -> void:
 			nearest_distance = distance
 			nearest_zone = zone
 	if nearest_zone.is_empty():
+		_plan_coast_route(start, destination)
 		return
 	var center: Vector2 = Vector2(nearest_zone.get("position", Vector2.ZERO))
 	var direction: Vector2 = destination - start
@@ -197,6 +239,7 @@ func _update_detour(start: Vector2, destination: Vector2) -> void:
 		"anomaly": zone_name = "аномальную зону"
 		"storm": zone_name = "штормовую зону"
 	GameState.world_state["autopilot_notice"] = "Автопилот обходит: " + zone_name
+	_plan_coast_route(start, _detour_waypoint)
 
 func _segment_touches_circle(start: Vector2, finish: Vector2, center: Vector2, radius: float) -> bool:
 	var segment: Vector2 = finish - start

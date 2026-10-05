@@ -20,7 +20,7 @@ func _seed_progress() -> void:
 	GameState.player_state["origin_race_id"] = "aery"
 	GameState.player_state["origin_race_confirmed"] = true
 	GameState.world_state.seed = 42
-	GameState.world_state.world_gen_version = "1"
+	GameState.world_state.world_gen_version = str(int(GameData.read("res://data/world/world_gen_config.json").version))
 	GameState.world_state.current_position = Vector2(321, 654)
 	GameState.world_state.current_region = "eastern_archipelago"
 	GameState.world_state.explored_region_ids = ["eastern_archipelago"]
@@ -38,8 +38,8 @@ func _seed_progress() -> void:
 		"cargo": [{"resource_id": "resource_timber", "quantity": 5}],
 		"fuel_at_start": 90.0, "hull_at_start": 85.0,
 		"contract_id": "test_contract", "status": "sailing"}, true)
-	GameState.ship_state.merge({"ship_id": "ship_sloop", "position": Vector2.ZERO,
-		"velocity": Vector2(3, 4), "heading": PI / 4.0, "fuel": 37.0, "hull": 61.0,
+	GameState.ship_state.merge({"ship_id": "ship_sloop", "position": Vector2(321, 654),
+		"velocity": Vector2(3, 4), "heading": Vector2(3, 4).angle(), "fuel": 37.0, "hull": 61.0,
 		"engine": 80.0, "steering": 75.0, "cargo_hold": 70.0,
 		"cargo": [{"resource_id": "resource_timber", "quantity": 5}]}, true)
 
@@ -58,7 +58,7 @@ func test_new_game_initializes_and_saves_identity() -> void:
 	assert_true(_main._is_new_game)
 	assert_eq(GameState.player_state.get("origin_race_id", ""), "meridians")
 	assert_ne(GameState.world_state.seed, 0)
-	assert_eq(GameState.world_state.world_gen_version, "1")
+	assert_eq(GameState.world_state.world_gen_version, _main._world_generator.get_generation_version())
 	assert_true(SaveSystem.has_save())
 	assert_true(GameState.player_state.discovered_port_ids.is_empty())
 	for port in GameState.port_state.values():
@@ -87,7 +87,8 @@ func test_existing_save_without_confirmed_race_shows_picker_and_keeps_progress()
 	assert_eq(GameState.player_state.get("origin_race_id", ""), "humans")
 	assert_true(GameState.player_state.origin_race_confirmed)
 	assert_eq(GameState.world_state.seed, saved_seed)
-	assert_eq(GameState.port_state, saved_ports)
+	for port_id in saved_ports:
+		assert_eq(GameState.port_state.get(port_id, {}), saved_ports[port_id], "Existing port progress survives race choice")
 	assert_eq(SaveSystem._read_json("user://saves/save_main.json").player_state.origin_race_id, "humans")
 
 

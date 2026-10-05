@@ -151,6 +151,8 @@ func get_take_control_status(ship_id: String) -> Dictionary:
 	if index < 0:
 		return {"ok": false, "message": "Корабль флота не найден."}
 	var candidate: Dictionary = GameState.fleet_state[index]
+	if str(candidate.get("ship_type_id","")) == "ship_combat_cutter":
+		return {"ok": false, "message": "Военный транспорт следует за вашим кораблём. Управляйте десантом в окне флота."}
 	if not candidate.get("autopilot", {}).is_empty():
 		return {"ok": false, "message": "Сначала дождитесь окончания рейса."}
 	if not candidate.get("pending_trade", {}).is_empty():
@@ -256,6 +258,10 @@ func assign_employee(employee_id: String, target_ship_id: String) -> Dictionary:
 	for vessel in GameState.fleet_state:
 		if vessel.get("crew", []).has(employee_id):
 			source_id = str(vessel.get("instance_id", ""))
+	var source_port: String = _get_ship_port_id(source_id)
+	var target_port: String = _get_ship_port_id(target_ship_id)
+	if source_port == "" or source_port != target_port:
+		return {"ok": false, "message": "Перевод возможен, только когда оба корабля стоят в одном порту."}
 	if _is_ship_sailing(source_id) or _is_ship_sailing(target_ship_id):
 		return {"ok": false, "message": "Перевод экипажа доступен после завершения рейса."}
 	var target_limit: int = _get_ship_crew_limit(target_ship_id)
@@ -273,12 +279,50 @@ func assign_employee(employee_id: String, target_ship_id: String) -> Dictionary:
 	SaveSystem.save_game()
 	return {"ok": true, "message": "Сотрудник назначен на корабль."}
 
+func get_employee_assignment_status(employee_id: String, target_ship_id: String) -> Dictionary:
+	if not _employee_exists(employee_id):
+		return {"ok": false, "message": "Сотрудник не найден."}
+	var source_id: String = str(get_employee(employee_id).get("assigned_to", "active_ship"))
+	for vessel in GameState.fleet_state:
+		if vessel.get("crew", []).has(employee_id):
+			source_id = str(vessel.get("instance_id", ""))
+	if source_id == target_ship_id:
+		return {"ok": false, "message": "Сотрудник уже в этом экипаже."}
+	if _is_ship_sailing(source_id) or _is_ship_sailing(target_ship_id):
+		return {"ok": false, "message": "Перевод экипажа доступен после завершения рейса."}
+	if _get_ship_port_id(source_id) == "" or _get_ship_port_id(source_id) != _get_ship_port_id(target_ship_id):
+		return {"ok": false, "message": "Перевод возможен, только когда оба корабля стоят в одном порту."}
+	var target_crew: Array = _get_ship_crew(target_ship_id)
+	if target_crew.size() >= _get_ship_crew_limit(target_ship_id):
+		return {"ok": false, "message": "На корабле нет свободной ячейки."}
+	return {"ok": true, "message": "Можно посадить сотрудника."}
+
+func get_assignable_employees(target_ship_id: String) -> Array:
+	var result: Array = []
+	for raw_employee in GameState.employee_state:
+		var employee: Dictionary = raw_employee
+		var status: Dictionary = get_employee_assignment_status(str(employee.get("employee_instance_id", "")), target_ship_id)
+		if bool(status.get("ok", false)):
+			result.append(employee)
+	return result
+
+func _get_ship_port_id(ship_id: String) -> String:
+	if ship_id == "active_ship":
+		return str(GameState.ship_state.get("docked_port_id", ""))
+	var index: int = _find_auxiliary_index(ship_id)
+	if index < 0:
+		return ""
+	var ship: Dictionary = GameState.fleet_state[index]
+	return "" if not ship.get("autopilot", {}).is_empty() else str(ship.get("current_port_id", ""))
+
 func quote_leg(ship_id: String, route_key: String, quantity: int) -> Dictionary:
 	var index: int = _find_auxiliary_index(ship_id)
 	var route: Dictionary = GameState.known_routes_state.get(route_key, {})
 	if index < 0 or route.is_empty():
 		return {"ok": false, "message": "Корабль или маршрут не найден."}
 	var ship: Dictionary = GameState.fleet_state[index]
+	if str(ship.get("ship_type_id","")) == "ship_combat_cutter":
+		return {"ok": false, "message": "Военный транспорт перевозит десант и не назначается на торговые рейсы."}
 	var quote: Dictionary = _economy.voyage_quote(ship, get_ship_type(str(ship.get("ship_type_id", ""))), GameState.employee_state, float(route.get("distance", 0.0)), quantity)
 	quote["ok"] = true
 	return quote
@@ -291,6 +335,8 @@ func start_autopilot(ship_id: String, route_key: String, freight_plan: Dictionar
 	if route.is_empty():
 		return {"ok": false, "message": "Этот маршрут ещё не изучен."}
 	var ship: Dictionary = GameState.fleet_state[ship_index]
+	if str(ship.get("ship_type_id","")) == "ship_combat_cutter":
+		return {"ok": false, "message": "Военный транспорт перевозит десант и не назначается на торговые рейсы."}
 	if not ship.get("autopilot", {}).is_empty():
 		return {"ok": false, "message": "Корабль уже в рейсе."}
 	if not ship.get("cargo", []).is_empty():
@@ -401,6 +447,12 @@ func _is_ship_sailing(ship_id: String) -> bool:
 
 func _consume_crew_voyage(ship: Dictionary) -> void:
 	var crew: Array = ship.get("crew", []).duplicate()
+	var hiring_systems: Array[Node] = get_tree().get_nodes_in_group("hiring_system")
+	if not hiring_systems.is_empty():
+		var actions: Array[String] = ["navigation", "speed", "fuel"]
+		if not ship.get("cargo", []).is_empty():
+			actions.append("loading")
+		hiring_systems[0].record_crew_voyage_actions(crew, actions)
 	if _hiring_system != null:
 		ship["crew"] = _hiring_system.complete_voyage(crew)
 		return

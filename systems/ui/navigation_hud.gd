@@ -64,7 +64,7 @@ func _ready() -> void:
 
 	var chart_script: GDScript = load("res://systems/ui/navigation_chart.gd") as GDScript
 	_chart = chart_script.new() as Control
-	_chart.custom_minimum_size = Vector2(600, 420)
+	_chart.custom_minimum_size = Vector2(600, 320)
 	_chart.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_chart.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	body.add_child(_chart)
@@ -114,8 +114,9 @@ func initialize(port_system: Node) -> void:
 
 func _process(_delta: float) -> void:
 	var viewport: Rect2 = get_viewport().get_visible_rect()
+	_chart.custom_minimum_size = Vector2(clampf(viewport.size.x * 0.48, 240, 600), clampf(viewport.size.y * 0.30, 180, 320))
 	_toggle_button.position = Vector2(12.0, 205.0)
-	_course_label.position = Vector2(12.0, 255.0)
+	_course_label.position = Vector2(viewport.size.x - 455.0, 18.0) if viewport.size.x >= 960 else Vector2(12.0, 420.0)
 	_panel.position = viewport.position
 	_panel.size = viewport.size
 	_panel.visible = _is_open
@@ -190,6 +191,8 @@ func _update_course(destination_id: String) -> void:
 
 	var home_port_id: String = str(GameState.world_state.get("home_port_id", ""))
 	var active_destination: String = destination_id
+	if active_destination == "<null>":
+		active_destination = ""
 	var is_home_target: bool = false
 	if active_destination == "":
 		active_destination = home_port_id

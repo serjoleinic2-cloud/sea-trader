@@ -1,0 +1,8 @@
+{
+  "triangles": 4110,
+  "objects": 204,
+  "hull_length_m": 6.15,
+  "reference_length_m": 6.15,
+  "bow_axis_blender": "+Y",
+  "bow_axis_godot": "-Z"
+}

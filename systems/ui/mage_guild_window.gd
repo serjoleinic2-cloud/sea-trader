@@ -10,6 +10,7 @@ var _shards: Label
 var _status: Label
 var _notice: Label
 var _cards: Dictionary = {}
+var _card_layout: BoxContainer
 var _open: bool = false
 var _last_refresh_second: int = -1
 
@@ -67,7 +68,8 @@ func _ready() -> void:
 	_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_status.add_theme_font_size_override("font_size", 18)
 	layout.add_child(_status)
-	var cards := HBoxContainer.new()
+	var cards := BoxContainer.new()
+	_card_layout = cards
 	cards.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	cards.add_theme_constant_override("separation", 14)
 	layout.add_child(cards)
@@ -97,6 +99,7 @@ func _process(_delta: float) -> void:
 	if not _open:
 		return
 	var viewport := get_viewport().get_visible_rect().size
+	_card_layout.vertical = viewport.x < 1200.0
 	_panel.size = Vector2(minf(1120.0, viewport.x - 32.0), minf(690.0, viewport.y - 32.0))
 	_panel.position = (viewport - _panel.size) * 0.5
 	var second := int(Time.get_unix_time_from_system())

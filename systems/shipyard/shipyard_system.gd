@@ -51,12 +51,14 @@ func create_project(ship_type_id: String) -> Dictionary:
 func set_project_name(project_name: String) -> Dictionary:
 	var project: Dictionary = get_project()
 	var cleaned: String = project_name.strip_edges()
-	if project.is_empty() or cleaned == "":
-		return {"ok": false, "message": "Укажите имя корабля."}
+	if project.is_empty():
+		return {"ok": false, "message": "Нет активного проекта корабля: имя не сохранено."}
+	if cleaned == "":
+		return {"ok": false, "message": "Введите имя корабля — пустое имя не сохранено."}
 	project["name"] = cleaned.left(28)
 	GameState.company_state["shipyard_project"] = project
 	SaveSystem.save_game()
-	return {"ok": true, "message": "Имя проекта изменено."}
+	return {"ok": true, "message": "Имя корабля «%s» сохранено." % str(project["name"])}
 
 func set_material_amount(resource_id: String, amount: int) -> Dictionary:
 	if not _is_at_home():

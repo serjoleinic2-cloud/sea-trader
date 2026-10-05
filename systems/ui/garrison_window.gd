@@ -21,6 +21,7 @@ var _crystal_select: OptionButton
 var _crystal_apply_button: Button
 var _crystal_signature: String = ""
 var _unit_grids: Dictionary = {}
+var _recruitment_portrait_bars: Dictionary = {}
 var _report_list: VBoxContainer
 var _upgrade_button: Button
 var _repair_button: Button
@@ -28,12 +29,17 @@ var _is_open: bool = false
 var _cards_dirty: bool = true
 var _last_refresh_second: int = -1
 var _last_roster_signature: String = ""
+var _last_card_columns: int = 0
 var _origin_emblem: TextureRect
 
-const CARD_MIN_SIZE := Vector2(330, 360)
+const CARD_MIN_SIZE := Vector2(280, 320)
 const UNIT_PORTRAITS := {
-	"coast_guard": "res://assets/characters/infantry_scout.jpg",
-	"stone_warden": "res://assets/characters/infantry_guardian.jpg"
+	"coast_guard": "res://assets/characters/units/coast_guard.webp",
+	"rune_spearman": "res://assets/characters/units/rune_spearman.webp",
+	"stone_warden": "res://assets/characters/units/stone_warden.webp",
+	"wind_rider": "res://assets/characters/units/wind_rider.webp",
+	"crystal_mortar": "res://assets/characters/units/crystal_mortar.webp",
+	"storm_drake": "res://assets/characters/units/storm_drake.webp"
 }
 
 func _ready() -> void:
@@ -73,28 +79,29 @@ func _ready() -> void:
 	_origin_emblem.texture = GameData.get_faction_emblem(str(GameState.player_state.get("origin_race_id", "")))
 	title.text = "ГАРНИЗОН · %s" % str(faction.get("name", "Игрок"))
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	title.add_theme_font_size_override("font_size", 28)
+	title.add_theme_font_size_override("font_size", 20)
 	heading.add_child(title)
 	var close_button := Button.new()
 	close_button.text = "Закрыть"
-	close_button.custom_minimum_size = Vector2(130, 44)
-	close_button.add_theme_font_size_override("font_size", 19)
+	close_button.custom_minimum_size = Vector2(100, 34)
+	close_button.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	close_button.add_theme_font_size_override("font_size", 14)
 	close_button.pressed.connect(_close)
 	heading.add_child(close_button)
 
 	_details = Label.new()
-	_details.add_theme_font_size_override("font_size", 18)
+	_details.add_theme_font_size_override("font_size", 14)
 	_details.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	layout.add_child(_details)
 
 	_notice = Label.new()
-	_notice.add_theme_font_size_override("font_size", 18)
+	_notice.add_theme_font_size_override("font_size", 14)
 	_notice.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	layout.add_child(_notice)
 
 	_tabs = TabContainer.new()
 	_tabs.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_tabs.add_theme_font_size_override("font_size", 18)
+	_tabs.add_theme_font_size_override("font_size", 14)
 	layout.add_child(_tabs)
 
 	_build_overview_tab()
@@ -122,7 +129,7 @@ func _process(_delta: float) -> void:
 	if not _is_open or _system == null:
 		return
 	var viewport: Vector2 = get_viewport().get_visible_rect().size
-	_panel.size = Vector2(minf(1220.0, viewport.x - 24.0), minf(1480.0, viewport.y - 24.0))
+	_panel.size = Vector2(minf(1120.0, viewport.x - 24.0), minf(840.0, viewport.y - 24.0))
 	_panel.position = (viewport - _panel.size) * 0.5
 	var second: int = int(Time.get_unix_time_from_system())
 	if second != _last_refresh_second:
@@ -142,12 +149,12 @@ func _build_overview_tab() -> void:
 
 	var upgrade_title := Label.new()
 	upgrade_title.text = "РАЗВИТИЕ ГАРНИЗОНА"
-	upgrade_title.add_theme_font_size_override("font_size", 22)
+	upgrade_title.add_theme_font_size_override("font_size", 17)
 	_overview.add_child(upgrade_title)
 	_add_garrison_upgrade(_overview)
 
 	_construction_label = Label.new()
-	_construction_label.add_theme_font_size_override("font_size", 18)
+	_construction_label.add_theme_font_size_override("font_size", 14)
 	_overview.add_child(_construction_label)
 	_construction_bar = ProgressBar.new()
 	_construction_bar.custom_minimum_size.y = 24
@@ -156,10 +163,10 @@ func _build_overview_tab() -> void:
 
 	var training_title := Label.new()
 	training_title.text = "ОБУЧЕНИЕ ОТРЯДОВ"
-	training_title.add_theme_font_size_override("font_size", 22)
+	training_title.add_theme_font_size_override("font_size", 17)
 	_overview.add_child(training_title)
 	_recruitment_label = Label.new()
-	_recruitment_label.add_theme_font_size_override("font_size", 18)
+	_recruitment_label.add_theme_font_size_override("font_size", 14)
 	_overview.add_child(_recruitment_label)
 	_recruitment_bar = ProgressBar.new()
 	_recruitment_bar.custom_minimum_size.y = 24
@@ -168,10 +175,10 @@ func _build_overview_tab() -> void:
 
 	var operation_title := Label.new()
 	operation_title.text = "ТЕКУЩАЯ ВЫЛАЗКА"
-	operation_title.add_theme_font_size_override("font_size", 22)
+	operation_title.add_theme_font_size_override("font_size", 17)
 	_overview.add_child(operation_title)
 	_raid_label = Label.new()
-	_raid_label.add_theme_font_size_override("font_size", 18)
+	_raid_label.add_theme_font_size_override("font_size", 14)
 	_overview.add_child(_raid_label)
 	_raid_bar = ProgressBar.new()
 	_raid_bar.custom_minimum_size.y = 24
@@ -182,12 +189,14 @@ func _build_overview_tab() -> void:
 		var test_row := HBoxContainer.new()
 		var defense_test := Button.new()
 		defense_test.text = "ТЕСТ: нападение"
-		defense_test.add_theme_font_size_override("font_size", 16)
+		defense_test.add_theme_font_size_override("font_size", 13)
+		defense_test.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 		defense_test.pressed.connect(_test_defense)
 		test_row.add_child(defense_test)
 		var raid_test := Button.new()
 		raid_test.text = "ТЕСТ: вылазка 15 сек."
-		raid_test.add_theme_font_size_override("font_size", 16)
+		raid_test.add_theme_font_size_override("font_size", 13)
+		raid_test.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 		raid_test.pressed.connect(_test_raid)
 		test_row.add_child(raid_test)
 		_overview.add_child(test_row)
@@ -204,12 +213,13 @@ func _build_unit_tab(tab_name: String) -> void:
 	scroll.add_child(content)
 	var intro := Label.new()
 	intro.text = "Выберите отряд. Численность и развитие сохраняются в гарнизоне."
-	intro.add_theme_font_size_override("font_size", 18)
+	intro.add_theme_font_size_override("font_size", 14)
 	intro.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	content.add_child(intro)
 	var grid := GridContainer.new()
 	grid.name = "UnitCards"
-	grid.columns = 2 if get_viewport().get_visible_rect().size.x >= 820.0 else 1
+	var width: float = get_viewport().get_visible_rect().size.x
+	grid.columns = 3 if width >= 1200.0 else (2 if width >= 820.0 else 1)
 	grid.add_theme_constant_override("h_separation", 12)
 	grid.add_theme_constant_override("v_separation", 12)
 	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -228,10 +238,10 @@ func _build_defense_tab() -> void:
 
 	var title := Label.new()
 	title.text = "КРИСТАЛЛИЧЕСКИЕ БАШНИ"
-	title.add_theme_font_size_override("font_size", 22)
+	title.add_theme_font_size_override("font_size", 17)
 	content.add_child(title)
 	_tower_label = Label.new()
-	_tower_label.add_theme_font_size_override("font_size", 18)
+	_tower_label.add_theme_font_size_override("font_size", 14)
 	_tower_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	content.add_child(_tower_label)
 
@@ -240,9 +250,9 @@ func _build_defense_tab() -> void:
 	for tower in [["island", "Построить башню"]]:
 		var button := Button.new()
 		button.text = str(tower[1])
-		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		button.custom_minimum_size.y = 48
-		button.add_theme_font_size_override("font_size", 17)
+		button.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+		button.custom_minimum_size = Vector2(160, 36)
+		button.add_theme_font_size_override("font_size", 14)
 		button.pressed.connect(_build_tower.bind(str(tower[0])))
 		tower_buttons.add_child(button)
 		_tower_buttons[str(tower[0])] = button
@@ -252,27 +262,27 @@ func _build_defense_tab() -> void:
 	crystal_row.add_theme_constant_override("separation", 8)
 	_tower_slot_select = OptionButton.new()
 	_tower_slot_select.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_tower_slot_select.custom_minimum_size.y = 46
-	_tower_slot_select.add_theme_font_size_override("font_size", 17)
+	_tower_slot_select.custom_minimum_size.y = 36
+	_tower_slot_select.add_theme_font_size_override("font_size", 14)
 	_tower_slot_select.item_selected.connect(_on_tower_slot_selected)
 	crystal_row.add_child(_tower_slot_select)
 	_crystal_select = OptionButton.new()
 	_crystal_select.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_crystal_select.custom_minimum_size.y = 46
-	_crystal_select.add_theme_font_size_override("font_size", 17)
+	_crystal_select.custom_minimum_size.y = 36
+	_crystal_select.add_theme_font_size_override("font_size", 14)
 	_crystal_select.item_selected.connect(_on_crystal_selected)
 	crystal_row.add_child(_crystal_select)
 	_crystal_apply_button = Button.new()
 	_crystal_apply_button.text = "Установить"
-	_crystal_apply_button.custom_minimum_size = Vector2(170, 46)
-	_crystal_apply_button.add_theme_font_size_override("font_size", 17)
+	_crystal_apply_button.custom_minimum_size = Vector2(120, 36)
+	_crystal_apply_button.add_theme_font_size_override("font_size", 14)
 	_crystal_apply_button.pressed.connect(_set_tower_crystal)
 	crystal_row.add_child(_crystal_apply_button)
 	content.add_child(crystal_row)
 
 	var note := Label.new()
 	note.text = "Башни открываются на 2 и 4 уровне гарнизона. Всего две универсальные площадки; в каждую устанавливается кристалл атаки, брони или удачи. Кристалл можно снять и переставить. Крафт и уровень кристаллов — в гильдии магов."
-	note.add_theme_font_size_override("font_size", 17)
+	note.add_theme_font_size_override("font_size", 14)
 	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	content.add_child(note)
 
@@ -280,8 +290,9 @@ func _build_defense_tab() -> void:
 	content.add_child(fort_row)
 	_repair_button = Button.new()
 	_repair_button.text = "Починить укрепления"
-	_repair_button.custom_minimum_size = Vector2(240, 48)
-	_repair_button.add_theme_font_size_override("font_size", 18)
+	_repair_button.custom_minimum_size = Vector2(190, 36)
+	_repair_button.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	_repair_button.add_theme_font_size_override("font_size", 14)
 	_repair_button.pressed.connect(_repair)
 	fort_row.add_child(_repair_button)
 
@@ -300,8 +311,9 @@ func _add_garrison_upgrade(parent: VBoxContainer) -> void:
 	var row := HBoxContainer.new()
 	_upgrade_button = Button.new()
 	_upgrade_button.text = "Улучшить гарнизон"
-	_upgrade_button.custom_minimum_size = Vector2(230, 48)
-	_upgrade_button.add_theme_font_size_override("font_size", 18)
+	_upgrade_button.custom_minimum_size = Vector2(190, 36)
+	_upgrade_button.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	_upgrade_button.add_theme_font_size_override("font_size", 14)
 	_upgrade_button.pressed.connect(_upgrade_garrison)
 	row.add_child(_upgrade_button)
 	parent.add_child(row)
@@ -328,6 +340,7 @@ func _refresh() -> void:
 		_recruitment_label.text = "Сейчас отряды не обучаются."
 	else:
 		_recruitment_label.text = "Обучается: %s × %d  •  осталось %d сек." % [_system.get_unit_name(str(recruit_job.get("unit_id", ""))), int(recruit_job.get("amount", 0)), int(recruit_job.get("seconds_left", 0))]
+	_refresh_recruitment_portrait(recruit_job)
 
 	var raid: Dictionary = _system.get_player_raid_status()
 	_raid_bar.value = float(raid.get("percent", 0.0))
@@ -344,8 +357,10 @@ func _refresh() -> void:
 	var roster_signature: String = ""
 	for unit in _system.get_roster():
 		roster_signature += "%s:%d:%d:%d:%d|" % [str(unit.get("id", "")), int(unit.get("count", 0)), int(unit.get("level", 1)), int(unit.get("experience", 0)), int(unit.get("unlocked", false))]
-	if _cards_dirty or roster_signature != _last_roster_signature:
+	var current_columns: int = 3 if get_viewport().get_visible_rect().size.x >= 1200.0 else (2 if get_viewport().get_visible_rect().size.x >= 820.0 else 1)
+	if _cards_dirty or roster_signature != _last_roster_signature or current_columns != _last_card_columns:
 		_last_roster_signature = roster_signature
+		_last_card_columns = current_columns
 		_rebuild_unit_cards()
 		_cards_dirty = false
 	_rebuild_reports()
@@ -437,11 +452,13 @@ func _set_tower_crystal() -> void:
 	_refresh()
 
 func _rebuild_unit_cards() -> void:
+	_recruitment_portrait_bars.clear()
 	for grid in _unit_grids.values():
 		for child in grid.get_children():
 			child.queue_free()
 	var max_batch: int = int(_system.get_catalog().get("rules", {}).get("max_recruitment_batch", 20))
-	var columns: int = 2 if get_viewport().get_visible_rect().size.x >= 820.0 else 1
+	var viewport_width: float = get_viewport().get_visible_rect().size.x
+	var columns: int = 3 if viewport_width >= 1200.0 else (2 if viewport_width >= 820.0 else 1)
 	for grid_value in _unit_grids.values():
 		var unit_grid: GridContainer = grid_value
 		unit_grid.columns = columns
@@ -451,6 +468,16 @@ func _rebuild_unit_cards() -> void:
 		if grid == null:
 			continue
 		grid.add_child(_create_unit_card(unit, max_batch))
+
+func _refresh_recruitment_portrait(recruit_job: Dictionary) -> void:
+	var training_unit_id: String = str(recruit_job.get("unit_id", ""))
+	for unit_id in _recruitment_portrait_bars:
+		var bar: ProgressBar = _recruitment_portrait_bars[unit_id]
+		if not is_instance_valid(bar):
+			continue
+		bar.visible = not recruit_job.is_empty() and str(unit_id) == training_unit_id
+		if bar.visible:
+			bar.value = float(recruit_job.get("percent", 0.0))
 
 func _tab_for_branch(branch: String) -> String:
 	if branch.contains("Летуч"):
@@ -462,10 +489,15 @@ func _tab_for_branch(branch: String) -> String:
 func _create_unit_card(unit: Dictionary, max_batch: int) -> Control:
 	var card := PanelContainer.new()
 	card.custom_minimum_size = CARD_MIN_SIZE
+	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var race_id: String = str(GameState.player_state.get("origin_race_id", "humans"))
+	var faction: Dictionary = GameData.get_faction(race_id)
+	var palette: Array = faction.get("palette", ["#142735", "#536e78", "#c49a58"])
+	var race_accent := Color(str(palette[2])) if palette.size() > 2 else Color("#c49a58")
 	var style := StyleBoxFlat.new()
 	style.bg_color = Color("#142735")
-	style.border_color = Color("#536e78") if bool(unit.get("unlocked", false)) else Color("#46515a")
-	style.set_border_width_all(2)
+	style.border_color = race_accent if bool(unit.get("unlocked", false)) else Color("#46515a")
+	style.set_border_width_all(1)
 	style.set_corner_radius_all(6)
 	card.add_theme_stylebox_override("panel", style)
 
@@ -478,46 +510,70 @@ func _create_unit_card(unit: Dictionary, max_batch: int) -> Control:
 	margin.add_child(content)
 
 	var portrait_row := HBoxContainer.new()
+	portrait_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	content.add_child(portrait_row)
-	var portrait_path: String = str(UNIT_PORTRAITS.get(str(unit.get("id", "")), ""))
+	var portrait_path := _get_unit_portrait_path(str(unit.get("id", "")), race_id)
+	var portrait_frame := Panel.new()
+	portrait_frame.custom_minimum_size = Vector2(144, 144)
+	portrait_frame.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	var frame_style := StyleBoxFlat.new()
+	frame_style.bg_color = Color("#0b141c") if portrait_path != "" and ResourceLoader.exists(portrait_path) else Color("#203d49")
+	frame_style.border_color = race_accent if portrait_path != "" and ResourceLoader.exists(portrait_path) else Color("#497887")
+	frame_style.set_border_width_all(2)
+	portrait_frame.add_theme_stylebox_override("panel", frame_style)
+	portrait_row.add_child(portrait_frame)
 	if portrait_path != "" and ResourceLoader.exists(portrait_path):
 		var portrait := TextureRect.new()
-		portrait.custom_minimum_size = Vector2(150, 116)
-		portrait.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		portrait.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		portrait.offset_left = 2
+		portrait.offset_top = 2
+		portrait.offset_right = -2
+		portrait.offset_bottom = -2
 		portrait.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 		portrait.texture = load(portrait_path) as Texture2D
-		portrait_row.add_child(portrait)
+		portrait.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		portrait_frame.add_child(portrait)
 	else:
-		var placeholder := PanelContainer.new()
-		placeholder.custom_minimum_size = Vector2(150, 116)
-		placeholder.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		var placeholder_style := StyleBoxFlat.new()
-		placeholder_style.bg_color = Color("#203d49")
-		placeholder_style.border_color = Color("#497887")
-		placeholder_style.set_border_width_all(1)
-		placeholder.add_theme_stylebox_override("panel", placeholder_style)
 		var emblem := Label.new()
+		emblem.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		emblem.text = "✦\n" + str(unit.get("branch", ""))
 		emblem.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		emblem.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		emblem.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		emblem.add_theme_font_size_override("font_size", 20)
-		placeholder.add_child(emblem)
-		portrait_row.add_child(placeholder)
+		portrait_frame.add_child(emblem)
+	var training_bar := ProgressBar.new()
+	training_bar.name = "PortraitRecruitmentProgress"
+	training_bar.min_value = 0
+	training_bar.max_value = 100
+	training_bar.show_percentage = true
+	training_bar.visible = false
+	training_bar.anchor_left = 0.06
+	training_bar.anchor_right = 0.94
+	training_bar.anchor_top = 1.0
+	training_bar.anchor_bottom = 1.0
+	training_bar.offset_top = -27
+	training_bar.offset_bottom = -8
+	training_bar.add_theme_font_size_override("font_size", 11)
+	portrait_frame.add_child(training_bar)
+	_recruitment_portrait_bars[str(unit.get("id", ""))] = training_bar
 
 	var title := Label.new()
-	title.text = str(unit.get("branch", "")).to_upper()
-	title.add_theme_font_size_override("font_size", 18)
+	title.text = str(unit.get("branch", "")).to_upper() + " · " + str(faction.get("name", "Игрок"))
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_color_override("font_color", race_accent)
+	title.add_theme_font_size_override("font_size", 13)
 	content.add_child(title)
 	var name := Label.new()
 	name.text = str(unit.get("name", ""))
-	name.add_theme_font_size_override("font_size", 22)
+	name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	name.add_theme_font_size_override("font_size", 17)
 	name.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	content.add_child(name)
 
 	var state := Label.new()
-	state.add_theme_font_size_override("font_size", 17)
+	state.add_theme_font_size_override("font_size", 14)
 	if bool(unit.get("unlocked", false)):
 		state.text = "%d в гарнизоне  •  уровень %d" % [int(unit.get("count", 0)), int(unit.get("level", 1))]
 	else:
@@ -528,7 +584,7 @@ func _create_unit_card(unit: Dictionary, max_batch: int) -> Control:
 	if bool(unit.get("unlocked", false)):
 		var stats := Label.new()
 		stats.text = "Сила %d  •  защита %d\nСкорость %d  •  удача %d" % [int(unit.get("attack", 0)), int(unit.get("defense", 0)), int(unit.get("speed", 0)), int(unit.get("luck", 0))]
-		stats.add_theme_font_size_override("font_size", 17)
+		stats.add_theme_font_size_override("font_size", 14)
 		content.add_child(stats)
 
 		var growth := ProgressBar.new()
@@ -538,24 +594,25 @@ func _create_unit_card(unit: Dictionary, max_batch: int) -> Control:
 		content.add_child(growth)
 		var growth_label := Label.new()
 		growth_label.text = "Развитие отряда: %d%%" % int(unit.get("experience_percent", 0))
-		growth_label.add_theme_font_size_override("font_size", 16)
+		growth_label.add_theme_font_size_override("font_size", 13)
 		content.add_child(growth_label)
 
 		var quantity_label := Label.new()
-		quantity_label.add_theme_font_size_override("font_size", 16)
+		quantity_label.add_theme_font_size_override("font_size", 13)
 		content.add_child(quantity_label)
 		var quantity := HSlider.new()
 		quantity.min_value = 1
 		quantity.max_value = max_batch
 		quantity.step = 1
 		quantity.value = mini(5, max_batch)
-		quantity.custom_minimum_size.y = 28
+		quantity.custom_minimum_size.y = 24
 		content.add_child(quantity)
 
 		var hire := Button.new()
 		hire.text = "Нанять отряд"
-		hire.custom_minimum_size.y = 42
-		hire.add_theme_font_size_override("font_size", 18)
+		hire.custom_minimum_size = Vector2(150, 34)
+		hire.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		hire.add_theme_font_size_override("font_size", 13)
 		hire.pressed.connect(_recruit.bind(str(unit.get("id", "")), quantity))
 		content.add_child(hire)
 		quantity.value_changed.connect(_update_recruit_preview.bind(str(unit.get("id", "")), quantity_label, hire))
@@ -564,13 +621,21 @@ func _create_unit_card(unit: Dictionary, max_batch: int) -> Control:
 		if int(unit.get("count", 0)) > 0:
 			var promote := Button.new()
 			promote.text = "Повысить уровень отряда"
-			promote.custom_minimum_size.y = 40
-			promote.add_theme_font_size_override("font_size", 16)
+			promote.custom_minimum_size = Vector2(190, 32)
+			promote.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+			promote.add_theme_font_size_override("font_size", 13)
 			promote.disabled = not _system.is_at_home() or int(unit.get("level", 1)) >= _system.get_garrison_level() or int(unit.get("experience", 0)) < int(unit.get("next_level_experience", 100))
 			promote.pressed.connect(_promote.bind(str(unit.get("id", ""))))
 			content.add_child(promote)
 
 	return card
+
+func _get_unit_portrait_path(unit_id: String, race_id: String) -> String:
+	# Prefer a racial portrait when available; preserve existing unit art as fallback.
+	var faction_path := "res://assets/characters/units/%s/%s.webp" % [race_id, unit_id]
+	if ResourceLoader.exists(faction_path):
+		return faction_path
+	return str(UNIT_PORTRAITS.get(unit_id, ""))
 
 func _update_recruit_preview(amount_value: float, unit_id: String, preview: Label, hire_button: Button) -> void:
 	if _system == null or not is_instance_valid(preview) or not is_instance_valid(hire_button):

@@ -116,14 +116,17 @@ func voyage_quote(ship: Dictionary, definition: Dictionary, employees: Array, di
 			speed_bonus += float(employee.get(key, {}).get("speed", 0.0))
 			repair_bonus += float(employee.get(key, {}).get("repair", 0.0))
 	var size_factor: float = 1.0 + float(capacity) / float(config.capacity_scale)
+	var tier: int = maxi(1, int(definition.get("tier", 1)))
+	var tier_service_factor: float = 1.0 + float(maxi(0, tier - 1)) * float(config.get("tier_service_factor", 0.18))
 	var load_factor: float = 1.0 + float(config.load_factor) * clampf(float(quantity) / capacity, 0.0, 1.0)
 	var fuel: float = maxf(0.0, distance) * float(config.fuel_per_distance) * size_factor * load_factor * clampf(1.0 - fuel_bonus / 100.0, 0.5, 1.5)
-	var repair: float = maxf(0.0, distance) * float(config.wear_per_distance) * size_factor * float(config.repair_price) * clampf(1.0 - repair_bonus / 100.0, 0.5, 1.5)
+	var repair: float = maxf(0.0, distance) * float(config.wear_per_distance) * size_factor * tier_service_factor * float(config.repair_price) * clampf(1.0 - repair_bonus / 100.0, 0.5, 1.5)
 	var food: float = crew.size() * float(config.food_per_person)
-	var cash: float = snappedf(fuel * float(config.fuel_price) + repair + food + wages + float(config.port_fee), 0.01)
+	var port_fee: float = float(config.port_fee) * tier_service_factor
+	var cash: float = snappedf(fuel * float(config.fuel_price) + repair + food + wages + port_fee, 0.01)
 	var speed: float = float(definition.get("base_speed", 120)) * clampf(1.0 + speed_bonus / 100.0, 0.5, 1.5)
 	return {"cash": cash, "economic_cost": cash + contract_cost, "fuel": fuel * float(config.fuel_price),
-		"repair": repair, "food": food, "wages": wages, "prepaid_wages": contract_cost, "port_fee": float(config.port_fee),
+		"repair": repair, "food": food, "wages": wages, "prepaid_wages": contract_cost, "port_fee": port_fee,
 		"duration": maxf(float(config.minimum_leg_seconds), distance / maxf(1.0, speed))}
 
 func reserved(economy: Dictionary, resource_id: String) -> int:

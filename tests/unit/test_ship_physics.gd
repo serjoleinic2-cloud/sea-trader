@@ -72,7 +72,6 @@ func test_reverse_moves_stern_first_without_rotating_hull() -> void:
 	assert_lt(_physics.get_speed(), 0.0)
 	assert_true(bool(GameState.ship_state.get("reverse_gear", false)))
 	assert_almost_eq(_physics.get_heading_degrees(), starting_heading, 0.001)
-
 	var reverse_start: Vector2 = GameState.ship_state.position
 	for _i in range(15):
 		_physics.physics_tick(0.1)
@@ -80,6 +79,25 @@ func test_reverse_moves_stern_first_without_rotating_hull() -> void:
 	var reverse_displacement: Vector2 = GameState.ship_state.position - reverse_start
 	assert_lt(reverse_displacement.dot(forward), 0.0, "reverse motion must be toward the stern")
 	assert_almost_eq(_physics.get_heading_degrees(), starting_heading, 0.001)
+
+func test_reverse_command_brakes_through_zero_without_releasing_key() -> void:
+	_physics._speed = 100.0
+	_physics.apply_control(-1.0, 0.0)
+	for _i in range(240):
+		_physics.physics_tick(0.05)
+	assert_lt(_physics.get_speed(), 0.0, "held reverse brakes to zero and continues astern automatically")
+
+func test_reverse_steering_inverts_bow_rotation() -> void:
+	_physics._heading = 0.0
+	_physics._speed = 12.0
+	_physics.apply_control(1.0, 1.0)
+	_physics._update_heading(0.1)
+	var forward_turn: float = _physics._heading
+	_physics._heading = 0.0
+	_physics._speed = -12.0
+	_physics.apply_control(-1.0, 1.0)
+	_physics._update_heading(0.1)
+	assert_lt(forward_turn * _physics._heading, 0.0, "reverse steering turns opposite the bow angle so stern motion follows the requested side")
 
 func test_restore_uses_saved_heading_even_if_reverse_flag_is_stale() -> void:
 	var saved_heading: float = 0.37
@@ -157,6 +175,23 @@ func test_natural_bay_does_not_allow_crossing_the_island() -> void:
 	_physics.set_collision_data_provider(Callable(self, "_get_collision_test_data"))
 	assert_false(_physics.is_navigation_move_blocked(Vector2(200.0, 0.0), Vector2(80.0, 0.0)))
 	assert_true(_physics.is_navigation_move_blocked(Vector2(80.0, 0.0), Vector2(-200.0, 0.0)))
+
+func test_coastal_harbor_channel_and_route_query_preserve_speed() -> void:
+	_collision_test_data = {"islands": [{"position": Vector2.ZERO, "radius": 100.0,
+		"bay_angle": 0.0, "bay_width": 0.24, "bay_depth": 0.65}]}
+	_physics.set_collision_data_provider(Callable(self, "_get_collision_test_data"))
+	_physics._speed = 12.0
+	assert_false(_physics.is_navigation_move_blocked(Vector2(200, 0), Vector2(70, 0)), "Saved coastal harbor remains reachable")
+	assert_true(_physics.is_navigation_move_blocked(Vector2(70, 0), Vector2(-200, 0)), "Water channel does not cut through the island")
+	assert_eq(_physics.get_speed(), 12.0, "Hypothetical route checks do not brake the real ship")
+	var planner: RefCounted = load("res://systems/navigation/coast_route_planner.gd").new()
+	var route: PackedVector2Array = planner.plan(Vector2(70, 0), Vector2(-220, 0), _collision_test_data.islands, Callable(_physics, "is_navigation_move_blocked"))
+	assert_gt(route.size(), 1, "Departure toward the far side of an island needs coastal waypoints")
+	var previous := Vector2(70, 0)
+	for waypoint in route:
+		assert_false(_physics.is_navigation_move_blocked(previous, waypoint), "Every planned leg remains in navigable water")
+		previous = waypoint
+	assert_eq(previous, Vector2(-220, 0), "Safe route reaches its requested destination")
 
 
 func test_ship_already_inside_island_can_escape_outward() -> void:

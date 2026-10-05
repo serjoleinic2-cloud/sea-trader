@@ -3,5 +3,12 @@ build/
 dist/
 *.apk
 *.aab
+*.idsig
 *.log
 *.uid
+*.blend1
+*.blend2
+__pycache__/
+*.py[cod]
+/outputs/
+/work/

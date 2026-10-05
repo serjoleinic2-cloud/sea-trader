@@ -1,0 +1,37 @@
+{
+  "scene": "res://assets/world/islands/sky_harbor/sky_harbor.glb",
+  "port_offset_m": [360, 55, -500],
+  "islands": [
+    [
+      -24,
+      -41,
+      93,
+      9
+    ],
+    [
+      0,
+      -52,
+      107,
+      13
+    ],
+    [
+      24,
+      -40,
+      98,
+      10
+    ],
+    [
+      -11,
+      -65,
+      123,
+      7
+    ],
+    [
+      35,
+      -62,
+      118,
+      8
+    ]
+  ],
+  "above_peaks": true
+}

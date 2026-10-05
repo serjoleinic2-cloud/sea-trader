@@ -16,7 +16,8 @@
       "premium": true,
       "acquisition": "shop_rotation",
       "store_sku": "sea_trader_golden_clipper",
-      "perk_text": "+8% к скорости; обслуживание дороже"
+      "perk_text": "+8% к скорости; обслуживание дороже",
+      "ui_icon": "res://assets/ui/ships/premium_golden_clipper.png"
     },
     {
       "id": "premium_sea_swallow",
@@ -32,7 +33,8 @@
       "premium": true,
       "acquisition": "shop_rotation",
       "store_sku": "sea_trader_sea_swallow",
-      "perk_text": "Низкие расходы на обслуживание"
+      "perk_text": "Низкие расходы на обслуживание",
+      "ui_icon": "res://assets/ui/ships/premium_sea_swallow.png"
     },
     {
       "id": "premium_salvage_schooner",
@@ -48,7 +50,8 @@
       "premium": true,
       "acquisition": "shop_rotation",
       "store_sku": "sea_trader_salvage_schooner",
-      "perk_text": "Повышенный шанс найти артефакт"
+      "perk_text": "Повышенный шанс найти артефакт",
+      "ui_icon": "res://assets/ui/ships/premium_salvage_schooner.png"
     },
     {
       "id": "premium_royal_schooner",
@@ -64,7 +67,8 @@
       "premium": true,
       "acquisition": "shop_rotation",
       "store_sku": "sea_trader_royal_schooner",
-      "perk_text": "Лучшие условия портовых контрактов"
+      "perk_text": "Лучшие условия портовых контрактов",
+      "ui_icon": "res://assets/ui/ships/premium_royal_schooner.png"
     },
     {
       "id": "premium_steam_freighter",
@@ -80,7 +84,8 @@
       "premium": true,
       "acquisition": "shop_rotation",
       "store_sku": "sea_trader_northern_steamer",
-      "perk_text": "Надёжнее работает в плохую погоду"
+      "perk_text": "Надёжнее работает в плохую погоду",
+      "ui_icon": "res://assets/ui/ships/premium_steam_freighter.png"
     },
     {
       "id": "premium_trade_giant",
@@ -96,7 +101,8 @@
       "premium": true,
       "acquisition": "shop_rotation",
       "store_sku": "sea_trader_trade_giant",
-      "perk_text": "Очень большой трюм; дорогое содержание"
+      "perk_text": "Очень большой трюм; дорогое содержание",
+      "ui_icon": "res://assets/ui/ships/premium_trade_giant.png"
     },
     {
       "id": "premium_ghost_frigate",
@@ -111,7 +117,8 @@
       "max_crew": 8,
       "premium": true,
       "acquisition": "event_reward",
-      "perk_text": "Редкая награда за особые события"
+      "perk_text": "Редкая награда за особые события",
+      "ui_icon": "res://assets/ui/ships/premium_ghost_frigate.png"
     },
     {
       "id": "premium_imperial_yacht",
@@ -127,7 +134,8 @@
       "premium": true,
       "acquisition": "shop_rotation",
       "store_sku": "sea_trader_imperial_yacht",
-      "perk_text": "Доступ к дорогим пассажирским контрактам"
+      "perk_text": "Доступ к дорогим пассажирским контрактам",
+      "ui_icon": "res://assets/ui/ships/premium_imperial_yacht.png"
     }
   ]
 }

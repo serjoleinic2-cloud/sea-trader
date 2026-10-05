@@ -37,7 +37,7 @@
         "resource_paint": 4,
         "resource_varnish": 2
       },
-      "ui_icon": "res://assets/ui/cards/ship_sloop.svg"
+      "ui_icon": "res://assets/ui/ships/ship_sloop.png"
     },
     {
       "id": "ship_barque",
@@ -59,7 +59,7 @@
         "resource_varnish": 8,
         "resource_glass": 4
       },
-      "ui_icon": "res://assets/ui/cards/ship_barque.svg"
+      "ui_icon": "res://assets/ui/ships/ship_barque.png"
     },
     {
       "id": "ship_schooner",
@@ -81,7 +81,7 @@
         "resource_varnish": 25,
         "resource_glass": 12
       },
-      "ui_icon": "res://assets/ui/cards/ship_schooner.svg"
+      "ui_icon": "res://assets/ui/ships/ship_schooner.png"
     },
     {
       "id": "ship_freighter",
@@ -103,7 +103,7 @@
         "resource_varnish": 75,
         "resource_glass": 45
       },
-      "ui_icon": "res://assets/ui/cards/ship_freighter.svg"
+      "ui_icon": "res://assets/ui/ships/ship_freighter.png"
     },
     {
       "id": "ship_tanker",
@@ -125,7 +125,35 @@
         "resource_varnish": 180,
         "resource_glass": 120
       },
-      "ui_icon": "res://assets/ui/cards/ship_tanker.svg"
+      "ui_icon": "res://assets/ui/ships/ship_tanker.png"
+    },
+    {
+      "id": "ship_combat_cutter",
+      "name": "Военный транспорт",
+      "era": "Парусная эпоха",
+      "role": "Десант и сопровождение",
+      "tier": 2,
+      "base_speed": 118,
+      "naval_attack": 72,
+      "cargo_capacity": 0,
+      "command_rank_required": 1,
+      "min_crew": 1,
+      "max_crew": 4,
+      "hull_max": 145,
+      "fuel_capacity": 120,
+      "build_materials": {
+        "resource_timber": 110,
+        "resource_nails": 65,
+        "resource_fabric": 26,
+        "resource_rope": 28,
+        "resource_paint": 15,
+        "resource_varnish": 11,
+        "resource_glass": 6
+      },
+      "ui_icon": "res://assets/ui/ships/ship_combat_cutter.png",
+      "soldier_capacity": 60,
+      "artillery_capacity": 6,
+      "military_transport": true
     }
   ]
 }

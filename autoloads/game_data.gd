@@ -7,13 +7,13 @@ const PREMIUM_SHIPS: String = "res://data/ships/premium_ship_pool.json"
 const GOODS: String = "res://data/resources/goods_catalog.json"
 const FACTIONS: String = "res://data/world/faction_catalog.json"
 const FACTION_ART: Dictionary = {
-	"sea_trader": {"emblem": preload("res://assets/ui/emblems/sea_trader.svg")},
-	"nerids": {"emblem": preload("res://assets/ui/emblems/nerids.svg")},
-	"surr": {"emblem": preload("res://assets/ui/emblems/surr.svg")},
-	"meridians": {"emblem": preload("res://assets/ui/emblems/meridian.svg")},
-	"aery": {"emblem": preload("res://assets/ui/emblems/aery.svg")},
-	"crystari": {"emblem": preload("res://assets/ui/emblems/crystari.svg")},
-	"humans": {"emblem": preload("res://assets/ui/emblems/humans.png")}
+	"sea_trader": {"emblem": "res://assets/ui/emblems/sea_trader.svg"},
+	"nerids": {"emblem": "res://assets/ui/emblems/nerids.svg"},
+	"surr": {"emblem": "res://assets/ui/emblems/surr.svg"},
+	"meridians": {"emblem": "res://assets/ui/emblems/meridian.svg"},
+	"aery": {"emblem": "res://assets/ui/emblems/aery.svg"},
+	"crystari": {"emblem": "res://assets/ui/emblems/crystari.svg"},
+	"humans": {"emblem": "res://assets/ui/emblems/humans.png"}
 }
 var _cache: Dictionary = {}
 
@@ -83,7 +83,10 @@ func get_faction(faction_id: String) -> Dictionary:
 
 func get_faction_emblem(faction_id: String) -> Texture2D:
 	var art: Dictionary = FACTION_ART.get(faction_id, FACTION_ART["sea_trader"])
-	return art.get("emblem") as Texture2D
+	var path: String = str(art.get("emblem", ""))
+	if not ResourceLoader.exists(path):
+		return null
+	return load(path) as Texture2D
 
 func get_faction_portrait(faction_id: String) -> Texture2D:
 	var faction: Dictionary = get_faction(faction_id)
@@ -94,6 +97,18 @@ func get_faction_portrait(faction_id: String) -> Texture2D:
 	if portrait is Texture2D:
 		return portrait as Texture2D
 	return get_faction_emblem(faction_id)
+
+func get_captain_cabin_art(faction_id: String) -> Texture2D:
+	var cabin_art := {
+		"nerids": "res://assets/characters/captains/nerids_captain_cabin.png",
+		"surr": "res://assets/characters/captains/surr_captain_cabin.png",
+		"meridians": "res://assets/characters/captains/meridians_captain_cabin.png",
+		"aery": "res://assets/characters/captains/aery_captain_cabin.png",
+		"crystari": "res://assets/characters/captains/crystari_captain_cabin.png",
+		"humans": "res://assets/characters/captains/humans_captain_cabin.png"
+	}
+	var path := str(cabin_art.get(faction_id, cabin_art["humans"]))
+	return load(path) as Texture2D if ResourceLoader.exists(path) else get_faction_portrait(faction_id)
 
 func validate() -> Array[String]:
 	var validator: RefCounted = preload("res://core/config_validator.gd").new()

@@ -54,6 +54,10 @@ func get_building_name(building_id: String) -> String:
 	var building: Dictionary = _catalog.get(building_id, {})
 	return str(building.get("display_name", building_id))
 
+func get_building_description(building_id: String) -> String:
+	var building: Dictionary = _catalog.get(building_id, {})
+	return str(building.get("description", "Назначение здания ещё не описано."))
+
 func get_building_icon_path(building_id: String) -> String:
 	var building: Dictionary = _catalog.get(building_id, {})
 	return str(building.get("ui_icon", ""))

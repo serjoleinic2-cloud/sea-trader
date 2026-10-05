@@ -39,6 +39,12 @@ func _load_kb_config() -> void:
 func _physics_process(delta: float) -> void:
 	if _ship_control == null:
 		return
+	var inspection: Node = get_tree().get_first_node_in_group("ship_inspection_window")
+	if inspection != null and bool(inspection.get("_is_open")):
+		_kb_throttle = 0
+		_kb_steering = 0
+		_ship_control.send_control(0,0)
+		return
 
 	# If tilt sensors are active, the tilt_updated signal handles control.
 	# Only run keyboard when sensors are unavailable (editor/desktop).
@@ -79,8 +85,12 @@ func _process_keyboard(delta: float) -> void:
 	elif Input.is_key_pressed(KEY_D):
 		target_steering =  1.0
 
-	# Gradual ramp — prevents keyboard from feeling instant compared to tilt
-	_kb_throttle = lerpf(_kb_throttle, target_throttle, _kb_ramp_speed * delta)
+	# A direction change is a brake command: pass it through immediately so the
+	# hull starts decelerating now, then let physics cross zero into reverse.
+	if target_throttle != 0.0 and _kb_throttle * target_throttle < 0.0:
+		_kb_throttle = target_throttle
+	else:
+		_kb_throttle = lerpf(_kb_throttle, target_throttle, _kb_ramp_speed * delta)
 	_kb_steering = lerpf(_kb_steering, target_steering, _kb_ramp_speed * delta)
 
 	_ship_control.send_control(_kb_throttle, _kb_steering)
