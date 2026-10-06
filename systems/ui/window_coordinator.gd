@@ -13,7 +13,6 @@ var _status: Label
 var _cancel: Button
 var _text_scale_button: Button
 var _accessibility: Node
-var _garrison_button: Button
 var _readouts: Label
 var _resource_bar: HBoxContainer
 var _resource_values: Dictionary = {}
@@ -106,11 +105,6 @@ func initialize(main: Node) -> void:
 	for item in navigation:
 		if str(item.get("node_name", "")) not in ["NavigationHUD", "CaptainCabinet", "FleetWindow"]:
 			_more_navigation.append(item)
-	_garrison_button = Button.new()
-	_garrison_button.text = "ГАРНИЗОН"
-	_garrison_button.custom_minimum_size = Vector2(155, 44)
-	_garrison_button.add_theme_font_size_override("font_size", 20)
-	_garrison_button.pressed.connect(_open_garrison)
 	_more_button = Button.new()
 	_more_button.text = "⋮"
 	_more_button.set_meta("compact_hud", true)
@@ -127,7 +121,6 @@ func initialize(main: Node) -> void:
 	encyclopedia_button.pressed.connect(func(): _more_panel.hide(); _encyclopedia.open())
 	_add_more_button(encyclopedia_button)
 	_add_more_button(_merchant_button)
-	_add_more_button(_garrison_button)
 	for item in [["Корабль", "ShipStatusHUD"], ["Первый рейс", "FirstVoyageGuide"]]:
 		var button := Button.new()
 		button.text = item[0]
@@ -166,6 +159,10 @@ func initialize(main: Node) -> void:
 	town.name = "HarborTownView"
 	main.add_child(town)
 	town.initialize(main)
+	var debris = load("res://systems/ui/debris_research_hud.gd").new()
+	debris.name = "DebrisResearchHUD"
+	main.add_child(debris)
+	debris.initialize(main)
 
 func _add_toolbar_button(item: Dictionary) -> void:
 	var button: Button = Button.new()
@@ -563,7 +560,6 @@ func _process(_delta: float) -> void:
 	if guide != null:
 		guide.visible = not has_modal and _details == "FirstVoyageGuide"
 	var at_home: bool = docked and docked_port_id == home_port_id
-	_garrison_button.visible = at_home and not has_modal
 	_refresh_more_availability(docked)
 	for node_name in ["ShipStatusHUD", "MapStatusHUD", "WorldEventHUD", "MerchantOfferHUD"]:
 		var hud: CanvasLayer = _main.get_node_or_null(node_name)

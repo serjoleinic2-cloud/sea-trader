@@ -2,11 +2,12 @@ extends CanvasLayer
 
 ## Docked town screen: terrain, constructed buildings and upgrade additions are separate.
 ## All actions delegate to existing port/building systems; no economy lives in this view.
-const BUILDINGS: Array[String] = ["dock", "warehouse", "workshop", "market", "shipyard", "timber_yard", "fishing_wharf", "mage_guild"]
-const NAMES: Array[String] = ["Причал", "Склад", "Мастерская", "Рынок", "Верфь", "Лесопилка", "Рыбный промысел", "Гильдия магов"]
+const BUILDINGS: Array[String] = ["dock", "warehouse", "workshop", "market", "shipyard", "timber_yard", "fishing_wharf", "mage_guild", "captain_house", "barracks"]
+const NAMES: Array[String] = ["Причал", "Склад", "Мастерская", "Рынок", "Верфь", "Лесопилка", "Рыбный промысел", "Гильдия магов", "Дом капитанов", "Казармы"]
+const SPECIAL_BUILDINGS := {"captain_house": true, "barracks": true}
 ## Authored hotspots on the docked home-port illustration. Keep these separate
 ## from the 3D showcase manifest: this is the live construction screen.
-const SITES: Array[Vector2] = [Vector2(.81,.79), Vector2(.40,.57), Vector2(.61,.585), Vector2(.20,.37), Vector2(.865,.575), Vector2(.41,.37), Vector2(.18,.745), Vector2(.61,.3425)]
+const SITES: Array[Vector2] = [Vector2(.81,.79), Vector2(.40,.57), Vector2(.61,.585), Vector2(.20,.37), Vector2(.865,.575), Vector2(.41,.37), Vector2(.18,.745), Vector2(.61,.3425), Vector2(.43,.80), Vector2(.62,.79)]
 var _main: Node
 var _root: Control
 var _art: Control
@@ -166,7 +167,10 @@ func _layout() -> void:
 func _refresh_sprites() -> void:
 	for index in range(_sites.size()):
 		var site: Dictionary = _sites[index]
-		var path: String = "res://assets/ui/ports/%s/%s.png" % [_race,BUILDINGS[index]]
+		var building_id: String = BUILDINGS[index]
+		var path: String = _special_building_art(building_id)
+		if path == "":
+			path = "res://assets/ui/ports/%s/%s.png" % [_race, building_id]
 		site.sprite.texture_normal = load(path)
 		var alpha := BitMap.new()
 		alpha.create_from_image_alpha(site.sprite.texture_normal.get_image(),0.12)
@@ -174,6 +178,14 @@ func _refresh_sprites() -> void:
 		site.annex.texture = load("res://assets/ui/ports/%s/annex.png" % _race)
 		site.tower.texture = load("res://assets/ui/ports/%s/tower.png" % _race)
 		site.scaffold.texture = load("res://assets/ui/ports/%s/scaffold.png" % _race)
+
+func _special_building_art(building_id: String) -> String:
+	match building_id:
+		"captain_house":
+			return "res://assets/characters/captains/%s_captain_cabin.png" % _race
+		"barracks":
+			return "res://assets/ui/ports/%s/tower.png" % _race
+	return ""
 
 func _refresh_buildings() -> void:
 	var buildings: Dictionary = GameState.port_state.get(_active_port, {}).get("buildings", {})
@@ -186,7 +198,17 @@ func _refresh_buildings() -> void:
 	_hint.text = "Выберите здание или свободную площадку" if _construction else "Наведите на здание · нажмите, чтобы открыть"
 	for index in range(_sites.size()):
 		var site: Dictionary = _sites[index]
-		var state: Dictionary = buildings.get(BUILDINGS[index], {})
+		var building_id: String = BUILDINGS[index]
+		if SPECIAL_BUILDINGS.has(building_id):
+			site.container.visible = _home
+			site.sprite.visible = _home
+			site.annex.visible = false
+			site.tower.visible = false
+			site.scaffold.visible = false
+			site.plot.visible = false
+			site.sprite.tooltip_text = "%s\nОткрыть" % NAMES[index]
+			continue
+		var state: Dictionary = buildings.get(building_id, {})
 		var level: int = int(state.get("level", 0))
 		var built: bool = level > 0
 		# Foreign ports have an authored panorama; hotspots invoke real trade/encounter pages.
@@ -196,7 +218,7 @@ func _refresh_buildings() -> void:
 		site.tower.visible = built and level >= 21
 		var underway: bool = false
 		for project in projects:
-			if str(project.get("building_id", "")) == BUILDINGS[index] and int(project.get("started_at_unix", 0)) > 0: underway = true
+			if str(project.get("building_id", "")) == building_id and int(project.get("started_at_unix", 0)) > 0: underway = true
 		site.scaffold.visible = underway
 		site.plot.visible = not built and _construction
 		site.sprite.tooltip_text = "%s · уровень %d\n%s" % [NAMES[index],level,"Улучшить" if _construction else "Открыть"]
@@ -208,12 +230,25 @@ func _hover(index: int, entered: bool) -> void:
 
 func _activate(index: int) -> void:
 	var building: String = BUILDINGS[index]
+	if building == "captain_house":
+		_open_special_window("HiringWindow")
+		return
+	if building == "barracks":
+		_open_special_window("GarrisonWindow")
+		return
 	var state: Dictionary = GameState.port_state.get(_active_port, {}).get("buildings", {}).get(building, {})
 	if _construction or int(state.get("level", 0)) == 0:
 		_main.get_node("PortWindow")._open_building_card(building)
 		return
 	var actions: Dictionary = {"dock":"service","warehouse":"resources","workshop":"service","market":"market","shipyard":"shipyard","timber_yard":"resources","fishing_wharf":"resources","mage_guild":"mage_guild"}
 	_open_section(str(actions.get(building,"construction")))
+
+func _open_special_window(node_name: String) -> void:
+	var coordinator: Node = _main.get_node("WindowCoordinator")
+	coordinator._close_all_workspaces()
+	var window: Node = _main.get_node_or_null(node_name)
+	if window != null and window.has_method("open"):
+		window.call("open")
 
 func _open_section(section: String) -> void:
 	var coordinator: Node = _main.get_node("WindowCoordinator")

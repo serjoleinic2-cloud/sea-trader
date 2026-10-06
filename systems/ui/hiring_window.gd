@@ -19,6 +19,22 @@ var _notice: String = ""
 
 const CREW_ATLAS := "res://assets/characters/crew/crew_portrait_atlas.png"
 const RACE_ROWS := {"humans": 0, "nerids": 1, "surr": 2, "meridians": 3, "aery": 4, "crystari": 5}
+const OFFICER_ART := {
+	"humans": "res://assets/characters/crew/humans_officer.webp",
+	"nerids": "res://assets/characters/crew/nerids_officer.webp",
+	"surr": "res://assets/characters/crew/surr_officer.webp",
+	"meridians": "res://assets/characters/crew/meridians_officer.webp",
+	"aery": "res://assets/characters/crew/aery_officer.webp",
+	"crystari": "res://assets/characters/crew/crystari_officer.webp"
+}
+const CAPTAIN_ART := {
+	"humans": "res://assets/characters/captains/humans_captain_full.webp",
+	"nerids": "res://assets/characters/captains/nerids_captain_full.webp",
+	"surr": "res://assets/characters/captains/surr_captain_full.webp",
+	"meridians": "res://assets/characters/captains/meridian_captain_full.webp",
+	"aery": "res://assets/characters/captains/aery_captain_full.webp",
+	"crystari": "res://assets/characters/captains/crystari_captain_full.webp"
+}
 var _is_open: bool = false
 var _stat_labels: Dictionary = {}
 var _portrait: TextureRect
@@ -233,9 +249,15 @@ func _refresh_details() -> void:
 	_hire_button.disabled = int(candidate.get("rank", 1)) > _system.get_hiring_rank_limit() or int(ship.get("crew_count", 0)) >= int(ship.get("max_crew", 1)) or float(GameState.player_state.get("money", 0.0)) < salary or not ship_available
 
 func _get_candidate_portrait(candidate: Dictionary) -> Texture2D:
+	var race_id: String = str(candidate.get("race_id", "humans"))
+	var role_id: String = str(candidate.get("role_id", ""))
+	var role_name: String = str(candidate.get("role_name", "")).to_lower()
+	var is_captain: bool = role_id == "captain" or role_id == "commander" or role_name.contains("капитан") or role_name.contains("командир")
+	var art_path: String = str(CAPTAIN_ART.get(race_id, "")) if is_captain else str(OFFICER_ART.get(race_id, ""))
+	if not art_path.is_empty() and ResourceLoader.exists(art_path):
+		return load(art_path) as Texture2D
 	if _portrait_atlas == null:
 		return null
-	var race_id: String = str(candidate.get("race_id", "humans"))
 	var column: int = posmod(int(candidate.get("portrait_id", 0)), 3)
 	var row: int = int(RACE_ROWS.get(race_id, 0))
 	var cell_width: float = float(_portrait_atlas.get_width()) / 3.0
