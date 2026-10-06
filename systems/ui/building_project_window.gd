@@ -82,7 +82,7 @@ func _ready() -> void:
 	_start_button.pressed.connect(_start)
 	box.add_child(_start_button)
 	_cancel_button = Button.new()
-	_cancel_button.text = "Отменить проект и вернуть материалы"
+	_cancel_button.text = "Отменить проект"
 	_cancel_button.add_theme_font_size_override("font_size", 14)
 	_cancel_button.custom_minimum_size.y = 46
 	_cancel_button.pressed.connect(_cancel)
@@ -147,7 +147,7 @@ func _refresh() -> void:
 		_building_icon.texture = null
 	var level: int = int(project.get("target_level", 1))
 	var required: Dictionary = project.get("required_materials", {})
-	var reserved: Dictionary = project.get("materials", {})
+	var material_status: Dictionary = _system.get_material_status(project)
 	var started: bool = _system.is_project_started(project)
 	_progress_label.visible = started
 	_progress_bar.visible = started
@@ -168,40 +168,34 @@ func _refresh() -> void:
 		_notice
 	]
 	for resource_id in required:
-		_add_material_row(building_id, str(resource_id), int(reserved.get(resource_id, 0)), int(required.get(resource_id, 0)), started)
-	_start_button.disabled = started or not _system.is_project_ready(project)
-	_start_button.text = "СТРОИТЕЛЬСТВО ИДЁТ" if started else ("НАЧАТЬ СТРОИТЕЛЬСТВО" if not _start_button.disabled else "НЕ ХВАТАЕТ МАТЕРИАЛОВ")
+		_add_material_row(str(resource_id), material_status.rows[resource_id], started)
+	var start_status: Dictionary = _system.get_start_status(building_id)
+	_start_button.disabled = not bool(start_status.ok)
+	_start_button.tooltip_text = str(start_status.message)
+	if started:
+		_start_button.text = "СТРОИТЕЛЬСТВО ИДЁТ"
+	elif bool(start_status.ok):
+		_start_button.text = "ПОСТРОИТЬ" if level == 1 else "УЛУЧШИТЬ"
+	else:
+		_start_button.text = "НЕ ХВАТАЕТ МАТЕРИАЛОВ" if not bool(material_status.ready) else "СТРОИТЕЛЬСТВО НЕДОСТУПНО"
+		_details.text += "\n" + str(start_status.message)
 	_cancel_button.disabled = started
 
-func _add_material_row(building_id: String, resource_id: String, current: int, required: int, started: bool) -> void:
-	var box: VBoxContainer = VBoxContainer.new()
+func _add_material_row(resource_id: String, status: Dictionary, started: bool) -> void:
 	var label: Label = Label.new()
 	label.set_meta("compact_description", true)
 	label.add_theme_font_size_override("font_size", 14)
-	label.text = "%s: %d / %d — %d%%" % [
-		_system.get_goods_name(resource_id),
-		current,
-		required,
-		int(float(current) / maxf(1.0, float(required)) * 100.0)
-	]
-	box.add_child(label)
-	var slider: HSlider = HSlider.new()
-	slider.min_value = 0.0
-	slider.max_value = float(required)
-	slider.step = 1.0
-	slider.value = float(current)
-	slider.editable = not started
-	slider.drag_ended.connect(_commit_slider.bind(slider, building_id, resource_id))
-	box.add_child(slider)
-	_material_list.add_child(box)
-
-func _commit_slider(value_changed: bool, slider: HSlider, building_id: String, resource_id: String) -> void:
-	if not value_changed:
-		return
-	var result: Dictionary = _system.set_material_amount(building_id, resource_id, int(round(slider.value)))
-	if not bool(result.get("ok", false)):
-		_notice = str(result.get("message", ""))
-	_refresh()
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	if started:
+		label.text = "%s: использовано %d" % [_system.get_goods_name(resource_id), int(status.required)]
+	else:
+		label.text = "%s: нужно %d · доступно %d" % [_system.get_goods_name(resource_id), int(status.required), int(status.available)]
+		if int(status.reserved) > 0:
+			label.text += " · уже внесено %d" % int(status.reserved)
+		if int(status.missing) > 0:
+			label.text += " · не хватает %d" % int(status.missing)
+		label.modulate = Color("efb186") if int(status.missing) > 0 else Color("a9d9ad")
+	_material_list.add_child(label)
 
 func _format_remaining(seconds: int) -> String:
 	var minutes: int = seconds / 60

@@ -4,6 +4,7 @@ extends Node
 ## Attach to a Node in tests/test_runner.tscn and run that scene.
 
 const TEST_FILES: Array = [
+	"res://tests/unit/test_construction_materials.gd",
 	"res://tests/unit/test_military_transport.gd",
 	"res://tests/unit/test_combat_story_ui.gd",
 	"res://tests/unit/test_hybrid_harbors.gd",

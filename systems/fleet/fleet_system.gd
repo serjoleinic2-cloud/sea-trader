@@ -113,7 +113,7 @@ func get_ship_access(ship_type_id: String) -> Dictionary:
 func build_ship(_ship_type_id: String) -> Dictionary:
 	return {"ok": false, "message": "Корабли строятся через проект верфи из материалов склада."}
 
-func complete_ship_from_shipyard(ship_type_id: String, ship_name: String) -> Dictionary:
+func complete_ship_from_shipyard(ship_type_id: String, ship_name: String, persist: bool = true) -> Dictionary:
 	var home_port_id: String = str(GameState.world_state.get("home_port_id", ""))
 	if home_port_id == "" or str(GameState.ship_state.get("docked_port_id", "")) != home_port_id:
 		return {"ok": false, "message": "Спуск на воду возможен только на базе."}
@@ -139,11 +139,17 @@ func complete_ship_from_shipyard(ship_type_id: String, ship_name: String) -> Dic
 		"crew": [],
 		"cargo": [],
 		"cargo_capacity": int(ship_type.get("cargo_capacity", 0)),
-		"autopilot": {}
+		"autopilot": {},
+		"escort_enabled": false,
+		"escort_state": {},
+		"embarked_units": {}
 	})
-	EventBus.fleet_ship_added.emit(instance_id)
-	SaveSystem.save_game()
-	return {"ok": true, "message": "Корабль «" + clean_name + "» построен и спущен на воду."}
+	if persist:
+		if not SaveSystem.save_game():
+			GameState.fleet_state.pop_back()
+			return {"ok": false, "message": "Не удалось сохранить новый корабль."}
+		EventBus.fleet_ship_added.emit(instance_id)
+	return {"ok": true, "instance_id": instance_id, "message": "Корабль «" + clean_name + "» построен и спущен на воду."}
 
 
 func get_take_control_status(ship_id: String) -> Dictionary:

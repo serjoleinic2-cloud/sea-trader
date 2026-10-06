@@ -5,6 +5,7 @@ extends Node
 var _catalog: Dictionary = {}
 var _rules: Dictionary = {}
 var _goods: Dictionary = {}
+var _materials = preload("res://systems/buildings/construction_materials.gd").new()
 
 func _ready() -> void:
 	add_to_group("building_project_system")
@@ -98,7 +99,7 @@ func create_project(building_id: String) -> Dictionary:
 	})
 	_set_projects(projects)
 	SaveSystem.save_game()
-	return {"ok": true, "message": "Проект уровня %d подготовлен. Передайте материалы и запустите стройку." % next_level}
+	return {"ok": true, "message": "Проект уровня %d подготовлен. Материалы спишутся при запуске стройки." % next_level}
 
 func set_material_amount(building_id: String, resource_id: String, amount: int) -> Dictionary:
 	if not _is_at_home():
@@ -131,6 +132,29 @@ func set_material_amount(building_id: String, resource_id: String, amount: int) 
 	return {"ok": true, "message": ""}
 
 func start_project(building_id: String) -> Dictionary:
+	var status: Dictionary = get_start_status(building_id)
+	if not bool(status.ok):
+		return status
+	var project: Dictionary = get_project(building_id)
+	var home_port_id: String = str(GameState.world_state.get("home_port_id", ""))
+	var old_port: Dictionary = GameState.port_state.get(home_port_id, {}).duplicate(true)
+	var old_company: Dictionary = GameState.company_state.duplicate(true)
+	var funding: Dictionary = _materials.reserve(project, old_port.get("inventory", {}), GameState.economy_state)
+	if not bool(funding.ok):
+		return funding
+	var port: Dictionary = old_port.duplicate(true)
+	port["inventory"] = funding.inventory
+	GameState.port_state[home_port_id] = port
+	project = funding.project
+	project["started_at_unix"] = _get_now_unix()
+	_replace_project(project)
+	if not SaveSystem.save_game():
+		GameState.port_state[home_port_id] = old_port
+		GameState.company_state = old_company
+		return {"ok": false, "message": "Не удалось сохранить строительство. Материалы не списаны."}
+	return {"ok": true, "message": "Строительство запущено. Оно продолжится и вне игры."}
+
+func get_start_status(building_id: String) -> Dictionary:
 	if not _is_at_home():
 		return {"ok": false, "message": "Запуск строительства возможен только на вашей базе."}
 	var project: Dictionary = get_project(building_id)
@@ -139,15 +163,12 @@ func start_project(building_id: String) -> Dictionary:
 	if is_project_started(project):
 		return {"ok": false, "message": "Строительство уже идёт."}
 	if not is_project_ready(project):
-		return {"ok": false, "message": "Передайте все материалы в полном объёме."}
+		return {"ok": false, "message": "На складе не хватает материалов."}
 	if _get_command_rank() < int(project.get("required_rank", 1)):
 		return {"ok": false, "message": "Недостаточный допуск капитана."}
 	if GameState.player_state.discovered_port_ids.size() < int(project.get("required_ports", 1)):
 		return {"ok": false, "message": "Нужно открыть больше портов для такой стройки."}
-	project["started_at_unix"] = _get_now_unix()
-	_replace_project(project)
-	SaveSystem.save_game()
-	return {"ok": true, "message": "Строительство запущено. Оно продолжится и вне игры."}
+	return {"ok": true, "message": "Можно построить. Материалы будут списаны со склада."}
 
 func cancel_project(building_id: String) -> Dictionary:
 	var project: Dictionary = get_project(building_id)
@@ -168,14 +189,12 @@ func cancel_project(building_id: String) -> Dictionary:
 	return {"ok": true, "message": "Проект отменён, материалы возвращены на склад."}
 
 func is_project_ready(project: Dictionary) -> bool:
-	var required: Dictionary = project.get("required_materials", {})
-	var reserved: Dictionary = project.get("materials", {})
-	if required.is_empty():
-		return false
-	for resource_id in required:
-		if int(reserved.get(resource_id, 0)) < int(required.get(resource_id, 0)):
-			return false
-	return true
+	return bool(get_material_status(project).ready)
+
+func get_material_status(project: Dictionary) -> Dictionary:
+	var home_port_id: String = str(GameState.world_state.get("home_port_id", ""))
+	var port: Dictionary = GameState.port_state.get(home_port_id, {})
+	return _materials.quote(project, port.get("inventory", {}), GameState.economy_state)
 
 func is_project_started(project: Dictionary) -> bool:
 	return int(project.get("started_at_unix", 0)) > 0

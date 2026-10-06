@@ -7,7 +7,6 @@ var _guard = preload("res://systems/ship/ship_physics.gd").new()
 var _planner = preload("res://systems/navigation/coast_route_planner.gd").new()
 var _paths: Dictionary = {}
 var _trail := PackedVector2Array()
-var _elapsed: float = 0.0
 var _save_clock: float = 0.0
 var _time: float = 0.0
 
@@ -95,17 +94,41 @@ func transfer_units(id: String, unit_id: String, amount: int, embark: bool = tru
 		return _result(false,"Не удалось сохранить перевод отрядов.")
 	return _result(true,"Отряды погружены на транспорт." if embark else "Отряды возвращены в гарнизон.")
 
-func set_escort(id: String, enabled: bool) -> Dictionary:
+func get_escort_change_status(id: String) -> Dictionary:
 	var ship: Dictionary = get_transport(id)
-	if ship.is_empty() or not _at_home(ship): return _result(false,"Состав эскадры меняется на вашей базе.")
+	if ship.is_empty(): return _result(false,"Военный транспорт не найден.")
 	if _locked(id): return _result(false,"Транспорт участвует в операции.")
 	if not ship.get("cargo",[]).is_empty() or not ship.get("autopilot",{}).is_empty(): return _result(false,"Сначала завершите рейс и выгрузите старый груз.")
-	var previous: bool = bool(ship.get("escort_enabled",false))
+	var docked: String = str(GameState.ship_state.get("docked_port_id", ""))
+	if docked == "": return _result(false,"Пришвартуйтесь в порту, чтобы изменить состав эскадры.")
+	var state: Dictionary = ship.get("escort_state", {})
+	var initialized: bool = bool(state.get("initialized", false))
+	var player: Vector2 = _to_vector2(GameState.ship_state.get("position", Vector2.ZERO), Vector2.ZERO)
+	var position: Vector2 = _to_vector2(state.get("position", player), player)
+	var nearby: bool = initialized and position.distance_to(player) <= float(_rules.max_raid_distance)
+	if str(ship.get("current_port_id", "")) != docked and not (bool(ship.get("escort_enabled", false)) and nearby):
+		return _result(false,"Транспорт и основной корабль должны быть в одном порту.")
+	if initialized and not nearby:
+		return _result(false,"Дождитесь прибытия транспорта к вашему порту.")
+	return _result(true,"Можно включить сопровождение или оставить транспорт в этом порту.")
+
+func set_escort(id: String, enabled: bool) -> Dictionary:
+	var status: Dictionary = get_escort_change_status(id)
+	if not bool(status.ok): return status
+	var ship: Dictionary = get_transport(id)
+	var old_fleet: Array = GameState.fleet_state.duplicate(true)
 	ship["escort_enabled"] = enabled
+	ship["current_port_id"] = str(GameState.ship_state.get("docked_port_id", ""))
+	ship["status"] = "В составе эскадры" if enabled else "Оставлен в порту"
+	var state: Dictionary = ship.get("escort_state", {})
+	state["blocked_seconds"] = 0.0
+	state["avoidance_heading"] = Vector2.ZERO
+	ship["escort_state"] = state
 	if not SaveSystem.save_game():
-		ship["escort_enabled"] = previous
+		GameState.fleet_state = old_fleet
 		return _result(false,"Не удалось сохранить состав эскадры.")
-	return _result(true,"Транспорт включён в сопровождение." if enabled else "Транспорт оставлен на базе.")
+	_paths.erase(id)
+	return _result(true,"Транспорт включён в сопровождение." if enabled else "Транспорт оставлен в порту.")
 
 func raid_transports() -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
@@ -124,18 +147,24 @@ func raid_transports() -> Array[Dictionary]:
 
 func _process(delta: float) -> void:
 	if _main == null: return
-	_elapsed += delta
 	_save_clock += delta
-	if _elapsed < 0.10: return
-	var step: float = minf(_elapsed,0.25)
-	_elapsed = 0.0
-	_time += step
 	var player: Vector2 = _to_vector2(GameState.ship_state.get("position", Vector2.ZERO), Vector2.ZERO)
 	if _trail.is_empty() or _trail[-1].distance_to(player) > 25:
 		_trail.append(player)
 		if _trail.size()>400: _trail.remove_at(0)
 	var ships: Array[Dictionary] = transports()
-	for index in range(ships.size()): _step_ship(ships[index],index,step)
+	# Move on every rendered frame. Small collision-checked substeps also avoid
+	# jumps after a slow frame, instead of teleporting the models every 0.1 seconds.
+	var remaining: float = clampf(delta, 0.0, 0.25)
+	while remaining > 0.00001:
+		var step: float = minf(remaining, 1.0 / 60.0)
+		_time += step
+		var formation_index: int = 0
+		for ship in ships:
+			_step_ship(ship, formation_index, step)
+			if bool(ship.get("escort_enabled", false)) and ship.get("autopilot", {}).is_empty() and not _locked(str(ship.instance_id)):
+				formation_index += 1
+		remaining -= step
 	if _save_clock > 15.0 and not ships.is_empty():
 		_save_clock = 0.0
 		SaveSystem.save_game()
@@ -230,6 +259,7 @@ func _step_ship(ship: Dictionary, index: int, delta: float) -> void:
 		return
 	if position.distance_to(target)<length*.26:
 		ship["status"]="В строю" if docked=="" else "На рейде порта"
+		state["blocked_seconds"] = 0.0
 		return
 	var cache: Dictionary = _paths.get(id,{})
 	if cache.is_empty() or (_time-float(cache.get("time",0))>float(_rules.repath_seconds) and (_to_vector2(cache.get("target",Vector2.INF), Vector2.INF).distance_to(target)>length*.6 or float(state.get("blocked_seconds",0))>float(_rules.stuck_repath_seconds))):

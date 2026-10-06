@@ -1,6 +1,6 @@
 extends CanvasLayer
 
-## Shipyard window with a named project and warehouse material sliders.
+## Shipyard window with a named project and automatic warehouse funding.
 
 var _system: Node
 var _root: Control
@@ -14,6 +14,7 @@ var _material_list: VBoxContainer
 var _build_button: Button
 var _notice: String = ""
 var _is_open: bool = false
+var _last_refresh_second: int = -1
 
 func _ready() -> void:
 	add_to_group("shipyard_window")
@@ -92,7 +93,7 @@ func _ready() -> void:
 	_build_button.pressed.connect(_finish_project)
 	box.add_child(_build_button)
 	var cancel_button: Button = Button.new()
-	cancel_button.text = "Отменить проект и вернуть материалы"
+	cancel_button.text = "Отменить проект"
 	cancel_button.add_theme_font_size_override("font_size", 16)
 	cancel_button.custom_minimum_size.y = 46
 	cancel_button.pressed.connect(_cancel_project)
@@ -125,6 +126,10 @@ func _process(_delta: float) -> void:
 	var viewport: Vector2 = get_viewport().get_visible_rect().size
 	_panel.size = Vector2(minf(920.0, viewport.x - 32.0), minf(1080.0, viewport.y - 32.0))
 	_panel.position = (viewport - _panel.size) * 0.5
+	var second: int = int(Time.get_unix_time_from_system())
+	if second != _last_refresh_second:
+		_last_refresh_second = second
+		_refresh()
 
 func _refresh() -> void:
 	if _system == null:
@@ -143,8 +148,9 @@ func _refresh() -> void:
 		_name_input.text = str(project.get("name", ""))
 	_name_notice.text = _notice
 	var required: Dictionary = project.get("required_materials", {})
-	var materials: Dictionary = project.get("materials", {})
-	var ready: bool = _system.is_project_ready(project)
+	var material_status: Dictionary = _system.get_material_status(project)
+	var build_status: Dictionary = _system.get_build_status()
+	var ready: bool = bool(build_status.ok)
 	var ship_type_id: String = str(project.get("ship_type_id", ""))
 	var fleet_systems: Array[Node] = get_tree().get_nodes_in_group("fleet_system")
 	var ship_type: Dictionary = fleet_systems[0].get_ship_type(ship_type_id) if not fleet_systems.is_empty() else {}
@@ -153,7 +159,7 @@ func _refresh() -> void:
 		_ship_icon.texture = load(icon_path) as Texture2D
 	else:
 		_ship_icon.texture = null
-	_details.text = "%s\n%s\nГруз: %d · скорость: %d\nЭкипаж: %d–%d · допуск: ранг %d\nМатериалы передаются со склада в проект." % [
+	_details.text = "%s\n%s\nГруз: %d · скорость: %d\nЭкипаж: %d–%d · допуск: ранг %d\nМатериалы спишутся со склада при постройке." % [
 		str(ship_type.get("role", ship_type.get("name", "Корабль"))),
 		str(ship_type.get("era", "")),
 		int(ship_type.get("cargo_capacity", 0)),
@@ -163,41 +169,27 @@ func _refresh() -> void:
 		int(ship_type.get("command_rank_required", 1))
 	]
 	for resource_id in required:
-		_add_material_row(str(resource_id), int(materials.get(resource_id, 0)), int(required.get(resource_id, 0)))
+		_add_material_row(str(resource_id), material_status.rows[resource_id])
 	_build_button.disabled = not ready
+	_build_button.tooltip_text = str(build_status.message)
 	if ready:
 		_build_button.text = "ПОСТРОИТЬ"
 	else:
-		_build_button.text = "НЕ ХВАТАЕТ МАТЕРИАЛОВ"
+		_build_button.text = "НЕ ХВАТАЕТ МАТЕРИАЛОВ" if not bool(material_status.ready) else "ПОСТРОЙКА НЕДОСТУПНА"
+		_details.text += "\n" + str(build_status.message)
 
-func _add_material_row(resource_id: String, current: int, required: int) -> void:
-	var box: VBoxContainer = VBoxContainer.new()
+func _add_material_row(resource_id: String, status: Dictionary) -> void:
 	var label: Label = Label.new()
 	label.set_meta("compact_description", true)
 	label.add_theme_font_size_override("font_size", 15)
-	label.text = "%s: %d / %d — %d%%" % [
-		_system.get_goods_name(resource_id),
-		current,
-		required,
-		int(float(current) / maxf(1.0, float(required)) * 100.0)
-	]
-	box.add_child(label)
-	var slider: HSlider = HSlider.new()
-	slider.min_value = 0.0
-	slider.max_value = float(required)
-	slider.step = 1.0
-	slider.value = float(current)
-	slider.drag_ended.connect(_commit_slider.bind(slider, resource_id))
-	box.add_child(slider)
-	_material_list.add_child(box)
-
-func _commit_slider(value_changed: bool, slider: HSlider, resource_id: String) -> void:
-	if not value_changed:
-		return
-	var result: Dictionary = _system.set_material_amount(resource_id, int(round(slider.value)))
-	if not bool(result.get("ok", false)):
-		_notice = str(result.get("message", ""))
-	_refresh()
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	label.text = "%s: нужно %d · доступно %d" % [_system.get_goods_name(resource_id), int(status.required), int(status.available)]
+	if int(status.reserved) > 0:
+		label.text += " · уже внесено %d" % int(status.reserved)
+	if int(status.missing) > 0:
+		label.text += " · не хватает %d" % int(status.missing)
+	label.modulate = Color("efb186") if int(status.missing) > 0 else Color("a9d9ad")
+	_material_list.add_child(label)
 
 func _save_name(_submitted_text: String = "") -> void:
 	var chosen_name: String = _name_input.text.strip_edges().left(28)

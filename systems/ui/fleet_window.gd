@@ -258,14 +258,22 @@ func _add_transport_controls(box: VBoxContainer, ship: Dictionary) -> void:
 	label.add_theme_font_size_override("font_size",14)
 	box.add_child(label)
 	var available: bool = system._at_home(ship) and not system._locked(id)
+	var escort_status: Dictionary = system.get_escort_change_status(id)
 	var escort := Button.new()
-	escort.text = "Оставить транспорт на базе" if bool(ship.get("escort_enabled",false)) else "Включить в сопровождение"
-	escort.disabled = not available
+	escort.text = "Оставить транспорт в порту" if bool(ship.get("escort_enabled",false)) else "Включить в сопровождение"
+	escort.disabled = not bool(escort_status.ok)
+	escort.tooltip_text = str(escort_status.message)
 	escort.pressed.connect(func():
 		var result: Dictionary = system.set_escort(id,not bool(ship.get("escort_enabled",false)))
 		_notice = str(result.message)
 		_refresh())
 	box.add_child(escort)
+	if not bool(escort_status.ok):
+		var escort_hint := Label.new()
+		escort_hint.text = str(escort_status.message)
+		escort_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		escort_hint.set_meta("compact_description", true)
+		box.add_child(escort_hint)
 	var units: Dictionary = GameData.read("res://data/combat/unit_catalog.json").get("units",{})
 	for unit_id in units:
 		var aboard: int = int(ship.get("embarked_units",{}).get(unit_id,{}).get("count",0))

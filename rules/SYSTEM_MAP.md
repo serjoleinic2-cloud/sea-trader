@@ -1,6 +1,6 @@
 # Карта работающих систем
 
-Обновлено: 2026-09-30. Источник полного списка подключений — data/config/game_modules.json.
+Обновлено: 2026-10-06. Источник полного списка подключений — data/config/game_modules.json.
 
 | Действие | Путь выполнения | Состояние |
 | --- | --- | --- |
@@ -12,7 +12,8 @@
 | Покупка, продажа, погрузка | PortWindow → CargoTransferSystem → TradeLineSystem при продаже | ship_state.cargo, port_state, деньги/статистика |
 | Рейс основного судна | LogisticsWindow → LogisticsSystem → ActiveRouteAutopilot → PortSystem → CargoTransferSystem | voyage_state, ship_state, рынок/склад |
 | Рейс флота | TradeLineSystem → FleetSystem → TradeLineSystem.settle_freight | fleet_state, economy_state, port_state |
-| Стройка | Окно проекта → BuildingProjectSystem/ShipyardSystem | company_state, port_state, fleet_state |
+| Стройка и улучшение | Окно проекта без ползунков → BuildingProjectSystem/ShipyardSystem → ConstructionMaterials → SaveSystem | company_state, port_state.inventory, fleet_state; списание при запуске, учёт старых резервов |
+| Военное сопровождение | FleetWindow → MilitaryTransportSystem → ручной выбор общего порта / движение каждый кадр | fleet_state.escort_enabled/escort_state; погрузка войск остаётся на базе |
 | Производство | PortProductionSystem → рецепт | port_state.inventory |
 | Наём | HiringWindow → HiringSystem; назначение → FleetSystem | employee_state, экипаж судна |
 | Карьера | CareerSystem ← статистика GameState | Вычисляемые ранг и допуски |

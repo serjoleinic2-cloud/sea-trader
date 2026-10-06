@@ -5,6 +5,7 @@ extends Node
 var _fleet_system: Node
 var _recipes: Dictionary = {}
 var _goods: Dictionary = {}
+var _materials = preload("res://systems/buildings/construction_materials.gd").new()
 
 func _ready() -> void:
 	add_to_group("shipyard_system")
@@ -46,7 +47,7 @@ func create_project(ship_type_id: String) -> Dictionary:
 		"required_materials": recipe.get("materials", {}).duplicate(true)
 	}
 	SaveSystem.save_game()
-	return {"ok": true, "message": "Проект открыт. Передайте материалы со склада."}
+	return {"ok": true, "message": "Проект открыт. Материалы спишутся при постройке корабля."}
 
 func set_project_name(project_name: String) -> Dictionary:
 	var project: Dictionary = get_project()
@@ -88,20 +89,46 @@ func set_material_amount(resource_id: String, amount: int) -> Dictionary:
 	SaveSystem.save_game()
 	return {"ok": true, "message": ""}
 
-func finish_project() -> Dictionary:
+func get_build_status() -> Dictionary:
 	if not _is_at_home():
 		return {"ok": false, "message": "Спуск на воду возможен только на базе."}
 	var project: Dictionary = get_project()
 	if project.is_empty():
 		return {"ok": false, "message": "Нет активного проекта."}
 	if not is_project_ready(project):
-		return {"ok": false, "message": "Передайте все материалы в полном объёме."}
+		return {"ok": false, "message": "На складе не хватает материалов."}
+	var access: Dictionary = _fleet_system.get_ship_access(str(project.get("ship_type_id", "")))
+	if not bool(access.get("ok", false)):
+		return access
+	return {"ok": true, "message": "Можно построить. Материалы будут списаны со склада."}
+
+func finish_project() -> Dictionary:
+	var status: Dictionary = get_build_status()
+	if not bool(status.ok):
+		return status
+	var project: Dictionary = get_project()
 	var ship_type_id: String = str(project.get("ship_type_id", ""))
 	var name: String = str(project.get("name", "Корабль"))
-	var result: Dictionary = _fleet_system.complete_ship_from_shipyard(ship_type_id, name)
-	if bool(result.get("ok", false)):
-		GameState.company_state["shipyard_project"] = {}
-	SaveSystem.save_game()
+	var home_port_id: String = str(GameState.world_state.get("home_port_id", ""))
+	var old_port: Dictionary = GameState.port_state.get(home_port_id, {}).duplicate(true)
+	var old_company: Dictionary = GameState.company_state.duplicate(true)
+	var old_fleet: Array = GameState.fleet_state.duplicate(true)
+	var funding: Dictionary = _materials.reserve(project, old_port.get("inventory", {}), GameState.economy_state)
+	if not bool(funding.ok):
+		return funding
+	var result: Dictionary = _fleet_system.complete_ship_from_shipyard(ship_type_id, name, false)
+	if not bool(result.get("ok", false)):
+		return result
+	var port: Dictionary = old_port.duplicate(true)
+	port["inventory"] = funding.inventory
+	GameState.port_state[home_port_id] = port
+	GameState.company_state["shipyard_project"] = {}
+	if not SaveSystem.save_game():
+		GameState.port_state[home_port_id] = old_port
+		GameState.company_state = old_company
+		GameState.fleet_state = old_fleet
+		return {"ok": false, "message": "Не удалось сохранить постройку. Материалы не списаны."}
+	EventBus.fleet_ship_added.emit(str(result.get("instance_id", "")))
 	return result
 
 func cancel_project() -> Dictionary:
@@ -121,14 +148,12 @@ func cancel_project() -> Dictionary:
 	return {"ok": true, "message": "Проект отменён, материалы возвращены на склад."}
 
 func is_project_ready(project: Dictionary) -> bool:
-	var required: Dictionary = project.get("required_materials", {})
-	var materials: Dictionary = project.get("materials", {})
-	if required.is_empty():
-		return false
-	for resource_id in required:
-		if int(materials.get(resource_id, 0)) < int(required.get(resource_id, 0)):
-			return false
-	return true
+	return bool(get_material_status(project).ready)
+
+func get_material_status(project: Dictionary) -> Dictionary:
+	var home_port_id: String = str(GameState.world_state.get("home_port_id", ""))
+	var port: Dictionary = GameState.port_state.get(home_port_id, {})
+	return _materials.quote(project, port.get("inventory", {}), GameState.economy_state)
 
 func _is_at_home() -> bool:
 	var home_port_id: String = str(GameState.world_state.get("home_port_id", ""))

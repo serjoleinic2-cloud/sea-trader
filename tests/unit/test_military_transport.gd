@@ -79,6 +79,46 @@ func test_escort_tracks_player_after_leaving_port() -> void:
 	assert_gt(after.distance_to(before), 100.0, "an enabled war transport sails after the leader moves")
 	assert_lt(after.distance_to(GameState.ship_state.position), 900.0, "escort catches back up instead of remaining at the base")
 
+func test_escort_choice_in_shared_foreign_port_is_saved_and_parked_ship_stays_put() -> void:
+	GameState.ship_state.docked_port_id = "foreign"
+	var ship: Dictionary = GameState.fleet_state[0]
+	ship.current_port_id = "foreign"
+	ship.escort_state = {"initialized":true,"position":Vector2(-400,-200),"heading":Vector2.RIGHT}
+	assert_true(system.set_escort("transport1",false).ok)
+	var parked: Vector2 = ship.escort_state.position
+	GameState.ship_state.docked_port_id = ""
+	GameState.ship_state.position = Vector2(500,0)
+	for frame in 20: system._process(1.0/60.0)
+	assert_eq(ship.escort_state.position, parked, "leaving a ship in port does not make it follow")
+	assert_false(system.set_escort("transport1",true).ok, "composition cannot change at sea")
+	GameState.ship_state.docked_port_id = "foreign"
+	GameState.ship_state.position = Vector2.ZERO
+	assert_true(system.set_escort("transport1",true).ok)
+	assert_true(SaveSystem.load_game())
+	assert_true(GameState.fleet_state[0].escort_enabled)
+	assert_eq(GameState.fleet_state[0].current_port_id, "foreign")
+
+func test_escort_moves_each_small_frame_without_tenth_second_jumps() -> void:
+	GameState.ship_state.docked_port_id = ""
+	var ship: Dictionary = GameState.fleet_state[0]
+	ship.escort_state = {"initialized":true,"position":Vector2(-900,-200),"heading":Vector2.RIGHT,"blocked_seconds":0.0}
+	var previous: Vector2 = ship.escort_state.position
+	for frame in 6:
+		system._process(1.0/60.0)
+		var current: Vector2 = ship.escort_state.position
+		assert_gt(current.distance_to(previous), 0.0, "movement is visible even before 0.1 seconds elapse")
+		assert_lt(current.distance_to(previous), 10.0, "one frame never accumulates a tenth-second position jump")
+		previous = current
+
+func test_cannot_take_escort_from_another_port_or_before_it_arrives() -> void:
+	var ship: Dictionary = GameState.fleet_state[0]
+	ship.escort_enabled = false
+	ship.current_port_id = "foreign"
+	assert_false(system.set_escort("transport1",true).ok)
+	ship.current_port_id = "home"
+	ship.escort_state = {"initialized":true,"position":Vector2(5000,0),"heading":Vector2.RIGHT}
+	assert_false(system.set_escort("transport1",true).ok)
+
 func test_stuck_escorts_recover_on_the_saved_world_route() -> void:
 	var generator = preload("res://systems/world/world_generator.gd").new()
 	var world: Dictionary = generator.generate(5247185189, 2)
@@ -113,7 +153,6 @@ func test_stuck_escorts_recover_on_the_saved_world_route() -> void:
 	system._paths.clear()
 	system._trail = PackedVector2Array()
 	system._time = 0.0
-	system._elapsed = 0.0
 	var first_before: Vector2 = GameState.fleet_state[0].escort_state.position
 	var initial_gap: float = first_before.distance_to(GameState.ship_state.position)
 	for step in 80:
