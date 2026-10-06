@@ -163,6 +163,10 @@ func initialize(main: Node) -> void:
 	debris.name = "DebrisResearchHUD"
 	main.add_child(debris)
 	debris.initialize(main)
+	var debris_3d = load("res://systems/rendering/debris_3d_renderer.gd").new()
+	debris_3d.name = "Debris3DRenderer"
+	main.add_child(debris_3d)
+	debris_3d.initialize(main)
 
 func _add_toolbar_button(item: Dictionary) -> void:
 	var button: Button = Button.new()
