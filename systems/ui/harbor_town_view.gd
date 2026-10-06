@@ -6,7 +6,7 @@ const BUILDINGS: Array[String] = ["dock", "warehouse", "workshop", "market", "sh
 const NAMES: Array[String] = ["Причал", "Склад", "Мастерская", "Рынок", "Верфь", "Лесопилка", "Рыбный промысел", "Гильдия магов"]
 ## Authored hotspots on the docked home-port illustration. Keep these separate
 ## from the 3D showcase manifest: this is the live construction screen.
-const SITES: Array[Vector2] = [Vector2(.81,.79), Vector2(.40,.57), Vector2(.61,.585), Vector2(.20,.37), Vector2(.865,.575), Vector2(.41,.37), Vector2(.18,.72), Vector2(.66,.28)]
+const SITES: Array[Vector2] = [Vector2(.81,.79), Vector2(.40,.57), Vector2(.61,.585), Vector2(.20,.37), Vector2(.865,.575), Vector2(.41,.37), Vector2(.18,.72), Vector2(.61,.3425)]
 var _main: Node
 var _root: Control
 var _art: Control
