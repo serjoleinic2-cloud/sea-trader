@@ -4,7 +4,9 @@ extends CanvasLayer
 ## All actions delegate to existing port/building systems; no economy lives in this view.
 const BUILDINGS: Array[String] = ["dock", "warehouse", "workshop", "market", "shipyard", "timber_yard", "fishing_wharf", "mage_guild"]
 const NAMES: Array[String] = ["Причал", "Склад", "Мастерская", "Рынок", "Верфь", "Лесопилка", "Рыбный промысел", "Гильдия магов"]
-const SITES: Array[Vector2] = [Vector2(.76,.79), Vector2(.40,.60), Vector2(.61,.61), Vector2(.20,.37), Vector2(.84,.60), Vector2(.41,.37), Vector2(.18,.85), Vector2(.66,.37)]
+## Authored hotspots on the docked home-port illustration. Keep these separate
+## from the 3D showcase manifest: this is the live construction screen.
+const SITES: Array[Vector2] = [Vector2(.81,.79), Vector2(.40,.57), Vector2(.61,.585), Vector2(.20,.37), Vector2(.865,.575), Vector2(.41,.37), Vector2(.18,.72), Vector2(.66,.28)]
 var _main: Node
 var _root: Control
 var _art: Control
