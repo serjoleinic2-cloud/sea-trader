@@ -117,15 +117,13 @@ Daylight is the default for readable sailing and must last substantially longer 
 
 Sunrise and sunset must read as gradual lighting events, not instant palette swaps. As the Sun approaches and crosses the horizon, change the sky gradient, ambient light, cloud color, coast silhouettes, and reflected color on the sea together. Use a bright horizon glow with warm gold, orange, and rose tones, then fade toward the cooler upper sky. Atmospheric scattering is strongest visually at low Sun angles; keep the transition smooth and restrained rather than adding constant lens flare.
 
-The night sky should be a clean, recognizable real-star field based on astronomical star positions, not a static pattern or random decorative dots. Orient stars to the observer's defined world location and in-game date/time so they move coherently and constellations rise and set naturally. The reference direction is the western hemisphere. Before accurate implementation, define the home region's reference latitude, longitude, calendar date, and time scale; “western hemisphere” alone does not specify one exact sky.
-
-Show the zodiac constellations through subtle star connections or small labels only when they are actually visible in the night sky. They lie along the ecliptic and appear in different seasons; do not display all zodiac figures at once or as bright fantasy overlays. Fill the clear sky with many small, dim stars and reserve stronger points for the brightest recognizable stars. Keep clouds sparse during the dedicated star-viewing interval so the sky feels clear and expansive.
+The current star field and constellation treatment are accepted by the owner (2026-10-06). Keep the existing look; matching a real hemisphere, astronomical coordinates, calendar, or ship position is not a requirement. Revisit the starfield only if the owner asks for a change.
 
 At night, add restrained bioluminescent or fluorescent-looking light around the hull and in the wake. It should reveal the ship and nearby water without turning the whole sea into glowing neon. Ship lamps, moonlight, stars, and coast silhouettes should preserve enough contrast to steer safely.
 
-## Owner direction — astronomical sky and long daylight — 2026-09-29
+## Owner direction — daylight cycle and accepted star field — 2026-10-06
 
-The desired night sky is a clear, calm star field with the real western-hemisphere sky as its reference. A few major zodiac constellations should be recognizable; many small stars should provide depth without clutter. Keep star positions astronomically coherent with the ship's location and the game clock. Because the current world has no finalized geographic latitude/longitude or calendar, these inputs must be defined before claiming an exact sky reproduction.
+The current star field is accepted. Do not add a real-world astronomy or coordinate-matching task unless the owner requests it.
 
 The sunrise and sunset should visibly carry the transition: changing atmospheric color and light, a luminous horizon, and matching reflections on the sea. Day should be much longer than night. Begin playtesting with a 3:1 ratio, then tune the cycle while preserving a short, memorable interval for stargazing.
 
@@ -151,7 +149,7 @@ The shared 3D renderer now supports the first sailing-view slice:
 - Shore proximity and close zoom blend the overhead view into the same 3D sea; desktop right-drag and mobile two-finger gestures orbit, while the pinch gesture also controls zoom.
 - The close view updates over open water, so it does not depend on a nearby island.
 - The first day/night pass uses a five-minute cycle with a target 3:1 daylight-to-night ratio. A procedural gradient sky, animated solar elevation, warm sunrise/sunset lighting, coordinated ambient light, and a restrained warm tint on the water establish dawn and dusk.
-- The night sky uses about 6,300 seed-stable procedural star points scattered across the whole dome, plus the existing zodiac and constellation marks. The Milky Way band was removed after visual review because its edge made the sky dome's rendering limit noticeable. This is a stable visual imitation, not a real astronomical catalog; exact sky positions remain a later task after the world coordinates and calendar are defined.
+- The night sky uses about 6,300 seed-stable procedural star points scattered across the whole dome, plus the existing zodiac and constellation marks. The Milky Way band was removed after visual review because its edge made the sky dome's rendering limit noticeable. The current star field and constellations are accepted by the owner; exact astronomical positioning is out of scope.
 - Procedural island surfaces use seed-stable irregular coastlines with a visual opening at a harbor. Rare large islands receive a floating landmark; the home harbor receives a pair of gate statues.
 - These meshes are visual only. Navigation, collisions, world seed, and save data continue to use the existing generated-world data.
 
