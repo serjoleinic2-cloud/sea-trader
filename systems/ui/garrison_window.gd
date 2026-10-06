@@ -237,7 +237,7 @@ func _build_defense_tab() -> void:
 	scroll.add_child(content)
 
 	var title := Label.new()
-	title.text = "КРИСТАЛЛИЧЕСКИЕ БАШНИ"
+	title.text = "ОБОРОНА БАЗЫ · БАШНИ И КРИСТАЛЛЫ"
 	title.add_theme_font_size_override("font_size", 17)
 	content.add_child(title)
 	_tower_label = Label.new()
@@ -257,15 +257,29 @@ func _build_defense_tab() -> void:
 		tower_buttons.add_child(button)
 		_tower_buttons[str(tower[0])] = button
 	content.add_child(tower_buttons)
+	var install_hint := Label.new()
+	install_hint.text = "Шаг 1 — постройте башню. Шаг 2 — выберите её ниже. Шаг 3 — выберите кристалл из запаса и нажмите «Установить»."
+	install_hint.add_theme_font_size_override("font_size", 15)
+	install_hint.add_theme_color_override("font_color", Color("#72ddd2"))
+	install_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	content.add_child(install_hint)
 
 	var crystal_row := HBoxContainer.new()
 	crystal_row.add_theme_constant_override("separation", 8)
+	var tower_select_label := Label.new()
+	tower_select_label.text = "Башня для настройки"
+	tower_select_label.add_theme_font_size_override("font_size", 14)
+	content.add_child(tower_select_label)
 	_tower_slot_select = OptionButton.new()
 	_tower_slot_select.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_tower_slot_select.custom_minimum_size.y = 36
 	_tower_slot_select.add_theme_font_size_override("font_size", 14)
 	_tower_slot_select.item_selected.connect(_on_tower_slot_selected)
 	crystal_row.add_child(_tower_slot_select)
+	var crystal_select_label := Label.new()
+	crystal_select_label.text = "Кристалл из запаса"
+	crystal_select_label.add_theme_font_size_override("font_size", 14)
+	content.add_child(crystal_select_label)
 	_crystal_select = OptionButton.new()
 	_crystal_select.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_crystal_select.custom_minimum_size.y = 36
@@ -350,7 +364,17 @@ func _refresh() -> void:
 	for tower_type in _tower_buttons:
 		var tower_button: Button = _tower_buttons[tower_type]
 		tower_button.disabled = not can_build_more or not _system.can_build_tower(str(tower_type))
-	_tower_label.text = _format_towers(_system.get_tower_bonuses())
+	var tower_requirement: String = "Башня откроется на 2 уровне гарнизона." if level < 2 else ""
+	if level >= 2 and _system.get_towers().size() == 1 and level < 4:
+		tower_requirement = "Вторая башня откроется на 4 уровне гарнизона."
+	if level >= 2 and can_build_more and not _system.can_build_tower("island"):
+		var tower_inventory: Dictionary = GameState.port_state.get(_system.get_home_port_id(), {}).get("inventory", {})
+		tower_requirement = "Стоимость башни: 450 монет, 10 дерева, 6 деталей. Сейчас: %d монет, %d дерева, %d деталей." % [int(GameState.player_state.get("money", 0)), int(tower_inventory.get("resource_timber", 0)), int(tower_inventory.get("resource_parts", 0))]
+	if can_build_more and _system.can_build_tower("island"):
+		tower_requirement = "Башня готова к строительству: 450 монет, 10 дерева, 6 деталей."
+	_tower_buttons["island"].text = "ПОСТРОИТЬ БАШНУ"
+	_tower_buttons["island"].tooltip_text = tower_requirement
+	_tower_label.text = _format_towers(_system.get_tower_bonuses()) + ("\n" + tower_requirement if tower_requirement != "" else "")
 	_refresh_crystal_controls()
 	_repair_button.disabled = not _system.is_at_home() or integrity >= 100.0
 

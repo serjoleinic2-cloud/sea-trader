@@ -9,6 +9,7 @@ var _level: Label
 var _shards: Label
 var _status: Label
 var _notice: Label
+var _defense_button: Button
 var _cards: Dictionary = {}
 var _card_layout: BoxContainer
 var _open: bool = false
@@ -68,6 +69,13 @@ func _ready() -> void:
 	_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_status.add_theme_font_size_override("font_size", 18)
 	layout.add_child(_status)
+	_defense_button = Button.new()
+	_defense_button.text = "ОТКРЫТЬ ОБОРОНУ И БАШНИ"
+	_defense_button.custom_minimum_size.y = 48
+	_defense_button.add_theme_font_size_override("font_size", 17)
+	_defense_button.tooltip_text = "После создания кристалла выберите башню и установите его в окне обороны."
+	_defense_button.pressed.connect(_open_defense)
+	layout.add_child(_defense_button)
 	var cards := BoxContainer.new()
 	_card_layout = cards
 	cards.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -165,7 +173,7 @@ func _refresh() -> void:
 	elif not _system.is_at_home():
 		_status.text = "Гильдия действует на домашнем острове. Вернитесь в главный порт, чтобы создавать кристаллы."
 	else:
-		_status.text = "Уровень гильдии усиливает все кристаллы. При первом открытии выдано 3 стартовых осколка; новые дают победы в бою: за первую и затем за каждую третью. Кристалла скорости нет."
+		_status.text = "Уровень гильдии усиливает все кристаллы. Доступны кристаллы атаки, брони и удачи. При первом открытии выдано 3 стартовых осколка; новые осколки дают победы в бою: за первую и затем за каждую третью."
 	var inventory: Dictionary = _system.get_crystal_inventory()
 	var home_port: Dictionary = GameState.port_state.get(_system.get_home_port_id(), {})
 	var home_inventory: Dictionary = home_port.get("inventory", {})
@@ -187,6 +195,15 @@ func _refresh() -> void:
 			card.button.text = "НУЖНА ГИЛЬДИЯ"
 		else:
 			card.button.text = "СОЗДАТЬ КРИСТАЛЛ"
+	_defense_button.disabled = guild_level <= 0 or not _system.is_at_home()
+
+func _open_defense() -> void:
+	if _system == null or not _system.is_at_home():
+		return
+	_open = false
+	var coordinators: Array[Node] = get_tree().get_nodes_in_group("window_coordinator")
+	if not coordinators.is_empty() and coordinators[0].has_method("_open_garrison"):
+		coordinators[0].call("_open_garrison")
 
 func _create_crystal(crystal_id: String) -> void:
 	if _system == null:
