@@ -141,6 +141,11 @@ func _rebuild_debris() -> void:
 			continue
 		var kinds: Array[String] = ["Ящик", "Бочка", "Обломки"]
 		_debris.append({"id": "drift_%03d" % index, "position": position, "kind": kinds[rng.randi_range(0, kinds.size() - 1)]})
+	var home_id := str(GameState.world_state.get("home_port_id", ""))
+	var home: Dictionary = ports.get(home_id, {})
+	if not home.is_empty():
+		var home_position := Vector2(home.get("position", Vector2.ZERO))
+		_debris.append({"id": "drift_home_00", "position": home_position + Vector2(260.0, 0.0), "kind": "Ящик"})
 
 func _find_nearest(ship_position: Vector2) -> Dictionary:
 	var collected: Array = GameState.world_state.get("collected_debris_ids", [])
@@ -182,7 +187,8 @@ func _claim_nearest() -> void:
 	var scrolls: int = int(GameState.progression_state.get("training_scrolls", 0))
 	GameState.progression_state["training_scrolls"] = scrolls + 1
 	SaveSystem.save_game()
-	_status.text = "Исследовано: +%d монет, +%d материала, +1 свиток обучения\nНаграда отправлена на склад базы." % [money, material_amount]
+	var material_names := {"resource_timber": "древесины", "resource_parts": "деталей", "resource_fish": "рыбы"}
+	_status.text = "Исследовано: +%d монет, +%d %s, +1 свиток обучения\nНаграда отправлена на склад базы." % [money, material_amount, material_names.get(material_id, material_id)]
 	_notice_timer = 3.5
 	_progress = 0.0
 	_nearest = {}
