@@ -48,7 +48,7 @@ func save_game() -> bool:
 	if main_file == null:
 		push_error("SaveSystem: Cannot write save_main.json")
 		return false
-	main_file.store_string(JSON.stringify(save_data, "\t"))
+	main_file.store_string(JSON.stringify(save_data))
 	main_file.flush()
 	var main_error: Error = main_file.get_error()
 	main_file.close()
@@ -61,7 +61,7 @@ func save_game() -> bool:
 	if meta_file == null:
 		push_error("SaveSystem: Cannot write save_meta.json")
 		return false
-	meta_file.store_string(JSON.stringify(meta, "\t"))
+	meta_file.store_string(JSON.stringify(meta))
 	meta_file.flush()
 	var meta_error: Error = meta_file.get_error()
 	meta_file.close()
@@ -261,9 +261,22 @@ func _copy_file(from: String, to: String) -> void:
 	if dst == null:
 		src.close()
 		return
-	dst.store_string(src.get_as_text())
+
+	# Copy in binary chunks to avoid decoding the entire JSON save into a String.
+	var remaining: int = src.get_length()
+	while remaining > 0:
+		var chunk: PackedByteArray = src.get_buffer(mini(65536, remaining))
+		if chunk.is_empty():
+			break
+		dst.store_buffer(chunk)
+		remaining -= chunk.size()
+
 	src.close()
+	dst.flush()
+	var copy_error: Error = dst.get_error()
 	dst.close()
+	if remaining > 0 or copy_error != OK:
+		push_error("SaveSystem: Failed to copy backup file.")
 
 
 # ============================================================================
