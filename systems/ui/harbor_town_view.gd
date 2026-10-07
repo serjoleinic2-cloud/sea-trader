@@ -256,7 +256,7 @@ func _refresh_buildings() -> void:
 		site.scaffold.visible = underway
 		site.plot.visible = not built and _construction
 		site.sprite.tooltip_text = "%s · уровень %d\n%s" % [NAMES[index],level,"Улучшить" if _construction else "Открыть"]
-		if site.sprite.visible:
+		if _home and site.sprite.visible:
 			_ensure_click_mask(site)
 
 func _hover(index: int, entered: bool) -> void:
