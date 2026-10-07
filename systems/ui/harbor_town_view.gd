@@ -24,6 +24,9 @@ var _construction: bool = false
 var _home: bool = false
 var _build_button: Button
 var _refresh_time: float = 0.0
+var _click_mask_cache: Dictionary = {}
+var _last_layout_viewport: Vector2 = Vector2.ZERO
+var _last_layout_top: float = -1.0
 
 func initialize(main: Node) -> void:
 	_main = main
@@ -128,7 +131,13 @@ func _process(delta: float) -> void:
 		_signature = ""
 		_construction = false
 		_refresh_sprites()
-	_layout()
+		_layout()
+	else:
+		var screen: Vector2 = get_viewport().get_visible_rect().size
+		var coordinator: Node = _main.get_node("WindowCoordinator")
+		var top: float = float(coordinator.get("_top_height")) + 5.0
+		if screen != _last_layout_viewport or not is_equal_approx(top, _last_layout_top):
+			_layout()
 	_refresh_time += delta
 	if _refresh_time > 0.2 or _signature == "":
 		_refresh_time = 0.0
@@ -163,21 +172,44 @@ func _layout() -> void:
 	_footer.position = Vector2((screen.x-_footer.size.x*_footer.scale.x)*.5,screen.y-51)
 	_hint.position = Vector2(0,screen.y-81)
 	_hint.size.x = screen.x
+	_last_layout_viewport = screen
+	_last_layout_top = top
 
 func _refresh_sprites() -> void:
+	# Foreign-port panoramas have no clickable building overlays.
+	# Avoid loading every building texture while docking at those ports.
+	if not _home:
+		return
 	for index in range(_sites.size()):
 		var site: Dictionary = _sites[index]
 		var building_id: String = BUILDINGS[index]
 		var path: String = _special_building_art(building_id)
 		if path == "":
 			path = "res://assets/ui/ports/%s/%s.png" % [_race, building_id]
-		site.sprite.texture_normal = load(path)
-		var alpha := BitMap.new()
-		alpha.create_from_image_alpha(site.sprite.texture_normal.get_image(),0.12)
-		site.sprite.texture_click_mask = alpha
+		site["sprite_path"] = path
+		site.sprite.texture_normal = load(path) as Texture2D
+		site.sprite.texture_click_mask = _click_mask_cache.get(path) as BitMap
 		site.annex.texture = load("res://assets/ui/ports/%s/annex.png" % _race)
 		site.tower.texture = load("res://assets/ui/ports/%s/tower.png" % _race)
 		site.scaffold.texture = load("res://assets/ui/ports/%s/scaffold.png" % _race)
+
+
+func _ensure_click_mask(site: Dictionary) -> void:
+	var path: String = str(site.get("sprite_path", ""))
+	if path.is_empty():
+		return
+	var mask: BitMap = _click_mask_cache.get(path) as BitMap
+	if mask == null:
+		var texture: Texture2D = site.sprite.texture_normal as Texture2D
+		if texture == null:
+			return
+		var image: Image = texture.get_image()
+		if image == null or image.is_empty():
+			return
+		mask = BitMap.new()
+		mask.create_from_image_alpha(image, 0.12)
+		_click_mask_cache[path] = mask
+	site.sprite.texture_click_mask = mask
 
 func _special_building_art(building_id: String) -> String:
 	match building_id:
@@ -207,6 +239,8 @@ func _refresh_buildings() -> void:
 			site.scaffold.visible = false
 			site.plot.visible = false
 			site.sprite.tooltip_text = "%s\nОткрыть" % NAMES[index]
+			if site.sprite.visible:
+				_ensure_click_mask(site)
 			continue
 		var state: Dictionary = buildings.get(building_id, {})
 		var level: int = int(state.get("level", 0))
@@ -222,6 +256,8 @@ func _refresh_buildings() -> void:
 		site.scaffold.visible = underway
 		site.plot.visible = not built and _construction
 		site.sprite.tooltip_text = "%s · уровень %d\n%s" % [NAMES[index],level,"Улучшить" if _construction else "Открыть"]
+		if site.sprite.visible:
+			_ensure_click_mask(site)
 
 func _hover(index: int, entered: bool) -> void:
 	_sites[index].sprite.modulate = Color(1.14,1.10,1.01) if entered else Color.WHITE
