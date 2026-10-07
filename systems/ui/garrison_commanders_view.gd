@@ -6,8 +6,7 @@ const DESIGN := Vector2(1672,944)
 const FACTIONS := ["nerids","surr","meridians","aery","crystari","humans"]
 const GROUPS := [["coast_guard","rune_spearman","stone_warden"],["crystal_mortar"],["wind_rider","storm_drake"]]
 const UNIT_ART := ["coast_guard","crystal_mortar","wind_rider"]
-const PORTRAIT_ATLAS := "res://assets/characters/crew/crew_portrait_atlas.png"
-const PORTRAIT_ROW := {"humans":0,"nerids":1,"surr":2,"meridians":3,"aery":4,"crystari":5}
+const PORTRAIT_CATALOG_PATH := "res://data/combat/commander_portraits.json"
 const CANDIDATE_NAMES := {
 	"humans":[["Мара Торн","Эдрик Восс","Лина Фаррел"],["Анна Вейл","Дарен Кроу","Эва Морн"]],
 	"nerids":[["Сирена Вальтэра","Найр Таласс","Лиара Вейн"],["Найра Тей","Кайрен Дол","Селлиа Мар" ]],
@@ -40,6 +39,7 @@ var _role_buttons: Array[Button] = []
 var _factions: Dictionary = {}
 var _candidate_refresh: Button
 var _candidates: Dictionary = {}
+var _portrait_catalog: Dictionary = {}
 var _roll_serial: int = 0
 
 class Backdrop extends Control:
@@ -58,6 +58,7 @@ class Backdrop extends Control:
 
 func _ready() -> void:
 	mouse_filter=MOUSE_FILTER_STOP
+	_portrait_catalog=GameData.read(PORTRAIT_CATALOG_PATH).get("portraits",{})
 	var surround:=ColorRect.new(); surround.color=Color("07131c"); surround.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT); surround.mouse_filter=MOUSE_FILTER_IGNORE; add_child(surround)
 	canvas=Control.new(); canvas.size=DESIGN; add_child(canvas)
 	var background:=Backdrop.new(); background.size=DESIGN; background.mouse_filter=MOUSE_FILTER_IGNORE; canvas.add_child(background)
@@ -132,13 +133,13 @@ func _profile(race: String, profile_role: int) -> Dictionary:
 	var profiles: Array = GameData.read("res://data/combat/commander_catalog.json").get("profiles",{}).get(race,[])
 	return profiles[profile_role].duplicate(true) if profiles.size()>profile_role else {}
 
+func _portrait_path(race: String, variant: int) -> String:
+	var paths: Array = _portrait_catalog.get(race,[])
+	variant=clampi(variant,0,paths.size()-1) if not paths.is_empty() else 0
+	return str(paths[variant]) if not paths.is_empty() else str(_profile(race,0).get("portrait",""))
+
 func _candidate_portrait(race: String, variant: int) -> Texture2D:
-	var atlas := load(PORTRAIT_ATLAS) as Texture2D
-	if atlas == null: return load(str(_profile(race,0).get("portrait",""))) as Texture2D
-	var atlas_texture := AtlasTexture.new()
-	atlas_texture.atlas=atlas
-	atlas_texture.region=Rect2(Vector2((atlas.get_width()/3.0)*variant,(atlas.get_height()/6.0)*int(PORTRAIT_ROW.get(race,0))),Vector2(atlas.get_width()/3.0,atlas.get_height()/6.0))
-	return atlas_texture
+	return load(_portrait_path(race,variant)) as Texture2D
 
 func _make_candidate(race: String, candidate_role: int, avoid_variants: Array[int] = []) -> Dictionary:
 	var candidate := _profile(race,candidate_role)
@@ -155,7 +156,7 @@ func _make_candidate(race: String, candidate_role: int, avoid_variants: Array[in
 	candidate["id"]="%s_offer_%d_%d" % [race,Time.get_unix_time_from_system(),_roll_serial]
 	if variant<names.size(): candidate["name"]=str(names[variant])
 	candidate["portrait_variant"]=variant
-	candidate["portrait"]=PORTRAIT_ATLAS
+	candidate["portrait"]=_portrait_path(race,variant)
 	# Offers vary slightly around the role's faction balance, so rerolling changes
 	# both the face and the tactical profile without creating extreme bonuses.
 	for stat in ["attack","defense","expenses"]:
@@ -217,8 +218,9 @@ func refresh(combat: Node) -> void:
 		controls.portrait.texture=_candidate_portrait(str(commander.get("race_id",race)),int(commander.get("portrait_variant",index))) if not commander.is_empty() else null
 		_set_frame_selected(controls.frame,index==slot)
 		_role_buttons[index].set_pressed_no_signal(index==role)
-	_hero.texture=_candidate_portrait(race,int(candidate.get("portrait_variant",role)))
-	_hero_emblem.texture=GameData.get_faction_emblem(race)
+	var candidate_race := str(candidate.get("race_id",race))
+	_hero.texture=_candidate_portrait(candidate_race,int(candidate.get("portrait_variant",role)))
+	_hero_emblem.texture=GameData.get_faction_emblem(candidate_race)
 	_hero_name.text=str(shown.get("name","Командир")); _hero_title.text=str(shown.get("title",""))
 	_profile_heading.text="КАНДИДАТ · %s" % ("КОМАНДИР" if slot==0 else "ЗАМЕСТИТЕЛЬ")
 	_status.text="НАЗНАЧЕН · СЛОТ %d" % (slot+1) if is_hired else "КАНДИДАТ · %s" % str(GameData.get_faction(race).get("name",race)).split(" — ")[0]

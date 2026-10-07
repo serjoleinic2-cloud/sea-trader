@@ -45,7 +45,7 @@ func test_commander_and_deputy_offers_can_be_rerolled_with_distinct_atlas_portra
 	window.open()
 	var screen: Control = window._art_screen
 	var first_id: String = str(screen._candidates[0].id)
-	assert_true(screen._hero.texture is AtlasTexture,"commander uses a distinct portrait from the crew atlas")
+	assert_true(screen._hero.texture is Texture2D,"commander uses an independent portrait asset")
 	assert_true(screen._hero_frame.position.x < screen._hero.position.x and screen._hero_frame.position.y < screen._hero.position.y,"gold portrait frame is visible around the complete image")
 	assert_true(screen._hero_frame.position.x+screen._hero_frame.size.x >= screen._hero.position.x+screen._hero.size.x,"portrait frame covers the image's right edge")
 	assert_true(screen._hero_frame.position.y+screen._hero_frame.size.y >= screen._hero_title.position.y+screen._hero_title.size.y,"portrait frame does not crop the candidate title")
@@ -53,10 +53,22 @@ func test_commander_and_deputy_offers_can_be_rerolled_with_distinct_atlas_portra
 	assert_ne(screen._candidates[0].id,first_id,"reroll creates a different commander offer")
 	screen._role_buttons[1].pressed.emit()
 	var deputy_id: String = str(screen._candidates[1].id)
-	assert_true(screen._hero.texture is AtlasTexture,"deputy uses a portrait from the crew atlas")
+	assert_true(screen._hero.texture is Texture2D,"deputy uses an independent portrait asset")
 	assert_ne(screen._candidates[1].portrait_variant,screen._candidates[0].portrait_variant,"commander and deputy portrait variants are independent")
 	screen._candidate_refresh.pressed.emit()
 	assert_ne(screen._candidates[1].id,deputy_id,"deputy offer can be rerolled independently")
+
+func test_each_race_candidate_uses_its_own_portrait_row_and_only_home_race_is_hireable() -> void:
+	window.open()
+	var screen: Control = window._art_screen
+	var races: Array[String] = ["humans","nerids","surr","meridians","aery","crystari"]
+	for race in races:
+		window._select_faction(str(race))
+		var candidate: Dictionary = screen._candidates[screen.slot]
+		var portrait := screen._hero.texture as Texture2D
+		assert_eq(candidate.race_id,race,"candidate belongs to selected race: "+str(race))
+		assert_true(portrait.resource_path.contains("/"+str(race)+"/"),"portrait file belongs to selected race folder: "+str(race))
+		assert_eq(screen._hire.disabled,str(race)!="nerids","only the player's race can be hired")
 
 func test_legacy_commander_remains_visible_and_can_be_dismissed() -> void:
 	GameState.combat_state.commander={"name":"Сирена Вальтэра","race_id":"nerids","attack_bonus":6.0,"defense_bonus":4.0,"expenses_bonus":2.0}

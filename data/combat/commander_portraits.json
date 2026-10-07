@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "portraits": {
+    "humans": [
+      "res://assets/characters/commanders/humans/portrait_01.png",
+      "res://assets/characters/commanders/humans/portrait_02.png",
+      "res://assets/characters/commanders/humans/portrait_03.png"
+    ],
+    "nerids": [
+      "res://assets/characters/commanders/nerids/portrait_01.png",
+      "res://assets/characters/commanders/nerids/portrait_02.png",
+      "res://assets/characters/commanders/nerids/portrait_03.png"
+    ],
+    "surr": [
+      "res://assets/characters/commanders/surr/portrait_01.png",
+      "res://assets/characters/commanders/surr/portrait_02.png",
+      "res://assets/characters/commanders/surr/portrait_03.png"
+    ],
+    "meridians": [
+      "res://assets/characters/commanders/meridians/portrait_01.png",
+      "res://assets/characters/commanders/meridians/portrait_02.png",
+      "res://assets/characters/commanders/meridians/portrait_03.png"
+    ],
+    "aery": [
+      "res://assets/characters/commanders/aery/portrait_01.png",
+      "res://assets/characters/commanders/aery/portrait_02.png",
+      "res://assets/characters/commanders/aery/portrait_03.png"
+    ],
+    "crystari": [
+      "res://assets/characters/commanders/crystari/portrait_01.png",
+      "res://assets/characters/commanders/crystari/portrait_02.png",
+      "res://assets/characters/commanders/crystari/portrait_03.png"
+    ]
+  }
+}
