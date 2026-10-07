@@ -24,6 +24,7 @@ var _hire: Button
 var _stats: Dictionary = {}
 var _groups: Array = []
 var _slots: Array = []
+var _role_buttons: Array[Button] = []
 var _factions: Dictionary = {}
 
 class Backdrop extends Control:
@@ -86,8 +87,9 @@ func _ready() -> void:
 		var value:=_label(Rect2(1460,y,165,36),"",26,Color("6fe7d1"))
 		var bar:=_bar(Rect2(1137,y+51,475,15),Color("4bc6b6") if i<2 else Color("cd9970"))
 		_stats[["attack","defense","expenses"][i]]={"label":value,"bar":bar}
-	_button(Rect2(1135,572,225,44),"Главный командир",func(): role=0; _refresh_now())
-	_button(Rect2(1375,572,250,44),"Заместитель",func(): role=1; _refresh_now())
+	_role_buttons.append(_button(Rect2(1135,572,225,44),"Главный командир",func(): _select_command_slot(0)))
+	_role_buttons.append(_button(Rect2(1375,572,250,44),"Заместитель",func(): _select_command_slot(1)))
+	for role_button in _role_buttons: role_button.toggle_mode=true
 	_hire=_button(Rect2(1135,633,490,54),"",_appoint)
 	for index in 6:
 		var race: String = FACTIONS[index]
@@ -148,6 +150,7 @@ func refresh(combat: Node) -> void:
 		controls.status.text="Свободен · назначить" if commander.is_empty() else "Назначен\n⚔ %+.1f%%\n◇ %+.1f%%" % [float(commander.get("attack_bonus",0)),float(commander.get("defense_bonus",0))]
 		controls.portrait.texture=load(str(_profile(str(commander.get("race_id",race)),index).get("portrait",""))) as Texture2D if not commander.is_empty() else null
 		_set_frame_selected(controls.frame,index==slot)
+		_role_buttons[index].set_pressed_no_signal(index==role)
 	_hero.texture=load(str(candidate.get("portrait",""))) as Texture2D
 	_hero_emblem.texture=GameData.get_faction_emblem(race)
 	_hero_name.text=str(shown.get("name","Командир")); _hero_title.text=str(shown.get("title",""))
@@ -166,6 +169,13 @@ func refresh(combat: Node) -> void:
 
 func _refresh_now() -> void:
 	if system!=null: refresh(system)
+
+func _select_command_slot(index: int) -> void:
+	# The right-side role tabs and the left-side slot cards must address the same
+	# appointment; otherwise a deputy candidate can be shown while slot 0 stays selected.
+	slot=index
+	role=index
+	_refresh_now()
 
 func _appoint() -> void:
 	if system==null: return
