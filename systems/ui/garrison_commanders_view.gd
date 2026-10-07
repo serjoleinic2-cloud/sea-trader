@@ -6,6 +6,16 @@ const DESIGN := Vector2(1672,944)
 const FACTIONS := ["nerids","surr","meridians","aery","crystari","humans"]
 const GROUPS := [["coast_guard","rune_spearman","stone_warden"],["crystal_mortar"],["wind_rider","storm_drake"]]
 const UNIT_ART := ["coast_guard","crystal_mortar","wind_rider"]
+const PORTRAIT_ATLAS := "res://assets/characters/crew/crew_portrait_atlas.png"
+const PORTRAIT_ROW := {"humans":0,"nerids":1,"surr":2,"meridians":3,"aery":4,"crystari":5}
+const CANDIDATE_NAMES := {
+	"humans":[["Мара Торн","Эдрик Восс","Лина Фаррел"],["Анна Вейл","Дарен Кроу","Эва Морн"]],
+	"nerids":[["Сирена Вальтэра","Найр Таласс","Лиара Вейн"],["Найра Тей","Кайрен Дол","Селлиа Мар" ]],
+	"surr":[["Рагнар Келл","Бранн Келл","Верак Дорн"],["Бранна Келл","Торек Вальд","Кара Денн"]],
+	"meridians":[["Лиора Вейн","Орен Валлис","Мира Солен"],["Алира Нейт","Киран Восс","Сера Вейн"]],
+	"aery":[["Элиан Саэр","Тарен Лиор","Ириэль Вей"],["Лиэн Раэ","Аэрон Таль","Фейра Ним"]],
+	"crystari":[["Тарен Нокс","Кристен Вар","Лисса Кварц"],["Корн Тай","Вейра Нокс","Сарен Тир"]]
+}
 var owner_window: Node
 var system: Node
 var canvas: Control
@@ -17,6 +27,8 @@ var _hero: TextureRect
 var _hero_emblem: TextureRect
 var _hero_name: Label
 var _hero_title: Label
+var _profile_heading: Label
+var _hero_frame: Panel
 var _status: Label
 var _description: Label
 var _notice: Label
@@ -26,6 +38,9 @@ var _groups: Array = []
 var _slots: Array = []
 var _role_buttons: Array[Button] = []
 var _factions: Dictionary = {}
+var _candidate_refresh: Button
+var _candidates: Dictionary = {}
+var _roll_serial: int = 0
 
 class Backdrop extends Control:
 	func _draw() -> void:
@@ -72,14 +87,14 @@ func _ready() -> void:
 		var status_label:=_label(Rect2(x+98,625,132,66),"",13,Color("77e7cf"))
 		_button(Rect2(x,564,240,130),"",func(): slot=index; role=index; _refresh_now(),true)
 		_slots.append({"frame":frame,"portrait":portrait,"name":name_label,"status":status_label})
-	_frame(Rect2(573,105,532,581),true)
+	_hero_frame=_frame(Rect2(588,139,502,548),true)
 	_hero=_texture(Rect2(600,150,478,450),null)
 	_hero.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	_hero_emblem=_texture(Rect2(589,112,60,60),null)
 	_status=_label(Rect2(671,116,392,42),"",20,Color("edce80"))
 	_hero_name=_label(Rect2(596,609,484,37),"",25,Color("f0dfb0"))
 	_hero_title=_label(Rect2(596,650,484,25),"",17,Color("a9dcda"))
-	_label(Rect2(1135,111,510,38),"ПРОФИЛЬ КОМАНДИРА",25,Color("edce80"))
+	_profile_heading=_label(Rect2(1135,111,510,38),"ПРОФИЛЬ КОМАНДИРА",25,Color("edce80"))
 	_description=_label(Rect2(1135,160,505,62),"",18,Color("d1e1df"))
 	for i in 3:
 		var y: float = 240+i*103
@@ -90,6 +105,7 @@ func _ready() -> void:
 	_role_buttons.append(_button(Rect2(1135,572,225,44),"Главный командир",func(): _select_command_slot(0)))
 	_role_buttons.append(_button(Rect2(1375,572,250,44),"Заместитель",func(): _select_command_slot(1)))
 	for role_button in _role_buttons: role_button.toggle_mode=true
+	_candidate_refresh=_button(Rect2(1135,516,490,44),"СМЕНИТЬ КАНДИДАТА",_reroll_candidate)
 	_hire=_button(Rect2(1135,633,490,54),"",_appoint)
 	for index in 6:
 		var race: String = FACTIONS[index]
@@ -116,12 +132,62 @@ func _profile(race: String, profile_role: int) -> Dictionary:
 	var profiles: Array = GameData.read("res://data/combat/commander_catalog.json").get("profiles",{}).get(race,[])
 	return profiles[profile_role].duplicate(true) if profiles.size()>profile_role else {}
 
+func _candidate_portrait(race: String, variant: int) -> Texture2D:
+	var atlas := load(PORTRAIT_ATLAS) as Texture2D
+	if atlas == null: return load(str(_profile(race,0).get("portrait",""))) as Texture2D
+	var atlas_texture := AtlasTexture.new()
+	atlas_texture.atlas=atlas
+	atlas_texture.region=Rect2(Vector2((atlas.get_width()/3.0)*variant,(atlas.get_height()/6.0)*int(PORTRAIT_ROW.get(race,0))),Vector2(atlas.get_width()/3.0,atlas.get_height()/6.0))
+	return atlas_texture
+
+func _make_candidate(race: String, candidate_role: int, avoid_variants: Array[int] = []) -> Dictionary:
+	var candidate := _profile(race,candidate_role)
+	if candidate.is_empty(): return candidate
+	var rng := RandomNumberGenerator.new()
+	_roll_serial+=1
+	rng.randomize()
+	var variants: Array[int] = [0,1,2]
+	for avoid_variant in avoid_variants:
+		if avoid_variant in variants: variants.erase(avoid_variant)
+	if variants.is_empty(): variants=[0,1,2]
+	var variant: int = variants[rng.randi_range(0,variants.size()-1)]
+	var names: Array = CANDIDATE_NAMES.get(race,[]).get(candidate_role,[])
+	candidate["id"]="%s_offer_%d_%d" % [race,Time.get_unix_time_from_system(),_roll_serial]
+	if variant<names.size(): candidate["name"]=str(names[variant])
+	candidate["portrait_variant"]=variant
+	candidate["portrait"]=PORTRAIT_ATLAS
+	# Offers vary slightly around the role's faction balance, so rerolling changes
+	# both the face and the tactical profile without creating extreme bonuses.
+	for stat in ["attack","defense","expenses"]:
+		candidate[stat]=snappedf(float(candidate.get(stat,0.0))+float(rng.randi_range(-1,1)),0.5)
+	return candidate
+
+func _reroll_candidate() -> void:
+	var race := str(owner_window._inspected_faction_id)
+	if race=="": race=str(GameState.player_state.get("origin_race_id","humans"))
+	var avoid_variants: Array[int] = []
+	var current: Dictionary = _candidates.get(slot,{})
+	if str(current.get("race_id",""))==race: avoid_variants.append(int(current.get("portrait_variant",-1)))
+	var other_candidate: Dictionary = _candidates.get(1-slot,{})
+	if str(other_candidate.get("race_id",""))==race: avoid_variants.append(int(other_candidate.get("portrait_variant",-1)))
+	var hired_elsewhere: Dictionary = system.get_commander(1-slot) if system!=null else {}
+	if str(hired_elsewhere.get("race_id",""))==race: avoid_variants.append(int(hired_elsewhere.get("portrait_variant",-1)))
+	_candidates[slot]=_make_candidate(race,slot,avoid_variants)
+	_refresh_now()
+
 func refresh(combat: Node) -> void:
 	system=combat
 	if owner_window==null: return
 	var race: String = str(owner_window._inspected_faction_id)
 	if race=="": race=str(GameState.player_state.get("origin_race_id","humans"))
-	var candidate: Dictionary = _profile(race,role)
+	if not _candidates.has(slot) or str(_candidates[slot].get("race_id",""))!=race:
+		var avoid_variants: Array[int] = []
+		var other_candidate: Dictionary = _candidates.get(1-slot,{})
+		if str(other_candidate.get("race_id",""))==race: avoid_variants.append(int(other_candidate.get("portrait_variant",-1)))
+		var hired_elsewhere: Dictionary = system.get_commander(1-slot)
+		if str(hired_elsewhere.get("race_id",""))==race: avoid_variants.append(int(hired_elsewhere.get("portrait_variant",-1)))
+		_candidates[slot]=_make_candidate(race,slot,avoid_variants)
+	var candidate: Dictionary = _candidates[slot]
 	var hired: Dictionary = system.get_commander(slot)
 	var is_hired: bool = not hired.is_empty() and str(hired.get("id",""))==str(candidate.get("id",""))
 	var shown: Dictionary = hired if is_hired else candidate
@@ -148,12 +214,13 @@ func refresh(combat: Node) -> void:
 		var controls: Dictionary = _slots[index]
 		controls.name.text=str(commander.get("name","Главный командир" if index==0 else "Заместитель"))
 		controls.status.text="Свободен · назначить" if commander.is_empty() else "Назначен\n⚔ %+.1f%%\n◇ %+.1f%%" % [float(commander.get("attack_bonus",0)),float(commander.get("defense_bonus",0))]
-		controls.portrait.texture=load(str(_profile(str(commander.get("race_id",race)),index).get("portrait",""))) as Texture2D if not commander.is_empty() else null
+		controls.portrait.texture=_candidate_portrait(str(commander.get("race_id",race)),int(commander.get("portrait_variant",index))) if not commander.is_empty() else null
 		_set_frame_selected(controls.frame,index==slot)
 		_role_buttons[index].set_pressed_no_signal(index==role)
-	_hero.texture=load(str(candidate.get("portrait",""))) as Texture2D
+	_hero.texture=_candidate_portrait(race,int(candidate.get("portrait_variant",role)))
 	_hero_emblem.texture=GameData.get_faction_emblem(race)
 	_hero_name.text=str(shown.get("name","Командир")); _hero_title.text=str(shown.get("title",""))
+	_profile_heading.text="КАНДИДАТ · %s" % ("КОМАНДИР" if slot==0 else "ЗАМЕСТИТЕЛЬ")
 	_status.text="НАЗНАЧЕН · СЛОТ %d" % (slot+1) if is_hired else "КАНДИДАТ · %s" % str(GameData.get_faction(race).get("name",race)).split(" — ")[0]
 	_description.text="Слот %d: %s\n%s" % [slot+1,"главный командир" if slot==0 else "заместитель", "Действует в составе командования" if is_hired else "Показаны бонусы кандидата; слева — назначенных"]
 	for key in _stats:
@@ -163,6 +230,8 @@ func refresh(combat: Node) -> void:
 		_stats[key].label.add_theme_color_override("font_color",Color("ee8d75") if key=="expenses" and value>0 else Color("6fe7d1"))
 	_hire.text="СНЯТЬ С ДОЛЖНОСТИ" if is_hired else "НАНЯТЬ В СЛОТ %d · %d МОНЕТ" % [slot+1,int(candidate.get("cost",0))]
 	_hire.disabled=not system.is_at_home() or (not is_hired and (not hired.is_empty() or race!=str(GameState.player_state.get("origin_race_id","")) or float(GameState.player_state.money)<int(candidate.get("cost",0))))
+	_candidate_refresh.disabled=is_hired
+	_candidate_refresh.tooltip_text="Показывает другого персонажа и случайный набор характеристик для выбранного слота."
 	_hire.tooltip_text="Для нового назначения освободите выбранный слот. Доступны командиры вашей расы." if not hired.is_empty() and not is_hired else "Назначение меняет показатели армии слева сразу после нажатия."
 	for faction in _factions: _set_frame_selected(_factions[faction].frame,str(faction)==race)
 	_notice.text=str(owner_window._notice.text)
@@ -179,7 +248,8 @@ func _select_command_slot(index: int) -> void:
 
 func _appoint() -> void:
 	if system==null: return
-	var candidate: Dictionary = _profile(str(owner_window._inspected_faction_id),role)
+	var candidate: Dictionary = _candidates.get(slot,{})
+	if candidate.is_empty(): return
 	var commander: Dictionary = system.get_commander(slot)
 	var result: Dictionary = system.dismiss_commander(slot) if not commander.is_empty() and str(commander.get("id",""))==str(candidate.get("id","")) else system.hire_commander(candidate,slot)
 	owner_window._notice.text=str(result.get("message",""))
