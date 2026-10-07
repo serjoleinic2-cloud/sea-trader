@@ -258,7 +258,7 @@ func begin_battle(enemy_ids: Array = []) -> Dictionary:
 		GameState.combat_state.naval_battle=battle
 		for id in battle.ship_ids:
 			var ship: Dictionary = ship_by_id(str(id))
-			ship.escort_enabled=false; ship.naval_order={"kind":"rally","point":vector(GameState.ship_state.position)}
+			ship.escort_enabled=false; ship.naval_order={"kind":"hold","point":position(ship)}
 			if _military!=null: _military.clear_orders(str(id)),"Бой начался.")
 	if status.ok and _main!=null:
 		var autopilot: Node = _main.get("_active_route_autopilot")
@@ -409,7 +409,7 @@ func _step_battle(delta: float) -> void:
 					var dist: float = position(ship).distance_to(enemy_point)
 					order.point=position(ship) if dist<=_ship_range(ship)*.82 else enemy_point+enemy_point.direction_to(position(ship))*_ship_range(ship)*.72
 			_fire_ship(ship,enemies,delta,battle)
-	if allies.is_empty() or float(GameState.ship_state.get("hull",100))<=0: _finish("Поражение",{}); return
+	if allies.is_empty(): _finish("Поражение",{}); return
 	for enemy in enemies:
 		if not _enemy_alive(enemy): continue
 		var nearest: Dictionary = allies[0]
@@ -440,12 +440,15 @@ func _ship_range(ship: Dictionary) -> float:
 	return result
 
 func _fire_ship(ship: Dictionary, enemies: Array[Dictionary], delta: float, battle: Dictionary) -> void:
+	var order: Dictionary = ship.get("naval_order",{})
+	if str(order.get("kind","hold"))!="attack": return
+	var target_id: String = str(order.get("enemy_id",""))
+	if target_id=="": return
 	var origin: Vector2 = position(ship)
-	var target: Dictionary = enemies[0]
-	var chosen: String = str(ship.get("naval_order",{}).get("enemy_id",""))
+	var target: Dictionary = {}
 	for enemy in enemies:
-		if str(enemy.id)==chosen: target=enemy; break
-		if origin.distance_to(vector(enemy.position))<origin.distance_to(vector(target.position)): target=enemy
+		if str(enemy.id)==target_id: target=enemy; break
+	if target.is_empty() or not _enemy_alive(target): return
 	var skills: Dictionary = ship.get("commander",{}).get("skills",{})
 	for gun in ship.get("guns",[]):
 		if gun.is_empty(): continue

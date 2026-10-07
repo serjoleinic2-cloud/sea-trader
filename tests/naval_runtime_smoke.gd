@@ -71,6 +71,20 @@ func _ready() -> void:
 	hud._choice.confirmed.emit(); await frames()
 	check(navy.active(),"confirmation starts actual battle")
 	check(not ship.escort_enabled,"battle releases escort")
+	check(str(ship.naval_order.get("kind",""))=="hold","battle starts with ships holding position")
+	var player_hull: float = float(GameState.ship_state.get("hull",100))
+	var battle_military: Node = navy._military
+	navy._military=null
+	GameState.ship_state.hull=0
+	navy._step_battle(.05)
+	check(navy.active(),"merchant flagship hull does not cause instant naval defeat")
+	GameState.ship_state.hull=player_hull
+	check(int(GameState.combat_state.naval_battle.shots)==0,"own guns do not fire without an attack order")
+	var target_id: String = str(GameState.combat_state.naval_battle.enemy_ids[0])
+	navy.issue_order(id,navy.get_enemy_snapshots()[0].position,target_id)
+	navy._step_battle(.05)
+	navy._military=battle_military
+	check(int(GameState.combat_state.naval_battle.shots)>0,"attack order fires on its selected enemy")
 	var vfx: Node = main.get_node("NavalCombatVFX")
 	EventBus.naval_shot_visual.emit(water, water + Vector2(180, 0), true, "rune", Vector2.UP, id)
 	check(not vfx.get("_shots").is_empty(),"3D naval VFX creates a visible projectile")
@@ -78,7 +92,7 @@ func _ready() -> void:
 		get_tree().root.size=viewport_size
 		for i in 40: hud._process(.05)
 		await frames()
-		check(is_equal_approx(hud._panel.size.x,get_viewport().get_visible_rect().size.x*.25),"battle panel occupies quarter of viewport "+str(viewport_size))
+		check(is_equal_approx(hud._panel.size.x,clampf(get_viewport().get_visible_rect().size.x*.25,290,370)),"battle panel stays compact at "+str(viewport_size))
 		var treasury: Control = main.get_node("WindowCoordinator/TopResourceBar")
 		check(treasury.position.x+treasury.size.x*treasury.scale.x<=get_viewport().get_visible_rect().size.x*.75+1,"treasury stays clear of battle panel")
 	get_tree().root.size=Vector2i(1280,720); await frames()
