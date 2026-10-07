@@ -426,6 +426,7 @@ func _step_battle(delta: float) -> void:
 			enemy.cooldown=float(_rules.enemy_reload_seconds)
 			nearest.hull=maxf(0,float(nearest.hull)-maxf(1,float(_rules.enemy_damage)-float(GameData.get_ship(str(nearest.ship_type_id)).get("armor",0))))
 			EventBus.naval_shot_fired.emit(from,to,true)
+			EventBus.naval_shot_visual.emit(from,to,true,"cannon",vector(enemy.get("heading",Vector2.LEFT)),str(enemy.get("id","")))
 	if bool(battle.get("truce_pending",false)) and _clock>=float(battle.get("truce_at",INF)):
 		var consent: bool = true
 		for enemy in enemies:
@@ -464,6 +465,7 @@ func _fire_ship(ship: Dictionary, enemies: Array[Dictionary], delta: float, batt
 			gun.experience=int(gun.get("experience",0))+int(_rules.shot_xp)
 			_award_xp(ship,int(_rules.shot_xp))
 		EventBus.naval_shot_fired.emit(origin,vector(target.position),hit)
+		EventBus.naval_shot_visual.emit(origin,vector(target.position),hit,str(gun.get("kind","cannon")),vector(ship.get("escort_state",{}).get("heading",Vector2.UP)),str(ship.get("instance_id","")))
 
 func get_enemy_snapshots() -> Array[Dictionary]:
 	var result: Array[Dictionary] = []

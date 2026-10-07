@@ -221,6 +221,10 @@ func _start_game() -> void:
 	_approach_view.name = "Approach3DView"
 	add_child(_approach_view)
 	_approach_view.call("initialize", _navigation_world, _world_renderer, _ship, _trader_traffic, _fleet_traffic)
+	var naval_vfx: Node = load("res://systems/rendering/naval_combat_vfx.gd").new()
+	naval_vfx.name = "NavalCombatVFX"
+	add_child(naval_vfx)
+	naval_vfx.call("initialize", _approach_view)
 	_modules.start(self, {"$ship": _ship, "$ports": _world_data.ports, "$main": self})
 	if _active_route_autopilot != null:
 		_active_route_autopilot.call("set_navigation_islands", _navigation_islands)

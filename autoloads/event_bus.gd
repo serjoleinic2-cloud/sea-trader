@@ -64,3 +64,4 @@ signal navigation_destination_cleared()
 
 signal naval_battle_changed
 signal naval_shot_fired(origin: Vector2, target: Vector2, hit: bool)
+signal naval_shot_visual(origin: Vector2, target: Vector2, hit: bool, weapon_kind: String, heading: Vector2, attacker_id: String)

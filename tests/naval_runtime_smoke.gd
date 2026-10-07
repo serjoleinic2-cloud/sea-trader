@@ -71,6 +71,9 @@ func _ready() -> void:
 	hud._choice.confirmed.emit(); await frames()
 	check(navy.active(),"confirmation starts actual battle")
 	check(not ship.escort_enabled,"battle releases escort")
+	var vfx: Node = main.get_node("NavalCombatVFX")
+	EventBus.naval_shot_visual.emit(water, water + Vector2(180, 0), true, "rune", Vector2.UP, id)
+	check(not vfx.get("_shots").is_empty(),"3D naval VFX creates a visible projectile")
 	for viewport_size in [Vector2i(1280,720),Vector2i(1080,720),Vector2i(1080,1920)]:
 		get_tree().root.size=viewport_size
 		for i in 40: hud._process(.05)
