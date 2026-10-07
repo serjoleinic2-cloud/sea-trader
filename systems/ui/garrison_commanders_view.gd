@@ -152,7 +152,8 @@ func _make_candidate(race: String, candidate_role: int, avoid_variants: Array[in
 		if avoid_variant in variants: variants.erase(avoid_variant)
 	if variants.is_empty(): variants=[0,1,2]
 	var variant: int = variants[rng.randi_range(0,variants.size()-1)]
-	var names: Array = CANDIDATE_NAMES.get(race,[]).get(candidate_role,[])
+	var name_groups: Array = CANDIDATE_NAMES.get(race,[])
+	var names: Array = name_groups[candidate_role] if candidate_role>=0 and candidate_role<name_groups.size() else []
 	candidate["id"]="%s_offer_%d_%d" % [race,Time.get_unix_time_from_system(),_roll_serial]
 	if variant<names.size(): candidate["name"]=str(names[variant])
 	candidate["portrait_variant"]=variant
@@ -190,7 +191,7 @@ func refresh(combat: Node) -> void:
 		_candidates[slot]=_make_candidate(race,slot,avoid_variants)
 	var candidate: Dictionary = _candidates[slot]
 	var hired: Dictionary = system.get_commander(slot)
-	var is_hired: bool = not hired.is_empty() and str(hired.get("id",""))==str(candidate.get("id",""))
+	var is_hired: bool = not hired.is_empty()
 	var shown: Dictionary = hired if is_hired else candidate
 	_money.text="✦ %d монет     ◇ %d осколков" % [int(GameState.player_state.money),system.get_magic_shards()]
 	_summary.text="Сила атаки %d  ·  Оборона %d\nБонусы применены ко всем отрядам" % [system.get_attack_power(),system.get_defense_power()]
@@ -218,9 +219,9 @@ func refresh(combat: Node) -> void:
 		controls.portrait.texture=_candidate_portrait(str(commander.get("race_id",race)),int(commander.get("portrait_variant",index))) if not commander.is_empty() else null
 		_set_frame_selected(controls.frame,index==slot)
 		_role_buttons[index].set_pressed_no_signal(index==role)
-	var candidate_race := str(candidate.get("race_id",race))
-	_hero.texture=_candidate_portrait(candidate_race,int(candidate.get("portrait_variant",role)))
-	_hero_emblem.texture=GameData.get_faction_emblem(candidate_race)
+	var shown_race := str(shown.get("race_id",race))
+	_hero.texture=_candidate_portrait(shown_race,int(shown.get("portrait_variant",role)))
+	_hero_emblem.texture=GameData.get_faction_emblem(shown_race)
 	_hero_name.text=str(shown.get("name","Командир")); _hero_title.text=str(shown.get("title",""))
 	_profile_heading.text="КАНДИДАТ · %s" % ("КОМАНДИР" if slot==0 else "ЗАМЕСТИТЕЛЬ")
 	_status.text="НАЗНАЧЕН · СЛОТ %d" % (slot+1) if is_hired else "КАНДИДАТ · %s" % str(GameData.get_faction(race).get("name",race)).split(" — ")[0]
@@ -253,7 +254,7 @@ func _appoint() -> void:
 	var candidate: Dictionary = _candidates.get(slot,{})
 	if candidate.is_empty(): return
 	var commander: Dictionary = system.get_commander(slot)
-	var result: Dictionary = system.dismiss_commander(slot) if not commander.is_empty() and str(commander.get("id",""))==str(candidate.get("id","")) else system.hire_commander(candidate,slot)
+	var result: Dictionary = system.dismiss_commander(slot) if not commander.is_empty() else system.hire_commander(candidate,slot)
 	owner_window._notice.text=str(result.get("message",""))
 	owner_window._cards_dirty=true; owner_window._refresh(); refresh(system)
 
