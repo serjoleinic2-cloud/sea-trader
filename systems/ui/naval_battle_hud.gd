@@ -13,6 +13,8 @@ var _open_amount: float = 0
 var _clock: float = 0
 var _report_time: float = -1
 var _truce: Button
+var _training_button: Button
+var _training_notice: AcceptDialog
 
 func _ready() -> void:
 	layer=145
@@ -37,6 +39,9 @@ func _ready() -> void:
 	_choice=ConfirmationDialog.new(); _choice.title="Встречен боевой флот"; _choice.dialog_text="Начать бой? Корабли выйдут из сопровождения.\nВраждебный патруль может атаковать вооружённую эскадру."; _choice.ok_button_text="Начать бой"; _choice.cancel_button_text="Продолжить путь"; _choice.confirmed.connect(func(): _show_status(_system.begin_battle())); add_child(_choice)
 	_surrender=ConfirmationDialog.new(); _surrender.title="Сдаться"; _surrender.dialog_text="Сдача означает поражение. Будет списано 10% монет, осколков и свободных ресурсов домашнего склада."; _surrender.ok_button_text="Сдаться"; _surrender.cancel_button_text="Продолжить бой"; _surrender.confirmed.connect(func(): _show_status(_system.surrender())); add_child(_surrender)
 	_report=AcceptDialog.new(); _report.title="Итог морского боя"; add_child(_report)
+	if OS.is_debug_build():
+		_training_button=Button.new(); _training_button.text="ТЕСТ БОЯ · ВЫЗВАТЬ ПАТРУЛЬ"; _training_button.custom_minimum_size=Vector2(270,42); _training_button.set_meta("preserve_art_style",true); _training_button.pressed.connect(_create_training_encounter); add_child(_training_button)
+		_training_notice=AcceptDialog.new(); _training_notice.title="Учебный бой"; add_child(_training_notice)
 	_badge.hide(); _panel.hide(); _lantern.hide()
 
 func _button(parent: Control, text_value: String, callback: Callable) -> Button:
@@ -52,6 +57,12 @@ func initialize(system: Node) -> void:
 func _show_status(result: Dictionary) -> void:
 	_notice.text=str(result.get("message",""))
 
+func _create_training_encounter() -> void:
+	if _system == null: return
+	var result: Dictionary = _system.create_training_encounter()
+	_training_notice.dialog_text=str(result.get("message", "Не удалось создать учебный бой."))
+	_training_notice.popup_centered(Vector2i(470, 170))
+
 func _show_choice() -> void:
 	if _system==null or _system.nearby_enemies().is_empty(): return
 	_choice.popup_centered(Vector2i(500,210))
@@ -65,6 +76,9 @@ func _process(delta: float) -> void:
 	_clock+=delta
 	var engaged: bool = _system.active()
 	var viewport: Vector2 = get_viewport().get_visible_rect().size
+	if _training_button != null:
+		_training_button.visible=not engaged
+		_training_button.position=Vector2(18, viewport.y - 62)
 	var width: float = viewport.x*.25
 	if engaged and _open_amount==0: _map.center=_system.vector(GameState.ship_state.position)
 	_open_amount=move_toward(_open_amount,1.0 if engaged else 0.0,delta*4)

@@ -57,9 +57,11 @@ func _ready() -> void:
 	var water: Vector2 = military._spawn_position(main._ship.global_position,length*2,[])
 	check(water.is_finite(),"fixture finds navigable sea")
 	main._ship.global_position=water; GameState.ship_state.position=water; GameState.ship_state.docked_port_id=""
+	var encounter: Dictionary = navy.create_training_encounter()
+	check(bool(encounter.get("ok",false)),"debug training encounter creates a guaranteed nearby enemy")
+	check(not navy.nearby_enemies().is_empty(),"training encounter exposes the normal Z battle prompt")
+	check(hud._training_button != null and hud._training_button.visible,"debug build exposes the training button")
 	var ship: Dictionary = navy.ship_by_id(id)
-	ship.escort_enabled=true; ship.escort_state={"position":water+Vector2(220,220),"heading":Vector2.UP,"initialized":true}
-	GameState.combat_state.naval_enemies={"fixture":{"id":"fixture","name":"Учебный противник","ship_type_id":"war_surr_1","position":water+Vector2(350,0),"heading":Vector2.UP,"faction_id":"surr","hull":280.0,"hull_max":280.0,"cooldown":1000.0,"hostile":false,"warning":0.0,"retreat_until":0.0}}
 	navy.set_process(false); military.set_process(false)
 	await frames()
 	check(hud._badge.visible,"enemy within five hulls shows Z indicator")

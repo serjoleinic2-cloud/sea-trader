@@ -73,6 +73,66 @@ func nearby_enemies() -> Array[Dictionary]:
 		if _enemy_alive(enemy) and vector(enemy.position).distance_to(player)<=alert_radius(): result.append(enemy)
 	return result
 
+func create_training_encounter() -> Dictionary:
+	if not OS.is_debug_build(): return _result(false,"Учебный бой доступен только в отладочной сборке.")
+	if active(): return _result(false,"Сначала завершите текущий бой.")
+	if str(GameState.ship_state.get("docked_port_id", "")) != "":
+		return _result(false,"Выйдите из порта в море, затем вызовите учебный патруль.")
+	var race_ids: Array[String] = ["nerids", "surr", "meridians", "aery", "crystari", "humans"]
+	var player_race: String = str(GameState.player_state.get("origin_race_id", "humans"))
+	var race_index: int = race_ids.find(player_race)
+	var enemy_race: String = race_ids[(race_index + 1) % race_ids.size()]
+	var player_position: Vector2 = vector(GameState.ship_state.get("position", Vector2.ZERO))
+	var ship: Dictionary = {}
+	for candidate in warships():
+		if float(candidate.get("hull", 0.0)) > 0.0:
+			ship = candidate
+			break
+	return _transaction(func():
+		if ship.is_empty():
+			var ship_type_id: String = "war_%s_1" % player_race
+			ship = {
+				"instance_id": "debug_training_warship",
+				"ship_type_id": ship_type_id,
+				"name": "Учебный страж",
+				"current_port_id": "",
+				"status": "В сопровождении",
+				"crew": [],
+				"cargo": [],
+				"cargo_capacity": 0,
+				"autopilot": {},
+				"escort_enabled": true,
+				"escort_state": {},
+				"embarked_units": {"coast_guard": {"count": 8, "level": 1, "experience": 0}, "crystal_mortar": {"count": 1, "level": 1, "experience": 0}}
+			}
+			GameState.fleet_state.append(ship)
+			normalize_ship(ship)
+			ship["commander"] = {"name": "Учебный командир", "race_id": player_race, "level": 1, "experience": 0, "skill_points": 0, "skills": {"gunnery": 1, "accuracy": 1, "reload": 0}}
+			if ship.guns.size() > 0: ship.guns[0] = {"kind": "cannon", "level": 1, "experience": 0, "cooldown": 0.0}
+			if ship.guns.size() > 1: ship.guns[1] = {"kind": "rune", "level": 1, "experience": 0, "cooldown": 0.0}
+		ship["escort_enabled"] = true
+		ship["current_port_id"] = ""
+		ship["autopilot"] = {}
+		ship["escort_state"] = {"initialized": true, "position": player_position + Vector2(-alert_radius() * 0.5, 0.0), "heading": Vector2.LEFT, "blocked_seconds": 0.0, "avoidance_heading": Vector2.ZERO}
+		var enemy_id: String = "debug_training_patrol"
+		var enemy_definition: Dictionary = GameData.get_ship("war_%s_1" % enemy_race)
+		GameState.combat_state.naval_enemies[enemy_id] = {
+			"id": enemy_id,
+			"ship_type_id": str(enemy_definition.get("id", "war_%s_1" % enemy_race)),
+			"name": "Учебный патруль",
+			"faction_id": enemy_race,
+			"position": player_position + Vector2(alert_radius() * 0.55, 0.0),
+			"heading": Vector2.LEFT,
+			"hull": float(enemy_definition.get("hull_max", 280.0)),
+			"hull_max": float(enemy_definition.get("hull_max", 280.0)),
+			"level": 1,
+			"hostile": false,
+			"warning": 0.0,
+			"cooldown": 0.0,
+			"retreat_until": 0.0
+		}
+	, "Учебный патруль создан рядом. Нажмите Z и выберите «Начать бой»." )
+
 func _enemy_alive(enemy: Dictionary) -> bool:
 	return float(enemy.get("hull",0))>0 and float(enemy.get("retreat_until",0))<=_clock
 
