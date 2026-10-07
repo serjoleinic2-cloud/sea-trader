@@ -576,7 +576,7 @@ func _rebuild_shipyard_list() -> void:
 		button.add_theme_constant_override("icon_max_width", 160)
 		button.expand_icon = true
 		var rank_text: String = "Ранг %d" % int(ship.get("command_rank_required", 1))
-		button.text = "%s\nГруз %d · скорость %d\n%s" % [str(ship.get("name", "Корабль")), int(ship.get("cargo_capacity", 0)), int(ship.get("base_speed", 0)), rank_text]
+		button.text = "%s\nОрудий %d · скорость %d\n%s" % [str(ship.name), int(ship.gun_slots), int(ship.base_speed), rank_text] if bool(ship.get("warship", false)) else "%s\nГруз %d · скорость %d\n%s" % [str(ship.get("name", "Корабль")), int(ship.get("cargo_capacity", 0)), int(ship.get("base_speed", 0)), rank_text]
 		var icon_path: String = str(ship.get("ui_icon", ""))
 		if icon_path != "" and ResourceLoader.exists(icon_path):
 			button.icon = load(icon_path) as Texture2D

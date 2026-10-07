@@ -133,11 +133,11 @@ func _serialize_game_state() -> Dictionary:
 		"port_state": GameState.port_state.duplicate(true),
 		"known_routes_state": GameState.known_routes_state.duplicate(true),
 		"voyage_state": GameState.voyage_state.duplicate(true),
-		"combat_state": GameState.combat_state.duplicate(true),
+		"combat_state": _serialize_vector_dict(GameState.combat_state),
 		"economy_state": GameState.economy_state.duplicate(true),
 		"company_state": GameState.company_state.duplicate(true),
 		"employee_state": GameState.employee_state.duplicate(true),
-		"fleet_state": GameState.fleet_state.duplicate(true),
+		"fleet_state": _serialize_vector_array(GameState.fleet_state),
 		"progression_state": GameState.progression_state.duplicate(true),
 		"achievement_state": GameState.achievement_state.duplicate(true),
 		"settings_state": GameState.settings_state.duplicate(true),
@@ -159,11 +159,11 @@ func _deserialize_game_state(data: Dictionary) -> void:
 	GameState.port_state = data.get("port_state", {}).duplicate(true)
 	GameState.known_routes_state = data.get("known_routes_state", {}).duplicate(true)
 	GameState.voyage_state.merge(data.get("voyage_state", {}).duplicate(true), true)
-	GameState.combat_state.merge(data.get("combat_state", {}).duplicate(true), true)
+	GameState.combat_state.merge(_deserialize_vector_dict(data.get("combat_state", {})), true)
 	GameState.economy_state.merge(data.get("economy_state", {}).duplicate(true), true)
 	GameState.company_state.merge(data.get("company_state", {}).duplicate(true), true)
 	GameState.employee_state = data.get("employee_state", []).duplicate(true)
-	GameState.fleet_state = data.get("fleet_state", []).duplicate(true)
+	GameState.fleet_state = _deserialize_vector_array(data.get("fleet_state", []))
 	GameState.progression_state.merge(data.get("progression_state", {}).duplicate(true), true)
 	GameState.achievement_state.merge(data.get("achievement_state", {}).duplicate(true), true)
 	GameState.settings_state.merge(data.get("settings_state", {}).duplicate(true), true)

@@ -1,0 +1,60 @@
+{
+  "version": 1,
+  "max_level": 30,
+  "alert_hull_lengths": 5,
+  "hostile_warning_seconds": 12,
+  "patrol_respawn_seconds": 1800,
+  "surrender_fraction": 0.1,
+  "commander_cost": 610,
+  "ship_level_xp": 100,
+  "ship_level_cost": 150,
+  "gun_level_xp": 50,
+  "gun_level_cost": 90,
+  "commander_level_xp": 150,
+  "skill_cap": 10,
+  "skill_bonus": 0.035,
+  "repair_per_hull": 0.5,
+  "shot_xp": 6,
+  "victory_xp": 80,
+  "truce_response_seconds": 3,
+  "truce_hull_ratio": 0.7,
+  "guns": {
+    "cannon": {
+      "name": "Пушка",
+      "cost": 140,
+      "damage": 18,
+      "range": 550,
+      "reload": 3,
+      "accuracy": 0.82,
+      "skill": "gunnery"
+    },
+    "rune": {
+      "name": "Рунное орудие",
+      "cost": 240,
+      "damage": 26,
+      "range": 650,
+      "reload": 4,
+      "accuracy": 0.88,
+      "skill": "accuracy"
+    },
+    "mortar": {
+      "name": "Мортира",
+      "cost": 300,
+      "damage": 40,
+      "range": 800,
+      "reload": 6,
+      "accuracy": 0.7,
+      "skill": "reload"
+    }
+  },
+  "hull_growth_per_level": 0.06,
+  "gun_damage_growth_per_level": 0.12,
+  "escort_readiness_radius_multiplier": 2,
+  "minimum_gun_range": 300,
+  "maximum_accuracy": 0.98,
+  "enemy_move_speed": 90,
+  "enemy_standoff_range": 400,
+  "enemy_attack_range": 650,
+  "enemy_damage": 25,
+  "enemy_reload_seconds": 4
+}

@@ -109,6 +109,7 @@ func validate_start(destination_id: String, resource_id: String = "", quantity: 
 	return {"ok": true, "message": ""}
 
 func start(destination_port_id: String, resource_id: String = "", quantity: int = 0) -> Dictionary:
+	if bool(GameState.combat_state.get("naval_battle", {}).get("active", false)): return {"ok": false, "message": "Сначала завершите морской бой."}
 	var validation: Dictionary = validate_start(destination_port_id, resource_id, quantity)
 	if not bool(validation.get("ok", false)):
 		GameState.world_state["autopilot_notice"] = str(validation.get("message", ""))

@@ -32,40 +32,9 @@ var _last_roster_signature: String = ""
 var _last_card_columns: int = 0
 var _origin_emblem: TextureRect
 var _art_screen: Control
-var _art_image: TextureRect
-var _art_commander_portrait: TextureRect
-var _art_slot_portrait: TextureRect
-var _art_money: Label
-var _art_shards: Label
-var _art_squad_count: Label
-var _art_slot_status: Label
-var _art_unit_counts: Dictionary = {}
-var _art_profile_labels: Dictionary = {}
-var _art_hire_button: Button
-var _art_notice: Label
-var _art_selection_frame: Panel
 var _art_mode: bool = true
 var _inspected_faction_id: String = ""
-var _art_hotspots: Array[Control] = []
-const ART_REFERENCE_PATH := "res://assets/ui/garrison/garrison_commanders_reference.png"
-const ART_DESIGN_SIZE := Vector2(1672.0, 944.0)
 const ART_FACTION_IDS := ["nerids", "surr", "meridians", "aery", "crystari", "humans"]
-const ART_PORTRAIT_REGIONS := {
-	"nerids": Rect2(84, 706, 174, 155),
-	"surr": Rect2(350, 706, 174, 155),
-	"meridians": Rect2(614, 706, 174, 155),
-	"aery": Rect2(880, 706, 174, 155),
-	"crystari": Rect2(1134, 706, 174, 155),
-	"humans": Rect2(1408, 706, 174, 155)
-}
-const ART_COMMANDERS := {
-	"nerids": {"name": "Сирена Вальтэра", "title": "Хранительница приливов", "quote": "«Море защищает тех, кто умеет слушать.»", "attack": 6.0, "defense": 4.0, "expenses": 2.0},
-	"surr": {"name": "Рагнар Келл", "title": "Повелитель кузниц", "quote": "«Твёрдая воля выдержит любой натиск.»", "attack": 8.0, "defense": 3.0, "expenses": 3.0},
-	"meridians": {"name": "Лиора Вейн", "title": "Стратег торговых домов", "quote": "«Победа начинается с верного расчёта.»", "attack": 3.0, "defense": 4.0, "expenses": -2.0},
-	"aery": {"name": "Элиан Саэр", "title": "Разведчик высотных кланов", "quote": "«Ветер открывает путь тем, кто смотрит вдаль.»", "attack": 5.0, "defense": 2.0, "expenses": -1.0},
-	"crystari": {"name": "Тарен Нокс", "title": "Страж глубинного камня", "quote": "«Крепкая опора удержит весь строй.»", "attack": 2.0, "defense": 8.0, "expenses": 3.0},
-	"humans": {"name": "Марек Торн", "title": "Адмирал вольных портов", "quote": "«Держим строй, пока стоит наш флаг.»", "attack": 5.0, "defense": 5.0, "expenses": 1.0}
-}
 
 const CARD_MIN_SIZE := Vector2(280, 320)
 const UNIT_PORTRAITS := {
@@ -814,255 +783,35 @@ func _close() -> void:
 	_is_open = false
 
 func _build_art_screen() -> void:
-	_art_screen = Control.new()
-	_art_screen.name = "GarrisonArtScreen"
+	_art_screen = preload("res://systems/ui/garrison_commanders_view.gd").new()
+	_art_screen.name = "GarrisonCommandersScreen"
 	_art_screen.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_art_screen.mouse_filter = Control.MOUSE_FILTER_PASS
 	_root.add_child(_art_screen)
-	var letterbox := ColorRect.new()
-	letterbox.color = Color("#07131c")
-	letterbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	letterbox.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_art_screen.add_child(letterbox)
-	_art_image = TextureRect.new()
-	_art_image.texture = load(ART_REFERENCE_PATH) as Texture2D
-	_art_image.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	_art_image.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	_art_image.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_art_image.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_art_screen.add_child(_art_image)
-	_art_commander_portrait = TextureRect.new()
-	_art_commander_portrait.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_art_commander_portrait.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	_art_commander_portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-	_art_screen.add_child(_art_commander_portrait)
-	_art_slot_portrait = TextureRect.new()
-	_art_slot_portrait.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_art_slot_portrait.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	_art_slot_portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-	_register_art_rect(_art_slot_portrait, Rect2(104, 482, 125, 97))
-	_art_screen.add_child(_art_slot_portrait)
+	_art_screen.configure(self)
 
-	_art_money = _add_art_value("money", Rect2(1135, 29, 112, 38), 20, Color("#f2eee4"))
-	_art_shards = _add_art_value("shards", Rect2(1320, 29, 100, 38), 20, Color("#f2eee4"))
-	_art_squad_count = _add_art_value("squad_count", Rect2(480, 111, 70, 44), 23, Color("#f2eee4"))
-	_art_slot_status = _add_art_value("commander_slot_status", Rect2(119, 587, 118, 36), 12, Color("#d6f5ee"))
-	_art_unit_counts["coast_guard"] = _add_art_value("coast_guard_count", Rect2(137, 393, 58, 27), 17, Color("#f2eee4"))
-	_art_unit_counts["crystal_mortar"] = _add_art_value("crystal_mortar_count", Rect2(314, 393, 58, 27), 17, Color("#f2eee4"))
-	_art_unit_counts["wind_rider"] = _add_art_value("wind_rider_count", Rect2(491, 393, 58, 27), 17, Color("#f2eee4"))
-	_art_profile_labels["faction"] = _add_art_value("profile_faction", Rect2(1201, 127, 375, 36), 23, Color("#e9f7f6"), HORIZONTAL_ALIGNMENT_LEFT)
-	_art_profile_labels["rank"] = _add_art_value("profile_rank", Rect2(1530, 117, 94, 36), 19, Color("#f2eee4"))
-	_art_profile_labels["name"] = _add_art_value("profile_name", Rect2(1200, 166, 414, 54), 29, Color("#f4e5c8"), HORIZONTAL_ALIGNMENT_LEFT)
-	_art_profile_labels["title"] = _add_art_value("profile_title", Rect2(1200, 216, 414, 34), 17, Color("#d8e9e7"), HORIZONTAL_ALIGNMENT_LEFT)
-	_art_profile_labels["quote"] = _add_art_value("profile_quote", Rect2(1200, 256, 414, 33), 15, Color("#cddbd9"), HORIZONTAL_ALIGNMENT_LEFT)
-	_art_profile_labels["attack"] = _add_art_value("profile_attack", Rect2(1562, 305, 68, 38), 24, Color("#64eee1"))
-	_art_profile_labels["defense"] = _add_art_value("profile_defense", Rect2(1562, 373, 68, 38), 24, Color("#64eee1"))
-	_art_profile_labels["expenses"] = _add_art_value("profile_expenses", Rect2(1562, 440, 68, 38), 24, Color("#ff7465"))
-	_art_profile_labels["description"] = _add_art_value("profile_description", Rect2(1142, 494, 487, 80), 15, Color("#d7dfdf"), HORIZONTAL_ALIGNMENT_LEFT)
-	_art_notice = _add_art_value("notice", Rect2(580, 613, 520, 46), 15, Color("#fff2cc"))
-	_art_notice.hide()
-	(_art_screen.get_child(_art_notice.get_index() - 1) as Control).hide()
-	_art_hire_button = _add_art_button(Rect2(1314, 594, 320, 75), _art_hire_or_dismiss)
-	_art_hire_button.text = "НАНЯТЬ И НАЗНАЧИТЬ\n✦  610"
-	_art_hire_button.add_theme_color_override("font_color", Color("#171b1e"))
-	_art_hire_button.add_theme_font_size_override("font_size", 21)
-	var hire_style := StyleBoxFlat.new()
-	hire_style.bg_color = Color("#d7b66f")
-	hire_style.border_color = Color("#f3d58c")
-	hire_style.set_border_width_all(2)
-	hire_style.set_corner_radius_all(7)
-	_art_hire_button.add_theme_stylebox_override("normal", hire_style)
-	_art_hire_button.add_theme_stylebox_override("hover", hire_style)
-	_art_hire_button.add_theme_stylebox_override("pressed", hire_style)
-	_add_art_button(Rect2(17, 12, 99, 73), _close)
-	_add_art_button(Rect2(1133, 596, 166, 72), _close)
-	_add_art_button(Rect2(35, 159, 164, 272), _open_infantry)
-	_add_art_button(Rect2(209, 159, 167, 272), _open_tech)
-	_add_art_button(Rect2(385, 159, 170, 272), _open_flying)
-	_add_art_button(Rect2(80, 473, 162, 204), _art_commander_slot_pressed)
-	_add_art_button(Rect2(323, 473, 164, 204), _art_reserve_pressed)
-	_add_art_button(Rect2(1222, 20, 50, 47), _open_market_group)
-	_add_art_button(Rect2(1422, 20, 51, 47), _open_crystal_group)
-	_add_art_button(Rect2(1465, 8, 59, 60), _open_infantry)
-	_add_art_button(Rect2(1531, 8, 60, 60), _open_defense)
-	_add_art_button(Rect2(1597, 8, 60, 60), _cycle_ui_scale)
-	for index in range(ART_FACTION_IDS.size()):
-		var faction_id: String = ART_FACTION_IDS[index]
-		var x_positions: Array[float] = [49.0, 303.0, 557.0, 838.0, 1098.0, 1370.0]
-		var widths: Array[float] = [246.0, 252.0, 275.0, 255.0, 265.0, 250.0]
-		_add_art_button(Rect2(x_positions[index], 690.0, widths[index], 242.0), _select_faction.bind(faction_id))
-	_art_selection_frame = Panel.new()
-	_art_selection_frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var selection_style := StyleBoxFlat.new()
-	selection_style.bg_color = Color(0.0, 0.0, 0.0, 0.0)
-	selection_style.border_color = Color("#ffd16f")
-	selection_style.set_border_width_all(3)
-	selection_style.set_corner_radius_all(11)
-	_art_selection_frame.add_theme_stylebox_override("panel", selection_style)
-	_art_screen.add_child(_art_selection_frame)
-	_layout_art_screen(get_viewport().get_visible_rect().size)
-	_refresh_art_screen()
-
-func _add_art_value(key: String, rect: Rect2, font_size: int, color: Color, alignment: int = HORIZONTAL_ALIGNMENT_CENTER) -> Label:
-	var cover := ColorRect.new()
-	cover.color = Color(0.025, 0.055, 0.075, 0.93)
-	cover.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_register_art_rect(cover, rect)
-	_art_screen.add_child(cover)
-	var label := Label.new()
-	label.name = key
-	label.horizontal_alignment = alignment
-	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	label.add_theme_color_override("font_color", color)
-	label.add_theme_font_size_override("font_size", font_size)
-	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_register_art_rect(label, rect)
-	_art_screen.add_child(label)
-	label.set_meta("design_font_size", font_size)
-	return label
-
-func _add_art_button(rect: Rect2, action: Callable) -> Button:
-	var button := Button.new()
-	button.flat = true
-	button.text = ""
-	button.focus_mode = Control.FOCUS_NONE
-	button.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-	var normal := StyleBoxFlat.new()
-	normal.bg_color = Color(0.02, 0.08, 0.12, 0.0)
-	var hover := StyleBoxFlat.new()
-	hover.bg_color = Color(0.12, 0.55, 0.60, 0.28)
-	hover.border_color = Color("#e6b85f")
-	hover.set_border_width_all(1)
-	var pressed := StyleBoxFlat.new()
-	pressed.bg_color = Color(0.78, 0.54, 0.19, 0.38)
-	button.add_theme_stylebox_override("normal", normal)
-	button.add_theme_stylebox_override("hover", hover)
-	button.add_theme_stylebox_override("pressed", pressed)
-	button.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
-	button.pressed.connect(action)
-	_register_art_rect(button, rect)
-	_art_screen.add_child(button)
-	_art_hotspots.append(button)
-	return button
-
-func _register_art_rect(node: Control, rect: Rect2) -> void:
-	node.set_meta("design_rect", rect)
-
-func _layout_art_screen(viewport: Vector2) -> void:
-	if not is_instance_valid(_art_screen):
-		return
-	# Keep the reference proportions intact on ultrawide, portrait, and resized windows.
-	var scale := minf(viewport.x / ART_DESIGN_SIZE.x, viewport.y / ART_DESIGN_SIZE.y)
-	var offset := (viewport - ART_DESIGN_SIZE * scale) * 0.5
-	for child in _art_screen.get_children():
-		if child.has_meta("design_rect"):
-			var rect: Rect2 = child.get_meta("design_rect")
-			child.position = offset + rect.position * scale
-			child.size = rect.size * scale
-			if child.has_meta("design_font_size"):
-				child.add_theme_font_size_override("font_size", maxi(10, int(float(child.get_meta("design_font_size")) * scale)))
-	if is_instance_valid(_art_commander_portrait):
-		_art_commander_portrait.position = offset + Vector2(561.0, 87.0) * scale
-		_art_commander_portrait.size = Vector2(552.0, 604.0) * scale
+func _layout_art_screen(_viewport: Vector2) -> void:
+	pass
 
 func _refresh_art_screen() -> void:
-	if not is_instance_valid(_art_money) or _system == null:
-		return
-	var faction := GameData.get_faction(_inspected_faction_id)
-	var candidate := _commander_profile(_inspected_faction_id)
-	_art_money.text = _format_number(int(GameState.player_state.get("money", 0.0)))
-	_art_shards.text = _format_number(_system.get_magic_shards())
-	var unit_counts := {"coast_guard": 0, "crystal_mortar": 0, "wind_rider": 0}
-	var active_groups := 0
-	for unit in _system.get_roster():
-		var unit_id := str(unit.get("id", ""))
-		if unit_counts.has(unit_id):
-			unit_counts[unit_id] = int(unit.get("count", 0))
-			if int(unit.get("count", 0)) > 0:
-				active_groups += 1
-	_art_squad_count.text = "%d/4" % mini(4, active_groups + (1 if not _system.get_commander().is_empty() else 0))
-	for unit_id in _art_unit_counts:
-		(_art_unit_counts[unit_id] as Label).text = _format_number(int(unit_counts.get(unit_id, 0)))
-	(_art_profile_labels["faction"] as Label).text = str(faction.get("name", "Гарнизон")).to_upper()
-	(_art_profile_labels["rank"] as Label).text = "%d РАНГ" % int(candidate.get("rank", 3))
-	(_art_profile_labels["name"] as Label).text = str(candidate.get("name", "Командир гарнизона"))
-	(_art_profile_labels["title"] as Label).text = str(candidate.get("title", "Тактик обороны"))
-	(_art_profile_labels["quote"] as Label).text = str(candidate.get("quote", "«Гарнизон готов к приказу.»"))
-	var saved_commander: Dictionary = _system.get_commander()
-	var showing_hired: bool = not saved_commander.is_empty() and str(saved_commander.get("race_id", "")) == _inspected_faction_id
-	_art_slot_status.text = "КОМАНДИР\nНАЗНАЧЕН" if not saved_commander.is_empty() else "ГОТОВ К\nНАЗНАЧЕНИЮ"
-	var attack := float(saved_commander.get("attack_bonus", candidate.get("attack", 0.0))) if showing_hired else float(candidate.get("attack", 0.0))
-	var defense := float(saved_commander.get("defense_bonus", candidate.get("defense", 0.0))) if showing_hired else float(candidate.get("defense", 0.0))
-	var expenses := float(saved_commander.get("expenses_bonus", candidate.get("expenses", 0.0))) if showing_hired else float(candidate.get("expenses", 0.0))
-	(_art_profile_labels["attack"] as Label).text = "%+.0f%%" % attack
-	(_art_profile_labels["defense"] as Label).text = "%+.0f%%" % defense
-	(_art_profile_labels["expenses"] as Label).text = "%+.0f%%" % expenses
-	(_art_profile_labels["expenses"] as Label).add_theme_color_override("font_color", Color("#61dfb3") if expenses < 0.0 else Color("#ff7465"))
-	(_art_profile_labels["description"] as Label).text = str(candidate.get("description", "Полевой стратег. Усиливает войска и помогает удерживать остров."))
-	_art_hire_button.text = "УВОЛИТЬ И СНЯТЬ С ДОЛЖНОСТИ" if showing_hired else "НАНЯТЬ И НАЗНАЧИТЬ\n✦  %s" % _format_number(int(candidate.get("cost", 610)))
-	_art_hire_button.disabled = not _system.is_at_home() or (not showing_hired and (_inspected_faction_id != str(GameState.player_state.get("origin_race_id", "")) or not saved_commander.is_empty() or float(GameState.player_state.get("money", 0.0)) < int(candidate.get("cost", 610))))
-	var faction_index := ART_FACTION_IDS.find(_inspected_faction_id)
-	var frame_x: Array[float] = [49.0, 303.0, 557.0, 838.0, 1098.0, 1370.0]
-	var frame_width: Array[float] = [246.0, 252.0, 275.0, 255.0, 265.0, 250.0]
-	if faction_index >= 0:
-		_register_art_rect(_art_selection_frame, Rect2(frame_x[faction_index], 690.0, frame_width[faction_index], 242.0))
-		_art_selection_frame.visible = _inspected_faction_id != "nerids"
-	if _art_commander_portrait != null:
-		_art_commander_portrait.visible = _inspected_faction_id != "nerids"
-		if _inspected_faction_id != "nerids":
-			var atlas := AtlasTexture.new()
-			atlas.atlas = _art_image.texture
-			atlas.region = ART_PORTRAIT_REGIONS.get(_inspected_faction_id, ART_PORTRAIT_REGIONS["humans"])
-			_art_commander_portrait.texture = atlas
-		var slot_race: String = str(saved_commander.get("race_id", _inspected_faction_id))
-		_art_slot_portrait.visible = slot_race != "nerids"
-		if slot_race != "nerids":
-			var slot_atlas := AtlasTexture.new()
-			slot_atlas.atlas = _art_image.texture
-			slot_atlas.region = ART_PORTRAIT_REGIONS.get(slot_race, ART_PORTRAIT_REGIONS["humans"])
-			_art_slot_portrait.texture = slot_atlas
-	_art_notice.text = _notice.text if not _notice.text.is_empty() else ""
-	_art_notice.visible = not _notice.text.is_empty()
-	(_art_screen.get_child(_art_notice.get_index() - 1) as Control).visible = not _notice.text.is_empty()
+	if is_instance_valid(_art_screen) and _system != null:
+		_art_screen.refresh(_system)
 
-func _commander_profile(race_id: String) -> Dictionary:
-	var faction := GameData.get_faction(race_id)
-	var profile: Dictionary = ART_COMMANDERS.get(race_id, ART_COMMANDERS["humans"]).duplicate(true)
-	profile["race_id"] = race_id
-	profile["faction_name"] = str(faction.get("name", race_id))
-	profile["rank"] = 3
-	profile["cost"] = 610
-	profile["description"] = str(faction.get("origin_description", "Опытный командир гарнизона."))
-	return profile
+func _commander_profile(race_id: String, role: int = 0) -> Dictionary:
+	var profiles: Array = GameData.read("res://data/combat/commander_catalog.json").get("profiles", {}).get(race_id, [])
+	return profiles[clampi(role, 0, 1)].duplicate(true) if profiles.size() >= 2 else {}
 
 func _select_faction(race_id: String) -> void:
 	_inspected_faction_id = race_id
 	_notice.text = ""
 	_refresh_art_screen()
 
-func _art_hire_or_dismiss() -> void:
-	var commander: Dictionary = _system.get_commander()
-	var result: Dictionary
-	if not commander.is_empty() and str(commander.get("race_id", "")) == _inspected_faction_id:
-		result = _system.dismiss_commander()
-	else:
-		result = _system.hire_commander(_commander_profile(_inspected_faction_id))
-	_notice.text = str(result.get("message", ""))
+func _show_art_tab(tab_index: int) -> void:
+	_art_mode = false
+	_tabs.current_tab = tab_index
 	_refresh()
-	_refresh_art_screen()
 
-func _art_commander_slot_pressed() -> void:
-	var commander: Dictionary = _system.get_commander()
-	if commander.is_empty():
-		_notice.text = "Выберите расу внизу, затем наймите доступного командира."
-	else:
-		_inspected_faction_id = str(commander.get("race_id", _inspected_faction_id))
-		_notice.text = "%s уже командует вашим гарнизоном." % str(commander.get("name", "Командир"))
-	_refresh_art_screen()
-
-func _art_reserve_pressed() -> void:
-	_notice.text = "Слот резерва закрыт. В гарнизоне пока предусмотрен один назначенный командир."
+func _show_art_screen() -> void:
+	_art_mode = true
 	_refresh_art_screen()
 
 func _open_infantry() -> void:
@@ -1080,49 +829,13 @@ func _open_defense() -> void:
 func _open_reports() -> void:
 	_show_art_tab(5)
 
-func _cycle_ui_scale() -> void:
-	var access_nodes := get_tree().get_nodes_in_group("ui_accessibility")
-	if access_nodes.is_empty() or not access_nodes[0].has_method("cycle_scale"):
-		_notice.text = "Масштаб интерфейса пока недоступен."
-		_refresh_art_screen()
-		return
-	var percent: int = int(access_nodes[0].call("cycle_scale"))
-	_notice.text = "Масштаб текста интерфейса: %d%%" % percent
-	_refresh_art_screen()
-
-func _show_art_tab(tab_index: int) -> void:
-	_art_mode = false
-	_tabs.current_tab = tab_index
-	_refresh()
-
-func _show_art_screen() -> void:
-	_art_mode = true
-	_refresh_art_screen()
-
 func _open_market_group() -> void:
 	var nodes := get_tree().get_nodes_in_group("port_window")
-	if not nodes.is_empty() and nodes[0].has_method("_open_section"):
-		nodes[0].call("_open_section", "market")
-	else:
-		_notice.text = "Рынок доступен после швартовки."
-		_refresh_art_screen()
+	if not nodes.is_empty(): nodes[0].call("_open_section", "market")
 
 func _open_crystal_group() -> void:
-	_open_first_group("mage_guild_window")
-
-func _open_first_group(group_name: String) -> void:
-	var nodes := get_tree().get_nodes_in_group(group_name)
-	if not nodes.is_empty() and nodes[0].has_method("open"):
-		nodes[0].call("open")
-	else:
-		_notice.text = "Раздел пока недоступен из этого порта."
-		_refresh_art_screen()
+	var nodes := get_tree().get_nodes_in_group("mage_guild_window")
+	if not nodes.is_empty(): nodes[0].call("open")
 
 func _format_number(value: int) -> String:
-	var raw := str(maxi(0, value))
-	var result := ""
-	for index in range(raw.length()):
-		if index > 0 and (raw.length() - index) % 3 == 0:
-			result += " "
-		result += raw.substr(index, 1)
-	return result
+	return str(value)

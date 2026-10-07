@@ -52,6 +52,7 @@ try {
     Invoke-TestEngine 'import' @('--editor', '--import', '--quit') ''
     Invoke-TestEngine 'unit' @('res://tests/test_runner.tscn') 'TOTAL\s+pass=\d+\s+fail=0'
     Invoke-TestEngine 'smoke' @('res://tests/runtime_smoke.tscn') 'SMOKE checks=\d+ fail=0'
+    Invoke-TestEngine 'naval-smoke' @('res://tests/naval_runtime_smoke.tscn') 'NAVAL SMOKE checks=\d+ fail=0'
     Write-Output 'All checks passed. Test files and logs are retained for diagnosis.'
 } finally {
     [Environment]::SetEnvironmentVariable('SEA_TRADER_ISOLATED_TESTS', $previousTestFlag, 'Process')

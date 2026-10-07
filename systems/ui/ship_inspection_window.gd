@@ -125,6 +125,8 @@ func _load_ship(id: String) -> void:
 		_world.remove_child(_model)
 		_model.queue_free()
 	var race: String = str(GameState.player_state.get("origin_race_id","humans"))
+	var definition: Dictionary = GameData.get_ship(id)
+	if bool(definition.get("warship", false)): race = str(definition.faction_id)
 	var visual: Dictionary = GameData.read("res://data/world/ship_visuals.json").get("ships",{}).get(id,{})
 	var renderer = preload("res://systems/rendering/approach_3d_view.gd").new()
 	renderer._asset_catalog = GameData.read("res://data/world/world_asset_catalog.json")

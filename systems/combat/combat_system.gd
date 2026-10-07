@@ -38,6 +38,11 @@ func _process(_delta: float) -> void:
 func _normalize_state() -> void:
     var state: Dictionary = GameState.combat_state
     state.merge(GameState.default_combat_state(), false)
+    for slot_key in ["commander", "deputy_commander"]:
+        var assigned: Variant = state.get(slot_key, {})
+        if not assigned is Dictionary: state[slot_key] = {}; continue
+        if not assigned.is_empty() and str(assigned.get("id", "")) == "":
+            assigned["id"] = str(assigned.get("race_id", "humans")) + ("_marshal" if slot_key == "commander" else "_deputy")
     if not state.get("units", {}) is Dictionary:
         state["units"] = {}
     if not state.get("towers", []) is Array:
@@ -114,27 +119,42 @@ func get_catalog() -> Dictionary:
 func get_garrison_level() -> int:
     return int(GameState.combat_state.get("garrison_level", 1))
 
-func get_commander() -> Dictionary:
-    return GameState.combat_state.get("commander", {}).duplicate(true)
+func get_commander(slot: int = 0) -> Dictionary:
+    if slot not in [0, 1]: return {}
+    return GameState.combat_state.get("commander" if slot == 0 else "deputy_commander", {}).duplicate(true)
 
 func get_commander_bonuses() -> Dictionary:
-    var commander := get_commander()
-    if commander.is_empty():
-        return {"attack": 0.0, "defense": 0.0, "expenses": 0.0}
-    return {
-        "attack": float(commander.get("attack_bonus", 0.0)),
-        "defense": float(commander.get("defense_bonus", 0.0)),
-        "expenses": float(commander.get("expenses_bonus", 0.0))
-    }
+    var result: Dictionary = {"attack": 0.0, "defense": 0.0, "expenses": 0.0}
+    for slot in [0, 1]:
+        var commander: Dictionary = get_commander(slot)
+        for stat in result:
+            result[stat] += float(commander.get(str(stat) + "_bonus", 0.0))
+    return result
 
-func hire_commander(candidate: Dictionary) -> Dictionary:
+func get_unit_command_effect(unit_id: String) -> Dictionary:
+    var definition: Dictionary = _catalog.get("units", {}).get(unit_id, {})
+    var saved: Dictionary = GameState.combat_state.get("units", {}).get(unit_id, {"count":0,"level":1})
+    var bonuses: Dictionary = get_commander_bonuses()
+    var base_attack: float = _unit_stat(definition, saved, "attack")
+    var base_defense: float = _unit_stat(definition, saved, "defense")
+    return {"base_attack":base_attack,"base_defense":base_defense,
+        "attack":base_attack*(1.0+float(bonuses.attack)/100.0),
+        "defense":base_defense*(1.0+float(bonuses.defense)/100.0),
+        "attack_percent":float(bonuses.attack),"defense_percent":float(bonuses.defense),
+        "count":int(saved.get("count",0)),"level":int(saved.get("level",1))}
+
+func hire_commander(candidate: Dictionary, slot: int = 0) -> Dictionary:
+    if slot not in [0, 1]: return _result(false, "Выберите один из двух слотов.")
     if not is_at_home():
         return _result(false, "Командиров можно назначать только в главном порту.")
-    if not get_commander().is_empty():
+    if not get_commander(slot).is_empty():
         return _result(false, "Командир уже назначен. Сначала освободите его место.")
     var race_id := str(GameState.player_state.get("origin_race_id", ""))
     if race_id == "" or str(candidate.get("race_id", "")) != race_id:
         return _result(false, "Можно нанять только командира вашей расы.")
+    var other: Dictionary = get_commander(1 - slot)
+    if not other.is_empty() and str(other.get("id", other.get("name", ""))) == str(candidate.get("id", candidate.get("name", ""))):
+        return _result(false, "Этот командир уже занимает другой слот.")
     var cost := maxi(0, int(candidate.get("cost", 610)))
     if float(GameState.player_state.get("money", 0.0)) < cost:
         return _result(false, "Не хватает монет: требуется %d." % cost)
@@ -150,20 +170,21 @@ func hire_commander(candidate: Dictionary) -> Dictionary:
     appointed.erase("defense")
     appointed.erase("expenses")
     GameState.player_state["money"] = old_money - cost
-    GameState.combat_state["commander"] = appointed
+    GameState.combat_state["commander" if slot == 0 else "deputy_commander"] = appointed
     if not SaveSystem.save_game():
         GameState.player_state["money"] = old_money
         GameState.combat_state = old_state
         return _result(false, "Не удалось сохранить назначение командира.")
-    return _result(true, "%s назначена командиром гарнизона." % str(appointed.get("name", "Командир")))
+    return _result(true, "%s назначен в командование гарнизона." % str(appointed.get("name", "Командир")))
 
-func dismiss_commander() -> Dictionary:
+func dismiss_commander(slot: int = 0) -> Dictionary:
+    if slot not in [0, 1]: return _result(false, "Выберите один из двух слотов.")
     if not is_at_home():
         return _result(false, "Снять командира можно только в главном порту.")
-    if get_commander().is_empty():
+    if get_commander(slot).is_empty():
         return _result(false, "Командир не назначен.")
     var old_state: Dictionary = GameState.combat_state.duplicate(true)
-    GameState.combat_state["commander"] = {}
+    GameState.combat_state["commander" if slot == 0 else "deputy_commander"] = {}
     if not SaveSystem.save_game():
         GameState.combat_state = old_state
         return _result(false, "Не удалось сохранить изменение гарнизона.")
@@ -411,7 +432,7 @@ func get_attack_power(roster: Variant = null) -> int:
         if str(unit_id) == "wind_rider":
             attack_stat *= 1.12
         total += float(saved.get("count", 0)) * (attack_stat + luck_power)
-    var commander: Dictionary = get_commander_bonuses() if roster == null else {"attack": 0.0}
+    var commander: Dictionary = get_commander_bonuses()
     return maxi(0, int(round(total * (1.0 + (float(bonuses.attack) + float(commander.attack)) / 100.0))))
 
 func get_average_speed() -> float:
@@ -694,6 +715,7 @@ func start_player_raid(target_name: String, enemy_power: int, duration_seconds: 
     return _result(true, "Бой начат. Отряды выдвинулись к цели.")
 
 func start_port_raid(port_id: String, target_name: String, enemy_power: int, duration_seconds: int = 45) -> Dictionary:
+    if bool(GameState.combat_state.get("naval_battle", {}).get("active", false)): return _result(false, "Сначала завершите морской бой.")
     if port_id == "" or str(GameState.ship_state.get("docked_port_id", "")) != port_id:
         return _result(false, "Подойди к порту и пришвартуйся перед боем.")
     if port_id == get_home_port_id():

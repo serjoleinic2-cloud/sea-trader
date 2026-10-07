@@ -2,6 +2,7 @@ extends Node
 
 ## Military cargo and physical escorts. Persistent state stays inside fleet_state.
 var _main: Node
+var _visuals: Dictionary = {}
 var _rules: Dictionary
 var _guard = preload("res://systems/ship/ship_physics.gd").new()
 var _planner = preload("res://systems/navigation/coast_route_planner.gd").new()
@@ -13,11 +14,12 @@ var _time: float = 0.0
 func _ready() -> void:
 	add_to_group("military_transport_system")
 	_rules = GameData.read("res://data/combat/military_transport_rules.json")
+	_visuals = GameData.read("res://data/world/ship_visuals.json").get("ships",{})
 
 func initialize(main: Node) -> void:
 	_main = main
 	_guard.set_collision_data_provider(func(): return _navigation_world())
-	for ship in transports():
+	for ship in vessels():
 		ship.merge({"embarked_units":{},"escort_enabled":false,"escort_state":{}},false)
 		# Preserve legacy commercial cargo until the player unloads it; new transports have none.
 		if ship.get("cargo",[]).is_empty(): ship["cargo_capacity"] = 0
@@ -34,8 +36,17 @@ func transports() -> Array[Dictionary]:
 		if str(ship.get("ship_type_id","")) == "ship_combat_cutter": result.append(ship)
 	return result
 
+func vessels() -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	for ship in GameState.fleet_state:
+		if str(ship.get("ship_type_id", "")) == "ship_combat_cutter" or bool(GameData.get_ship(str(ship.get("ship_type_id", ""))).get("warship", false)): result.append(ship)
+	return result
+
+func clear_orders(id: String) -> void:
+	_paths.erase(id)
+
 func get_transport(id: String) -> Dictionary:
-	for ship in transports():
+	for ship in vessels():
 		if str(ship.instance_id) == id: return ship
 	return {}
 
@@ -53,7 +64,7 @@ func _at_home(ship: Dictionary) -> bool:
 	return home != "" and str(GameState.ship_state.get("docked_port_id","")) == home and str(ship.get("current_port_id","")) == home
 
 func _locked(id: String) -> bool:
-	return GameState.combat_state.get("active_raid",{}).get("transport_ids",[]).has(id)
+	return GameState.combat_state.get("active_raid",{}).get("transport_ids",[]).has(id) or GameState.combat_state.get("naval_battle", {}).get("ship_ids", []).has(id)
 
 func transfer_units(id: String, unit_id: String, amount: int, embark: bool = true) -> Dictionary:
 	var ship: Dictionary = get_transport(id)
@@ -152,7 +163,7 @@ func _process(delta: float) -> void:
 	if _trail.is_empty() or _trail[-1].distance_to(player) > 25:
 		_trail.append(player)
 		if _trail.size()>400: _trail.remove_at(0)
-	var ships: Array[Dictionary] = transports()
+	var ships: Array[Dictionary] = vessels()
 	# Move on every rendered frame. Small collision-checked substeps also avoid
 	# jumps after a slow frame, instead of teleporting the models every 0.1 seconds.
 	var remaining: float = clampf(delta, 0.0, 0.25)
@@ -170,7 +181,7 @@ func _process(delta: float) -> void:
 		SaveSystem.save_game()
 
 func _length(ship: Dictionary) -> float:
-	return float(GameData.read("res://data/world/ship_visuals.json").get("ships",{}).get(str(ship.get("ship_type_id","ship_combat_cutter")),{}).get("display_length",4.3)) / 0.04
+	return float(_visuals.get(str(ship.get("ship_type_id","ship_combat_cutter")),{}).get("display_length",4.3)) / 0.04
 
 func _blocked(from: Vector2, to: Vector2, length: float) -> bool:
 	var direction: Vector2 = (to-from).normalized()
@@ -186,7 +197,7 @@ func _free(point: Vector2, length: float) -> bool:
 	return true
 
 func _obstacles(id: String) -> Array:
-	var result: Array = [{"id":"player","position":_to_vector2(GameState.ship_state.get("position", Vector2.ZERO), Vector2.ZERO),"length":float(GameData.read("res://data/world/ship_visuals.json").get("ships",{}).get(str(GameState.ship_state.get("ship_id","ship_sloop")),{}).get("display_length",3.48))/.04}]
+	var result: Array = [{"id":"player","position":_to_vector2(GameState.ship_state.get("position", Vector2.ZERO), Vector2.ZERO),"length":float(_visuals.get(str(GameState.ship_state.get("ship_id","ship_sloop")),{}).get("display_length",3.48))/.04}]
 	for snapshot in get_vessel_snapshots():
 		if str(snapshot.id)!=id: result.append(snapshot)
 	var traders: Node = get_tree().get_first_node_in_group("trader_traffic_renderer")
@@ -194,7 +205,7 @@ func _obstacles(id: String) -> Array:
 	var fleet: Node = get_tree().get_first_node_in_group("fleet_traffic_renderer")
 	if fleet != null:
 		for snapshot in fleet.get_vessel_snapshots():
-			if str(snapshot.get("ship_type_id","")) != "ship_combat_cutter": result.append(snapshot)
+			if str(snapshot.get("ship_type_id","")) != "ship_combat_cutter" and not bool(GameData.get_ship(str(snapshot.get("ship_type_id", ""))).get("warship", false)) and str(snapshot.get("kind", "")) != "naval_enemy": result.append(snapshot)
 	return result
 
 func _clear_segment(from: Vector2, to: Vector2, length: float, obstacles: Array) -> bool:
@@ -245,12 +256,16 @@ func _step_ship(ship: Dictionary, index: int, delta: float) -> void:
 		if not point.is_finite(): return
 		state={"position":point,"heading":forward,"initialized":true,"blocked_seconds":0.0}
 		ship["escort_state"]=state
-	if not bool(ship.get("escort_enabled",false)) or _locked(id): return
+	if float(ship.get("hull", 1)) <= 0: return
+	var tactical: bool = GameState.combat_state.get("naval_battle", {}).get("ship_ids", []).has(id)
+	if (not bool(ship.get("escort_enabled",false)) and not tactical) or (_locked(id) and not tactical): return
+	if tactical:
+		target = _to_vector2(ship.get("naval_order", {}).get("point", state.position), state.position)
 	var position: Vector2 = _to_vector2(state.get("position", leader), leader)
 	var docked: String = str(GameState.ship_state.get("docked_port_id",""))
 	ship["current_port_id"] = docked if position.distance_to(leader)<float(_rules.max_raid_distance) else ""
 	# In narrow channels follow the leader's actually travelled wake in single file.
-	if not _free(target,length) or _blocked(position,target,length):
+	if not tactical and (not _free(target,length) or _blocked(position,target,length)):
 		target=_trail_target(spacing*(2.0+index*1.7),leader-forward*spacing*(2.0+index*1.7))
 	if not _free(target,length):
 		target=_spawn_position(leader,length,obstacles)
@@ -340,7 +355,7 @@ func _step_ship(ship: Dictionary, index: int, delta: float) -> void:
 
 func get_vessel_snapshots() -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
-	for ship in transports():
+	for ship in vessels():
 		if not ship.get("autopilot",{}).is_empty(): continue
 		var state: Dictionary = ship.get("escort_state",{})
 		if not bool(state.get("initialized",false)):continue
@@ -360,6 +375,9 @@ func _to_vector2(value: Variant, fallback: Vector2) -> Vector2:
 		return Vector2(float(value[0]), float(value[1]))
 	if value is Dictionary and value.has("x") and value.has("y"):
 		return Vector2(float(value["x"]), float(value["y"]))
+	if value is String:
+		var parts: PackedStringArray = value.trim_prefix("(").trim_suffix(")").split(",")
+		if parts.size() == 2 and parts[0].strip_edges().is_valid_float() and parts[1].strip_edges().is_valid_float(): return Vector2(float(parts[0]), float(parts[1]))
 	return fallback
 
 func _result(ok: bool, message: String) -> Dictionary:

@@ -105,7 +105,7 @@ func test_hiring_and_crew_screens_show_portraits_and_empty_crew_cells() -> void:
 	market.initialize(_system)
 	market.open()
 	market._refresh_details()
-	assert_true(market._portrait.texture is AtlasTexture)
+	assert_true(market._portrait.texture is Texture2D) # hiring now uses approved per-race images
 	assert_eq(market._ship_selector.item_count, 1)
 	market.free()
 	var crew_ui: Node = load("res://systems/ui/crew_window.gd").new()

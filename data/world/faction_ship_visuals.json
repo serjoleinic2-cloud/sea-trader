@@ -113,6 +113,51 @@
         "identities": [
           "premium_imperial_yacht"
         ]
+      },
+      "war_humans_1": {
+        "id": "war_humans_1",
+        "scene": "",
+        "identities": [
+          "war_humans_1"
+        ],
+        "reference_size_m": 5.1,
+        "procedural_id": "war_humans_1"
+      },
+      "war_humans_2": {
+        "id": "war_humans_2",
+        "scene": "",
+        "identities": [
+          "war_humans_2"
+        ],
+        "reference_size_m": 6.2,
+        "procedural_id": "war_humans_2"
+      },
+      "war_humans_3": {
+        "id": "war_humans_3",
+        "scene": "",
+        "identities": [
+          "war_humans_3"
+        ],
+        "reference_size_m": 7.300000000000001,
+        "procedural_id": "war_humans_3"
+      },
+      "war_humans_4": {
+        "id": "war_humans_4",
+        "scene": "",
+        "identities": [
+          "war_humans_4"
+        ],
+        "reference_size_m": 8.4,
+        "procedural_id": "war_humans_4"
+      },
+      "war_humans_5": {
+        "id": "war_humans_5",
+        "scene": "",
+        "identities": [
+          "war_humans_5"
+        ],
+        "reference_size_m": 9.5,
+        "procedural_id": "war_humans_5"
       }
     },
     "nerids": {
@@ -227,6 +272,51 @@
         "identities": [
           "premium_imperial_yacht"
         ]
+      },
+      "war_nerids_1": {
+        "id": "war_nerids_1",
+        "scene": "",
+        "identities": [
+          "war_nerids_1"
+        ],
+        "reference_size_m": 5.1,
+        "procedural_id": "war_nerids_1"
+      },
+      "war_nerids_2": {
+        "id": "war_nerids_2",
+        "scene": "",
+        "identities": [
+          "war_nerids_2"
+        ],
+        "reference_size_m": 6.2,
+        "procedural_id": "war_nerids_2"
+      },
+      "war_nerids_3": {
+        "id": "war_nerids_3",
+        "scene": "",
+        "identities": [
+          "war_nerids_3"
+        ],
+        "reference_size_m": 7.300000000000001,
+        "procedural_id": "war_nerids_3"
+      },
+      "war_nerids_4": {
+        "id": "war_nerids_4",
+        "scene": "",
+        "identities": [
+          "war_nerids_4"
+        ],
+        "reference_size_m": 8.4,
+        "procedural_id": "war_nerids_4"
+      },
+      "war_nerids_5": {
+        "id": "war_nerids_5",
+        "scene": "",
+        "identities": [
+          "war_nerids_5"
+        ],
+        "reference_size_m": 9.5,
+        "procedural_id": "war_nerids_5"
       }
     },
     "surr": {
@@ -341,6 +431,51 @@
         "identities": [
           "premium_imperial_yacht"
         ]
+      },
+      "war_surr_1": {
+        "id": "war_surr_1",
+        "scene": "",
+        "identities": [
+          "war_surr_1"
+        ],
+        "reference_size_m": 5.1,
+        "procedural_id": "war_surr_1"
+      },
+      "war_surr_2": {
+        "id": "war_surr_2",
+        "scene": "",
+        "identities": [
+          "war_surr_2"
+        ],
+        "reference_size_m": 6.2,
+        "procedural_id": "war_surr_2"
+      },
+      "war_surr_3": {
+        "id": "war_surr_3",
+        "scene": "",
+        "identities": [
+          "war_surr_3"
+        ],
+        "reference_size_m": 7.300000000000001,
+        "procedural_id": "war_surr_3"
+      },
+      "war_surr_4": {
+        "id": "war_surr_4",
+        "scene": "",
+        "identities": [
+          "war_surr_4"
+        ],
+        "reference_size_m": 8.4,
+        "procedural_id": "war_surr_4"
+      },
+      "war_surr_5": {
+        "id": "war_surr_5",
+        "scene": "",
+        "identities": [
+          "war_surr_5"
+        ],
+        "reference_size_m": 9.5,
+        "procedural_id": "war_surr_5"
       }
     },
     "meridians": {
@@ -455,6 +590,51 @@
         "identities": [
           "premium_imperial_yacht"
         ]
+      },
+      "war_meridians_1": {
+        "id": "war_meridians_1",
+        "scene": "",
+        "identities": [
+          "war_meridians_1"
+        ],
+        "reference_size_m": 5.1,
+        "procedural_id": "war_meridians_1"
+      },
+      "war_meridians_2": {
+        "id": "war_meridians_2",
+        "scene": "",
+        "identities": [
+          "war_meridians_2"
+        ],
+        "reference_size_m": 6.2,
+        "procedural_id": "war_meridians_2"
+      },
+      "war_meridians_3": {
+        "id": "war_meridians_3",
+        "scene": "",
+        "identities": [
+          "war_meridians_3"
+        ],
+        "reference_size_m": 7.300000000000001,
+        "procedural_id": "war_meridians_3"
+      },
+      "war_meridians_4": {
+        "id": "war_meridians_4",
+        "scene": "",
+        "identities": [
+          "war_meridians_4"
+        ],
+        "reference_size_m": 8.4,
+        "procedural_id": "war_meridians_4"
+      },
+      "war_meridians_5": {
+        "id": "war_meridians_5",
+        "scene": "",
+        "identities": [
+          "war_meridians_5"
+        ],
+        "reference_size_m": 9.5,
+        "procedural_id": "war_meridians_5"
       }
     },
     "aery": {
@@ -569,6 +749,51 @@
         "identities": [
           "premium_imperial_yacht"
         ]
+      },
+      "war_aery_1": {
+        "id": "war_aery_1",
+        "scene": "",
+        "identities": [
+          "war_aery_1"
+        ],
+        "reference_size_m": 5.1,
+        "procedural_id": "war_aery_1"
+      },
+      "war_aery_2": {
+        "id": "war_aery_2",
+        "scene": "",
+        "identities": [
+          "war_aery_2"
+        ],
+        "reference_size_m": 6.2,
+        "procedural_id": "war_aery_2"
+      },
+      "war_aery_3": {
+        "id": "war_aery_3",
+        "scene": "",
+        "identities": [
+          "war_aery_3"
+        ],
+        "reference_size_m": 7.300000000000001,
+        "procedural_id": "war_aery_3"
+      },
+      "war_aery_4": {
+        "id": "war_aery_4",
+        "scene": "",
+        "identities": [
+          "war_aery_4"
+        ],
+        "reference_size_m": 8.4,
+        "procedural_id": "war_aery_4"
+      },
+      "war_aery_5": {
+        "id": "war_aery_5",
+        "scene": "",
+        "identities": [
+          "war_aery_5"
+        ],
+        "reference_size_m": 9.5,
+        "procedural_id": "war_aery_5"
       }
     },
     "crystari": {
@@ -683,6 +908,51 @@
         "identities": [
           "premium_imperial_yacht"
         ]
+      },
+      "war_crystari_1": {
+        "id": "war_crystari_1",
+        "scene": "",
+        "identities": [
+          "war_crystari_1"
+        ],
+        "reference_size_m": 5.1,
+        "procedural_id": "war_crystari_1"
+      },
+      "war_crystari_2": {
+        "id": "war_crystari_2",
+        "scene": "",
+        "identities": [
+          "war_crystari_2"
+        ],
+        "reference_size_m": 6.2,
+        "procedural_id": "war_crystari_2"
+      },
+      "war_crystari_3": {
+        "id": "war_crystari_3",
+        "scene": "",
+        "identities": [
+          "war_crystari_3"
+        ],
+        "reference_size_m": 7.300000000000001,
+        "procedural_id": "war_crystari_3"
+      },
+      "war_crystari_4": {
+        "id": "war_crystari_4",
+        "scene": "",
+        "identities": [
+          "war_crystari_4"
+        ],
+        "reference_size_m": 8.4,
+        "procedural_id": "war_crystari_4"
+      },
+      "war_crystari_5": {
+        "id": "war_crystari_5",
+        "scene": "",
+        "identities": [
+          "war_crystari_5"
+        ],
+        "reference_size_m": 9.5,
+        "procedural_id": "war_crystari_5"
       }
     }
   }

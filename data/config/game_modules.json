@@ -456,6 +456,26 @@
       "args": [
         "CombatSystem"
       ]
+    },
+    {
+      "id": "NavalCombatSystem",
+      "script": "res://systems/combat/naval_combat_system.gd",
+      "initialize": "initialize",
+      "args": [
+        "$main",
+        "MilitaryTransportSystem"
+      ],
+      "after": [
+        "CombatSystem"
+      ]
+    },
+    {
+      "id": "NavalBattleHUD",
+      "script": "res://systems/ui/naval_battle_hud.gd",
+      "initialize": "initialize",
+      "args": [
+        "NavalCombatSystem"
+      ]
     }
   ]
 }

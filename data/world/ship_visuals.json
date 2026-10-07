@@ -308,6 +308,726 @@
           -4.32
         ]
       ]
+    },
+    "war_humans_1": {
+      "scene": "",
+      "length": 5.1,
+      "display_length": 5.1,
+      "flag_at": [
+        0,
+        1.3,
+        1.5
+      ],
+      "lamps": [
+        [
+          0.3,
+          1,
+          1.8
+        ],
+        [
+          -0.3,
+          1,
+          1.8
+        ]
+      ],
+      "procedural_id": "war_humans_1",
+      "local_scene": "res://work/ships/naval/war_humans_1.tscn"
+    },
+    "war_humans_2": {
+      "scene": "",
+      "length": 6.2,
+      "display_length": 6.2,
+      "flag_at": [
+        0,
+        1.3,
+        1.5
+      ],
+      "lamps": [
+        [
+          0.3,
+          1,
+          1.8
+        ],
+        [
+          -0.3,
+          1,
+          1.8
+        ]
+      ],
+      "procedural_id": "war_humans_2",
+      "local_scene": "res://work/ships/naval/war_humans_2.tscn"
+    },
+    "war_humans_3": {
+      "scene": "",
+      "length": 7.300000000000001,
+      "display_length": 7.300000000000001,
+      "flag_at": [
+        0,
+        1.3,
+        1.5
+      ],
+      "lamps": [
+        [
+          0.3,
+          1,
+          1.8
+        ],
+        [
+          -0.3,
+          1,
+          1.8
+        ]
+      ],
+      "procedural_id": "war_humans_3",
+      "local_scene": "res://work/ships/naval/war_humans_3.tscn"
+    },
+    "war_humans_4": {
+      "scene": "",
+      "length": 8.4,
+      "display_length": 8.4,
+      "flag_at": [
+        0,
+        1.3,
+        1.5
+      ],
+      "lamps": [
+        [
+          0.3,
+          1,
+          1.8
+        ],
+        [
+          -0.3,
+          1,
+          1.8
+        ]
+      ],
+      "procedural_id": "war_humans_4",
+      "local_scene": "res://work/ships/naval/war_humans_4.tscn"
+    },
+    "war_humans_5": {
+      "scene": "",
+      "length": 9.5,
+      "display_length": 9.5,
+      "flag_at": [
+        0,
+        1.3,
+        1.5
+      ],
+      "lamps": [
+        [
+          0.3,
+          1,
+          1.8
+        ],
+        [
+          -0.3,
+          1,
+          1.8
+        ]
+      ],
+      "procedural_id": "war_humans_5",
+      "local_scene": "res://work/ships/naval/war_humans_5.tscn"
+    },
+    "war_nerids_1": {
+      "scene": "",
+      "length": 5.1,
+      "display_length": 5.1,
+      "flag_at": [
+        0,
+        1.3,
+        1.5
+      ],
+      "lamps": [
+        [
+          0.3,
+          1,
+          1.8
+        ],
+        [
+          -0.3,
+          1,
+          1.8
+        ]
+      ],
+      "procedural_id": "war_nerids_1",
+      "local_scene": "res://work/ships/naval/war_nerids_1.tscn"
+    },
+    "war_nerids_2": {
+      "scene": "",
+      "length": 6.2,
+      "display_length": 6.2,
+      "flag_at": [
+        0,
+        1.3,
+        1.5
+      ],
+      "lamps": [
+        [
+          0.3,
+          1,
+          1.8
+        ],
+        [
+          -0.3,
+          1,
+          1.8
+        ]
+      ],
+      "procedural_id": "war_nerids_2",
+      "local_scene": "res://work/ships/naval/war_nerids_2.tscn"
+    },
+    "war_nerids_3": {
+      "scene": "",
+      "length": 7.300000000000001,
+      "display_length": 7.300000000000001,
+      "flag_at": [
+        0,
+        1.3,
+        1.5
+      ],
+      "lamps": [
+        [
+          0.3,
+          1,
+          1.8
+        ],
+        [
+          -0.3,
+          1,
+          1.8
+        ]
+      ],
+      "procedural_id": "war_nerids_3",
+      "local_scene": "res://work/ships/naval/war_nerids_3.tscn"
+    },
+    "war_nerids_4": {
+      "scene": "",
+      "length": 8.4,
+      "display_length": 8.4,
+      "flag_at": [
+        0,
+        1.3,
+        1.5
+      ],
+      "lamps": [
+        [
+          0.3,
+          1,
+          1.8
+        ],
+        [
+          -0.3,
+          1,
+          1.8
+        ]
+      ],
+      "procedural_id": "war_nerids_4",
+      "local_scene": "res://work/ships/naval/war_nerids_4.tscn"
+    },
+    "war_nerids_5": {
+      "scene": "",
+      "length": 9.5,
+      "display_length": 9.5,
+      "flag_at": [
+        0,
+        1.3,
+        1.5
+      ],
+      "lamps": [
+        [
+          0.3,
+          1,
+          1.8
+        ],
+        [
+          -0.3,
+          1,
+          1.8
+        ]
+      ],
+      "procedural_id": "war_nerids_5",
+      "local_scene": "res://work/ships/naval/war_nerids_5.tscn"
+    },
+    "war_surr_1": {
+      "scene": "",
+      "length": 5.1,
+      "display_length": 5.1,
+      "flag_at": [
+        0,
+        1.3,
+        1.5
+      ],
+      "lamps": [
+        [
+          0.3,
+          1,
+          1.8
+        ],
+        [
+          -0.3,
+          1,
+          1.8
+        ]
+      ],
+      "procedural_id": "war_surr_1",
+      "local_scene": "res://work/ships/naval/war_surr_1.tscn"
+    },
+    "war_surr_2": {
+      "scene": "",
+      "length": 6.2,
+      "display_length": 6.2,
+      "flag_at": [
+        0,
+        1.3,
+        1.5
+      ],
+      "lamps": [
+        [
+          0.3,
+          1,
+          1.8
+        ],
+        [
+          -0.3,
+          1,
+          1.8
+        ]
+      ],
+      "procedural_id": "war_surr_2",
+      "local_scene": "res://work/ships/naval/war_surr_2.tscn"
+    },
+    "war_surr_3": {
+      "scene": "",
+      "length": 7.300000000000001,
+      "display_length": 7.300000000000001,
+      "flag_at": [
+        0,
+        1.3,
+        1.5
+      ],
+      "lamps": [
+        [
+          0.3,
+          1,
+          1.8
+        ],
+        [
+          -0.3,
+          1,
+          1.8
+        ]
+      ],
+      "procedural_id": "war_surr_3",
+      "local_scene": "res://work/ships/naval/war_surr_3.tscn"
+    },
+    "war_surr_4": {
+      "scene": "",
+      "length": 8.4,
+      "display_length": 8.4,
+      "flag_at": [
+        0,
+        1.3,
+        1.5
+      ],
+      "lamps": [
+        [
+          0.3,
+          1,
+          1.8
+        ],
+        [
+          -0.3,
+          1,
+          1.8
+        ]
+      ],
+      "procedural_id": "war_surr_4",
+      "local_scene": "res://work/ships/naval/war_surr_4.tscn"
+    },
+    "war_surr_5": {
+      "scene": "",
+      "length": 9.5,
+      "display_length": 9.5,
+      "flag_at": [
+        0,
+        1.3,
+        1.5
+      ],
+      "lamps": [
+        [
+          0.3,
+          1,
+          1.8
+        ],
+        [
+          -0.3,
+          1,
+          1.8
+        ]
+      ],
+      "procedural_id": "war_surr_5",
+      "local_scene": "res://work/ships/naval/war_surr_5.tscn"
+    },
+    "war_meridians_1": {
+      "scene": "",
+      "length": 5.1,
+      "display_length": 5.1,
+      "flag_at": [
+        0,
+        1.3,
+        1.5
+      ],
+      "lamps": [
+        [
+          0.3,
+          1,
+          1.8
+        ],
+        [
+          -0.3,
+          1,
+          1.8
+        ]
+      ],
+      "procedural_id": "war_meridians_1",
+      "local_scene": "res://work/ships/naval/war_meridians_1.tscn"
+    },
+    "war_meridians_2": {
+      "scene": "",
+      "length": 6.2,
+      "display_length": 6.2,
+      "flag_at": [
+        0,
+        1.3,
+        1.5
+      ],
+      "lamps": [
+        [
+          0.3,
+          1,
+          1.8
+        ],
+        [
+          -0.3,
+          1,
+          1.8
+        ]
+      ],
+      "procedural_id": "war_meridians_2",
+      "local_scene": "res://work/ships/naval/war_meridians_2.tscn"
+    },
+    "war_meridians_3": {
+      "scene": "",
+      "length": 7.300000000000001,
+      "display_length": 7.300000000000001,
+      "flag_at": [
+        0,
+        1.3,
+        1.5
+      ],
+      "lamps": [
+        [
+          0.3,
+          1,
+          1.8
+        ],
+        [
+          -0.3,
+          1,
+          1.8
+        ]
+      ],
+      "procedural_id": "war_meridians_3",
+      "local_scene": "res://work/ships/naval/war_meridians_3.tscn"
+    },
+    "war_meridians_4": {
+      "scene": "",
+      "length": 8.4,
+      "display_length": 8.4,
+      "flag_at": [
+        0,
+        1.3,
+        1.5
+      ],
+      "lamps": [
+        [
+          0.3,
+          1,
+          1.8
+        ],
+        [
+          -0.3,
+          1,
+          1.8
+        ]
+      ],
+      "procedural_id": "war_meridians_4",
+      "local_scene": "res://work/ships/naval/war_meridians_4.tscn"
+    },
+    "war_meridians_5": {
+      "scene": "",
+      "length": 9.5,
+      "display_length": 9.5,
+      "flag_at": [
+        0,
+        1.3,
+        1.5
+      ],
+      "lamps": [
+        [
+          0.3,
+          1,
+          1.8
+        ],
+        [
+          -0.3,
+          1,
+          1.8
+        ]
+      ],
+      "procedural_id": "war_meridians_5",
+      "local_scene": "res://work/ships/naval/war_meridians_5.tscn"
+    },
+    "war_aery_1": {
+      "scene": "",
+      "length": 5.1,
+      "display_length": 5.1,
+      "flag_at": [
+        0,
+        1.3,
+        1.5
+      ],
+      "lamps": [
+        [
+          0.3,
+          1,
+          1.8
+        ],
+        [
+          -0.3,
+          1,
+          1.8
+        ]
+      ],
+      "procedural_id": "war_aery_1",
+      "local_scene": "res://work/ships/naval/war_aery_1.tscn"
+    },
+    "war_aery_2": {
+      "scene": "",
+      "length": 6.2,
+      "display_length": 6.2,
+      "flag_at": [
+        0,
+        1.3,
+        1.5
+      ],
+      "lamps": [
+        [
+          0.3,
+          1,
+          1.8
+        ],
+        [
+          -0.3,
+          1,
+          1.8
+        ]
+      ],
+      "procedural_id": "war_aery_2",
+      "local_scene": "res://work/ships/naval/war_aery_2.tscn"
+    },
+    "war_aery_3": {
+      "scene": "",
+      "length": 7.300000000000001,
+      "display_length": 7.300000000000001,
+      "flag_at": [
+        0,
+        1.3,
+        1.5
+      ],
+      "lamps": [
+        [
+          0.3,
+          1,
+          1.8
+        ],
+        [
+          -0.3,
+          1,
+          1.8
+        ]
+      ],
+      "procedural_id": "war_aery_3",
+      "local_scene": "res://work/ships/naval/war_aery_3.tscn"
+    },
+    "war_aery_4": {
+      "scene": "",
+      "length": 8.4,
+      "display_length": 8.4,
+      "flag_at": [
+        0,
+        1.3,
+        1.5
+      ],
+      "lamps": [
+        [
+          0.3,
+          1,
+          1.8
+        ],
+        [
+          -0.3,
+          1,
+          1.8
+        ]
+      ],
+      "procedural_id": "war_aery_4",
+      "local_scene": "res://work/ships/naval/war_aery_4.tscn"
+    },
+    "war_aery_5": {
+      "scene": "",
+      "length": 9.5,
+      "display_length": 9.5,
+      "flag_at": [
+        0,
+        1.3,
+        1.5
+      ],
+      "lamps": [
+        [
+          0.3,
+          1,
+          1.8
+        ],
+        [
+          -0.3,
+          1,
+          1.8
+        ]
+      ],
+      "procedural_id": "war_aery_5",
+      "local_scene": "res://work/ships/naval/war_aery_5.tscn"
+    },
+    "war_crystari_1": {
+      "scene": "",
+      "length": 5.1,
+      "display_length": 5.1,
+      "flag_at": [
+        0,
+        1.3,
+        1.5
+      ],
+      "lamps": [
+        [
+          0.3,
+          1,
+          1.8
+        ],
+        [
+          -0.3,
+          1,
+          1.8
+        ]
+      ],
+      "procedural_id": "war_crystari_1",
+      "local_scene": "res://work/ships/naval/war_crystari_1.tscn"
+    },
+    "war_crystari_2": {
+      "scene": "",
+      "length": 6.2,
+      "display_length": 6.2,
+      "flag_at": [
+        0,
+        1.3,
+        1.5
+      ],
+      "lamps": [
+        [
+          0.3,
+          1,
+          1.8
+        ],
+        [
+          -0.3,
+          1,
+          1.8
+        ]
+      ],
+      "procedural_id": "war_crystari_2",
+      "local_scene": "res://work/ships/naval/war_crystari_2.tscn"
+    },
+    "war_crystari_3": {
+      "scene": "",
+      "length": 7.300000000000001,
+      "display_length": 7.300000000000001,
+      "flag_at": [
+        0,
+        1.3,
+        1.5
+      ],
+      "lamps": [
+        [
+          0.3,
+          1,
+          1.8
+        ],
+        [
+          -0.3,
+          1,
+          1.8
+        ]
+      ],
+      "procedural_id": "war_crystari_3",
+      "local_scene": "res://work/ships/naval/war_crystari_3.tscn"
+    },
+    "war_crystari_4": {
+      "scene": "",
+      "length": 8.4,
+      "display_length": 8.4,
+      "flag_at": [
+        0,
+        1.3,
+        1.5
+      ],
+      "lamps": [
+        [
+          0.3,
+          1,
+          1.8
+        ],
+        [
+          -0.3,
+          1,
+          1.8
+        ]
+      ],
+      "procedural_id": "war_crystari_4",
+      "local_scene": "res://work/ships/naval/war_crystari_4.tscn"
+    },
+    "war_crystari_5": {
+      "scene": "",
+      "length": 9.5,
+      "display_length": 9.5,
+      "flag_at": [
+        0,
+        1.3,
+        1.5
+      ],
+      "lamps": [
+        [
+          0.3,
+          1,
+          1.8
+        ],
+        [
+          -0.3,
+          1,
+          1.8
+        ]
+      ],
+      "procedural_id": "war_crystari_5",
+      "local_scene": "res://work/ships/naval/war_crystari_5.tscn"
     }
   }
 }

@@ -46,7 +46,7 @@ func initialize(main: Node) -> void:
 			continue
 		var flag: String = str(window.get_meta("workspace_flag"))
 		_entries.append({"window": window, "flag": flag, "was_open": false, "panel": panel})
-		window.layer = 60
+		window.layer = 140 if str(window.name) == "GarrisonWindow" else 60
 		if panel is PanelContainer:
 			_wrap_panel(window, panel as PanelContainer, flag)
 	_toolbar = HBoxContainer.new()
@@ -600,6 +600,7 @@ func _process(_delta: float) -> void:
 		port_panel.position = Vector2((viewport.x - port_panel.size.x) * 0.5, _top_height + 4.0)
 
 func _layout_top_bar(viewport: Vector2) -> void:
+	if bool(GameState.combat_state.get("naval_battle", {}).get("active", false)): viewport.x *= 0.75
 	var menu_min: Vector2 = _toolbar.get_combined_minimum_size()
 	var stock_min: Vector2 = _resource_bar.get_combined_minimum_size()
 	var available: float = maxf(1.0, viewport.x - 24.0)

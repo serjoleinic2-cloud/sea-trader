@@ -1,0 +1,416 @@
+extends Node
+
+## Live offline naval combat. All mutable state is saved in GameState.
+var _main: Node
+var _military: Node
+var _rules: Dictionary = {}
+var _visuals: Dictionary = {}
+var _clock: float = 0.0
+var _patrol_clock: float = 0.0
+var _save_clock: float = 0.0
+var _economy = preload("res://systems/economy/economy_model.gd").new()
+
+func _ready() -> void:
+	add_to_group("naval_combat_system")
+	_rules = GameData.read("res://data/combat/naval_rules.json")
+	_visuals = GameData.read("res://data/world/ship_visuals.json").get("ships", {})
+
+func initialize(main: Node, military: Node) -> void:
+	_main = main; _military = military
+	GameState.combat_state.merge({"naval_battle":{},"naval_enemies":{},"naval_arsenal":[],"naval_report":{},"naval_time":0.0},false)
+	_clock = float(GameState.combat_state.naval_time)
+	for ship in warships(): normalize_ship(ship)
+
+func warships() -> Array[Dictionary]:
+	var ships: Array[Dictionary] = []
+	for ship in GameState.fleet_state:
+		if bool(GameData.get_ship(str(ship.get("ship_type_id", ""))).get("warship", false)): ships.append(ship)
+	return ships
+
+func normalize_ship(ship: Dictionary) -> void:
+	var definition: Dictionary = GameData.get_ship(str(ship.get("ship_type_id", "")))
+	ship.merge({"level":1,"experience":0,"hull":float(definition.get("hull_max",280)),"commander":{},"guns":[],"naval_order":{},"escort_enabled":false,"escort_state":{},"cargo":[],"autopilot":{}},false)
+	while ship.guns.size() < int(definition.get("gun_slots",2)): ship.guns.append({})
+
+func ship_by_id(id: String) -> Dictionary:
+	for ship in warships():
+		if str(ship.instance_id) == id: return ship
+	return {}
+
+func position(ship: Dictionary) -> Vector2:
+	return vector(ship.get("escort_state", {}).get("position", GameState.ship_state.get("position", Vector2.ZERO)))
+
+func vector(value: Variant) -> Vector2:
+	if value is Vector2: return value
+	if value is Dictionary: return Vector2(float(value.get("x",0)),float(value.get("y",0)))
+	if value is Array and value.size() >= 2: return Vector2(float(value[0]),float(value[1]))
+	if value is String:
+		var parts: PackedStringArray = value.trim_prefix("(").trim_suffix(")").split(",")
+		if parts.size()==2 and parts[0].strip_edges().is_valid_float() and parts[1].strip_edges().is_valid_float(): return Vector2(float(parts[0]),float(parts[1]))
+	return Vector2.ZERO
+
+func hull_max(ship: Dictionary) -> float:
+	return float(GameData.get_ship(str(ship.get("ship_type_id", ""))).get("hull_max", 280)) * (1.0 + float(_rules.hull_growth_per_level) * (int(ship.get("level",1))-1))
+
+func active() -> bool:
+	return bool(GameState.combat_state.get("naval_battle", {}).get("active",false))
+
+func alert_radius() -> float:
+	return float(_visuals.get(str(GameState.ship_state.get("ship_id","ship_sloop")),{}).get("display_length",3.48))/.04 * float(_rules.alert_hull_lengths)
+
+func ready_for_battle() -> bool:
+	if str(GameState.ship_state.get("docked_port_id", "")) != "": return false
+	var player: Vector2 = vector(GameState.ship_state.get("position", Vector2.ZERO))
+	for ship in warships():
+		if bool(ship.get("escort_enabled",false)) and float(ship.get("hull",0))>0 and bool(ship.get("escort_state",{}).get("initialized",false)) and position(ship).distance_to(player)<alert_radius()*float(_rules.escort_readiness_radius_multiplier): return true
+	return false
+
+func nearby_enemies() -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	if not ready_for_battle() or active(): return result
+	var player: Vector2 = vector(GameState.ship_state.get("position", Vector2.ZERO))
+	for enemy in GameState.combat_state.get("naval_enemies",{}).values():
+		if _enemy_alive(enemy) and vector(enemy.position).distance_to(player)<=alert_radius(): result.append(enemy)
+	return result
+
+func _enemy_alive(enemy: Dictionary) -> bool:
+	return float(enemy.get("hull",0))>0 and float(enemy.get("retreat_until",0))<=_clock
+
+func _management_status(ship: Dictionary) -> Dictionary:
+	if ship.is_empty(): return _result(false,"Боевой корабль не найден.")
+	if active(): return _result(false,"Сначала завершите морской бой.")
+	var docked: String = str(GameState.ship_state.get("docked_port_id",""))
+	if docked=="": return _result(false,"Оснащение доступно в общем порту.")
+	if str(ship.get("current_port_id","")) != docked: return _result(false,"Дождитесь корабля в этом порту.")
+	return _result(true,"")
+
+func management_status(id: String) -> Dictionary:
+	return _management_status(ship_by_id(id))
+
+func _transaction(action: Callable, message: String) -> Dictionary:
+	var before_fleet: Array = GameState.fleet_state.duplicate(true)
+	var before_combat: Dictionary = GameState.combat_state.duplicate(true)
+	var before_money: float = float(GameState.player_state.money)
+	action.call()
+	if not SaveSystem.save_game():
+		GameState.fleet_state = before_fleet; GameState.combat_state = before_combat; GameState.player_state.money = before_money
+		return _result(false,"Не удалось сохранить изменения.")
+	EventBus.naval_battle_changed.emit()
+	return _result(true,message)
+
+func hire_commander(id: String) -> Dictionary:
+	var ship: Dictionary = ship_by_id(id)
+	var status: Dictionary = _management_status(ship)
+	if not status.ok: return status
+	normalize_ship(ship)
+	if not ship.commander.is_empty(): return _result(false,"Командир уже назначен.")
+	if float(GameState.player_state.money)<float(_rules.commander_cost): return _result(false,"Не хватает монет: %d." % int(_rules.commander_cost))
+	return _transaction(func():
+		GameState.player_state.money -= float(_rules.commander_cost)
+		ship.commander = {"name":"Командир «%s»" % str(ship.name),"race_id":str(GameState.player_state.get("origin_race_id","humans")),"level":1,"experience":0,"skill_points":1,"skills":{"gunnery":0,"accuracy":0,"reload":0}}, "Военный командир назначен. Доступно очко навыка.")
+
+func train_skill(id: String, skill: String) -> Dictionary:
+	var ship: Dictionary = ship_by_id(id)
+	var status: Dictionary = _management_status(ship)
+	if not status.ok: return status
+	var commander: Dictionary = ship.get("commander",{})
+	if commander.is_empty() or not commander.skills.has(skill): return _result(false,"Назначьте командира.")
+	if int(commander.skill_points)<=0 or int(commander.skills[skill])>=int(_rules.skill_cap): return _result(false,"Недостаточно очков или навык достиг предела.")
+	return _transaction(func(): commander.skills[skill] += 1; commander.skill_points -= 1,"Навык улучшен.")
+
+func install_gun(id: String, slot: int, kind: String, arsenal_index: int = -1) -> Dictionary:
+	var ship: Dictionary = ship_by_id(id)
+	var status: Dictionary = _management_status(ship)
+	if not status.ok: return status
+	normalize_ship(ship)
+	if slot<0 or slot>=ship.guns.size() or not ship.guns[slot].is_empty(): return _result(false,"Выберите свободный слот.")
+	var inventory: Array = GameState.combat_state.naval_arsenal
+	if arsenal_index>=0:
+		if arsenal_index>=inventory.size(): return _result(false,"Орудие отсутствует в арсенале.")
+		return _transaction(func(): ship.guns[slot] = inventory.pop_at(arsenal_index),"Орудие установлено из арсенала с сохранением опыта.")
+	if not _rules.guns.has(kind): return _result(false,"Неизвестное орудие.")
+	var cost: float = float(_rules.guns[kind].cost)
+	if float(GameState.player_state.money)<cost: return _result(false,"Не хватает монет: %d." % int(cost))
+	return _transaction(func():
+		GameState.player_state.money -= cost
+		ship.guns[slot] = {"kind":kind,"level":1,"experience":0,"cooldown":0.0},"Орудие куплено и установлено.")
+
+func remove_gun(id: String, slot: int) -> Dictionary:
+	var ship: Dictionary = ship_by_id(id)
+	var status: Dictionary = _management_status(ship)
+	if not status.ok: return status
+	if slot<0 or slot>=ship.get("guns",[]).size() or ship.guns[slot].is_empty(): return _result(false,"Слот пуст.")
+	return _transaction(func(): GameState.combat_state.naval_arsenal.append(ship.guns[slot].duplicate(true)); ship.guns[slot]={},"Орудие возвращено в арсенал; опыт сохранён.")
+
+func gun_level_cap(ship: Dictionary, gun: Dictionary) -> int:
+	var commander: Dictionary = ship.get("commander",{})
+	if commander.is_empty(): return 1
+	var skill: String = str(_rules.guns.get(str(gun.get("kind","")),{}).get("skill","gunnery"))
+	return mini(int(_rules.max_level), int(commander.get("level",1))+int(commander.get("skills",{}).get(skill,0)))
+
+func upgrade_gun(id: String, slot: int) -> Dictionary:
+	var ship: Dictionary = ship_by_id(id)
+	var status: Dictionary = _management_status(ship)
+	if not status.ok: return status
+	if slot<0 or slot>=ship.get("guns",[]).size() or ship.guns[slot].is_empty(): return _result(false,"Слот пуст.")
+	var gun: Dictionary = ship.guns[slot]
+	var level: int = int(gun.level)
+	if level>=gun_level_cap(ship,gun): return _result(false,"Улучшите командира и профильный навык орудия.")
+	var xp: int = int(_rules.gun_level_xp)*level
+	var cost: float = float(_rules.gun_level_cost)*level
+	if int(gun.experience)<xp or float(GameState.player_state.money)<cost: return _result(false,"Требуется опыт %d/%d и %d монет." % [int(gun.experience),xp,int(cost)])
+	return _transaction(func(): gun.level+=1; gun.experience-=xp; GameState.player_state.money-=cost,"Орудие улучшено.")
+
+func upgrade_ship(id: String) -> Dictionary:
+	var ship: Dictionary = ship_by_id(id)
+	var status: Dictionary = _management_status(ship)
+	if not status.ok: return status
+	var level: int = int(ship.get("level",1))
+	var xp: int = level*int(_rules.ship_level_xp)
+	var cost: float = level*float(_rules.ship_level_cost)
+	if level>=int(_rules.max_level): return _result(false,"Корабль достиг максимального уровня.")
+	if int(ship.get("experience",0))<xp or float(GameState.player_state.money)<cost: return _result(false,"Требуется опыт %d/%d и %d монет." % [int(ship.get("experience",0)),xp,int(cost)])
+	return _transaction(func(): ship.level=level+1; ship.experience-=xp; GameState.player_state.money-=cost,"Корабль улучшен; максимальная прочность повышена.")
+
+func repair_ship(id: String) -> Dictionary:
+	var ship: Dictionary = ship_by_id(id)
+	var status: Dictionary = _management_status(ship)
+	if not status.ok: return status
+	var missing: float = maxf(0,hull_max(ship)-float(ship.get("hull",0)))
+	var cost: float = ceil(missing*float(_rules.repair_per_hull))
+	if float(GameState.player_state.money)<cost: return _result(false,"Ремонт стоит %d монет." % int(cost))
+	return _transaction(func(): ship.hull=hull_max(ship); GameState.player_state.money-=cost,"Корабль отремонтирован.")
+
+func begin_battle(enemy_ids: Array = []) -> Dictionary:
+	if active(): return _result(false,"Бой уже идёт.")
+	if not ready_for_battle(): return _result(false,"Для боя нужен боевой корабль в сопровождении в море.")
+	if bool(GameState.combat_state.get("active_raid",{}).get("active",false)): return _result(false,"Сначала завершите десантную операцию.")
+	var near: Array[Dictionary] = nearby_enemies()
+	var ids: Array = []
+	for enemy in near:
+		if enemy_ids.is_empty() or enemy_ids.has(str(enemy.id)): ids.append(str(enemy.id))
+	if ids.is_empty(): return _result(false,"Противник вышел из радиуса обнаружения.")
+	var battle: Dictionary = {"active":true,"ship_ids":[],"enemy_ids":ids,"previous_escorts":{},"truce_pending":false,"shots":0,"notice":"Боевые корабли под вашим управлением."}
+	for ship in warships():
+		if bool(ship.get("escort_enabled",false)) and float(ship.get("hull",0))>0:
+			battle.ship_ids.append(str(ship.instance_id)); battle.previous_escorts[str(ship.instance_id)] = true
+	var status: Dictionary = _transaction(func():
+		GameState.combat_state.naval_battle=battle
+		for id in battle.ship_ids:
+			var ship: Dictionary = ship_by_id(str(id))
+			ship.escort_enabled=false; ship.naval_order={"kind":"rally","point":vector(GameState.ship_state.position)}
+			if _military!=null: _military.clear_orders(str(id)),"Бой начался.")
+	if status.ok and _main!=null:
+		var autopilot: Node = _main.get("_active_route_autopilot")
+		if autopilot!=null: autopilot.cancel()
+	return status
+
+func issue_order(id: String, point: Vector2, enemy_id: String = "") -> Dictionary:
+	if not active() or not GameState.combat_state.naval_battle.ship_ids.has(id): return _result(false,"Корабль не участвует в бою.")
+	var ship: Dictionary = ship_by_id(id)
+	if float(ship.get("hull",0))<=0: return _result(false,"Корабль выведен из строя.")
+	if enemy_id!="" and not GameState.combat_state.naval_battle.enemy_ids.has(enemy_id): return _result(false,"Цель не участвует в бою.")
+	return _transaction(func():
+		ship.naval_order={"kind":"move" if enemy_id=="" else "attack","point":point,"enemy_id":enemy_id}
+		if _military!=null: _military.clear_orders(id),"Курс задан." if enemy_id=="" else "Цель назначена.")
+
+func rally() -> Dictionary:
+	if not active(): return _result(false,"Нет активного боя.")
+	return _transaction(func():
+		var battle: Dictionary = GameState.combat_state.naval_battle
+		for ship in warships():
+			if float(ship.get("hull",0))<=0: continue
+			var id: String = str(ship.instance_id)
+			if not battle.ship_ids.has(id):
+				battle.ship_ids.append(id); battle.previous_escorts[id]=bool(ship.get("escort_enabled",false))
+			ship.escort_enabled=false; ship.naval_order={"kind":"rally","point":vector(GameState.ship_state.position)}
+			if _military!=null: _military.clear_orders(id),"Общий сбор: корабли следуют к флагману.")
+
+func propose_truce() -> Dictionary:
+	if not active(): return _result(false,"Бой уже завершён.")
+	return _transaction(func():
+		GameState.combat_state.naval_battle.truce_pending=true
+		GameState.combat_state.naval_battle.truce_at=_clock+float(_rules.truce_response_seconds)
+		GameState.combat_state.naval_battle.notice="Предложено перемирие. Ожидаем согласия противника.","Предложение отправлено противнику.")
+
+func respond_truce(accepted: bool) -> Dictionary:
+	if not active() or not bool(GameState.combat_state.naval_battle.get("truce_pending",false)): return _result(false,"Нет предложения перемирия.")
+	if accepted: return _finish("Перемирие",{})
+	return _transaction(func():
+		GameState.combat_state.naval_battle.truce_pending=false
+		GameState.combat_state.naval_battle.notice="Противник отклонил перемирие. Бой продолжается.","Противник отклонил перемирие.")
+
+func surrender() -> Dictionary:
+	if not active(): return _result(false,"Бой уже завершён.")
+	var fraction: float = float(_rules.surrender_fraction)
+	var losses: Dictionary = {"money":floor(maxf(0,float(GameState.player_state.money))*fraction),"magic_shards":floor(int(GameState.combat_state.get("magic_shards",0))*fraction),"resources":{}}
+	var home: String = str(GameState.world_state.get("home_port_id",""))
+	var inventory: Dictionary = GameState.port_state.get(home,{}).get("inventory",{})
+	for resource in inventory:
+		var available: int = maxi(0,int(inventory[resource])-_economy.reserved(GameState.economy_state,str(resource)))
+		var lost: int = int(floor(available*fraction))
+		if lost>0: losses.resources[resource]=lost
+	return _finish("Сдача — поражение",losses)
+
+func _finish(outcome: String, losses: Dictionary) -> Dictionary:
+	if not active(): return _result(false,"Бой уже завершён.")
+	var old_ports: Dictionary = GameState.port_state.duplicate(true)
+	var result: Dictionary = _transaction(func():
+		var battle: Dictionary = GameState.combat_state.naval_battle
+		if not losses.is_empty():
+			GameState.player_state.money -= float(losses.money)
+			GameState.combat_state.magic_shards -= int(losses.magic_shards)
+			var home: String = str(GameState.world_state.get("home_port_id",""))
+			for resource in losses.resources: GameState.port_state[home].inventory[resource] -= int(losses.resources[resource])
+		for id in battle.ship_ids:
+			var ship: Dictionary = ship_by_id(str(id))
+			if ship.is_empty(): continue
+			ship.escort_enabled=bool(battle.previous_escorts.get(id,false)) and float(ship.hull)>0
+			ship.naval_order={}
+			if outcome=="Победа": _award_xp(ship,int(_rules.victory_xp))
+			if _military!=null: _military.clear_orders(str(id))
+		for id in battle.enemy_ids:
+			if GameState.combat_state.naval_enemies.has(id): GameState.combat_state.naval_enemies[id].retreat_until=_clock+float(_rules.patrol_respawn_seconds)
+		GameState.combat_state.naval_report={"outcome":outcome,"losses":losses,"time":_clock}
+		GameState.combat_state.naval_battle={},outcome)
+	if not result.ok: GameState.port_state=old_ports
+	return result
+
+func _award_xp(ship: Dictionary, amount: int) -> void:
+	ship.experience=int(ship.get("experience",0))+amount
+	var commander: Dictionary = ship.get("commander",{})
+	if not commander.is_empty():
+		commander.experience += amount
+		while int(commander.level)<int(_rules.max_level) and int(commander.experience)>=int(commander.level)*int(_rules.commander_level_xp):
+			commander.experience -= int(commander.level)*int(_rules.commander_level_xp)
+			commander.level += 1; commander.skill_points += 1
+
+func _process(delta: float) -> void:
+	if _main==null: return
+	var step: float = clampf(delta,0,.25)
+	_clock+=step; _patrol_clock+=step; _save_clock+=step
+	GameState.combat_state.naval_time=_clock
+	if _patrol_clock>=1:
+		_patrol_clock=0; _ensure_patrols(); _detect_hostile()
+	if active(): _step_battle(step)
+	if _save_clock>=15:
+		_save_clock=0; SaveSystem.save_game()
+
+func _ensure_patrols() -> void:
+	var ports: Dictionary = _main.get("_navigation_world").get("ports",{})
+	var player: Vector2 = vector(GameState.ship_state.position)
+	var resolver = preload("res://systems/world/port_faction_resolver.gd").new()
+	for key in ports:
+		if str(key)==str(GameState.world_state.get("home_port_id","")): continue
+		var port: Dictionary = ports[key]
+		var center: Vector2 = vector(port.get("position",Vector2.ZERO))
+		if center.distance_to(player)>alert_radius()*8: continue
+		var id: String = "patrol_"+str(key)
+		var enemies: Dictionary = GameState.combat_state.naval_enemies
+		if enemies.has(id):
+			if float(enemies[id].get("retreat_until",0))>_clock or active() and GameState.combat_state.naval_battle.enemy_ids.has(id): continue
+			if float(enemies[id].get("hull",0))>0: continue
+		var race: String = resolver.resolve(port,int(GameState.world_state.seed))
+		var tier: int = 1+posmod(hash(id+str(GameState.world_state.seed)),2)
+		var definition: Dictionary = GameData.get_ship("war_%s_%d" % [race,tier])
+		var length: float = float(_visuals.get(definition.id,{}).get("display_length",5.1))/.04
+		var point: Vector2 = _military._spawn_position(center,length,_military._obstacles(id))
+		if not point.is_finite(): continue
+		enemies[id]={"id":id,"ship_type_id":definition.id,"name":"Патруль · "+str(definition.name),"faction_id":race,"position":point,"heading":Vector2.UP,"hull":float(definition.hull_max),"hull_max":float(definition.hull_max),"level":1,"hostile":posmod(hash(id+":hostile"),3)==0,"warning":0.0,"cooldown":0.0,"retreat_until":0.0}
+
+func _detect_hostile() -> void:
+	var nearby: Array[Dictionary] = nearby_enemies()
+	var ids: Array[String] = []
+	for enemy in nearby: ids.append(str(enemy.id))
+	for enemy in GameState.combat_state.naval_enemies.values():
+		if ids.has(str(enemy.id)) and bool(enemy.get("hostile",false)):
+			enemy.warning=float(enemy.get("warning",0))+1
+			if float(enemy.warning)>=float(_rules.hostile_warning_seconds): begin_battle([str(enemy.id)]); return
+		else: enemy.warning=0.0
+
+func _step_battle(delta: float) -> void:
+	var battle: Dictionary = GameState.combat_state.naval_battle
+	var enemies: Array[Dictionary] = []
+	for id in battle.enemy_ids:
+		var enemy: Dictionary = GameState.combat_state.naval_enemies.get(id,{})
+		if not enemy.is_empty() and _enemy_alive(enemy): enemies.append(enemy)
+	if enemies.is_empty(): _finish("Победа",{}); return
+	var allies: Array[Dictionary] = []
+	for id in battle.ship_ids:
+		var ship: Dictionary = ship_by_id(str(id))
+		if not ship.is_empty() and float(ship.get("hull",0))>0:
+			allies.append(ship)
+			var order: Dictionary = ship.get("naval_order",{})
+			if str(order.get("kind",""))=="rally": order.point=vector(GameState.ship_state.position)
+			if str(order.get("kind",""))=="attack":
+				var enemy: Dictionary = GameState.combat_state.naval_enemies.get(str(order.get("enemy_id","")),{})
+				if not enemy.is_empty() and _enemy_alive(enemy):
+					var enemy_point: Vector2 = vector(enemy.position)
+					var dist: float = position(ship).distance_to(enemy_point)
+					order.point=position(ship) if dist<=_ship_range(ship)*.82 else enemy_point+enemy_point.direction_to(position(ship))*_ship_range(ship)*.72
+			_fire_ship(ship,enemies,delta,battle)
+	if allies.is_empty() or float(GameState.ship_state.get("hull",100))<=0: _finish("Поражение",{}); return
+	for enemy in enemies:
+		if not _enemy_alive(enemy): continue
+		var nearest: Dictionary = allies[0]
+		for ship in allies:
+			if position(ship).distance_to(vector(enemy.position))<position(nearest).distance_to(vector(enemy.position)): nearest=ship
+		var from: Vector2 = vector(enemy.position)
+		var to: Vector2 = position(nearest)
+		var length: float = float(_visuals.get(str(enemy.ship_type_id),{}).get("display_length",5.1))/.04
+		if from.distance_to(to)>float(_rules.enemy_standoff_range):
+			var next: Vector2 = from.move_toward(to,float(_rules.enemy_move_speed)*delta)
+			if _military!=null and _military._clear_segment(from,next,length,_military._obstacles(str(enemy.id))): enemy.position=next; enemy.heading=from.direction_to(next)
+		enemy.cooldown=maxf(0,float(enemy.get("cooldown",0))-delta)
+		if float(enemy.cooldown)<=0 and from.distance_to(to)<float(_rules.enemy_attack_range) and (_military==null or not _military._guard.is_navigation_move_blocked(from,to)):
+			enemy.cooldown=float(_rules.enemy_reload_seconds)
+			nearest.hull=maxf(0,float(nearest.hull)-maxf(1,float(_rules.enemy_damage)-float(GameData.get_ship(str(nearest.ship_type_id)).get("armor",0))))
+			EventBus.naval_shot_fired.emit(from,to,true)
+	if bool(battle.get("truce_pending",false)) and _clock>=float(battle.get("truce_at",INF)):
+		var consent: bool = true
+		for enemy in enemies:
+			if bool(enemy.hostile) and float(enemy.hull)>float(enemy.hull_max)*float(_rules.truce_hull_ratio): consent=false
+		respond_truce(consent)
+
+func _ship_range(ship: Dictionary) -> float:
+	var result: float = float(_rules.minimum_gun_range)
+	for gun in ship.get("guns",[]):
+		if not gun.is_empty(): result=maxf(result,float(_rules.guns.get(str(gun.kind),{}).get("range",550)))
+	return result
+
+func _fire_ship(ship: Dictionary, enemies: Array[Dictionary], delta: float, battle: Dictionary) -> void:
+	var origin: Vector2 = position(ship)
+	var target: Dictionary = enemies[0]
+	var chosen: String = str(ship.get("naval_order",{}).get("enemy_id",""))
+	for enemy in enemies:
+		if str(enemy.id)==chosen: target=enemy; break
+		if origin.distance_to(vector(enemy.position))<origin.distance_to(vector(target.position)): target=enemy
+	var skills: Dictionary = ship.get("commander",{}).get("skills",{})
+	for gun in ship.get("guns",[]):
+		if gun.is_empty(): continue
+		gun.cooldown=maxf(0,float(gun.get("cooldown",0))-delta)
+		var definition: Dictionary = _rules.guns.get(str(gun.kind),{})
+		if definition.is_empty() or float(gun.cooldown)>0 or origin.distance_to(vector(target.position))>float(definition.range) or not _enemy_alive(target): continue
+		if _military!=null and _military._guard.is_navigation_move_blocked(origin,vector(target.position)): continue
+		var bonus: float = float(_rules.skill_bonus)
+		gun.cooldown=float(definition.reload)/(1+bonus*int(skills.get("reload",0)))
+		battle.shots=int(battle.shots)+1
+		var roll: float = float(posmod(hash(str(GameState.world_state.seed)+str(battle.shots)+str(ship.instance_id)),1000))/1000.0
+		var hit: bool = roll<minf(float(_rules.maximum_accuracy),float(definition.accuracy)+bonus*int(skills.get("accuracy",0)))
+		if hit:
+			var damage: float = float(definition.damage)*(1+float(_rules.gun_damage_growth_per_level)*(int(gun.level)-1))*(1+bonus*int(skills.get("gunnery",0)))
+			var armor: float = float(GameData.get_ship(str(target.ship_type_id)).get("armor",0))
+			target.hull=maxf(0,float(target.hull)-maxf(1,damage-armor))
+			gun.experience=int(gun.get("experience",0))+int(_rules.shot_xp)
+			_award_xp(ship,int(_rules.shot_xp))
+		EventBus.naval_shot_fired.emit(origin,vector(target.position),hit)
+
+func get_enemy_snapshots() -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	for enemy in GameState.combat_state.get("naval_enemies",{}).values():
+		if not _enemy_alive(enemy): continue
+		result.append({"id":str(enemy.id),"name":str(enemy.name),"ship_type_id":str(enemy.ship_type_id),"position":vector(enemy.position),"heading":vector(enemy.get("heading",Vector2.UP)),"length":float(_visuals.get(str(enemy.ship_type_id),{}).get("display_length",5.1))/.04,"faction_id":str(enemy.faction_id),"kind":"naval_enemy","in_transit":active(),"color":Color("ff8464")})
+	return result
+
+func _result(ok: bool, message: String) -> Dictionary:
+	return {"ok":ok,"message":message}

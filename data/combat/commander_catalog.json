@@ -1,0 +1,161 @@
+{
+  "version": 1,
+  "profiles": {
+    "nerids": [
+      {
+        "id": "nerids_marshal",
+        "name": "Сирена Вальтэра",
+        "title": "Хранительница приливов",
+        "race_id": "nerids",
+        "rank": 3,
+        "cost": 610,
+        "attack": 6,
+        "defense": 4,
+        "expenses": 2,
+        "portrait": "res://assets/characters/crew/nerids_officer.webp"
+      },
+      {
+        "id": "nerids_deputy",
+        "name": "Найра Тей",
+        "title": "Заместитель командира",
+        "race_id": "nerids",
+        "rank": 2,
+        "cost": 420,
+        "attack": 3.0,
+        "defense": 2.0,
+        "expenses": 1.0,
+        "portrait": "res://assets/characters/crew/nerids_officer.webp"
+      }
+    ],
+    "surr": [
+      {
+        "id": "surr_marshal",
+        "name": "Рагнар Келл",
+        "title": "Повелитель кузниц",
+        "race_id": "surr",
+        "rank": 3,
+        "cost": 610,
+        "attack": 8,
+        "defense": 3,
+        "expenses": 3,
+        "portrait": "res://assets/characters/crew/surr_officer.webp"
+      },
+      {
+        "id": "surr_deputy",
+        "name": "Бранн Келл",
+        "title": "Заместитель командира",
+        "race_id": "surr",
+        "rank": 2,
+        "cost": 420,
+        "attack": 4.0,
+        "defense": 1.5,
+        "expenses": 1.5,
+        "portrait": "res://assets/characters/crew/surr_officer.webp"
+      }
+    ],
+    "meridians": [
+      {
+        "id": "meridians_marshal",
+        "name": "Лиора Вейн",
+        "title": "Стратег торговых домов",
+        "race_id": "meridians",
+        "rank": 3,
+        "cost": 610,
+        "attack": 3,
+        "defense": 4,
+        "expenses": -2,
+        "portrait": "res://assets/characters/crew/meridians_officer.webp"
+      },
+      {
+        "id": "meridians_deputy",
+        "name": "Алира Нейт",
+        "title": "Заместитель командира",
+        "race_id": "meridians",
+        "rank": 2,
+        "cost": 420,
+        "attack": 1.5,
+        "defense": 2.0,
+        "expenses": -1.0,
+        "portrait": "res://assets/characters/crew/meridians_officer.webp"
+      }
+    ],
+    "aery": [
+      {
+        "id": "aery_marshal",
+        "name": "Элиан Саэр",
+        "title": "Разведчик высотных кланов",
+        "race_id": "aery",
+        "rank": 3,
+        "cost": 610,
+        "attack": 5,
+        "defense": 2,
+        "expenses": -1,
+        "portrait": "res://assets/characters/crew/aery_officer.webp"
+      },
+      {
+        "id": "aery_deputy",
+        "name": "Лиэн Раэ",
+        "title": "Заместитель командира",
+        "race_id": "aery",
+        "rank": 2,
+        "cost": 420,
+        "attack": 2.5,
+        "defense": 1.0,
+        "expenses": -0.5,
+        "portrait": "res://assets/characters/crew/aery_officer.webp"
+      }
+    ],
+    "crystari": [
+      {
+        "id": "crystari_marshal",
+        "name": "Тарен Нокс",
+        "title": "Страж глубинного камня",
+        "race_id": "crystari",
+        "rank": 3,
+        "cost": 610,
+        "attack": 2,
+        "defense": 8,
+        "expenses": 3,
+        "portrait": "res://assets/characters/crew/crystari_officer.webp"
+      },
+      {
+        "id": "crystari_deputy",
+        "name": "Корн Тай",
+        "title": "Заместитель командира",
+        "race_id": "crystari",
+        "rank": 2,
+        "cost": 420,
+        "attack": 1.0,
+        "defense": 4.0,
+        "expenses": 1.5,
+        "portrait": "res://assets/characters/crew/crystari_officer.webp"
+      }
+    ],
+    "humans": [
+      {
+        "id": "humans_marshal",
+        "name": "Мара Торн",
+        "title": "Адмирал вольных портов",
+        "race_id": "humans",
+        "rank": 3,
+        "cost": 610,
+        "attack": 5,
+        "defense": 5,
+        "expenses": 1,
+        "portrait": "res://assets/characters/crew/humans_officer.webp"
+      },
+      {
+        "id": "humans_deputy",
+        "name": "Анна Вейл",
+        "title": "Заместитель командира",
+        "race_id": "humans",
+        "rank": 2,
+        "cost": 420,
+        "attack": 2.5,
+        "defense": 2.5,
+        "expenses": 0.5,
+        "portrait": "res://assets/characters/crew/humans_officer.webp"
+      }
+    ]
+  }
+}

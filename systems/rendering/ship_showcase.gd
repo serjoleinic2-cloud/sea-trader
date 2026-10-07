@@ -106,9 +106,12 @@ func _rebuild() -> void:
 		_ship.queue_free()
 	var id := _ids[_index]
 	var visual: Dictionary = GameData.read("res://data/world/ship_visuals.json").ships[id]
-	_ship = load(str(visual.scene)).instantiate()
-	_ship.scale = Vector3.ONE * 6.15 / float(visual.length)
-	add_child(_ship)
+	if bool(GameData.get_ship(id).get("warship", false)):
+		_ship = preload("res://systems/rendering/naval_ship_factory.gd").new().attach(self, id, 6.15)
+	else:
+		_ship = load(str(visual.scene)).instantiate()
+		_ship.scale = Vector3.ONE * 6.15 / float(visual.length)
+		add_child(_ship)
 	var style = load("res://systems/rendering/faction_base_style.gd").new()
 	style.apply_ship(_ship, _faction)
 	var flag: Node3D = style.make_flag(_faction)

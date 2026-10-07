@@ -768,6 +768,8 @@ func _add_floating_island(parent: Node3D, main_radius: float, seed_value: int) -
 
 
 func _attach_catalog_scene(parent: Node3D, category: String, identity: String, target_size_m: float, faction_id: String = "") -> Node3D:
+	if category == "ships" and bool(GameData.get_ship(identity).get("warship", false)):
+		return preload("res://systems/rendering/naval_ship_factory.gd").new().attach(parent, identity, target_size_m)
 	var categories: Dictionary = _asset_catalog.get("categories", {})
 	var entries: Array = categories.get(category, [])
 	if category == "ships" and faction_id != "":
@@ -994,7 +996,7 @@ func _sync_traffic(traffic_renderer: Node, traffic_group: String) -> void:
 		keep_models[model_key] = true
 		var model: Node3D = _traffic_models.get(model_key) as Node3D
 		var wanted_identity := str(vessel.get("ship_type_id", "ship_barque"))
-		var faction_id: String = str(GameState.player_state.get("origin_race_id", "humans")) if traffic_group == "fleet" else str(vessel.get("faction_id", "humans"))
+		var faction_id: String = str(vessel.get("faction_id", GameState.player_state.get("origin_race_id", "humans"))) if traffic_group == "fleet" else str(vessel.get("faction_id", "humans"))
 		wanted_identity += ":" + faction_id
 		if is_instance_valid(model) and str(model.get_meta("ship_identity", wanted_identity)) != wanted_identity:
 			model.queue_free()

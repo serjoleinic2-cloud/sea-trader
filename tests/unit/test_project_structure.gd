@@ -11,10 +11,11 @@ func test_entire_fleet_has_independent_models_and_portraits() -> void:
 		assert_true(visuals.has(id), "Missing visual for " + id)
 		var model: Node3D = view._attach_catalog_scene(root, "ships", id, float(visuals[id].display_length))
 		assert_not_null(model, "Catalog routing must instantiate " + id)
-		assert_false(scenes.has(visuals[id].scene), "Ships must have independent hull assets")
-		scenes[visuals[id].scene] = true
+		var visual_identity: String = str(visuals[id].get("procedural_id", visuals[id].scene))
+		assert_false(scenes.has(visual_identity), "Ships must have independent hull identities")
+		scenes[visual_identity] = true
 		assert_true(load(str(ship.ui_icon)) is Texture2D, "Shipyard portrait must load for " + id)
-	assert_eq(scenes.size(), 14)
+	assert_eq(scenes.size(), 44) # 14 existing hulls + 5 warships for each of 6 races
 	root.free()
 	view.free()
 

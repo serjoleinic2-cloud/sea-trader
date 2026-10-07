@@ -16,6 +16,7 @@ const FACTION_ART: Dictionary = {
 	"humans": {"emblem": "res://assets/ui/emblems/humans.png"}
 }
 var _cache: Dictionary = {}
+var _ship_index: Dictionary = {}
 
 func read(path: String) -> Dictionary:
 	if not path.begins_with("res://data/") or not path.ends_with(".json") or path.contains(".."):
@@ -41,13 +42,17 @@ func get_ships() -> Array:
 		var premium_ship: Dictionary = catalog.get("defaults", {}).duplicate(true)
 		premium_ship.merge(raw_premium, true)
 		result.append(premium_ship)
+	for raw_naval in read("res://data/ships/naval_ship_catalog.json").get("ships", []):
+		var naval: Dictionary = catalog.get("defaults", {}).duplicate(true)
+		naval.merge(raw_naval, true)
+		result.append(naval)
 	return result
 
 func get_ship(ship_id: String) -> Dictionary:
-	for ship in get_ships():
-		if str(ship.get("id", "")) == ship_id:
-			return ship
-	return {}
+	if _ship_index.is_empty():
+		for ship in get_ships():
+			_ship_index[str(ship.id)] = ship
+	return _ship_index.get(ship_id, {}).duplicate(true)
 
 func get_crew_requirements() -> Dictionary:
 	var result: Dictionary = {}

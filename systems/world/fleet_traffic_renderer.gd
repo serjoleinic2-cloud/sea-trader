@@ -61,7 +61,7 @@ func get_vessel_snapshots() -> Array[Dictionary]:
 	var now: float = Time.get_unix_time_from_system()
 	for raw_ship in GameState.fleet_state:
 		var ship: Dictionary = raw_ship
-		if str(ship.get("ship_type_id","")) == "ship_combat_cutter" and ship.get("autopilot",{}).is_empty(): continue
+		if (str(ship.get("ship_type_id","")) == "ship_combat_cutter" or bool(GameData.get_ship(str(ship.get("ship_type_id", ""))).get("warship", false))) and ship.get("autopilot",{}).is_empty(): continue
 		var ship_id: String = str(ship.get("instance_id", ""))
 		var voyage: Dictionary = fleet.get_auxiliary_voyage_status(ship_id, now)
 		if not bool(voyage.get("found", false)):
@@ -116,6 +116,8 @@ func get_vessel_snapshots() -> Array[Dictionary]:
 		})
 	var military: Node = get_tree().get_first_node_in_group("military_transport_system")
 	if military != null: snapshots.append_array(military.get_vessel_snapshots())
+	var navy: Node = get_tree().get_first_node_in_group("naval_combat_system")
+	if navy != null: snapshots.append_array(navy.get_enemy_snapshots())
 	return snapshots
 
 func _clearance_at(point: Vector2, length: float, obstacles: Array) -> bool:
@@ -145,7 +147,7 @@ func _draw() -> void:
 	var now: float = Time.get_unix_time_from_system()
 	for raw_ship in GameState.fleet_state:
 		var ship: Dictionary = raw_ship
-		if str(ship.get("ship_type_id","")) == "ship_combat_cutter" and ship.get("autopilot",{}).is_empty(): continue
+		if (str(ship.get("ship_type_id","")) == "ship_combat_cutter" or bool(GameData.get_ship(str(ship.get("ship_type_id", ""))).get("warship", false))) and ship.get("autopilot",{}).is_empty(): continue
 		var ship_id: String = str(ship.get("instance_id", ""))
 		var voyage: Dictionary = fleet.get_auxiliary_voyage_status(ship_id, now)
 		if not bool(voyage.get("found", false)):

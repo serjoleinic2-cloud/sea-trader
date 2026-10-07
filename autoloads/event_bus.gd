@@ -61,3 +61,6 @@ signal combat_report_ready(report: Dictionary)
 # ============================================================================
 signal navigation_destination_set(port_id: String)
 signal navigation_destination_cleared()
+
+signal naval_battle_changed
+signal naval_shot_fired(origin: Vector2, target: Vector2, hit: bool)

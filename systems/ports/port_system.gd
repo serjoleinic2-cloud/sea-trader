@@ -263,6 +263,7 @@ func _get_starter_shipyard_kit() -> Dictionary:
 
 
 func dock(port_id: String) -> bool:
+	if bool(GameState.combat_state.get("naval_battle", {}).get("active", false)): return false
 	if port_id == "" or get_dock_candidate() != port_id:
 		return false
 	if str(GameState.ship_state.get("docked_port_id", "")) == port_id:

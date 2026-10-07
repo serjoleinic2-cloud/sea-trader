@@ -32,7 +32,7 @@ func initialize(port_system: Node, hiring_system: Node = null) -> void:
 func get_ship_types() -> Array:
 	var result: Array = []
 	for type_id in _ship_types:
-		if not bool(_ship_types[type_id].get("premium", false)):
+		if not bool(_ship_types[type_id].get("premium", false)) and (not bool(_ship_types[type_id].get("warship", false)) or str(_ship_types[type_id].get("faction_id", "")) == str(GameState.player_state.get("origin_race_id", ""))):
 			result.append(_ship_types[type_id])
 	result.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return int(a.get("tier", 0)) < int(b.get("tier", 0)))
 	return result
@@ -96,6 +96,8 @@ func get_ship_access(ship_type_id: String) -> Dictionary:
 	var ship_type: Dictionary = get_ship_type(ship_type_id)
 	if ship_type.is_empty():
 		return {"ok": false, "message": "Проект корабля не найден."}
+	if bool(ship_type.get("warship", false)) and str(ship_type.get("faction_id", "")) != str(GameState.player_state.get("origin_race_id", "")):
+		return {"ok": false, "message": "Этот проект принадлежит другой расе."}
 	var progress: Dictionary = get_command_progress()
 	var current_rank: int = int(progress.get("rank", 1))
 	var required_rank: int = int(ship_type.get("command_rank_required", 1))
@@ -144,6 +146,9 @@ func complete_ship_from_shipyard(ship_type_id: String, ship_name: String, persis
 		"escort_state": {},
 		"embarked_units": {}
 	})
+	if bool(ship_type.get("warship", false)):
+		var navy: Node = get_tree().get_first_node_in_group("naval_combat_system")
+		if navy != null: navy.normalize_ship(GameState.fleet_state[-1])
 	if persist:
 		if not SaveSystem.save_game():
 			GameState.fleet_state.pop_back()
@@ -157,7 +162,7 @@ func get_take_control_status(ship_id: String) -> Dictionary:
 	if index < 0:
 		return {"ok": false, "message": "Корабль флота не найден."}
 	var candidate: Dictionary = GameState.fleet_state[index]
-	if str(candidate.get("ship_type_id","")) == "ship_combat_cutter":
+	if str(candidate.get("ship_type_id","")) == "ship_combat_cutter" or bool(GameData.get_ship(str(candidate.get("ship_type_id", ""))).get("warship", false)):
 		return {"ok": false, "message": "Военный транспорт следует за вашим кораблём. Управляйте десантом в окне флота."}
 	if not candidate.get("autopilot", {}).is_empty():
 		return {"ok": false, "message": "Сначала дождитесь окончания рейса."}
@@ -327,7 +332,7 @@ func quote_leg(ship_id: String, route_key: String, quantity: int) -> Dictionary:
 	if index < 0 or route.is_empty():
 		return {"ok": false, "message": "Корабль или маршрут не найден."}
 	var ship: Dictionary = GameState.fleet_state[index]
-	if str(ship.get("ship_type_id","")) == "ship_combat_cutter":
+	if str(ship.get("ship_type_id","")) == "ship_combat_cutter" or bool(GameData.get_ship(str(ship.get("ship_type_id", ""))).get("warship", false)):
 		return {"ok": false, "message": "Военный транспорт перевозит десант и не назначается на торговые рейсы."}
 	var quote: Dictionary = _economy.voyage_quote(ship, get_ship_type(str(ship.get("ship_type_id", ""))), GameState.employee_state, float(route.get("distance", 0.0)), quantity)
 	quote["ok"] = true
@@ -341,7 +346,7 @@ func start_autopilot(ship_id: String, route_key: String, freight_plan: Dictionar
 	if route.is_empty():
 		return {"ok": false, "message": "Этот маршрут ещё не изучен."}
 	var ship: Dictionary = GameState.fleet_state[ship_index]
-	if str(ship.get("ship_type_id","")) == "ship_combat_cutter":
+	if str(ship.get("ship_type_id","")) == "ship_combat_cutter" or bool(GameData.get_ship(str(ship.get("ship_type_id", ""))).get("warship", false)):
 		return {"ok": false, "message": "Военный транспорт перевозит десант и не назначается на торговые рейсы."}
 	if not ship.get("autopilot", {}).is_empty():
 		return {"ok": false, "message": "Корабль уже в рейсе."}

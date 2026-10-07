@@ -173,6 +173,9 @@ func _add_auxiliary_ship_card(ship: Dictionary) -> void:
 	var box: VBoxContainer = _create_card()
 	_add_ship_portrait(box, str(ship.get("ship_type_id", "ship_sloop")))
 	var ship_id: String = str(ship.get("instance_id", ""))
+	if bool(GameData.get_ship(str(ship.get("ship_type_id", ""))).get("warship", false)):
+		_add_naval_ship_card(ship)
+		return
 	if str(ship.get("ship_type_id","")) == "ship_combat_cutter" and ship.get("autopilot",{}).is_empty():
 		_add_transport_controls(box,ship)
 		return
@@ -507,3 +510,97 @@ func _unhandled_key_input(event: InputEvent) -> void:
 	if event.keycode == KEY_F or event.physical_keycode == KEY_F:
 		_toggle()
 		get_viewport().set_input_as_handled()
+
+func _naval_action(callback: Callable) -> void:
+	var result: Dictionary = callback.call()
+	_notice = str(result.get("message", ""))
+	_refresh()
+
+func _naval_button(box: Control, text_value: String, enabled: bool, callback: Callable) -> Button:
+	var button := Button.new()
+	button.text = text_value
+	button.custom_minimum_size.y = 36
+	button.disabled = not enabled
+	button.pressed.connect(_naval_action.bind(callback))
+	box.add_child(button)
+	return button
+
+func _add_naval_ship_card(ship: Dictionary) -> void:
+	var navy: Node = get_tree().get_first_node_in_group("naval_combat_system")
+	var military: Node = get_tree().get_first_node_in_group("military_transport_system")
+	if navy == null or military == null: return
+	navy.normalize_ship(ship)
+	var id: String = str(ship.instance_id)
+	var box: VBoxContainer = _create_card()
+	_add_ship_portrait(box, str(ship.ship_type_id))
+	var definition: Dictionary = GameData.get_ship(str(ship.ship_type_id))
+	var title := Label.new()
+	title.text = "%s · уровень %d / 30" % [str(ship.name), int(ship.level)]
+	title.add_theme_font_size_override("font_size", 19)
+	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	box.add_child(title)
+	var stats := Label.new()
+	stats.text = "Корпус %.0f / %.0f · опыт %d / %d\nОрудийные слоты %d · %s" % [float(ship.hull), navy.hull_max(ship), int(ship.experience), int(ship.level) * int(navy._rules.ship_level_xp), int(definition.gun_slots), str(ship.get("status", "У причала"))]
+	stats.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	box.add_child(stats)
+	var escort_status: Dictionary = military.get_escort_change_status(id)
+	var escort: Button = _naval_button(box, "Оставить в порту" if bool(ship.escort_enabled) else "В сопровождение · готовность к бою", bool(escort_status.ok), func(): return military.set_escort(id, not bool(ship.escort_enabled)))
+	escort.tooltip_text = str(escort_status.message)
+	var status: Dictionary = navy.management_status(id)
+	var available: bool = bool(status.ok)
+	var row := HBoxContainer.new()
+	box.add_child(row)
+	_naval_button(row, "Улучшить корпус", available, func(): return navy.upgrade_ship(id))
+	_naval_button(row, "Ремонт", available, func(): return navy.repair_ship(id))
+	var commander: Dictionary = ship.commander
+	if commander.is_empty():
+		_naval_button(box, "Нанять военного командира · %d монет" % int(navy._rules.commander_cost), available, func(): return navy.hire_commander(id))
+	else:
+		var portrait := TextureRect.new()
+		var portrait_path: String = "res://assets/characters/crew/%s_officer.webp" % str(commander.race_id)
+		portrait.texture = load(portrait_path) as Texture2D
+		portrait.custom_minimum_size = Vector2(100, 100)
+		portrait.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		(box.get_meta("portrait_column") as Control).add_child(portrait)
+		var officer := Label.new()
+		officer.text = "%s · уровень %d · очков навыков %d" % [str(commander.name), int(commander.level), int(commander.skill_points)]
+		officer.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		box.add_child(officer)
+		var skills := HBoxContainer.new()
+		box.add_child(skills)
+		for skill in ["gunnery", "accuracy", "reload"]:
+			var label: String = {"gunnery":"Урон", "accuracy":"Точность", "reload":"Заряжание"}[skill]
+			_naval_button(skills, "%s %d +" % [label, int(commander.skills.get(skill, 0))], available and int(commander.skill_points)>0, func(): return navy.train_skill(id, skill))
+	var guns: Dictionary = navy._rules.guns
+	for index in ship.guns.size():
+		var gun: Dictionary = ship.guns[index]
+		var gun_row := HBoxContainer.new()
+		box.add_child(gun_row)
+		var label := Label.new()
+		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		label.text = "Слот %d · пуст" % (index+1) if gun.is_empty() else "Слот %d · %s · ур. %d · XP %d · предел %d" % [index+1, str(guns[gun.kind].name), int(gun.level), int(gun.experience), navy.gun_level_cap(ship, gun)]
+		label.add_theme_font_size_override("font_size", 14)
+		gun_row.add_child(label)
+		if gun.is_empty():
+			var choice := OptionButton.new()
+			for kind in guns:
+				choice.add_item("%s · %d монет" % [str(guns[kind].name), int(guns[kind].cost)])
+				choice.set_item_metadata(choice.item_count-1, str(kind))
+			gun_row.add_child(choice)
+			_naval_button(gun_row, "Установить", available, func(): return navy.install_gun(id, index, str(choice.get_item_metadata(choice.selected))))
+			var inventory: Array = GameState.combat_state.get("naval_arsenal", [])
+			if not inventory.is_empty():
+				var storage := OptionButton.new()
+				for item in inventory: storage.add_item("%s · ур. %d" % [str(guns.get(str(item.kind), {}).get("name", item.kind)), int(item.level)])
+				box.add_child(storage)
+				_naval_button(box, "Из арсенала в слот %d" % (index+1), available, func(): return navy.install_gun(id, index, "", storage.selected))
+		else:
+			_naval_button(gun_row, "Улучшить", available, func(): return navy.upgrade_gun(id, index))
+			_naval_button(gun_row, "Снять", available, func(): return navy.remove_gun(id, index))
+	if not available:
+		var hint := Label.new()
+		hint.text = str(status.message)
+		hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		box.add_child(hint)
