@@ -30,6 +30,22 @@ func test_new_game_has_a_small_starter_garrison() -> void:
     assert_eq(_system.get_roster().size(), 6, "locked troop branches are visible in the roster")
     assert_gt(_system.get_defense_power(), 0, "starter defenders provide actual defense")
 
+func test_commander_hire_saves_and_changes_garrison_bonuses() -> void:
+    GameState.player_state.origin_race_id = "nerids"
+    var attack_before: int = _system.get_attack_power()
+    var defense_before: int = _system.get_defense_power()
+    var candidate := {"id": "nerids_test_commander", "race_id": "nerids", "name": "Сирена Вальтэра", "cost": 610, "attack": 6.0, "defense": 4.0, "expenses": 2.0}
+    var hired: Dictionary = _system.hire_commander(candidate)
+    assert_true(bool(hired.get("ok", false)), "eligible commander can be hired while docked at home")
+    assert_eq(int(GameState.player_state.money), 49390, "hire fee is charged and saved")
+    assert_gt(_system.get_attack_power(), attack_before, "commander attack bonus changes combat strength")
+    assert_gt(_system.get_defense_power(), defense_before, "commander defense bonus changes home defense")
+    assert_eq(_system.get_recruitment_cost("coast_guard", 1), 82, "commander expense flaw affects actual hiring costs")
+    assert_true(bool(GameState.combat_state.commander.get("attack_bonus", 0.0) == 6.0), "commander bonuses are stored in the save state")
+    var dismissed: Dictionary = _system.dismiss_commander()
+    assert_true(bool(dismissed.get("ok", false)), "the assigned commander can be dismissed at home")
+    assert_eq(_system.get_attack_power(), attack_before, "dismissing a commander removes the combat bonus")
+
 func test_recruitment_finishes_and_persists() -> void:
     var result: Dictionary = _system.recruit("coast_guard", 2)
     assert_true(bool(result.get("ok", false)), "recruiting an unlocked unit starts training")

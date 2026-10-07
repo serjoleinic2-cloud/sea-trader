@@ -55,7 +55,7 @@ func _ready() -> void:
 	_status.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_root.add_child(_status)
 	_research_button = Button.new()
-	_research_button.text = "ИССЛЕДОВАТЬ [F]"
+	_research_button.text = "ИССЛЕДОВАТЬ [R]"
 	_research_button.custom_minimum_size = Vector2(220, 42)
 	_research_button.add_theme_font_size_override("font_size", 16)
 	_research_button.button_down.connect(func(): _button_held = true)
@@ -97,7 +97,7 @@ func _process(delta: float) -> void:
 	_status.size = Vector2(380.0, 52.0)
 	_research_button.position = Vector2(viewport.x * 0.5 - 110.0, viewport.y * 0.56 + 78.0)
 	_marker.kind = str(_nearest.get("kind", "Обломки"))
-	var holding: bool = _button_held or Input.is_key_pressed(KEY_F)
+	var holding: bool = _button_held or Input.is_key_pressed(KEY_R)
 	if holding:
 		_progress = minf(1.0, _progress + delta / RESEARCH_TIME)
 	else:
@@ -105,7 +105,7 @@ func _process(delta: float) -> void:
 	_marker.progress = _progress
 	_marker.active = holding
 	_marker.queue_redraw()
-	_status.text = "%s\n%s" % [str(_nearest.get("kind", "Обломки")), "Удерживайте F или кнопку, чтобы исследовать" if not holding else "Исследование: %d%%" % roundi(_progress * 100.0)]
+	_status.text = "%s\n%s" % [str(_nearest.get("kind", "Обломки")), "Удерживайте R или кнопку, чтобы исследовать" if not holding else "Исследование: %d%%" % roundi(_progress * 100.0)]
 	if _progress >= 1.0:
 		_claim_nearest()
 

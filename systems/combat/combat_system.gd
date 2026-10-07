@@ -48,6 +48,8 @@ func _normalize_state() -> void:
         state["construction_job"] = {}
     if not state.get("reports", []) is Array:
         state["reports"] = []
+    if not state.get("commander", {}) is Dictionary:
+        state["commander"] = {}
     if not state.get("crystals", {}) is Dictionary:
         state["crystals"] = {}
     state["magic_shards"] = maxi(0, int(state.get("magic_shards", 0)))
@@ -111,6 +113,66 @@ func get_catalog() -> Dictionary:
 
 func get_garrison_level() -> int:
     return int(GameState.combat_state.get("garrison_level", 1))
+
+func get_commander() -> Dictionary:
+    return GameState.combat_state.get("commander", {}).duplicate(true)
+
+func get_commander_bonuses() -> Dictionary:
+    var commander := get_commander()
+    if commander.is_empty():
+        return {"attack": 0.0, "defense": 0.0, "expenses": 0.0}
+    return {
+        "attack": float(commander.get("attack_bonus", 0.0)),
+        "defense": float(commander.get("defense_bonus", 0.0)),
+        "expenses": float(commander.get("expenses_bonus", 0.0))
+    }
+
+func hire_commander(candidate: Dictionary) -> Dictionary:
+    if not is_at_home():
+        return _result(false, "Командиров можно назначать только в главном порту.")
+    if not get_commander().is_empty():
+        return _result(false, "Командир уже назначен. Сначала освободите его место.")
+    var race_id := str(GameState.player_state.get("origin_race_id", ""))
+    if race_id == "" or str(candidate.get("race_id", "")) != race_id:
+        return _result(false, "Можно нанять только командира вашей расы.")
+    var cost := maxi(0, int(candidate.get("cost", 610)))
+    if float(GameState.player_state.get("money", 0.0)) < cost:
+        return _result(false, "Не хватает монет: требуется %d." % cost)
+    var old_state: Dictionary = GameState.combat_state.duplicate(true)
+    var old_money := float(GameState.player_state.get("money", 0.0))
+    var appointed := candidate.duplicate(true)
+    appointed["hired_at"] = _now()
+    appointed["attack_bonus"] = float(candidate.get("attack_bonus", candidate.get("attack", 0.0)))
+    appointed["defense_bonus"] = float(candidate.get("defense_bonus", candidate.get("defense", 0.0)))
+    appointed["expenses_bonus"] = float(candidate.get("expenses_bonus", candidate.get("expenses", 0.0)))
+    appointed.erase("cost")
+    appointed.erase("attack")
+    appointed.erase("defense")
+    appointed.erase("expenses")
+    GameState.player_state["money"] = old_money - cost
+    GameState.combat_state["commander"] = appointed
+    if not SaveSystem.save_game():
+        GameState.player_state["money"] = old_money
+        GameState.combat_state = old_state
+        return _result(false, "Не удалось сохранить назначение командира.")
+    return _result(true, "%s назначена командиром гарнизона." % str(appointed.get("name", "Командир")))
+
+func dismiss_commander() -> Dictionary:
+    if not is_at_home():
+        return _result(false, "Снять командира можно только в главном порту.")
+    if get_commander().is_empty():
+        return _result(false, "Командир не назначен.")
+    var old_state: Dictionary = GameState.combat_state.duplicate(true)
+    GameState.combat_state["commander"] = {}
+    if not SaveSystem.save_game():
+        GameState.combat_state = old_state
+        return _result(false, "Не удалось сохранить изменение гарнизона.")
+    return _result(true, "Командир снят с должности. Оплата за найм не возвращается.")
+
+func get_recruitment_cost(unit_id: String, amount: int = 1) -> int:
+    var base_cost := int(_catalog.get("units", {}).get(unit_id, {}).get("hire_cost", 0)) * maxi(0, amount)
+    var expenses := float(get_commander_bonuses().get("expenses", 0.0))
+    return int(ceil(float(base_cost) * (1.0 + expenses / 100.0)))
 
 func get_roster() -> Array[Dictionary]:
     var result: Array[Dictionary] = []
@@ -300,7 +362,7 @@ func can_recruit(unit_id: String, amount: int) -> bool:
         return false
     if _total_units() + amount > get_garrison_level() * 30:
         return false
-    return float(GameState.player_state.get("money", 0.0)) >= int(definition.get("hire_cost", 0)) * amount
+    return float(GameState.player_state.get("money", 0.0)) >= get_recruitment_cost(unit_id, amount)
 
 func get_towers() -> Array:
     return GameState.combat_state.get("towers", []).duplicate(true)
@@ -333,7 +395,8 @@ func get_defense_power() -> int:
             defense_stat *= 1.15
         total += float(saved.get("count", 0)) * (defense_stat + luck_power)
     var integrity: float = float(GameState.combat_state.get("fort_integrity", 100.0)) / 100.0
-    return maxi(0, int(round(total * (1.0 + float(bonuses.defense) / 100.0) * integrity)))
+    var commander: Dictionary = get_commander_bonuses()
+    return maxi(0, int(round(total * (1.0 + (float(bonuses.defense) + float(commander.defense)) / 100.0) * integrity)))
 
 func get_attack_power(roster: Variant = null) -> int:
     var total: float = 0.0
@@ -348,7 +411,8 @@ func get_attack_power(roster: Variant = null) -> int:
         if str(unit_id) == "wind_rider":
             attack_stat *= 1.12
         total += float(saved.get("count", 0)) * (attack_stat + luck_power)
-    return maxi(0, int(round(total * (1.0 + float(bonuses.attack) / 100.0))))
+    var commander: Dictionary = get_commander_bonuses() if roster == null else {"attack": 0.0}
+    return maxi(0, int(round(total * (1.0 + (float(bonuses.attack) + float(commander.attack)) / 100.0))))
 
 func get_average_speed() -> float:
     var weighted_speed: float = 0.0
@@ -442,7 +506,7 @@ func recruit(unit_id: String, amount: int = 1) -> Dictionary:
     amount = clampi(amount, 1, int(_rules().get("max_recruitment_batch", 20)))
     if _total_units() + amount > get_garrison_level() * 30:
         return _result(false, "Гарнизон заполнен. Улучшите его, чтобы увеличить вместимость.")
-    var cost: int = int(definition.get("hire_cost", 0)) * amount
+    var cost: int = get_recruitment_cost(unit_id, amount)
     if float(GameState.player_state.get("money", 0.0)) < cost:
         return _result(false, "Не хватает денег: нужно %d." % cost)
     var before: Dictionary = GameState.combat_state.duplicate(true)
