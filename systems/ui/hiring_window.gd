@@ -18,23 +18,7 @@ var _selected_ship_id: String = "active_ship"
 var _notice: String = ""
 
 const CREW_ATLAS := "res://assets/characters/crew/crew_portrait_atlas.png"
-const RACE_ROWS := {"humans": 0, "nerids": 1, "surr": 2, "meridians": 3, "aery": 4, "crystari": 5}
-const OFFICER_ART := {
-	"humans": "res://assets/characters/crew/humans_officer.webp",
-	"nerids": "res://assets/characters/crew/nerids_officer.webp",
-	"surr": "res://assets/characters/crew/surr_officer.webp",
-	"meridians": "res://assets/characters/crew/meridians_officer.webp",
-	"aery": "res://assets/characters/crew/aery_officer.webp",
-	"crystari": "res://assets/characters/crew/crystari_officer.webp"
-}
-const CAPTAIN_ART := {
-	"humans": "res://assets/characters/captains/humans_captain_full.webp",
-	"nerids": "res://assets/characters/captains/nerids_captain_full.webp",
-	"surr": "res://assets/characters/captains/surr_captain_full.webp",
-	"meridians": "res://assets/characters/captains/meridian_captain_full.webp",
-	"aery": "res://assets/characters/captains/aery_captain_full.webp",
-	"crystari": "res://assets/characters/captains/crystari_captain_full.webp"
-}
+const CharacterArtCatalog = preload("res://systems/characters/character_art_catalog.gd")
 var _is_open: bool = false
 var _stat_labels: Dictionary = {}
 var _portrait: TextureRect
@@ -251,21 +235,9 @@ func _refresh_details() -> void:
 func _get_candidate_portrait(candidate: Dictionary) -> Texture2D:
 	var race_id: String = str(candidate.get("race_id", "humans"))
 	var role_id: String = str(candidate.get("role_id", ""))
-	var role_name: String = str(candidate.get("role_name", "")).to_lower()
-	var is_captain: bool = role_id == "captain" or role_id == "commander" or role_name.contains("капитан") or role_name.contains("командир")
-	var art_path: String = str(CAPTAIN_ART.get(race_id, "")) if is_captain else str(OFFICER_ART.get(race_id, ""))
-	if not art_path.is_empty() and ResourceLoader.exists(art_path):
-		return load(art_path) as Texture2D
-	if _portrait_atlas == null:
-		return null
-	var column: int = posmod(int(candidate.get("portrait_id", 0)), 3)
-	var row: int = int(RACE_ROWS.get(race_id, 0))
-	var cell_width: float = float(_portrait_atlas.get_width()) / 3.0
-	var cell_height: float = float(_portrait_atlas.get_height()) / 6.0
-	var atlas := AtlasTexture.new()
-	atlas.atlas = _portrait_atlas
-	atlas.region = Rect2(column * cell_width + 2.0, row * cell_height + 2.0, cell_width - 4.0, cell_height - 4.0)
-	return atlas
+	if role_id.is_empty():
+		role_id = str(candidate.get("role_name", "")).to_lower()
+	return CharacterArtCatalog.ship_officer_portrait(race_id, role_id, int(candidate.get("portrait_id", 0)), _portrait_atlas)
 
 func _get_selected_candidate() -> Dictionary:
 	for raw_candidate in _system.get_candidates():

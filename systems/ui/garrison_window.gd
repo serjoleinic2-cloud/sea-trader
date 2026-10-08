@@ -34,17 +34,10 @@ var _origin_emblem: TextureRect
 var _art_screen: Control
 var _art_mode: bool = true
 var _inspected_faction_id: String = ""
+const CharacterArtCatalog = preload("res://systems/characters/character_art_catalog.gd")
 const ART_FACTION_IDS := ["nerids", "surr", "meridians", "aery", "crystari", "humans"]
 
 const CARD_MIN_SIZE := Vector2(280, 320)
-const UNIT_PORTRAITS := {
-	"coast_guard": "res://assets/characters/units/coast_guard.webp",
-	"rune_spearman": "res://assets/characters/units/rune_spearman.webp",
-	"stone_warden": "res://assets/characters/units/stone_warden.webp",
-	"wind_rider": "res://assets/characters/units/wind_rider.webp",
-	"crystal_mortar": "res://assets/characters/units/crystal_mortar.webp",
-	"storm_drake": "res://assets/characters/units/storm_drake.webp"
-}
 
 func _ready() -> void:
 	add_to_group("garrison_window")
@@ -555,7 +548,7 @@ func _create_unit_card(unit: Dictionary, max_batch: int) -> Control:
 	var portrait_row := HBoxContainer.new()
 	portrait_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	content.add_child(portrait_row)
-	var portrait_path := _get_unit_portrait_path(str(unit.get("id", "")), race_id)
+	var unit_portrait := CharacterArtCatalog.unit_portrait(race_id, str(unit.get("id", "")))
 	var portrait_frame := Panel.new()
 	portrait_frame.custom_minimum_size = Vector2(144, 144)
 	portrait_frame.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
@@ -574,7 +567,7 @@ func _create_unit_card(unit: Dictionary, max_batch: int) -> Control:
 		portrait.offset_bottom = -2
 		portrait.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-		portrait.texture = load(portrait_path) as Texture2D
+		portrait.texture = unit_portrait
 		portrait.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		portrait_frame.add_child(portrait)
 	else:
@@ -672,13 +665,6 @@ func _create_unit_card(unit: Dictionary, max_batch: int) -> Control:
 			content.add_child(promote)
 
 	return card
-
-func _get_unit_portrait_path(unit_id: String, race_id: String) -> String:
-	# Prefer a racial portrait when available; preserve existing unit art as fallback.
-	var faction_path := "res://assets/characters/units/%s/%s.webp" % [race_id, unit_id]
-	if ResourceLoader.exists(faction_path):
-		return faction_path
-	return str(UNIT_PORTRAITS.get(unit_id, ""))
 
 func _update_recruit_preview(amount_value: float, unit_id: String, preview: Label, hire_button: Button) -> void:
 	if _system == null or not is_instance_valid(preview) or not is_instance_valid(hire_button):

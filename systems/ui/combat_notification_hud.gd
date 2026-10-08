@@ -21,14 +21,7 @@ const UNIT_NAMES := {
     "stone_warden": "Каменный страж", "wind_rider": "Всадник ветра",
     "crystal_mortar": "Кристальная мортира", "storm_drake": "Грозовой дракончик"
 }
-const UNIT_PORTRAITS := {
-    "coast_guard": "res://assets/characters/units/coast_guard.webp",
-    "rune_spearman": "res://assets/characters/units/rune_spearman.webp",
-    "stone_warden": "res://assets/characters/units/stone_warden.webp",
-    "wind_rider": "res://assets/characters/units/wind_rider.webp",
-    "crystal_mortar": "res://assets/characters/units/crystal_mortar.webp",
-    "storm_drake": "res://assets/characters/units/storm_drake.webp"
-}
+const CharacterArtCatalog = preload("res://systems/characters/character_art_catalog.gd")
 
 func _ready() -> void:
     layer = 70
@@ -205,6 +198,7 @@ func _build_occupation_transfer() -> void:
     _occupation_port_id = str(_story_report.get("target_port_id", ""))
     var participants: Dictionary = _story_report.get("participants", {})
     var losses: Dictionary = _story_report.get("unit_losses", {})
+    var player_race: String = str(GameState.player_state.get("origin_race_id", "humans"))
     var existing_port: Dictionary = GameState.port_state.get(_occupation_port_id, {})
     var already_stationed: Dictionary = existing_port.get("occupation_garrison", {})
     var port_icon_path := "res://assets/ui/ports/buildable_landscape.png"
@@ -255,7 +249,7 @@ func _build_occupation_transfer() -> void:
         var ship_side := HBoxContainer.new()
         ship_side.custom_minimum_size.x = 142
         ship_side.add_child(_make_story_icon("res://assets/ui/ships/ship_combat_cutter.png", Vector2(56, 46)))
-        ship_side.add_child(_make_story_icon(str(UNIT_PORTRAITS.get(unit_id, "")), Vector2(56, 56)))
+        ship_side.add_child(_make_story_icon("", Vector2(56, 56), CharacterArtCatalog.unit_portrait(player_race, unit_id)))
         columns.add_child(ship_side)
         var center := VBoxContainer.new()
         center.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -279,20 +273,22 @@ func _build_occupation_transfer() -> void:
         center.add_child(counts)
         var island_side := HBoxContainer.new()
         island_side.custom_minimum_size.x = 142
-        island_side.add_child(_make_story_icon(str(UNIT_PORTRAITS.get(unit_id, "")), Vector2(56, 56)))
+        island_side.add_child(_make_story_icon("", Vector2(56, 56), CharacterArtCatalog.unit_portrait(player_race, unit_id)))
         island_side.add_child(_make_story_icon(port_icon_path, Vector2(56, 46)))
         columns.add_child(island_side)
         _occupation_sliders[unit_id] = {"slider": slider, "label": counts, "available": survivors}
         _occupation_counts[unit_id] = int(slider.value)
         _on_occupation_slider_changed(float(slider.value), unit_id)
 
-func _make_story_icon(path: String, icon_size: Vector2) -> TextureRect:
+func _make_story_icon(path: String, icon_size: Vector2, supplied_texture: Texture2D = null) -> TextureRect:
     var icon := TextureRect.new()
     icon.custom_minimum_size = icon_size
     icon.size = icon_size
     icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
     icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-    if path != "" and ResourceLoader.exists(path):
+    if supplied_texture != null:
+        icon.texture = supplied_texture
+    elif path != "" and ResourceLoader.exists(path):
         icon.texture = load(path)
     return icon
 
@@ -346,10 +342,13 @@ func _add_battle_card_rows() -> void:
     columns.size_flags_vertical = Control.SIZE_EXPAND_FILL
     columns.add_theme_constant_override("separation", 20)
     _story_content.add_child(columns)
-    _add_side_cards(columns, "ВАШ ДЕСАНТ", _story_report.get("participants", {}), _story_report.get("unit_losses", {}), Color("#4bd5d1"))
-    _add_side_cards(columns, "ЗАЩИТНИКИ", _story_report.get("enemy_roster", {}), _story_report.get("enemy_unit_loss_roster", {}), Color("#ef9a71"))
+    var player_race: String = str(GameState.player_state.get("origin_race_id", "humans"))
+    var port: Dictionary = GameState.port_state.get(str(_story_report.get("target_port_id", "")), {})
+    var defender_race: String = str(port.get("owner_race_id", port.get("faction_id", "humans")))
+    _add_side_cards(columns, "ВАШ ДЕСАНТ", _story_report.get("participants", {}), _story_report.get("unit_losses", {}), Color("#4bd5d1"), player_race)
+    _add_side_cards(columns, "ЗАЩИТНИКИ", _story_report.get("enemy_roster", {}), _story_report.get("enemy_unit_loss_roster", {}), Color("#ef9a71"), defender_race)
 
-func _add_side_cards(parent: HBoxContainer, heading: String, counts: Dictionary, losses: Dictionary, accent: Color) -> void:
+func _add_side_cards(parent: HBoxContainer, heading: String, counts: Dictionary, losses: Dictionary, accent: Color, race_id: String) -> void:
     var side := VBoxContainer.new()
     side.size_flags_horizontal = Control.SIZE_EXPAND_FILL
     parent.add_child(side)
@@ -387,7 +386,7 @@ func _add_side_cards(parent: HBoxContainer, heading: String, counts: Dictionary,
         portrait.custom_minimum_size = Vector2(184, 118)
         portrait.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
         portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-        portrait.texture = load(str(UNIT_PORTRAITS.get(unit_id, "")))
+        portrait.texture = CharacterArtCatalog.unit_portrait(race_id, unit_id)
         box.add_child(portrait)
         var label := Label.new()
         label.text = "%s\nУчаствовало: %d · Потеряно: %d" % [str(UNIT_NAMES.get(unit_id, unit_id)), number, int(losses.get(unit_id, 0))]

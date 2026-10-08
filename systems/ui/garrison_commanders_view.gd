@@ -5,6 +5,7 @@ extends Control
 const DESIGN := Vector2(1672,944)
 const GROUPS := [["coast_guard","rune_spearman","stone_warden"],["crystal_mortar"],["wind_rider","storm_drake"]]
 const UNIT_ART := ["coast_guard","crystal_mortar","wind_rider"]
+const CharacterArtCatalog = preload("res://systems/characters/character_art_catalog.gd")
 const PORTRAIT_CATALOG_PATH := "res://data/combat/commander_portraits.json"
 const CANDIDATE_NAMES := {
 	"humans":[["Мара Торн","Эдрик Восс","Лина Фаррел"],["Анна Вейл","Дарен Кроу","Эва Морн"]],
@@ -20,6 +21,9 @@ var canvas: Control
 var slot: int = 0
 var role: int = 0
 var _money: Label
+var _money_icon: TextureRect
+var _shards_icon: TextureRect
+var _shards: Label
 var _summary: Label
 var _hero: TextureRect
 var _hero_emblem: TextureRect
@@ -66,18 +70,34 @@ func _ready() -> void:
 	var background:=Backdrop.new(); background.size=DESIGN; background.mouse_filter=MOUSE_FILTER_IGNORE; canvas.add_child(background)
 	_button(Rect2(28,20,125,48),"НАЗАД",func(): owner_window._close())
 	_label(Rect2(184,20,700,45),"КАЗАРМЫ · КОМАНДОВАНИЕ",30,Color("efdcac"))
-	_money=_label(Rect2(1120,20,480,48),"",22,Color("edce80"))
+	_money_icon=_texture(Rect2(1112,25,32,32),load("res://assets/ui/styles/approved_hud/money.png") as Texture2D)
+	_money_icon.mouse_filter=Control.MOUSE_FILTER_STOP
+	_money_icon.tooltip_text="Монеты в казне"
+	_money=_label(Rect2(1147,20,112,42),"",20,Color("edce80"))
+	_money.tooltip_text="Монеты в казне"
+	_money.mouse_filter=Control.MOUSE_FILTER_STOP
+	_shards_icon=_texture(Rect2(1273,25,32,32),load("res://assets/ui/styles/approved_hud/magic_shards.png") as Texture2D)
+	_shards_icon.mouse_filter=Control.MOUSE_FILTER_STOP
+	_shards_icon.tooltip_text="Магические осколки"
+	_shards=_label(Rect2(1308,20,96,42),"",20,Color("edce80"))
+	_shards.tooltip_text="Магические осколки"
+	_shards.mouse_filter=Control.MOUSE_FILTER_STOP
 	_label(Rect2(34,106,500,44),"ВАША АРМИЯ",26,Color("edce80"))
 	_summary=_label(Rect2(34,144,510,55),"",19,Color("dce8e8"))
+	var player_race: String = str(GameState.player_state.get("origin_race_id", "humans"))
 	for index in 3:
 		var x: float = 34+index*170
 		_frame(Rect2(x,214,158,285),false)
-		_texture(Rect2(x+10,226,138,130),load("res://assets/characters/units/%s.webp" % UNIT_ART[index]) as Texture2D)
+		_texture(Rect2(x+10,226,138,130),CharacterArtCatalog.unit_portrait(player_race, UNIT_ART[index]))
 		var title:=_label(Rect2(x+8,357,142,28),["ПЕХОТА","ТЕХНИКА","ЛЕТУЧИЕ"][index],17,Color("edce80"))
 		var count:=_label(Rect2(x+8,387,142,28),"",17,Color("e6eeee"))
 		var attack:=_label(Rect2(x+8,420,142,22),"",12,Color("73e3d1"))
+		attack.mouse_filter=Control.MOUSE_FILTER_STOP
+		attack.z_index=2
 		var attack_bar:=_bar(Rect2(x+10,447,138,6),Color("4ccbb7"))
 		var defense:=_label(Rect2(x+8,461,142,22),"",12,Color("8ed6f1"))
+		defense.mouse_filter=Control.MOUSE_FILTER_STOP
+		defense.z_index=2
 		var defense_bar:=_bar(Rect2(x+10,486,138,6),Color("61adce"))
 		_button(Rect2(x,214,158,285),"",func(): owner_window._show_art_tab([1,3,2][index]),true)
 		_groups.append({"count":count,"attack":attack,"defense":defense,"attack_bar":attack_bar,"defense_bar":defense_bar,"title":title})
@@ -94,7 +114,7 @@ func _ready() -> void:
 	_hero=_texture(Rect2(600,150,478,450),null)
 	_hero.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	_hero_emblem=_texture(Rect2(589,112,60,60),null)
-	_status=_label(Rect2(671,116,392,42),"",20,Color("edce80"))
+	_status=_label(Rect2(671,96,392,30),"",17,Color("edce80"))
 	_hero_name=_label(Rect2(596,609,484,37),"",25,Color("f0dfb0"))
 	_hero_title=_label(Rect2(596,650,484,25),"",17,Color("a9dcda"))
 	_profile_heading=_label(Rect2(1135,111,510,38),"ПРОФИЛЬ КОМАНДИРА",25,Color("edce80"))
@@ -216,7 +236,8 @@ func refresh(combat: Node) -> void:
 	var candidate: Dictionary = offers[selected_index]
 	var hired: Dictionary = system.get_commander(slot)
 	var is_hired: bool = not hired.is_empty()
-	_money.text="✦ %d монет     ◇ %d осколков" % [int(GameState.player_state.money),system.get_magic_shards()]
+	_money.text=String.num_int64(int(GameState.player_state.get("money",0)))
+	_shards.text=String.num_int64(system.get_magic_shards())
 	_candidate_heading.text="КАНДИДАТЫ ВАШЕЙ РАСЫ · %s" % str(GameData.get_faction(race).get("name",race)).split(" — ")[0].to_upper()
 	_summary.text="Сила атаки %d  ·  Оборона %d\nБонусы применены ко всем отрядам" % [system.get_attack_power(),system.get_defense_power()]
 	var bonuses: Dictionary = system.get_commander_bonuses()
@@ -233,8 +254,10 @@ func refresh(combat: Node) -> void:
 		controls.defense.text="◇ %.0f → %.0f (%+.0f%%)" % [base_d,d,float(bonuses.defense)]
 		controls.attack_bar.max_value=maxf(1,base_a*1.3); controls.attack_bar.value=a
 		controls.defense_bar.max_value=maxf(1,base_d*1.3); controls.defense_bar.value=d
-		controls.attack.tooltip_text="Атака группы без командиров → с командирами. Численность при назначении не меняется."
-		controls.defense.tooltip_text="Защита группы без командиров → с командирами. Итоговая оборона выше учитывает также башни, удачу и прочность базы."
+		controls.attack.tooltip_text="⚔ Атака: урон отряда. Числа показывают значение до и после бонуса командира."
+		controls.defense.tooltip_text="◇ Защита: стойкость отряда. Числа показывают значение до и после бонуса командира."
+		controls.attack_bar.tooltip_text="Атака отряда с учётом бонуса командира."
+		controls.defense_bar.tooltip_text="Защита отряда с учётом бонуса командира."
 	for index in 2:
 		var commander: Dictionary = system.get_commander(index)
 		var controls: Dictionary = _slots[index]

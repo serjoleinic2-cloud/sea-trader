@@ -13,7 +13,7 @@ var _notice: String = ""
 var _origin_emblem: TextureRect
 var _crew_atlas: Texture2D
 const CREW_ATLAS := "res://assets/characters/crew/crew_portrait_atlas.png"
-const RACE_ROWS := {"humans": 0, "nerids": 1, "surr": 2, "meridians": 3, "aery": 4, "crystari": 5}
+const CharacterArtCatalog = preload("res://systems/characters/character_art_catalog.gd")
 
 func _ready() -> void:
 	layer = 31
@@ -441,14 +441,11 @@ func _add_auxiliary_crew_slots(box: VBoxContainer, ship: Dictionary) -> void:
 func _get_employee_portrait(employee: Dictionary) -> Texture2D:
 	if _crew_atlas == null:
 		return null
-	var column: int = posmod(int(employee.get("portrait_id", 0)), 3)
-	var row: int = int(RACE_ROWS.get(str(employee.get("race_id", "humans")), 0))
-	var cell_width: float = float(_crew_atlas.get_width()) / 3.0
-	var cell_height: float = float(_crew_atlas.get_height()) / 6.0
-	var atlas := AtlasTexture.new()
-	atlas.atlas = _crew_atlas
-	atlas.region = Rect2(column * cell_width + 2.0, row * cell_height + 2.0, cell_width - 4.0, cell_height - 4.0)
-	return atlas
+	var race_id: String = str(employee.get("race_id", "humans"))
+	var role_id: String = str(employee.get("role_id", ""))
+	if role_id.is_empty():
+		role_id = str(employee.get("role_name", "")).to_lower()
+	return CharacterArtCatalog.ship_officer_portrait(race_id, role_id, int(employee.get("portrait_id", 0)), _crew_atlas)
 
 func _get_selected_ship() -> Dictionary:
 	for raw_ship in GameState.fleet_state:
