@@ -4,7 +4,7 @@ extends CanvasLayer
 ## All actions delegate to existing port/building systems; no economy lives in this view.
 const BUILDINGS: Array[String] = ["dock", "warehouse", "workshop", "market", "shipyard", "timber_yard", "fishing_wharf", "mage_guild", "captain_house", "barracks"]
 const NAMES: Array[String] = ["Причал", "Склад", "Мастерская", "Рынок", "Верфь", "Лесопилка", "Рыбный промысел", "Гильдия магов", "Дом капитанов", "Казармы"]
-const SPECIAL_BUILDINGS := {"captain_house": true, "barracks": true}
+const SPECIAL_BUILDINGS := {"barracks": true}
 ## Authored hotspots on the docked home-port illustration. Keep these separate
 ## from the 3D showcase manifest: this is the live construction screen.
 const SITES: Array[Vector2] = [Vector2(.81,.79), Vector2(.40,.57), Vector2(.61,.585), Vector2(.20,.37), Vector2(.865,.575), Vector2(.41,.37), Vector2(.18,.745), Vector2(.61,.3425), Vector2(.43,.80), Vector2(.62,.79)]
@@ -188,6 +188,9 @@ func _refresh_sprites() -> void:
 			path = "res://assets/ui/ports/%s/%s.png" % [_race, building_id]
 		site["sprite_path"] = path
 		site.sprite.texture_normal = load(path) as Texture2D
+		var level_material := ShaderMaterial.new()
+		level_material.shader = load("res://assets/ui/ports/building_level_progression.gdshader") as Shader
+		site.sprite.material = level_material
 		site.sprite.texture_click_mask = _click_mask_cache.get(path) as BitMap
 		site.annex.texture = load("res://assets/ui/ports/%s/annex.png" % _race)
 		site.tower.texture = load("res://assets/ui/ports/%s/tower.png" % _race)
@@ -213,8 +216,6 @@ func _ensure_click_mask(site: Dictionary) -> void:
 
 func _special_building_art(building_id: String) -> String:
 	match building_id:
-		"captain_house":
-			return "res://assets/characters/captains/%s_captain_cabin.png" % _race
 		"barracks":
 			return "res://assets/ui/ports/%s/tower.png" % _race
 	return ""
@@ -245,11 +246,19 @@ func _refresh_buildings() -> void:
 		var state: Dictionary = buildings.get(building_id, {})
 		var level: int = int(state.get("level", 0))
 		var built: bool = level > 0
+		var material: ShaderMaterial = site.sprite.material as ShaderMaterial
+		if material != null:
+			material.set_shader_parameter("building_level", maxf(1.0, float(level)))
+			material.set_shader_parameter("faction_accent", _faction_accent())
 		# Foreign ports have an authored panorama; hotspots invoke real trade/encounter pages.
 		site.container.visible = _home
 		site.sprite.visible = built
-		site.annex.visible = built and level >= 11
-		site.tower.visible = built and level >= 21
+		# Each level adds a little more of the race-specific annex/tower art. The
+		# overlays grow through the tier, then the next tier changes the silhouette.
+		site.annex.visible = built and level >= 2
+		site.annex.modulate = Color(1, 1, 1, 0.30 + 0.70 * clampf(float(level - 1) / 10.0, 0.0, 1.0))
+		site.tower.visible = built and level >= 11
+		site.tower.modulate = Color(1, 1, 1, 0.25 + 0.75 * clampf(float(level - 10) / 11.0, 0.0, 1.0))
 		var underway: bool = false
 		for project in projects:
 			if str(project.get("building_id", "")) == building_id and int(project.get("started_at_unix", 0)) > 0: underway = true
@@ -266,15 +275,15 @@ func _hover(index: int, entered: bool) -> void:
 
 func _activate(index: int) -> void:
 	var building: String = BUILDINGS[index]
-	if building == "captain_house":
-		_open_special_window("HiringWindow")
-		return
 	if building == "barracks":
 		_open_special_window("GarrisonWindow")
 		return
 	var state: Dictionary = GameState.port_state.get(_active_port, {}).get("buildings", {}).get(building, {})
 	if _construction or int(state.get("level", 0)) == 0:
 		_main.get_node("PortWindow")._open_building_card(building)
+		return
+	if building == "captain_house":
+		_open_special_window("HiringWindow")
 		return
 	var actions: Dictionary = {"dock":"service","warehouse":"resources","workshop":"service","market":"market","shipyard":"shipyard","timber_yard":"resources","fishing_wharf":"resources","mage_guild":"mage_guild"}
 	_open_section(str(actions.get(building,"construction")))
@@ -291,3 +300,12 @@ func _open_section(section: String) -> void:
 	coordinator._close_all_workspaces()
 	coordinator.set("_port_expanded", true)
 	_main.get_node("PortWindow")._open_section(section)
+
+func _faction_accent() -> Color:
+	match _race:
+		"nerids": return Color("4bd9d2")
+		"surr": return Color("ff784b")
+		"meridians": return Color("ffe08a")
+		"aery": return Color("a8efff")
+		"crystari": return Color("c18aff")
+	return Color("65caff")

@@ -94,6 +94,19 @@
         "produce_timber"
       ],
       "ui_icon": "res://assets/ui/cards/timber_yard.svg"
+    },
+    {
+      "building_id": "captain_house",
+      "display_name": "Дом капитанов",
+      "role": "Captain recruitment and personnel management.",
+      "description": "Набирает капитанов и экипаж для кораблей. Каждый уровень развивает штаб, навигационный архив и технологические приборы дома.",
+      "max_level": 30,
+      "visual_mode": "2d",
+      "effect_ids": [
+        "captain_recruitment",
+        "crew_management"
+      ],
+      "ui_icon": "res://assets/ui/cards/captain_house.svg"
     }
   ],
   "balance_status": "Material-funded 30-level building progression; numeric effects remain provisional."

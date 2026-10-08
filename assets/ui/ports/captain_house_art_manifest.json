@@ -1,0 +1,30 @@
+{
+  "tool": "built-in image_gen",
+  "asset_type": "transparent 2D building art",
+  "common_prompt": "Create one premium, highly detailed isometric strategy-game building sprite: a Captain's House that serves as a maritime command residence and navigation archive. Full building visible, centered, isolated on a transparent background, no text, no frame, no people, polished painterly game art, readable at small UI size, intricate but coherent construction, fantasy technology integrated into the architecture.",
+  "faction_prompts": {
+    "humans": "Navy-blue timber and pale stone, brass nautical instruments, wheel emblems, blue banners, warm lanterns; grounded maritime guild architecture.",
+    "nerids": "Coral stone, sea-glass arches, shell details, turquoise waterlight, tide motifs; organic elegant coastal architecture.",
+    "surr": "Dark basalt, copper-orange inlays, heat vents, angular defensive forms, ember-lit runes; volcanic industrial fantasy architecture.",
+    "meridians": "Pale limestone, deep blue enamel, fine gold geometry, observatory dome, precise sun and navigation instruments; scholarly ceremonial architecture.",
+    "aery": "Pale stone terraces, ivory sailcloth canopies, wind vanes, airy bridges, sky-blue and gold trim; light elevated maritime architecture.",
+    "crystari": "Dark stone foundations, violet crystal spires, luminous faceted panels, refined arcane geometry; crystalline high-fantasy architecture."
+  },
+  "source_files": {
+    "humans": "C:/Users/Сергей/.codex/generated_images/01a0f5c0-e5b7-7000-8934-629874bf789f/exec-0590e9cf-56a6-4045-b42a-3f161e18e60f.png",
+    "nerids": "C:/Users/Сергей/.codex/generated_images/01a0f5c0-e5b7-7000-8934-629874bf789f/exec-33134c8b-c5ae-4d90-b7d1-f9b81b3e0443.png",
+    "surr": "C:/Users/Сергей/.codex/generated_images/01a0f5c0-e5b7-7000-8934-629874bf789f/exec-71a48ffc-4a0c-4429-a13b-4e2efc39dc0b.png",
+    "meridians": "C:/Users/Сергей/.codex/generated_images/01a0f5c0-e5b7-7000-8934-629874bf789f/exec-e36604cd-18b7-42b0-ba31-62a7bccc506e.png",
+    "aery": "C:/Users/Сергей/.codex/generated_images/01a0f5c0-e5b7-7000-8934-629874bf789f/exec-24e31762-22e3-4ec6-885b-87e916b0dca4.png",
+    "crystari": "C:/Users/Сергей/.codex/generated_images/01a0f5c0-e5b7-7000-8934-629874bf789f/exec-a1ec0321-68b0-4e48-853f-ff8d535710d5.png"
+  },
+  "production_files": [
+    "humans/captain_house.png",
+    "nerids/captain_house.png",
+    "surr/captain_house.png",
+    "meridians/captain_house.png",
+    "aery/captain_house.png",
+    "crystari/captain_house.png"
+  ],
+  "production_resolution": "768x768 RGBA PNG; resized from generated 1254x1254 source with alpha preserved"
+}

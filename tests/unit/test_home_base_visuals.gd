@@ -5,6 +5,11 @@ func test_every_catalogued_building_has_all_visual_levels() -> void:
 	var catalog: Dictionary = GameData.read("res://data/ports/building_catalog.json")
 	for definition in catalog.buildings:
 		var id: String = str(definition.building_id)
+		if str(definition.get("visual_mode", "3d")) == "2d":
+			for faction in GameData.get_factions():
+				var portrait: String = "res://assets/ui/ports/%s/%s.png" % [str(faction.id), id]
+				assert_true(ResourceLoader.exists(portrait), portrait)
+			continue
 		var levels: Array = visuals.buildings.get(id, [])
 		assert_eq(levels.size(), int(definition.max_level), id)
 		for index in range(levels.size()):
@@ -12,6 +17,24 @@ func test_every_catalogued_building_has_all_visual_levels() -> void:
 			assert_true(ResourceLoader.exists(str(levels[index].scene)), str(levels[index].scene))
 	assert_true(ResourceLoader.exists(str(visuals.terrain)))
 	assert_true(ResourceLoader.exists(str(visuals.tower)))
+
+func test_captain_house_has_building_project_costs_and_race_art() -> void:
+	var catalog: Dictionary = GameData.read("res://data/ports/building_catalog.json")
+	var definition: Dictionary = {}
+	for raw in catalog.buildings:
+		if str(raw.building_id) == "captain_house":
+			definition = raw
+	assert_false(definition.is_empty())
+	assert_eq(int(definition.max_level), 30)
+	assert_eq(str(definition.visual_mode), "2d")
+	var system = load("res://systems/buildings/building_project_system.gd").new()
+	add_child(system)
+	system.initialize()
+	var level_one_cost: Dictionary = system._make_requirements("captain_house", 1)
+	assert_eq(level_one_cost.resource_timber, 24)
+	assert_eq(level_one_cost.resource_nails, 14)
+	assert_true(ResourceLoader.exists("res://assets/ui/ports/building_level_progression.gdshader"))
+	system.free()
 
 func test_maximum_showcase_switches_levels_without_changing_game_state() -> void:
 	var before: Dictionary = GameState.port_state.duplicate(true)

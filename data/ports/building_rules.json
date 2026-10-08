@@ -50,6 +50,13 @@
       "resource_parts": 12,
       "resource_glass": 10,
       "resource_varnish": 5
+    },
+    "captain_house": {
+      "resource_timber": 24,
+      "resource_nails": 14,
+      "resource_fabric": 8,
+      "resource_glass": 5,
+      "resource_parts": 4
     }
   },
   "growth_per_level": 0.12,
