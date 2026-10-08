@@ -3,17 +3,16 @@ extends Control
 ## Programmatic screen inspired by the approved composition. Only character
 ## portraits and canonical emblems are textures; every frame/stat is live UI.
 const DESIGN := Vector2(1672,944)
-const FACTIONS := ["nerids","surr","meridians","aery","crystari","humans"]
 const GROUPS := [["coast_guard","rune_spearman","stone_warden"],["crystal_mortar"],["wind_rider","storm_drake"]]
 const UNIT_ART := ["coast_guard","crystal_mortar","wind_rider"]
 const PORTRAIT_CATALOG_PATH := "res://data/combat/commander_portraits.json"
 const CANDIDATE_NAMES := {
 	"humans":[["Мара Торн","Эдрик Восс","Лина Фаррел"],["Анна Вейл","Дарен Кроу","Эва Морн"]],
 	"nerids":[["Сирена Вальтэра","Найр Таласс","Лиара Вейн"],["Найра Тей","Кайрен Дол","Селлиа Мар" ]],
-	"surr":[["Рагнар Келл","Бранн Келл","Верак Дорн"],["Бранна Келл","Торек Вальд","Кара Денн"]],
+	"surr":[["Бранна Келл","Рагнар Келл","Кара Денн"],["Бранна Келл","Торек Вальд","Кара Денн"]],
 	"meridians":[["Лиора Вейн","Орен Валлис","Мира Солен"],["Алира Нейт","Киран Восс","Сера Вейн"]],
 	"aery":[["Элиан Саэр","Тарен Лиор","Ириэль Вей"],["Лиэн Раэ","Аэрон Таль","Фейра Ним"]],
-	"crystari":[["Тарен Нокс","Кристен Вар","Лисса Кварц"],["Корн Тай","Вейра Нокс","Сарен Тир"]]
+	"crystari":[["Вейра Нокс","Тарен Нокс","Лисса Кварц"],["Вейра Нокс","Корн Тай","Дара Кристалл"]]
 }
 var owner_window: Node
 var system: Node
@@ -36,9 +35,12 @@ var _stats: Dictionary = {}
 var _groups: Array = []
 var _slots: Array = []
 var _role_buttons: Array[Button] = []
-var _factions: Dictionary = {}
+var _candidate_cards: Array = []
+var _candidate_heading: Label
 var _candidate_refresh: Button
-var _candidates: Dictionary = {}
+var _candidate_offers: Dictionary = {}
+var _selected_candidate_indices: Dictionary = {}
+var _previous_offer_orders: Dictionary = {}
 var _portrait_catalog: Dictionary = {}
 var _roll_serial: int = 0
 
@@ -108,17 +110,16 @@ func _ready() -> void:
 	for role_button in _role_buttons: role_button.toggle_mode=true
 	_candidate_refresh=_button(Rect2(1135,516,490,44),"СМЕНИТЬ КАНДИДАТА",_reroll_candidate)
 	_hire=_button(Rect2(1135,633,490,54),"",_appoint)
-	for index in 6:
-		var race: String = FACTIONS[index]
-		var x: float = 34+index*268
-		var frame:=_frame(Rect2(x,738,255,170),false)
-		var profile: Dictionary = _profile(race,0)
-		var portrait:=_texture(Rect2(x+10,748,114,114),load(str(profile.get("portrait",""))) as Texture2D)
-		var emblem:=_texture(Rect2(x+143,750,70,70),GameData.get_faction_emblem(race))
-		_label(Rect2(x+129,826,125,35),str(GameData.get_faction(race).get("name",race)).split(" — ")[0],16,Color("edce80"))
-		_label(Rect2(x+10,870,234,30),str(profile.get("name","")),17,Color("d3e5e6"))
-		_button(Rect2(x,738,255,170),"",func(): owner_window._select_faction(race),true)
-		_factions[race]={"frame":frame,"portrait":portrait,"emblem":emblem}
+	_candidate_heading=_label(Rect2(34,714,1604,22),"КАНДИДАТЫ ВАШЕЙ РАСЫ",16,Color("edce80"))
+	for index in 3:
+		var x: float = 264+index*389
+		var frame:=_frame(Rect2(x,738,365,170),false)
+		var portrait:=_texture(Rect2(x+12,748,112,112),null)
+		var name_label:=_label(Rect2(x+136,750,214,42),"",18,Color("ede5cf"))
+		var title_label:=_label(Rect2(x+136,795,214,34),"",14,Color("a9dcda"))
+		var stats_label:=_label(Rect2(x+12,864,340,32),"",14,Color("77e7cf"))
+		var select_button:=_button(Rect2(x,738,365,170),"",_select_candidate.bind(index),true)
+		_candidate_cards.append({"frame":frame,"portrait":portrait,"name":name_label,"title":title_label,"stats":stats_label,"button":select_button})
 	_notice=_label(Rect2(35,914,1590,27),"",17,Color("edd295"))
 
 func configure(window: Node) -> void:
@@ -141,17 +142,13 @@ func _portrait_path(race: String, variant: int) -> String:
 func _candidate_portrait(race: String, variant: int) -> Texture2D:
 	return load(_portrait_path(race,variant)) as Texture2D
 
-func _make_candidate(race: String, candidate_role: int, avoid_variants: Array[int] = []) -> Dictionary:
+func _make_candidate(race: String, candidate_role: int, variant: int) -> Dictionary:
 	var candidate := _profile(race,candidate_role)
 	if candidate.is_empty(): return candidate
 	var rng := RandomNumberGenerator.new()
 	_roll_serial+=1
 	rng.randomize()
-	var variants: Array[int] = [0,1,2]
-	for avoid_variant in avoid_variants:
-		if avoid_variant in variants: variants.erase(avoid_variant)
-	if variants.is_empty(): variants=[0,1,2]
-	var variant: int = variants[rng.randi_range(0,variants.size()-1)]
+	variant=clampi(variant,0,2)
 	var name_groups: Array = CANDIDATE_NAMES.get(race,[])
 	var names: Array = name_groups[candidate_role] if candidate_role>=0 and candidate_role<name_groups.size() else []
 	candidate["id"]="%s_offer_%d_%d" % [race,Time.get_unix_time_from_system(),_roll_serial]
@@ -164,36 +161,63 @@ func _make_candidate(race: String, candidate_role: int, avoid_variants: Array[in
 		candidate[stat]=snappedf(float(candidate.get(stat,0.0))+float(rng.randi_range(-1,1)),0.5)
 	return candidate
 
+func _roll_candidate_offers() -> void:
+	var race := str(GameState.player_state.get("origin_race_id","humans"))
+	var variants: Array[int] = [0,1,2]
+	variants.shuffle()
+	var previous: Array = _previous_offer_orders.get(slot,[])
+	if previous.size()==variants.size() and previous==variants:
+		variants=[variants[1],variants[2],variants[0]]
+	var other_variant := _other_slot_portrait_variant()
+	if other_variant in variants and variants[0]==other_variant:
+		var swap_index: int = 1 if variants[1]!=other_variant else 2
+		var first_variant: int = variants[0]
+		variants[0]=variants[swap_index]
+		variants[swap_index]=first_variant
+	_previous_offer_orders[slot]=variants.duplicate()
+	var offers: Array[Dictionary] = []
+	for variant in variants: offers.append(_make_candidate(race,slot,variant))
+	_candidate_offers[slot]=offers
+	_selected_candidate_indices[slot]=0
+
+func _other_slot_portrait_variant() -> int:
+	if system==null: return -1
+	var appointed: Dictionary = system.get_commander(1-slot)
+	if not appointed.is_empty(): return int(appointed.get("portrait_variant",-1))
+	var other_offers: Array = _candidate_offers.get(1-slot,[])
+	if other_offers.is_empty(): return -1
+	var other_index: int = clampi(int(_selected_candidate_indices.get(1-slot,0)),0,other_offers.size()-1)
+	return int(other_offers[other_index].get("portrait_variant",-1))
+
+func _select_candidate(index: int) -> void:
+	if index<0 or index>=3: return
+	_selected_candidate_indices[slot]=index
+	_refresh_now()
+
+func _selected_candidate() -> Dictionary:
+	var offers: Array = _candidate_offers.get(slot,[])
+	if offers.is_empty(): return {}
+	var index: int = clampi(int(_selected_candidate_indices.get(slot,0)),0,offers.size()-1)
+	return offers[index]
+
 func _reroll_candidate() -> void:
-	var race := str(owner_window._inspected_faction_id)
-	if race=="": race=str(GameState.player_state.get("origin_race_id","humans"))
-	var avoid_variants: Array[int] = []
-	var current: Dictionary = _candidates.get(slot,{})
-	if str(current.get("race_id",""))==race: avoid_variants.append(int(current.get("portrait_variant",-1)))
-	var other_candidate: Dictionary = _candidates.get(1-slot,{})
-	if str(other_candidate.get("race_id",""))==race: avoid_variants.append(int(other_candidate.get("portrait_variant",-1)))
-	var hired_elsewhere: Dictionary = system.get_commander(1-slot) if system!=null else {}
-	if str(hired_elsewhere.get("race_id",""))==race: avoid_variants.append(int(hired_elsewhere.get("portrait_variant",-1)))
-	_candidates[slot]=_make_candidate(race,slot,avoid_variants)
+	_roll_candidate_offers()
 	_refresh_now()
 
 func refresh(combat: Node) -> void:
 	system=combat
 	if owner_window==null: return
-	var race: String = str(owner_window._inspected_faction_id)
-	if race=="": race=str(GameState.player_state.get("origin_race_id","humans"))
-	if not _candidates.has(slot) or str(_candidates[slot].get("race_id",""))!=race:
-		var avoid_variants: Array[int] = []
-		var other_candidate: Dictionary = _candidates.get(1-slot,{})
-		if str(other_candidate.get("race_id",""))==race: avoid_variants.append(int(other_candidate.get("portrait_variant",-1)))
-		var hired_elsewhere: Dictionary = system.get_commander(1-slot)
-		if str(hired_elsewhere.get("race_id",""))==race: avoid_variants.append(int(hired_elsewhere.get("portrait_variant",-1)))
-		_candidates[slot]=_make_candidate(race,slot,avoid_variants)
-	var candidate: Dictionary = _candidates[slot]
+	var race: String = str(GameState.player_state.get("origin_race_id","humans"))
+	var offers: Array = _candidate_offers.get(slot,[])
+	if offers.is_empty() or str(offers[0].get("race_id",""))!=race:
+		_roll_candidate_offers()
+		offers=_candidate_offers.get(slot,[])
+	var selected_index: int = clampi(int(_selected_candidate_indices.get(slot,0)),0,offers.size()-1)
+	var candidate: Dictionary = offers[selected_index]
 	var hired: Dictionary = system.get_commander(slot)
 	var is_hired: bool = not hired.is_empty()
-	var shown: Dictionary = hired if is_hired else candidate
 	_money.text="✦ %d монет     ◇ %d осколков" % [int(GameState.player_state.money),system.get_magic_shards()]
+	_candidate_heading.text="КАНДИДАТЫ ВАШЕЙ РАСЫ · %s" % str(GameData.get_faction(race).get("name",race)).split(" — ")[0].to_upper()
 	_summary.text="Сила атаки %d  ·  Оборона %d\nБонусы применены ко всем отрядам" % [system.get_attack_power(),system.get_defense_power()]
 	var bonuses: Dictionary = system.get_commander_bonuses()
 	for index in 3:
@@ -219,24 +243,32 @@ func refresh(combat: Node) -> void:
 		controls.portrait.texture=_candidate_portrait(str(commander.get("race_id",race)),int(commander.get("portrait_variant",index))) if not commander.is_empty() else null
 		_set_frame_selected(controls.frame,index==slot)
 		_role_buttons[index].set_pressed_no_signal(index==role)
-	var shown_race := str(shown.get("race_id",race))
-	_hero.texture=_candidate_portrait(shown_race,int(shown.get("portrait_variant",role)))
-	_hero_emblem.texture=GameData.get_faction_emblem(shown_race)
-	_hero_name.text=str(shown.get("name","Командир")); _hero_title.text=str(shown.get("title",""))
+	_hero.texture=_candidate_portrait(race,int(candidate.get("portrait_variant",0)))
+	_hero_emblem.texture=GameData.get_faction_emblem(race)
+	_hero_name.text=str(candidate.get("name","Командир")); _hero_title.text=str(candidate.get("title",""))
 	_profile_heading.text="КАНДИДАТ · %s" % ("КОМАНДИР" if slot==0 else "ЗАМЕСТИТЕЛЬ")
-	_status.text="НАЗНАЧЕН · СЛОТ %d" % (slot+1) if is_hired else "КАНДИДАТ · %s" % str(GameData.get_faction(race).get("name",race)).split(" — ")[0]
-	_description.text="Слот %d: %s\n%s" % [slot+1,"главный командир" if slot==0 else "заместитель", "Действует в составе командования" if is_hired else "Показаны бонусы кандидата; слева — назначенных"]
+	_status.text="КАНДИДАТ ВАШЕЙ РАСЫ · СЛОТ %d" % (slot+1)
+	_description.text="Слот %d: %s\nЦентральный портрет совпадает с выбранной карточкой снизу." % [slot+1,"главный командир" if slot==0 else "заместитель"]
 	for key in _stats:
-		var value: float = float(shown.get(str(key)+"_bonus",shown.get(key,0)))
+		var value: float = float(candidate.get(str(key)+"_bonus",candidate.get(key,0)))
 		_stats[key].label.text="%+.1f%%" % value
 		_stats[key].bar.max_value=10; _stats[key].bar.value=absf(value)
 		_stats[key].label.add_theme_color_override("font_color",Color("ee8d75") if key=="expenses" and value>0 else Color("6fe7d1"))
-	_hire.text="СНЯТЬ С ДОЛЖНОСТИ" if is_hired else "НАНЯТЬ В СЛОТ %d · %d МОНЕТ" % [slot+1,int(candidate.get("cost",0))]
-	_hire.disabled=not system.is_at_home() or (not is_hired and (not hired.is_empty() or race!=str(GameState.player_state.get("origin_race_id","")) or float(GameState.player_state.money)<int(candidate.get("cost",0))))
-	_candidate_refresh.disabled=is_hired
-	_candidate_refresh.tooltip_text="Показывает другого персонажа и случайный набор характеристик для выбранного слота."
-	_hire.tooltip_text="Для нового назначения освободите выбранный слот. Доступны командиры вашей расы." if not hired.is_empty() and not is_hired else "Назначение меняет показатели армии слева сразу после нажатия."
-	for faction in _factions: _set_frame_selected(_factions[faction].frame,str(faction)==race)
+	var other_hired: Dictionary = system.get_commander(1-slot)
+	var portrait_in_use: bool = not other_hired.is_empty() and int(other_hired.get("portrait_variant",-1))==int(candidate.get("portrait_variant",-2))
+	_hire.text="СНЯТЬ НАЗНАЧЕННОГО" if is_hired else "НАНЯТЬ В СЛОТ %d · %d МОНЕТ" % [slot+1,int(candidate.get("cost",0))]
+	_hire.disabled=not system.is_at_home() or (not is_hired and (not hired.is_empty() or str(candidate.get("race_id",""))!=race or portrait_in_use or float(GameState.player_state.money)<int(candidate.get("cost",0))))
+	_candidate_refresh.disabled=not system.is_at_home()
+	_candidate_refresh.tooltip_text="Обновляет весь ряд кандидатов вашей расы для выбранного слота."
+	_hire.tooltip_text="Снимает текущего командира со слота." if is_hired else "Нанимает персонажа с выбранной карточки в пустой слот."
+	for index in _candidate_cards.size():
+		var card: Dictionary = _candidate_cards[index]
+		var offer: Dictionary = offers[index]
+		card.portrait.texture=_candidate_portrait(race,int(offer.get("portrait_variant",index)))
+		card.name.text=str(offer.get("name","Кандидат"))
+		card.title.text="%s · ранг %d" % [str(offer.get("title","")),int(offer.get("rank",1))]
+		card.stats.text="⚔ %+.1f%%   ◇ %+.1f%%" % [float(offer.get("attack",0)),float(offer.get("defense",0))]
+		_set_frame_selected(card.frame,index==selected_index)
 	_notice.text=str(owner_window._notice.text)
 
 func _refresh_now() -> void:
@@ -251,7 +283,7 @@ func _select_command_slot(index: int) -> void:
 
 func _appoint() -> void:
 	if system==null: return
-	var candidate: Dictionary = _candidates.get(slot,{})
+	var candidate: Dictionary = _selected_candidate()
 	if candidate.is_empty(): return
 	var commander: Dictionary = system.get_commander(slot)
 	var result: Dictionary = system.dismiss_commander(slot) if not commander.is_empty() else system.hire_commander(candidate,slot)

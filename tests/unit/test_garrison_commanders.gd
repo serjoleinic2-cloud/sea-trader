@@ -15,7 +15,7 @@ func test_two_live_command_slots_changes_visible_army_and_save() -> void:
 	window.open()
 	var screen: Control = window._art_screen
 	assert_eq(screen._slots.size(),2)
-	assert_eq(screen._factions.size(),6)
+	assert_eq(screen._candidate_cards.size(),3)
 	var base: float = combat.get_unit_command_effect("coast_guard").attack
 	var power: int = combat.get_attack_power()
 	assert_true(combat.hire_commander(window._commander_profile("nerids",0),0).ok)
@@ -35,46 +35,51 @@ func test_programmatic_layout_and_canonical_portraits_emblems() -> void:
 	window.open()
 	var screen: Control = window._art_screen
 	assert_eq(screen.find_children("GarrisonArtScreen", "TextureRect",true,false).size(),0)
-	for race in screen._factions:
-		assert_eq(screen._factions[race].emblem.texture,GameData.get_faction_emblem(str(race)))
-		assert_eq(screen._factions[race].portrait.texture.resource_path,"res://assets/characters/crew/%s_officer.webp" % str(race))
-	window._select_faction("surr")
-	assert_true(screen._hire.disabled,"other race is a preview, not a race change")
+	assert_eq(screen._hero_emblem.texture,GameData.get_faction_emblem("nerids"))
+	for offer in screen._candidate_offers[0]:
+		assert_eq(offer.race_id,"nerids","recruiting cards are limited to the player's race")
+		assert_true(offer.portrait.contains("/nerids/"),"candidate portrait comes from the player's race folder")
+	assert_false(combat.hire_commander(window._commander_profile("surr",0),0).ok,"combat system rejects a different race")
 
 func test_commander_and_deputy_offers_can_be_rerolled_with_distinct_atlas_portraits() -> void:
 	window.open()
 	var screen: Control = window._art_screen
-	var first_id: String = str(screen._candidates[0].id)
+	var first_order: Array = []
+	for offer in screen._candidate_offers[0]: first_order.append(int(offer.portrait_variant))
+	var first_id: String = str(screen._candidate_offers[0][0].id)
 	assert_true(screen._hero.texture is Texture2D,"commander uses an independent portrait asset")
 	assert_true(screen._hero_frame.position.x < screen._hero.position.x and screen._hero_frame.position.y < screen._hero.position.y,"gold portrait frame is visible around the complete image")
 	assert_true(screen._hero_frame.position.x+screen._hero_frame.size.x >= screen._hero.position.x+screen._hero.size.x,"portrait frame covers the image's right edge")
 	assert_true(screen._hero_frame.position.y+screen._hero_frame.size.y >= screen._hero_title.position.y+screen._hero_title.size.y,"portrait frame does not crop the candidate title")
+	screen._candidate_cards[1].button.pressed.emit()
+	assert_eq(screen._hero.texture.resource_path,screen._candidate_cards[1].portrait.texture.resource_path,"central portrait matches clicked candidate card")
+	assert_eq(screen._hero_name.text,screen._candidate_cards[1].name.text,"central name matches clicked candidate card")
 	screen._candidate_refresh.pressed.emit()
-	assert_ne(screen._candidates[0].id,first_id,"reroll creates a different commander offer")
+	assert_ne(screen._candidate_offers[0][0].id,first_id,"reroll creates a different commander offer")
+	var second_order: Array = []
+	for offer in screen._candidate_offers[0]: second_order.append(int(offer.portrait_variant))
+	assert_ne(second_order,first_order,"reroll changes portrait order in the bottom candidate row")
 	screen._role_buttons[1].pressed.emit()
-	var deputy_id: String = str(screen._candidates[1].id)
+	var deputy_id: String = str(screen._candidate_offers[1][0].id)
 	assert_true(screen._hero.texture is Texture2D,"deputy uses an independent portrait asset")
-	assert_ne(screen._candidates[1].portrait_variant,screen._candidates[0].portrait_variant,"commander and deputy portrait variants are independent")
+	assert_ne(screen._candidate_offers[1][0].portrait_variant,screen._candidate_offers[0][0].portrait_variant,"commander and deputy portrait variants are independent")
 	screen._candidate_refresh.pressed.emit()
-	assert_ne(screen._candidates[1].id,deputy_id,"deputy offer can be rerolled independently")
+	assert_ne(screen._candidate_offers[1][0].id,deputy_id,"deputy offer can be rerolled independently")
 
-func test_each_race_candidate_uses_its_own_portrait_row_and_only_home_race_is_hireable() -> void:
+func test_every_visible_candidate_is_from_the_players_race() -> void:
 	window.open()
 	var screen: Control = window._art_screen
-	var races: Array[String] = ["humans","nerids","surr","meridians","aery","crystari"]
-	for race in races:
-		window._select_faction(str(race))
-		var candidate: Dictionary = screen._candidates[screen.slot]
-		var portrait := screen._hero.texture as Texture2D
-		assert_eq(candidate.race_id,race,"candidate belongs to selected race: "+str(race))
-		assert_true(portrait.resource_path.contains("/"+str(race)+"/"),"portrait file belongs to selected race folder: "+str(race))
-		assert_eq(screen._hire.disabled,str(race)!="nerids","only the player's race can be hired")
+	for slot_index in [0,1]:
+		screen._select_command_slot(slot_index)
+		for offer in screen._candidate_offers[slot_index]:
+			assert_eq(offer.race_id,"nerids","visible candidate belongs to the player's race")
+			assert_true(offer.portrait.contains("/nerids/"),"candidate portrait belongs to the player's race folder")
 
 func test_legacy_commander_remains_visible_and_can_be_dismissed() -> void:
 	GameState.combat_state.commander={"name":"Сирена Вальтэра","race_id":"nerids","attack_bonus":6.0,"defense_bonus":4.0,"expenses_bonus":2.0}
 	combat._normalize_state(); window.open()
 	assert_eq(combat.get_commander().id,"nerids_marshal")
-	assert_eq(window._art_screen._hire.text,"СНЯТЬ С ДОЛЖНОСТИ")
+	assert_eq(window._art_screen._hire.text,"СНЯТЬ НАЗНАЧЕННОГО")
 	assert_false(window._art_screen._hire.disabled)
 	window._art_screen._hire.pressed.emit()
 	assert_true(combat.get_commander().is_empty())
