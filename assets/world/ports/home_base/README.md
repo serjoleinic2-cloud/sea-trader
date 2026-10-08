@@ -4,7 +4,7 @@
 
 ## Где менять модели
 
-- `assets/world/islands/home_island/home_island.glb` — берег, скалы, отмели, растительность, террасы и лестницы.
+- Береговая геометрия строится лёгким низкополигональным мешем по контуру из `data/world/home_base_visuals.json`; навигация и якоря порта используют те же данные.
 - `assets/world/buildings/<building_id>/levels/level_01.glb` … `level_30.glb` — самостоятельные модели всех 30 уровней каждого из восьми зданий каталога.
 - `assets/world/buildings/<building_id>/source/<building_id>_levels.blend` — редактируемая библиотека уровней; коллекции называются по типу и номеру уровня.
 - `assets/world/buildings/island_tower/` — универсальная башня. В механике у башни нет 30 уровней: две площадки открываются развитием гарнизона, установленный кристалл добавляет Godot.
@@ -29,7 +29,7 @@
 Материалы камня, зелени, дерева и черепицы дополнены процедурной фактурой в assets/world/materials/maritime_surface.gdshader. Геометрия остаётся отдельно в GLB. Внутренний расход рендера на мобильном GPU ещё требует измерения.
 
 ## Новая сборка городской и небесной гавани
-Радиус исходной городской сцены — 60 м. `tools/art/build_harbor_city.py` создаёт берег, рифы и отдельный жилой квартал; `tools/art/assemble_harbor_city.py` собирает максимальную наземную сцену. `tools/art/build_sky_harbor.py` создаёт парящий архипелаг; его редактируемый источник находится в `assets/world/islands/sky_harbor/source/sky_harbor.blend`, экспорт — рядом в `sky_harbor.glb`. Координаты парящих островов: `data/world/sky_harbor_visuals.json`.
+Радиус исходной городской сцены — 60 м. `tools/art/build_harbor_city.py` создаёт отдельный жилой квартал; `tools/art/assemble_harbor_city.py` собирает максимальную наземную сцену. Парящие острова гавани собираются лёгкими низкополигональными мешами по координатам из `data/world/sky_harbor_visuals.json`.
 Маяки: `home_base_3d.gd` и `assets/world/props/lighthouse/light_beam.gdshader`. Чайки: `systems/rendering/seabird_flock.gd` и `assets/world/props/seabirds/`. Облака, расовые кварталы, гербы и пришвартованные корабли небесного порта добавляются `systems/rendering/sky_harbor.gd`.
 Текущая навигация использует берег и рифы из общей компоновки `systems/world/home_harbor_layout.gd`; старое утверждение об отсутствии изменений визуального контура в навигации к этой городской версии не относится. Портовая точка и данные сохранений остаются исходными.
 

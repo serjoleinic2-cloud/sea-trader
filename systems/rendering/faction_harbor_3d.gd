@@ -11,12 +11,11 @@ var _sweep: float = 0.0
 func setup(key: String) -> void:
 	var spec: Dictionary = GameData.read("res://data/world/faction_harbors.json").get("variants", {}).get(key, {})
 	if spec.is_empty(): return
-	var scene: PackedScene = load(str(spec.scene))
-	var model: Node3D = scene.instantiate()
-	add_child(model)
 	_style = load("res://systems/rendering/faction_base_style.gd").new()
-	_style.apply_ship(model, str(spec.faction))
-	_collect_forest(model)
+	var low_poly = load("res://systems/rendering/low_poly_island.gd")
+	low_poly.build(self, spec.get("coastline", []), str(spec.faction), bool(spec.mini))
+	low_poly.build_piers(self, spec.get("piers", []), str(spec.faction))
+	low_poly.build_settlement(self, spec.get("coastline", []), str(spec.faction), bool(spec.mini))
 	_add_reef(float(spec.reference_radius), 0.55 if bool(spec.mini) else 0.34)
 	var at: Array = spec.get("lighthouse", [])
 	if at.size() == 3: _add_lighthouse(Vector3(float(at[0]),float(at[1]),float(at[2])))
@@ -83,13 +82,13 @@ func _add_reef(radius: float, opening: float) -> void:
 	var rock := StandardMaterial3D.new()
 	rock.albedo_color = Color("666b55")
 	rock.roughness = .9
-	for index in range(28):
-		var angle: float = opening+.09+(TAU-opening*2.0-.18)*float(index)/27.0
+	for index in range(12):
+		var angle: float = opening+.09+(TAU-opening*2.0-.18)*float(index)/11.0
 		var mesh := SphereMesh.new()
 		mesh.radius = 1.2+float(index%3)*.45
 		mesh.height = mesh.radius*1.3
-		mesh.radial_segments = 8
-		mesh.rings = 4
+		mesh.radial_segments = 5
+		mesh.rings = 2
 		var stone := MeshInstance3D.new()
 		stone.mesh = mesh
 		stone.material_override = rock

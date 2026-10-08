@@ -10,7 +10,8 @@ func test_all_six_harbors_and_outposts_have_matching_assets_and_open_anchors() -
 		for mini in [false,true]:
 			var key: String = str(faction.id) + ("_outpost" if mini else "")
 			var spec: Dictionary = catalog.variants[key]
-			assert_true(ResourceLoader.exists(str(spec.scene)),key)
+			assert_true(spec.has("coastline") and spec.coastline.size() >= 3,key+" low-poly shoreline")
+			assert_false(spec.has("scene"),key+" must not depend on heavyweight island GLB")
 			var anchor := Vector2(90,350)
 			var port: Dictionary = {"id":"harbor_test", "island_id":"island_test", "position":anchor,"harbor_angle":1.27,"owner_race_id":str(faction.id)}
 			var raw: Dictionary = {"seed":32,"ports":{"harbor_test":port},"islands":[{"id":"island_test","position":Vector2.ZERO,"radius":300.0 if mini else 1200.0}]}

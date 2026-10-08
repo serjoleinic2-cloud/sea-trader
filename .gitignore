@@ -12,3 +12,7 @@ __pycache__/
 *.py[cod]
 /outputs/
 /work/
+/assets/world/islands/**/*.glb
+/assets/world/islands/**/*.blend
+/assets/world/islands/**/*.png
+/assets/world/islands/**/*.import

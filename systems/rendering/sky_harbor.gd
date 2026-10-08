@@ -9,11 +9,19 @@ var _cloud_material: StandardMaterial3D
 
 func _ready() -> void:
 	_manifest = GameData.read("res://data/world/sky_harbor_visuals.json")
-	var scene: PackedScene = load(str(_manifest.get("scene", "")))
-	if scene != null:
-		var terrain: Node3D = scene.instantiate()
-		add_child(terrain)
-		_style.apply_surface_details(terrain)
+	var low_poly = load("res://systems/rendering/low_poly_island.gd")
+	for index in _manifest.get("islands", []).size():
+		var raw: Array = _manifest.islands[index]
+		var radius := float(raw[3])
+		var outline: Array = []
+		for segment in 16:
+			var angle := TAU * float(segment) / 16.0
+			outline.append([cos(angle) * radius, sin(angle) * radius])
+		var floating := Node3D.new()
+		floating.name = "LowPolyCloudIsland_%d" % index
+		floating.position = Vector3(float(raw[0]), float(raw[2]), -float(raw[1]))
+		add_child(floating)
+		low_poly.build(floating, outline, "aery", true)
 	var material := StandardMaterial3D.new()
 	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED

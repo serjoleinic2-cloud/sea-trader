@@ -1,7 +1,6 @@
 {
   "version": 2,
   "reference_radius_m": 60.0,
-  "terrain": "res://assets/world/islands/home_island/home_island.glb",
   "buildings": {
     "dock": [
       {

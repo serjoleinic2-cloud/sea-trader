@@ -1,5 +1,4 @@
 {
-  "scene": "res://assets/world/islands/sky_harbor/sky_harbor.glb",
   "port_offset_m": [360, 55, -500],
   "islands": [
     [

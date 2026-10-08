@@ -6,7 +6,6 @@
     "humans": {
       "faction": "humans",
       "mini": false,
-      "scene": "res://assets/world/islands/faction_harbors/humans/island.glb",
       "reference_radius": 335.0861,
       "coastline": [
         [
@@ -902,7 +901,6 @@
     "humans_outpost": {
       "faction": "humans",
       "mini": true,
-      "scene": "res://assets/world/islands/faction_harbors/humans_outpost/island.glb",
       "reference_radius": 160.8413,
       "coastline": [
         [
@@ -1738,7 +1736,6 @@
     "nerids": {
       "faction": "nerids",
       "mini": false,
-      "scene": "res://assets/world/islands/faction_harbors/nerids/island.glb",
       "reference_radius": 357.8395,
       "coastline": [
         [
@@ -2634,7 +2631,6 @@
     "nerids_outpost": {
       "faction": "nerids",
       "mini": true,
-      "scene": "res://assets/world/islands/faction_harbors/nerids_outpost/island.glb",
       "reference_radius": 171.763,
       "coastline": [
         [
@@ -3470,7 +3466,6 @@
     "surr": {
       "faction": "surr",
       "mini": false,
-      "scene": "res://assets/world/islands/faction_harbors/surr/island.glb",
       "reference_radius": 324.2017,
       "coastline": [
         [
@@ -4366,7 +4361,6 @@
     "surr_outpost": {
       "faction": "surr",
       "mini": true,
-      "scene": "res://assets/world/islands/faction_harbors/surr_outpost/island.glb",
       "reference_radius": 155.6168,
       "coastline": [
         [
@@ -5202,7 +5196,6 @@
     "meridians": {
       "faction": "meridians",
       "mini": false,
-      "scene": "res://assets/world/islands/faction_harbors/meridians/island.glb",
       "reference_radius": 370.1689,
       "coastline": [
         [
@@ -6098,7 +6091,6 @@
     "meridians_outpost": {
       "faction": "meridians",
       "mini": true,
-      "scene": "res://assets/world/islands/faction_harbors/meridians_outpost/island.glb",
       "reference_radius": 177.6811,
       "coastline": [
         [
@@ -6934,7 +6926,6 @@
     "aery": {
       "faction": "aery",
       "mini": false,
-      "scene": "res://assets/world/islands/faction_harbors/aery/island.glb",
       "reference_radius": 297.6398,
       "coastline": [
         [
@@ -7830,7 +7821,6 @@
     "aery_outpost": {
       "faction": "aery",
       "mini": true,
-      "scene": "res://assets/world/islands/faction_harbors/aery_outpost/island.glb",
       "reference_radius": 142.8671,
       "coastline": [
         [
@@ -8666,7 +8656,6 @@
     "crystari": {
       "faction": "crystari",
       "mini": false,
-      "scene": "res://assets/world/islands/faction_harbors/crystari/island.glb",
       "reference_radius": 350.7442,
       "coastline": [
         [
@@ -9562,7 +9551,6 @@
     "crystari_outpost": {
       "faction": "crystari",
       "mini": true,
-      "scene": "res://assets/world/islands/faction_harbors/crystari_outpost/island.glb",
       "reference_radius": 168.3572,
       "coastline": [
         [
@@ -10398,11 +10386,9 @@
   },
   "route_islands": [
     {
-      "scene": "res://assets/world/islands/faction_harbors/route_0.glb",
       "reference_radius": 370.0
     },
     {
-      "scene": "res://assets/world/islands/faction_harbors/route_1.glb",
       "reference_radius": 370.0
     }
   ]

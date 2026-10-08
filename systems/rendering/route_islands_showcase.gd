@@ -10,11 +10,18 @@ func _ready() -> void:
 	water.roughness = 0.3
 	ocean.material_override = water
 	add_child(ocean)
+	var low_poly = load("res://systems/rendering/low_poly_island.gd")
 	for index in range(3):
-		var model = load("res://assets/world/islands/route_islands/green_%d.glb" % index).instantiate()
+		var outline: Array = []
+		var radius := 25.0 + float(index % 2) * 9.0
+		for segment in 24:
+			var angle := TAU * float(segment) / 24.0
+			var coast := 1.0 + 0.08 * sin(angle * 3.0 + float(index))
+			outline.append([cos(angle) * radius * coast, sin(angle) * radius * coast])
+		var model := Node3D.new()
 		model.position.x = (index - 1) * 65.0
 		add_child(model)
-		load("res://systems/rendering/faction_base_style.gd").new().apply_surface_details(model)
+		low_poly.build(model, outline, "aery" if index == 1 else "humans", false)
 	var light := DirectionalLight3D.new()
 	light.rotation_degrees = Vector3(-55, -30, 0)
 	light.light_energy = 1.3

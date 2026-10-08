@@ -553,12 +553,12 @@ func _create_unit_card(unit: Dictionary, max_batch: int) -> Control:
 	portrait_frame.custom_minimum_size = Vector2(144, 144)
 	portrait_frame.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	var frame_style := StyleBoxFlat.new()
-	frame_style.bg_color = Color("#0b141c") if portrait_path != "" and ResourceLoader.exists(portrait_path) else Color("#203d49")
-	frame_style.border_color = race_accent if portrait_path != "" and ResourceLoader.exists(portrait_path) else Color("#497887")
+	frame_style.bg_color = Color("#0b141c") if unit_portrait != null else Color("#203d49")
+	frame_style.border_color = race_accent if unit_portrait != null else Color("#497887")
 	frame_style.set_border_width_all(2)
 	portrait_frame.add_theme_stylebox_override("panel", frame_style)
 	portrait_row.add_child(portrait_frame)
-	if portrait_path != "" and ResourceLoader.exists(portrait_path):
+	if unit_portrait != null:
 		var portrait := TextureRect.new()
 		portrait.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		portrait.offset_left = 2

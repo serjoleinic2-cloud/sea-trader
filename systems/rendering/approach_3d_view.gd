@@ -651,18 +651,8 @@ func _build_island(island_root: Node3D, island: Dictionary) -> void:
 		var port_offset: Vector2 = Vector2(port.get("position", island_position)) - island_position
 		if port_offset.length_squared() > 0.01:
 			port_angle = port_offset.angle()
-	var asset_identity: String = str(island.get("world_asset_identity", current_id))
-	var custom_model: Node3D = _attach_catalog_scene(island_root, "islands", asset_identity, radius * 2.0)
-	if custom_model == null and port.is_empty():
-		var route_spec: Dictionary = GameData.read("res://data/world/faction_harbors.json").get("route_islands", [])[posmod(hash(current_id), 2)]
-		var green_path: String = str(route_spec.scene)
-		var green_scene = load(green_path) as PackedScene
-		if green_scene != null:
-			custom_model = green_scene.instantiate() as Node3D
-			custom_model.name = "GreenRouteIsland"
-			custom_model.scale = Vector3.ONE * radius / float(route_spec.reference_radius)
-			island_root.add_child(custom_model)
-			load("res://systems/rendering/faction_base_style.gd").new().apply_surface_details(custom_model)
+	# Keep island collision and navigation data, but render lightweight procedural geometry.
+	var custom_model: Node3D = null
 	if custom_model == null:
 		# The 3D shoreline varies deterministically while staying inside the
 		# navigation circle used by collision and save data.
@@ -706,7 +696,7 @@ func _build_island(island_root: Node3D, island: Dictionary) -> void:
 
 
 func _add_island_surface(parent: Node3D, radius: float, height: float, base_factor: float, seed_value: int, port_angle: float, bay_cut: float, bay_width: float, color: Color) -> void:
-	const SEGMENTS: int = 80
+	const SEGMENTS: int = 28
 	var vertices := PackedVector3Array()
 	var indices := PackedInt32Array()
 	vertices.append(Vector3.ZERO)

@@ -49,11 +49,8 @@ func setup(port_id: String, showcase_level: int = 0) -> void:
 	_port_id = port_id
 	_showcase_level = showcase_level
 	_manifest = GameData.read("res://data/world/home_base_visuals.json")
-	var terrain: Node3D = _load_model(str(_manifest.get("terrain", "")))
-	if terrain != null:
-		terrain.name = "IslandTerrain"
-		add_child(terrain)
-		_style.apply_surface_details(terrain)
+	var terrain_race := _showcase_faction if _showcase_level > 0 else str(GameState.player_state.get("origin_race_id", "humans"))
+	load("res://systems/rendering/low_poly_island.gd").build(self, _manifest.get("coastline", []), terrain_race, false)
 	_add_home_shoals()
 	_refresh_buildings()
 	_setup_lighthouses()
