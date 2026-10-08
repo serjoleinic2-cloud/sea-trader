@@ -6,7 +6,6 @@ var _map: Control
 var _badge: Button
 var _lantern: Label
 var _notice: Label
-var _choice: ConfirmationDialog
 var _surrender: ConfirmationDialog
 var _report: AcceptDialog
 var _open_amount: float = 0
@@ -15,12 +14,15 @@ var _report_time: float = -1
 var _truce: Button
 var _training_button: Button
 var _training_notice: AcceptDialog
+var _attack_notice: Label
+var _attack_notice_until: float = -1.0
 
 func _ready() -> void:
 	layer=145
-	_badge=Button.new(); _badge.text="ОБНАРУЖЕН ФЛОТ [Z]"; _badge.custom_minimum_size=Vector2(240,42)
-	_badge.pressed.connect(_show_choice); add_child(_badge)
+	_badge=Button.new(); _badge.text="НАЧАТЬ БОЙ [Z]"; _badge.custom_minimum_size=Vector2(240,42)
+	_badge.pressed.connect(_start_battle); add_child(_badge)
 	_lantern=Label.new(); _lantern.text="◉"; _lantern.add_theme_font_size_override("font_size",30); _lantern.add_theme_color_override("font_color",Color("ffe15c")); _lantern.mouse_filter=Control.MOUSE_FILTER_IGNORE; add_child(_lantern)
+	_attack_notice=Label.new(); _attack_notice.text="ВЫ АТАКОВАНЫ"; _attack_notice.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER; _attack_notice.add_theme_font_size_override("font_size",22); _attack_notice.add_theme_color_override("font_color",Color("ff806b")); _attack_notice.add_theme_color_override("font_outline_color",Color("101c27")); _attack_notice.add_theme_constant_override("outline_size",6); _attack_notice.mouse_filter=Control.MOUSE_FILTER_IGNORE; _attack_notice.z_index=20; add_child(_attack_notice)
 	_panel=PanelContainer.new(); add_child(_panel)
 	var style:=StyleBoxFlat.new(); style.bg_color=Color(0.025,0.075,0.105,0.88); style.border_color=Color("b59353"); style.set_border_width_all(1); style.set_corner_radius_all(5)
 	_panel.set_meta("preserve_art_style",true); _panel.add_theme_stylebox_override("panel",style)
@@ -36,13 +38,12 @@ func _ready() -> void:
 	_notice=Label.new(); _notice.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART; _notice.custom_minimum_size.y=22; _notice.add_theme_font_size_override("font_size",12); column.add_child(_notice)
 	_map=preload("res://systems/ui/naval_tactical_map.gd").new(); _map.custom_minimum_size=Vector2(0,235); _map.size_flags_vertical=Control.SIZE_EXPAND_FILL; _map.size_flags_horizontal=Control.SIZE_EXPAND_FILL; column.add_child(_map)
 	var hint:=Label.new(); hint.text="Свой корабль → цель: атака · точка моря: курс\nОгонь только по вашему приказу"; hint.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART; hint.add_theme_font_size_override("font_size",11); column.add_child(hint)
-	_choice=ConfirmationDialog.new(); _choice.title="Встречен боевой флот"; _choice.dialog_text="Начать бой? Корабли выйдут из сопровождения.\nВраждебный патруль может атаковать вооружённую эскадру."; _choice.ok_button_text="Начать бой"; _choice.cancel_button_text="Продолжить путь"; _choice.confirmed.connect(func(): _show_status(_system.begin_battle())); add_child(_choice)
 	_surrender=ConfirmationDialog.new(); _surrender.title="Сдаться"; _surrender.dialog_text="Сдача означает поражение. Будет списано 10% монет, осколков и свободных ресурсов домашнего склада."; _surrender.ok_button_text="Сдаться"; _surrender.cancel_button_text="Продолжить бой"; _surrender.confirmed.connect(func(): _show_status(_system.surrender())); add_child(_surrender)
 	_report=AcceptDialog.new(); _report.title="Итог морского боя"; add_child(_report)
 	if OS.is_debug_build():
 		_training_button=Button.new(); _training_button.text="ТЕСТ БОЯ · ВЫЗВАТЬ ПАТРУЛЬ"; _training_button.custom_minimum_size=Vector2(270,42); _training_button.set_meta("preserve_art_style",true); _training_button.pressed.connect(_create_training_encounter); add_child(_training_button)
 		_training_notice=AcceptDialog.new(); _training_notice.title="Учебный бой"; add_child(_training_notice)
-	_badge.hide(); _panel.hide(); _lantern.hide()
+	_badge.hide(); _panel.hide(); _lantern.hide(); _attack_notice.hide()
 
 func _button(parent: Control, text_value: String, callback: Callable) -> Button:
 	var button:=Button.new(); button.set_meta("preserve_art_style",true); button.set_meta("compact_hud",true); button.text=text_value; button.size_flags_horizontal=Control.SIZE_EXPAND_FILL; button.custom_minimum_size.y=42; button.add_theme_font_size_override("font_size",13)
@@ -63,13 +64,13 @@ func _create_training_encounter() -> void:
 	_training_notice.dialog_text=str(result.get("message", "Не удалось создать учебный бой."))
 	_training_notice.popup_centered(Vector2i(470, 170))
 
-func _show_choice() -> void:
-	if _system==null or _system.nearby_enemies().is_empty(): return
-	_choice.popup_centered(Vector2i(500,210))
+func _start_battle() -> void:
+	if _system==null or _system.active() or _system.nearby_enemies().is_empty(): return
+	_show_status(_system.begin_battle())
 
 func _unhandled_key_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo and (event.keycode==KEY_Z or event.physical_keycode==KEY_Z):
-		_show_choice(); get_viewport().set_input_as_handled()
+		_start_battle(); get_viewport().set_input_as_handled()
 
 func _process(delta: float) -> void:
 	if _system==null: return
@@ -87,11 +88,18 @@ func _process(delta: float) -> void:
 	_panel.size=Vector2(width,height)
 	_panel.position=Vector2(viewport.x-width*_open_amount,76)
 	if engaged:
-		_choice.hide()
 		if _open_amount<.05: _map.center=_system.vector(GameState.ship_state.position)
 		var battle: Dictionary = GameState.combat_state.naval_battle
 		_notice.text=str(battle.get("notice","Бой идёт."))
 		_truce.disabled=bool(battle.get("truce_pending",false))
+		if bool(battle.get("enemy_initiated",false)) and _attack_notice_until < 0.0:
+			_attack_notice_until=_clock+4.0
+	else:
+		_attack_notice_until=-1.0
+	_attack_notice.visible=engaged and _clock<_attack_notice_until
+	if _attack_notice.visible:
+		_attack_notice.size=Vector2(viewport.x,34)
+		_attack_notice.position=_flagship_screen_position()+Vector2(-viewport.x*.5,-88)
 	var alert: bool = not _system.nearby_enemies().is_empty()
 	_badge.visible=alert; _badge.position=Vector2((viewport.x-_badge.size.x)*.5,viewport.y-100)
 	_lantern.visible=alert and fmod(_clock,1)<.55

@@ -1,0 +1,30 @@
+{
+  "tool": "built-in image_gen",
+  "asset_type": "transparent 2D building art",
+  "common_prompt": "Create one premium, highly detailed isometric strategy-game barracks sprite, full silhouette, isolated on transparent background, no people, no text, no border. This is technological fantasy, with magic-powered beacons and faction-specific architecture, not a historical army or Napoleonic-era building. Painterly, polished, readable at small UI size, coherent construction.",
+  "faction_prompts": {
+    "humans": "Pale stone and navy timber, brass nautical fittings, anchor and ship-wheel emblems, disciplined maritime guard hall, warm lanterns.",
+    "nerids": "Coral stone, sea-glass arches, turquoise tide-lit windows, shell and trident motifs, flowing aquatic guard hall.",
+    "surr": "Dark basalt, copper-orange inlays, angular buttresses, heat-lit runes and volcanic signal beacons.",
+    "meridians": "Pale limestone, blue enamel and gold, geometric sun and compass emblems, orderly academy terraces and luminous technology.",
+    "aery": "Pale stone terraces, ivory sailcloth canopies, wind vanes, feather emblems and sky-blue arcane beacons.",
+    "crystari": "Dark stone halls, violet crystal spires, faceted luminous panels and arcane geometric buttresses."
+  },
+  "source_files": {
+    "crystari": "C:/Users/Сергей/.codex/generated_images/01a0f5c0-e5b7-7000-8934-629874bf789f/exec-9fdbf18a-0fea-4935-9547-51e4deaa742d.png",
+    "aery": "C:/Users/Сергей/.codex/generated_images/01a0f5c0-e5b7-7000-8934-629874bf789f/exec-03648e57-53c0-4808-bbf1-c1c8e3ff90aa.png",
+    "meridians": "C:/Users/Сергей/.codex/generated_images/01a0f5c0-e5b7-7000-8934-629874bf789f/exec-f69ed99b-bb8f-43ee-855f-aa500047adff.png",
+    "surr": "C:/Users/Сергей/.codex/generated_images/01a0f5c0-e5b7-7000-8934-629874bf789f/exec-24c1a67e-2408-4f42-b75f-ad64a7bb4522.png",
+    "nerids": "C:/Users/Сергей/.codex/generated_images/01a0f5c0-e5b7-7000-8934-629874bf789f/exec-d173f86f-34d9-40f1-a6fc-02ac91fdbd46.png",
+    "humans": "C:/Users/Сергей/.codex/generated_images/01a0f5c0-e5b7-7000-8934-629874bf789f/exec-376263cc-d9d3-4435-8c75-f56557336c12.png"
+  },
+  "production_files": [
+    "humans/barracks.png",
+    "nerids/barracks.png",
+    "surr/barracks.png",
+    "meridians/barracks.png",
+    "aery/barracks.png",
+    "crystari/barracks.png"
+  ],
+  "production_resolution": "768x768 RGBA PNG; resized from generated 1254x1254 source with alpha preserved"
+}

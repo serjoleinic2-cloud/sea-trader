@@ -57,6 +57,13 @@
       "resource_fabric": 8,
       "resource_glass": 5,
       "resource_parts": 4
+    },
+    "barracks": {
+      "resource_timber": 22,
+      "resource_nails": 16,
+      "resource_fabric": 5,
+      "resource_parts": 8,
+      "resource_glass": 4
     }
   },
   "growth_per_level": 0.12,

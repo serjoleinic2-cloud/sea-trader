@@ -131,7 +131,7 @@ func create_training_encounter() -> Dictionary:
 			"cooldown": 0.0,
 			"retreat_until": 0.0
 		}
-	, "Учебный патруль создан рядом. Нажмите Z и выберите «Начать бой»." )
+	, "Учебный патруль создан рядом. Нажмите Z, чтобы сразу начать бой." )
 
 func _enemy_alive(enemy: Dictionary) -> bool:
 	return float(enemy.get("hull",0))>0 and float(enemy.get("retreat_until",0))<=_clock
@@ -241,7 +241,7 @@ func repair_ship(id: String) -> Dictionary:
 	if float(GameState.player_state.money)<cost: return _result(false,"Ремонт стоит %d монет." % int(cost))
 	return _transaction(func(): ship.hull=hull_max(ship); GameState.player_state.money-=cost,"Корабль отремонтирован.")
 
-func begin_battle(enemy_ids: Array = []) -> Dictionary:
+func begin_battle(enemy_ids: Array = [], enemy_initiated: bool = false) -> Dictionary:
 	if active(): return _result(false,"Бой уже идёт.")
 	if not ready_for_battle(): return _result(false,"Для боя нужен боевой корабль в сопровождении в море.")
 	if bool(GameState.combat_state.get("active_raid",{}).get("active",false)): return _result(false,"Сначала завершите десантную операцию.")
@@ -250,7 +250,7 @@ func begin_battle(enemy_ids: Array = []) -> Dictionary:
 	for enemy in near:
 		if enemy_ids.is_empty() or enemy_ids.has(str(enemy.id)): ids.append(str(enemy.id))
 	if ids.is_empty(): return _result(false,"Противник вышел из радиуса обнаружения.")
-	var battle: Dictionary = {"active":true,"ship_ids":[],"enemy_ids":ids,"previous_escorts":{},"truce_pending":false,"shots":0,"notice":"Боевые корабли под вашим управлением."}
+	var battle: Dictionary = {"active":true,"enemy_initiated":enemy_initiated,"ship_ids":[],"enemy_ids":ids,"previous_escorts":{},"truce_pending":false,"shots":0,"notice":"Боевые корабли под вашим управлением."}
 	for ship in warships():
 		if bool(ship.get("escort_enabled",false)) and float(ship.get("hull",0))>0:
 			battle.ship_ids.append(str(ship.instance_id)); battle.previous_escorts[str(ship.instance_id)] = true
@@ -385,7 +385,7 @@ func _detect_hostile() -> void:
 	for enemy in GameState.combat_state.naval_enemies.values():
 		if ids.has(str(enemy.id)) and bool(enemy.get("hostile",false)):
 			enemy.warning=float(enemy.get("warning",0))+1
-			if float(enemy.warning)>=float(_rules.hostile_warning_seconds): begin_battle([str(enemy.id)]); return
+			if float(enemy.warning)>=float(_rules.hostile_warning_seconds): begin_battle([str(enemy.id)],true); return
 		else: enemy.warning=0.0
 
 func _step_battle(delta: float) -> void:

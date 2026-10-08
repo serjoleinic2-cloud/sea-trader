@@ -111,11 +111,42 @@ func test_actual_damage_victory_and_xp() -> void:
 	GameState.combat_state.naval_enemies.enemy1.position=Vector2(250,0)
 	GameState.combat_state.naval_enemies.enemy1.hull=25
 	_sea(); assert_true(navy.begin_battle().ok)
+	assert_eq(int(GameState.combat_state.naval_battle.shots),0,"the fleet waits for the player's attack order")
+	assert_true(navy.issue_order("war1",Vector2(250,0),"enemy1").ok)
 	for index in 200:
 		if navy.active(): navy._step_battle(.2)
 	assert_false(navy.active()); assert_eq(GameState.combat_state.naval_report.outcome,"Победа")
 	assert_gt(int(GameState.fleet_state[0].experience),80)
 	assert_gt(int(GameState.fleet_state[0].guns[0].experience),0)
+
+func test_z_starts_battle_without_a_confirmation_dialog() -> void:
+	_sea()
+	var hud = load("res://systems/ui/naval_battle_hud.gd").new()
+	add_child(hud)
+	hud.initialize(navy)
+	var key := InputEventKey.new()
+	key.pressed=true
+	key.keycode=KEY_Z
+	hud._unhandled_key_input(key)
+	assert_true(navy.active())
+	assert_false(bool(GameState.combat_state.naval_battle.get("enemy_initiated",false)))
+	hud.free()
+
+func test_hostile_patrol_starts_battle_and_marks_its_initiative() -> void:
+	_sea()
+	GameState.combat_state.naval_enemies.enemy1.hostile=true
+	var warning_seconds: int = int(navy._rules.hostile_warning_seconds)
+	for _index in warning_seconds:
+		navy._detect_hostile()
+	assert_true(navy.active())
+	assert_true(bool(GameState.combat_state.naval_battle.get("enemy_initiated",false)))
+	var hud = load("res://systems/ui/naval_battle_hud.gd").new()
+	add_child(hud)
+	hud.initialize(navy)
+	hud._process(0.1)
+	assert_true(hud._attack_notice.visible)
+	assert_eq(hud._attack_notice.text,"ВЫ АТАКОВАНЫ")
+	hud.free()
 
 func test_rally_reaches_parked_ship_and_restores_its_state() -> void:
 	var parked: Dictionary = GameState.fleet_state[0].duplicate(true)

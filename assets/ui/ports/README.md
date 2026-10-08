@@ -19,7 +19,8 @@ buttons. The same camera and lighting were requested for every atlas.
 appear in construction mode. Completed buildings use the player's race art. The
 Captain's House is a normal, material-funded 30-level project; once built, it
 opens personnel hiring. Its six race-specific images are standalone facade art,
-not captain portraits. Barracks remains a garrison service hotspot.
+not captain portraits. Barracks is also a 30-level construction project with six
+race-specific facades; its garrison window remains directly accessible.
 
 Levels 1–30 visibly progress: a faction-colored inlay gains one additional
 light per level; the matching race annex art fades in across levels 2–11, and

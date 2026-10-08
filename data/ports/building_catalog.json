@@ -107,6 +107,19 @@
         "crew_management"
       ],
       "ui_icon": "res://assets/ui/cards/captain_house.svg"
+    },
+    {
+      "building_id": "barracks",
+      "display_name": "Казармы",
+      "role": "Garrison housing, training and defense readiness.",
+      "description": "Размещает гарнизон и развивает оборону базы. Улучшения добавляют новые ярусы, сигнальные огни и расовые военно-технологические детали.",
+      "max_level": 30,
+      "visual_mode": "2d",
+      "effect_ids": [
+        "garrison_capacity",
+        "defense_readiness"
+      ],
+      "ui_icon": "res://assets/ui/cards/barracks.svg"
     }
   ],
   "balance_status": "Material-funded 30-level building progression; numeric effects remain provisional."

@@ -15,7 +15,7 @@ func test_every_catalogued_building_has_all_visual_levels() -> void:
 		for index in range(levels.size()):
 			assert_eq(int(levels[index].level), index + 1, id)
 			assert_true(ResourceLoader.exists(str(levels[index].scene)), str(levels[index].scene))
-	assert_true(ResourceLoader.exists(str(visuals.terrain)))
+	assert_true(visuals.has("coastline") and not visuals.coastline.is_empty())
 	assert_true(ResourceLoader.exists(str(visuals.tower)))
 
 func test_captain_house_has_building_project_costs_and_race_art() -> void:
@@ -33,6 +33,9 @@ func test_captain_house_has_building_project_costs_and_race_art() -> void:
 	var level_one_cost: Dictionary = system._make_requirements("captain_house", 1)
 	assert_eq(level_one_cost.resource_timber, 24)
 	assert_eq(level_one_cost.resource_nails, 14)
+	var barracks_cost: Dictionary = system._make_requirements("barracks", 1)
+	assert_eq(barracks_cost.resource_timber, 22)
+	assert_eq(barracks_cost.resource_parts, 8)
 	assert_true(ResourceLoader.exists("res://assets/ui/ports/building_level_progression.gdshader"))
 	system.free()
 

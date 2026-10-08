@@ -4,7 +4,6 @@ extends CanvasLayer
 ## All actions delegate to existing port/building systems; no economy lives in this view.
 const BUILDINGS: Array[String] = ["dock", "warehouse", "workshop", "market", "shipyard", "timber_yard", "fishing_wharf", "mage_guild", "captain_house", "barracks"]
 const NAMES: Array[String] = ["Причал", "Склад", "Мастерская", "Рынок", "Верфь", "Лесопилка", "Рыбный промысел", "Гильдия магов", "Дом капитанов", "Казармы"]
-const SPECIAL_BUILDINGS := {"barracks": true}
 ## Authored hotspots on the docked home-port illustration. Keep these separate
 ## from the 3D showcase manifest: this is the live construction screen.
 const SITES: Array[Vector2] = [Vector2(.81,.79), Vector2(.40,.57), Vector2(.61,.585), Vector2(.20,.37), Vector2(.865,.575), Vector2(.41,.37), Vector2(.18,.745), Vector2(.61,.3425), Vector2(.43,.80), Vector2(.62,.79)]
@@ -183,9 +182,7 @@ func _refresh_sprites() -> void:
 	for index in range(_sites.size()):
 		var site: Dictionary = _sites[index]
 		var building_id: String = BUILDINGS[index]
-		var path: String = _special_building_art(building_id)
-		if path == "":
-			path = "res://assets/ui/ports/%s/%s.png" % [_race, building_id]
+		var path: String = "res://assets/ui/ports/%s/%s.png" % [_race, building_id]
 		site["sprite_path"] = path
 		site.sprite.texture_normal = load(path) as Texture2D
 		var level_material := ShaderMaterial.new()
@@ -214,12 +211,6 @@ func _ensure_click_mask(site: Dictionary) -> void:
 		_click_mask_cache[path] = mask
 	site.sprite.texture_click_mask = mask
 
-func _special_building_art(building_id: String) -> String:
-	match building_id:
-		"barracks":
-			return "res://assets/ui/ports/%s/tower.png" % _race
-	return ""
-
 func _refresh_buildings() -> void:
 	var buildings: Dictionary = GameState.port_state.get(_active_port, {}).get("buildings", {})
 	var projects: Array = GameState.company_state.get("building_projects", [])
@@ -232,17 +223,6 @@ func _refresh_buildings() -> void:
 	for index in range(_sites.size()):
 		var site: Dictionary = _sites[index]
 		var building_id: String = BUILDINGS[index]
-		if SPECIAL_BUILDINGS.has(building_id):
-			site.container.visible = _home
-			site.sprite.visible = _home
-			site.annex.visible = false
-			site.tower.visible = false
-			site.scaffold.visible = false
-			site.plot.visible = false
-			site.sprite.tooltip_text = "%s\nОткрыть" % NAMES[index]
-			if site.sprite.visible:
-				_ensure_click_mask(site)
-			continue
 		var state: Dictionary = buildings.get(building_id, {})
 		var level: int = int(state.get("level", 0))
 		var built: bool = level > 0
@@ -275,11 +255,14 @@ func _hover(index: int, entered: bool) -> void:
 
 func _activate(index: int) -> void:
 	var building: String = BUILDINGS[index]
+	var state: Dictionary = GameState.port_state.get(_active_port, {}).get("buildings", {}).get(building, {})
+	if _construction:
+		_main.get_node("PortWindow")._open_building_card(building)
+		return
 	if building == "barracks":
 		_open_special_window("GarrisonWindow")
 		return
-	var state: Dictionary = GameState.port_state.get(_active_port, {}).get("buildings", {}).get(building, {})
-	if _construction or int(state.get("level", 0)) == 0:
+	if int(state.get("level", 0)) == 0:
 		_main.get_node("PortWindow")._open_building_card(building)
 		return
 	if building == "captain_house":
