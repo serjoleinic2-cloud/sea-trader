@@ -27,6 +27,7 @@ var _visual_roll: float = 0.0    # current visual roll in degrees
 var ship_node: Node2D = null
 var _collision_data_provider: Callable = Callable()
 const COLLISION_CLEARANCE: float = 30.0
+const CollisionIndex = preload("res://systems/navigation/navigation_collision_index.gd")
 
 # ============================================================================
 # Public API
@@ -214,18 +215,30 @@ func _resolve_navigation_collisions(current_pos: Vector2, proposed_pos: Vector2)
 	if not (collision_data is Dictionary):
 		return proposed_pos
 	var data: Dictionary = collision_data
+	var move_bounds := Rect2(current_pos, proposed_pos - current_pos).abs().grow(0.01)
 	for raw_island in data.get("islands", []):
 		if not (raw_island is Dictionary):
 			continue
 		var island: Dictionary = raw_island
-		for obstacle in island.get("navigation_obstacles", []):
+		# Most route/steering probes are short and touch only one port. Bounds
+		# are prepared once when its static coastline changes, not for every probe.
+		if island.has("navigation_bounds") and not (island.navigation_bounds as Rect2).grow(COLLISION_CLEARANCE).intersects(move_bounds, true):
+			continue
+		var obstacles: Array = island.get("navigation_obstacles", [])
+		var cached_bounds: Array = island.get("navigation_obstacle_bounds", [])
+		for obstacle_index in obstacles.size():
+			var obstacle: Variant = obstacles[obstacle_index]
 			var polygon: PackedVector2Array = obstacle
 			if polygon.size() < 3:
 				continue
-			var bounds := Rect2(polygon[0], Vector2.ZERO)
-			for vertex in polygon:
-				bounds = bounds.expand(vertex)
-			if not bounds.grow(COLLISION_CLEARANCE).intersects(Rect2(current_pos, proposed_pos - current_pos).abs().grow(0.01), true):
+			var bounds: Rect2
+			if cached_bounds.size() == obstacles.size():
+				bounds = cached_bounds[obstacle_index]
+			else:
+				bounds = Rect2(polygon[0], Vector2.ZERO)
+				for vertex in polygon:
+					bounds = bounds.expand(vertex)
+			if not bounds.grow(COLLISION_CLEARANCE).intersects(move_bounds, true):
 				continue
 			var start_clearance := _polygon_clearance(current_pos, polygon)
 			if start_clearance < COLLISION_CLEARANCE:
@@ -326,7 +339,11 @@ func _obstacle_segment_blocked(start: Vector2, finish: Vector2, polygon: PackedV
 func _harbor_segment_blocked(start: Vector2, finish: Vector2, center: Vector2, radius: float, island: Dictionary, coast: PackedVector2Array) -> bool:
 	if _island_blocks_position(finish, center, radius, island):
 		return true
-	for index in range(coast.size()):
+	var edge_bounds: Array = island.get("navigation_coast_edge_bounds", [])
+	var move_bounds := Rect2(start, finish - start).abs().grow(COLLISION_CLEARANCE)
+	for index in CollisionIndex.nearby_coast_edges(island, Rect2(start, finish - start).abs(), coast.size()):
+		if edge_bounds.size() == coast.size() and not (edge_bounds[index] as Rect2).intersects(move_bounds, true):
+			continue
 		var first: Vector2 = coast[index]
 		var second: Vector2 = coast[(index + 1) % coast.size()]
 		if Geometry2D.segment_intersects_segment(start, finish, first, second) != null:
@@ -356,7 +373,10 @@ func _island_blocks_position(position: Vector2, center: Vector2, radius: float, 
 	if polygon.size() >= 3:
 		if Geometry2D.is_point_in_polygon(position, polygon):
 			return true
-		for index in range(polygon.size()):
+		var edge_bounds: Array = island.get("navigation_coast_edge_bounds", [])
+		for index in CollisionIndex.nearby_coast_edges(island, Rect2(position, Vector2.ZERO), polygon.size()):
+			if edge_bounds.size() == polygon.size() and not (edge_bounds[index] as Rect2).grow(COLLISION_CLEARANCE).has_point(position):
+				continue
 			if position.distance_to(Geometry2D.get_closest_point_to_segment(position, polygon[index], polygon[(index + 1) % polygon.size()])) < COLLISION_CLEARANCE:
 				return true
 		var offset := position - center

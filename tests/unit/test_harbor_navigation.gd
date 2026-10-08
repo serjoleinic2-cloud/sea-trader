@@ -1,5 +1,34 @@
 extends "res://tests/test_base.gd"
 
+func test_indexed_shores_match_collision_queries_and_remote_piers() -> void:
+	var indexed: Dictionary = load("res://systems/world/home_harbor_layout.gd").new().decorate(_fixture(), "home_port")
+	var plain: Dictionary = indexed.duplicate(true)
+	for island in plain.islands:
+		for key in ["navigation_bounds", "navigation_obstacle_bounds", "navigation_coast_edge_bounds", "navigation_coast_cells"]:
+			island.erase(key)
+	var indexed_guard = load("res://systems/ship/ship_physics.gd").new()
+	var plain_guard = load("res://systems/ship/ship_physics.gd").new()
+	indexed_guard.set_collision_data_provider(func(): return indexed)
+	plain_guard.set_collision_data_provider(func(): return plain)
+	var center: Vector2 = Vector2(indexed.islands[0].position)
+	var radius: float = float(indexed.islands[0].radius)
+	var mismatch := ""
+	for x in range(-4, 5):
+		for y in range(-4, 5):
+			var start := center + Vector2(x, y) * radius * 0.35
+			for displacement in [Vector2(3, 0), Vector2(0, -3), Vector2(256, 256), Vector2(-256, -256), Vector2(radius * 2.4, 0), Vector2(0, -radius * 2.4)]:
+				var finish: Vector2 = start + displacement
+				if indexed_guard.is_navigation_move_blocked(start, finish) != plain_guard.is_navigation_move_blocked(start, finish):
+					mismatch = "Collision changed for %s -> %s" % [start, finish]
+	assert_eq(mismatch, "", "Indexed short and long moves preserve shore, reef and pier collisions: " + mismatch)
+	# Piers may extend outside an island's circular radius; include them in bounds.
+	var pier := PackedVector2Array([Vector2(400, -40), Vector2(500, -40), Vector2(500, 40), Vector2(400, 40)])
+	var remote: Dictionary = preload("res://systems/navigation/navigation_collision_index.gd").prepare({"islands": [{"position": Vector2.ZERO, "radius": 20.0, "navigation_obstacles": [pier]}]})
+	indexed_guard.set_collision_data_provider(func(): return remote)
+	assert_true(indexed_guard.is_navigation_move_blocked(Vector2(300, 0), Vector2(600, 0)), "Index keeps piers beyond the island radius solid")
+	indexed_guard.free()
+	plain_guard.free()
+
 func test_solid_piers_block_crossing_and_allow_legacy_escape() -> void:
 	var world: Dictionary = load("res://systems/world/home_harbor_layout.gd").new().decorate(_fixture(), "home_port")
 	var guard = load("res://systems/ship/ship_physics.gd").new()

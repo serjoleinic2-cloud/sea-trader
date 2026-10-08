@@ -2,9 +2,12 @@ extends RefCounted
 
 ## Deterministic presentation/collision overlay. Saved port anchors and seed stay intact.
 func decorate(world: Dictionary, home_id: String) -> Dictionary:
+	var result: Dictionary
 	if FileAccess.file_exists("res://data/world/faction_harbors.json"):
-		return load("res://systems/world/faction_harbor_layout.gd").new().decorate(world, home_id)
-	return _decorate_legacy(world, home_id)
+		result = load("res://systems/world/faction_harbor_layout.gd").new().decorate(world, home_id)
+	else:
+		result = _decorate_legacy(world, home_id)
+	return preload("res://systems/navigation/navigation_collision_index.gd").prepare(result)
 
 func _decorate_legacy(world: Dictionary, home_id: String) -> Dictionary:
 	var result: Dictionary = world.duplicate(true)
