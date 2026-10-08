@@ -7,8 +7,8 @@ const NAMES: Array[String] = ["Причал", "Склад", "Мастерска�
 ## Authored hotspots on the docked home-port illustration. Keep these separate
 ## from the 3D showcase manifest: this is the live construction screen.
 # Captain's House aligns with the fishing wharf, raised 264 authored pixels.
-# Barracks aligns vertically with the Mage Guild, shifted right 264 authored pixels.
-const SITES: Array[Vector2] = [Vector2(.81,.79), Vector2(.40,.57), Vector2(.61,.585), Vector2(.20,.37), Vector2(.865,.575), Vector2(.41,.37), Vector2(.18,.745), Vector2(.61,.3425), Vector2(.18,.52), Vector2(.778,.3425)]
+# Barracks aligns vertically with the Mage Guild, shifted right 358 authored pixels.
+const SITES: Array[Vector2] = [Vector2(.81,.79), Vector2(.40,.57), Vector2(.61,.585), Vector2(.20,.37), Vector2(.865,.575), Vector2(.41,.37), Vector2(.18,.745), Vector2(.61,.3425), Vector2(.18,.52), Vector2(.8344,.3425)]
 var _main: Node
 var _root: Control
 var _art: Control
