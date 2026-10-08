@@ -233,12 +233,12 @@ func _refresh_buildings() -> void:
 		# Foreign ports have an authored panorama; hotspots invoke real trade/encounter pages.
 		site.container.visible = _home
 		site.sprite.visible = built
-		# Each level adds a little more of the race-specific annex/tower art. The
-		# overlays grow through the tier, then the next tier changes the silhouette.
-		site.annex.visible = built and level >= 2
-		site.annex.modulate = Color(1, 1, 1, 0.30 + 0.70 * clampf(float(level - 1) / 10.0, 0.0, 1.0))
-		site.tower.visible = built and level >= 11
-		site.tower.modulate = Color(1, 1, 1, 0.25 + 0.75 * clampf(float(level - 10) / 11.0, 0.0, 1.0))
+		# Modular silhouette changes begin at tier boundaries. Faint early overlays
+		# read as an unrelated building ghost behind the base artwork.
+		site.annex.visible = built and level >= 11
+		site.annex.modulate = Color.WHITE
+		site.tower.visible = built and level >= 21
+		site.tower.modulate = Color.WHITE
 		var underway: bool = false
 		for project in projects:
 			if str(project.get("building_id", "")) == building_id and int(project.get("started_at_unix", 0)) > 0: underway = true

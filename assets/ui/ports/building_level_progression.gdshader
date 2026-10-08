@@ -1,4 +1,5 @@
 shader_type canvas_item;
+render_mode unshaded;
 
 // The race-specific base illustration remains intact. Each level adds one
 // restrained luminous inlay, so all 30 upgrades have a distinct live look
