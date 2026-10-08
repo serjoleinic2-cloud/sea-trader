@@ -39,6 +39,38 @@ func test_captain_house_has_building_project_costs_and_race_art() -> void:
 	assert_true(ResourceLoader.exists("res://assets/ui/ports/building_level_progression.gdshader"))
 	system.free()
 
+func test_sailing_port_preview_keeps_faction_and_a_small_geometry_budget() -> void:
+	var before: Dictionary = GameState.port_state.duplicate(true)
+	for faction in GameData.get_factions():
+		var preview = load("res://systems/rendering/home_port_preview.gd").new()
+		add_child(preview)
+		preview.setup("", 30, str(faction.id))
+		var district: MeshInstance3D = preview.get_node("LightweightBuildingDistrict")
+		assert_eq(district.get_meta("architecture_faction"), str(faction.id))
+		assert_eq(district.get_meta("building_levels").get("mage_guild"), 30)
+		var triangles: int = 0
+		var meshes: Array[Node] = preview.find_children("*", "MeshInstance3D", true, false)
+		for instance in meshes:
+			var mesh: Mesh = instance.mesh
+			for surface in mesh.get_surface_count():
+				var arrays: Array = mesh.surface_get_arrays(surface)
+				var indices = arrays[Mesh.ARRAY_INDEX]
+				var vertices = arrays[Mesh.ARRAY_VERTEX]
+				triangles += (indices.size() if indices != null and not indices.is_empty() else vertices.size()) / 3
+		assert_true(triangles < 3000, "Sailing preview stays below 3000 triangles")
+		assert_true(meshes.size() < 25, "Sailing preview batches the town geometry")
+		assert_false(preview.has_node("SkyHarbor"), "No duplicate distant port attached to each city")
+		for flag in preview.find_children("HeraldicFlagpole*", "Node3D", true, false):
+			assert_eq(flag.get_meta("emblem_faction"), str(faction.id))
+		preview.set_night_strength(1.0)
+		for light in preview._beacons:
+			assert_true(light.visible)
+		preview.set_night_strength(0.0)
+		for light in preview._beacons:
+			assert_false(light.visible)
+		preview.free()
+	assert_eq(GameState.port_state, before)
+
 func test_maximum_showcase_switches_levels_without_changing_game_state() -> void:
 	var before: Dictionary = GameState.port_state.duplicate(true)
 	var combat_before: Dictionary = GameState.combat_state.duplicate(true)

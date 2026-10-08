@@ -3,9 +3,6 @@ extends Node3D
 var _manifest: Dictionary
 var _district: Node3D
 var _style = preload("res://systems/rendering/faction_base_style.gd").new()
-var _clouds: Array[MeshInstance3D] = []
-var _clock: float = 0.0
-var _cloud_material: StandardMaterial3D
 
 func _ready() -> void:
 	_manifest = GameData.read("res://data/world/sky_harbor_visuals.json")
@@ -22,24 +19,6 @@ func _ready() -> void:
 		floating.position = Vector3(float(raw[0]), float(raw[2]), -float(raw[1]))
 		add_child(floating)
 		low_poly.build(floating, outline, "aery", true)
-	var material := StandardMaterial3D.new()
-	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	material.albedo_color = Color(0.75, 0.85, 0.85, 0.20)
-	_cloud_material = material
-	for index in range(12):
-		var cloud := MeshInstance3D.new()
-		var sphere := SphereMesh.new()
-		sphere.radius = 1.0
-		sphere.height = 2.0
-		sphere.radial_segments = 16
-		sphere.rings = 8
-		cloud.mesh = sphere
-		cloud.material_override = material
-		cloud.scale = Vector3(7.0 + float(index % 3) * 2.0, 3.0 + float(index % 2), 5.0)
-		cloud.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		add_child(cloud)
-		_clouds.append(cloud)
 
 func set_faction(faction_id: String) -> void:
 	if is_instance_valid(_district):
@@ -78,13 +57,3 @@ func set_faction(faction_id: String) -> void:
 
 func set_night_strength(strength: float) -> void:
 	_style.set_night_strength(strength)
-	if _cloud_material != null:
-		_cloud_material.albedo_color = Color(0.75, 0.85, 0.85, 0.20).lerp(Color(0.10, 0.16, 0.23, 0.15), strength)
-
-func _process(delta: float) -> void:
-	_clock += delta
-	for index in range(_clouds.size()):
-		var group: int = index / 3
-		var phase: float = float(group) * TAU / 4.0 + _clock * 0.025
-		var sky_height: float = 92.0 if bool(_manifest.get("above_peaks", false)) else 47.0
-		_clouds[index].position = Vector3(cos(phase) * 30.0 + float(index % 3) * 5.0, sky_height + float(group) * 8.0 + sin(float(index)) * 1.5, 48.0 + sin(phase) * 20.0)

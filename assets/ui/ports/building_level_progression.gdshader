@@ -8,7 +8,9 @@ uniform float building_level : hint_range(1.0, 30.0) = 1.0;
 uniform vec4 faction_accent : source_color = vec4(0.30, 0.78, 1.0, 1.0);
 
 void fragment() {
-	vec4 art = texture(TEXTURE, UV) * COLOR;
+	// Fragment COLOR already includes the texture. Sampling it again squares
+	// both its RGB and alpha, darkening the art and eroding translucent edges.
+	vec4 art = COLOR;
 	float level = clamp(building_level, 1.0, 30.0);
 	float progress = (level - 1.0) / 29.0;
 	float inlay = 0.0;

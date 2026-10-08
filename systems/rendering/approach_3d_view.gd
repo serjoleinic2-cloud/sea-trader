@@ -49,6 +49,9 @@ var _camera_orbit_yaw: float = 0.0
 var _camera_orbit_pitch: float = 0.0
 var _touch_points: Dictionary = {}
 var _last_touch_distance: float = 0.0
+var _quality_clock: float = 0.0
+var _quality_gpu_total: float = 0.0
+var _quality_samples: int = 0
 
 
 func _ready() -> void:
@@ -97,7 +100,8 @@ func initialize(world_data: Dictionary, map_world: CanvasItem, map_ship: CanvasI
 	if _fleet_traffic != null:
 		_fleet_traffic.set_process(false)
 	_subviewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
-	_subviewport.msaa_3d = Viewport.MSAA_4X
+	_subviewport.msaa_3d = Viewport.MSAA_2X
+	RenderingServer.viewport_set_measure_render_time(_subviewport.get_viewport_rid(), true)
 	_sync_generated_world(_world_data)
 
 
@@ -109,6 +113,9 @@ func _process(delta: float) -> void:
 	if str(GameState.ship_state.get("docked_port_id", "")) != "":
 		_viewport_container.hide()
 		_subviewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
+		_quality_clock = 0.0
+		_quality_gpu_total = 0.0
+		_quality_samples = 0
 		return
 	_viewport_container.show()
 	_update_ambience(delta)
@@ -145,6 +152,32 @@ func _process(delta: float) -> void:
 	_sync_fog(ship_position)
 	_sync_traffic(_trader_traffic, "trader")
 	_sync_traffic(_fleet_traffic, "fleet")
+	_update_render_quality(delta)
+
+
+func _update_render_quality(delta: float) -> void:
+	# Scale only 3D buffers when measured GPU work exceeds the frame budget.
+	# HUD, town illustrations and all other 2D screens retain native resolution.
+	# Dummy/unsupported renderers report zero; leave their scale unchanged.
+	var gpu_ms: float = RenderingServer.viewport_get_measured_render_time_gpu(_subviewport.get_viewport_rid())
+	if gpu_ms <= 0.0 or delta > 0.25:
+		return
+	_quality_clock += delta
+	_quality_gpu_total += gpu_ms
+	_quality_samples += 1
+	if _quality_clock < 1.5:
+		return
+	var average: float = _quality_gpu_total / float(_quality_samples)
+	var scale_value: float = _subviewport.scaling_3d_scale
+	if average > 13.0:
+		scale_value = maxf(.5, scale_value-.15)
+	elif average < 7.0:
+		scale_value = minf(1.0, scale_value+.10)
+	if not is_equal_approx(scale_value, _subviewport.scaling_3d_scale):
+		_subviewport.scaling_3d_scale = scale_value
+	_quality_clock = 0.0
+	_quality_gpu_total = 0.0
+	_quality_samples = 0
 
 
 func _input(event: InputEvent) -> void:
@@ -222,7 +255,8 @@ func _build_scene() -> void:
 	_sky_material.shader = load("res://assets/world/materials/tropical_sky.gdshader")
 	var sky := Sky.new()
 	sky.sky_material = _sky_material
-	sky.process_mode = Sky.PROCESS_MODE_REALTIME
+	sky.process_mode = Sky.PROCESS_MODE_INCREMENTAL
+	sky.radiance_size = Sky.RADIANCE_SIZE_128
 	_environment.background_mode = Environment.BG_SKY
 	_environment.sky = sky
 	_environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
@@ -256,13 +290,14 @@ func _build_scene() -> void:
 func _add_water() -> void:
 	var plane := PlaneMesh.new()
 	plane.size = Vector2(2400.0, 2400.0)
-	# A 512² grid gives long swells enough vertices to form visible rounded crests
-	# at close camera distance without compute-shader-only rendering features.
-	plane.subdivide_width = 512
-	plane.subdivide_depth = 512
+	# The shader concentrates this grid near the ship. Dense distant vertices
+	# added GPU cost without visible wave detail, especially on integrated GPUs.
+	plane.subdivide_width = 192
+	plane.subdivide_depth = 192
 	var shader: Shader = load("res://assets/world/materials/tropical_ocean.gdshader")
 	_water = MeshInstance3D.new()
 	_water.name = "AnimatedOcean"
+	_water.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	_water.mesh = plane
 	_water_shader_material = ShaderMaterial.new()
 	_water_shader_material.shader = shader
@@ -633,7 +668,7 @@ func _build_island(island_root: Node3D, island: Dictionary) -> void:
 		harbor.setup(harbor_key)
 		return
 	if not port.is_empty() and (bool(island.get("port_city", false)) or str(port.get("id", "")) == str(GameState.world_state.get("home_port_id", ""))):
-		var base = load("res://systems/rendering/home_base_3d.gd").new()
+		var base = load("res://systems/rendering/home_port_preview.gd").new()
 		base.name = "HomeBase3D"
 		island_root.add_child(base)
 		var toward_port: Vector2 = Vector2(port.get("position", island_position)) - island_position
@@ -641,8 +676,7 @@ func _build_island(island_root: Node3D, island: Dictionary) -> void:
 		var reference: float = float(GameData.read("res://data/world/home_base_visuals.json").get("reference_radius_m", 60.0))
 		base.scale = Vector3.ONE * float(island.get("visual_radius", map_radius)) * MAP_TO_METERS / reference
 		if bool(island.get("port_city", false)):
-			base.setup("", 18 + posmod(hash(str(port.get("id", ""))), 13))
-			base.set_showcase_faction(str(port.get("owner_race_id", "humans")))
+			base.setup("", 18 + posmod(hash(str(port.get("id", ""))), 13), str(port.get("owner_race_id", "humans")))
 		else:
 			base.setup(str(port.get("id", "")))
 		return
@@ -739,22 +773,6 @@ func _add_floating_island(parent: Node3D, main_radius: float, seed_value: int) -
 	_add_cylinder(floating, float_radius * 0.18, float_radius * 0.48, 0.9, Vector3(0.0, float_radius * 0.39, 0.0), Color("51865e"))
 	_add_cylinder(floating, 0.0, float_radius * 0.10, float_radius * 0.86, Vector3(-float_radius * 0.26, -float_radius * 0.70, 0.0), Color("686e6b"))
 	_add_cylinder(floating, 0.0, float_radius * 0.07, float_radius * 0.62, Vector3(float_radius * 0.28, -float_radius * 0.56, float_radius * 0.12), Color("686e6b"))
-	var cloud_material := StandardMaterial3D.new()
-	cloud_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	cloud_material.albedo_color = Color(0.72, 0.86, 0.92, 0.22)
-	cloud_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	for cloud_index in range(3):
-		var cloud_mesh := SphereMesh.new()
-		cloud_mesh.radius = float_radius * (0.45 + 0.08 * float(cloud_index))
-		cloud_mesh.height = cloud_mesh.radius * 0.42
-		cloud_mesh.radial_segments = 8
-		cloud_mesh.rings = 4
-		var cloud := MeshInstance3D.new()
-		cloud.name = "Cloud_%d" % cloud_index
-		cloud.mesh = cloud_mesh
-		cloud.material_override = cloud_material
-		cloud.position = Vector3(float(cloud_index - 1) * float_radius * 0.62, -float_radius * 0.48, 0.0)
-		floating.add_child(cloud)
 
 
 func _attach_catalog_scene(parent: Node3D, category: String, identity: String, target_size_m: float, faction_id: String = "") -> Node3D:
