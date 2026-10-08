@@ -9,8 +9,8 @@ const TRANSITION_CLOSE_GAP: float = 160.0
 const FOG_RADIUS_CHUNKS: int = 6
 const FOG_HEIGHT: float = 28.0
 const DAY_CYCLE_SECONDS: float = 300.0
-const STAR_DOME_RADIUS: float = 420.0
 const SEA_LEVEL: float = -0.18
+const RenderVisibility = preload("res://systems/rendering/render_visibility.gd")
 
 var _world_data: Dictionary = {}
 var _map_world: CanvasItem
@@ -38,7 +38,6 @@ var _camera_initialized: bool = false
 var _environment: Environment
 var _sky_material: ShaderMaterial
 var _sunlight: DirectionalLight3D
-var _star_dome: Node3D
 var _day_clock: float = 0.0
 var _animation_clock: float = 0.0
 var _orbit_dragging: bool = false
@@ -76,6 +75,11 @@ func initialize(world_data: Dictionary, map_world: CanvasItem, map_ship: CanvasI
 	_map_ship = map_ship
 	_trader_traffic = trader_traffic
 	_fleet_traffic = fleet_traffic
+	# Fixed sky direction, facing the home bay; never attached to ship heading.
+	var home: Dictionary = world_data.get("ports", {}).get(str(GameState.world_state.get("home_port_id", "")), {})
+	var planet_bearing: float = float(home.get("harbor_angle", 0.0)) + PI + 0.32
+	var planet_direction := Vector3(cos(planet_bearing), -0.10, sin(planet_bearing))
+	_sky_material.set_shader_parameter("jupiter_direction", planet_direction)
 	# The strategy view is 3D from the start. Keep the 2D camera active so zoom
 	# and movement still use the existing systems; traffic markers remain above it.
 	_map_world.visible = false
@@ -106,7 +110,6 @@ func _process(delta: float) -> void:
 		_subviewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
 		return
 	_viewport_container.show()
-	_update_ambience(delta)
 	if _world_data.is_empty() or _camera == null:
 		return
 	var ship_position: Vector2 = Vector2(GameState.ship_state.get("position", Vector2.ZERO))
@@ -135,11 +138,26 @@ func _process(delta: float) -> void:
 	if _water != null:
 		_water.position.x = ship_position.x * MAP_TO_METERS
 		_water.position.z = ship_position.y * MAP_TO_METERS
-	if _star_dome != null:
-		_star_dome.position = _camera.position
 	_sync_fog(ship_position)
 	_sync_traffic(_trader_traffic, "trader")
 	_sync_traffic(_fleet_traffic, "fleet")
+	_cull_visuals()
+	_update_ambience(delta)
+
+
+func _cull_visuals() -> void:
+	var planes: Array[Plane] = _camera.get_frustum()
+	var inside := _camera.global_position - _camera.global_basis.z * (_camera.near + 1.0)
+	for root in _island_nodes.values():
+		if not root.has_meta("visual_world_bounds"):
+			root.set_meta("visual_world_bounds", RenderVisibility.bounds_for(root))
+		root.visible = RenderVisibility.intersects_frustum(root.get_meta("visual_world_bounds"), planes, inside)
+		root.process_mode = Node.PROCESS_MODE_INHERIT if root.visible else Node.PROCESS_MODE_DISABLED
+	for model in _traffic_models.values():
+		if not model.has_meta("visual_local_bounds"):
+			model.set_meta("visual_local_bounds", model.global_transform.affine_inverse() * RenderVisibility.bounds_for(model))
+		var bounds: AABB = model.global_transform * (model.get_meta("visual_local_bounds") as AABB)
+		model.visible = RenderVisibility.intersects_frustum(bounds, planes, inside)
 
 
 func _input(event: InputEvent) -> void:
@@ -215,6 +233,7 @@ func _build_scene() -> void:
 	_environment = Environment.new()
 	_sky_material = ShaderMaterial.new()
 	_sky_material.shader = load("res://assets/world/materials/tropical_sky.gdshader")
+	_sky_material.set_shader_parameter("jupiter_texture", load("res://assets/world/sky/jupiter_voyager.jpg"))
 	var sky := Sky.new()
 	sky.sky_material = _sky_material
 	sky.process_mode = Sky.PROCESS_MODE_INCREMENTAL
@@ -237,7 +256,6 @@ func _build_scene() -> void:
 	_add_water()
 	_ship = _make_ship()
 	_scene_root.add_child(_ship)
-	_build_star_dome()
 	_sailing_gulls = load("res://systems/rendering/seabird_flock.gd").new()
 	_sailing_gulls.periodic = true
 	_sailing_gulls.name = "SailingGulls"
@@ -266,98 +284,6 @@ func _add_water() -> void:
 	_scene_root.add_child(_water)
 
 
-func _build_star_dome() -> void:
-	_star_dome = Node3D.new()
-	_star_dome.name = "NightSkyStars"
-	_scene_root.add_child(_star_dome)
-	var star_rng := RandomNumberGenerator.new()
-	star_rng.seed = 190779
-	_add_star_multimesh("ScatteredStars", 6200, 0.18, Color("a9bedc"), 0.5, star_rng)
-	_add_star_multimesh("BrightStars", 120, 0.30, Color("f3eddf"), 1.8, star_rng)
-	# Simple, recognizable silhouettes for Ursa Major, Cassiopeia, and Orion.
-	# Kept as presentation-only geometry until the world calendar gains latitude.
-	var constellations: Array[Array] = [
-		[Vector2(-0.96, 0.56), Vector2(-0.70, 0.63), Vector2(-0.64, 0.38), Vector2(-0.91, 0.34), Vector2(-0.96, 0.56), Vector2(-1.10, 0.16), Vector2(-1.25, -0.06)],
-		[Vector2(-0.43, 0.55), Vector2(-0.23, 0.76), Vector2(-0.02, 0.50), Vector2(0.19, 0.75), Vector2(0.40, 0.48)],
-		[Vector2(0.70, 0.68), Vector2(1.05, 0.67), Vector2(0.77, 0.15), Vector2(1.10, 0.12), Vector2(0.70, 0.68), Vector2(0.90, 0.42), Vector2(1.05, 0.67), Vector2(0.90, 0.42), Vector2(0.77, 0.15)]
-	]
-	var line_mesh := ImmediateMesh.new()
-	var line_material := StandardMaterial3D.new()
-	line_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	line_material.albedo_color = Color(0.42, 0.74, 0.92, 0.62)
-	line_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	line_mesh.surface_begin(Mesh.PRIMITIVE_LINES)
-	var star_index: int = 0
-	for constellation in constellations:
-		var previous: Vector3 = Vector3.ZERO
-		for point in constellation:
-			var sky_point := Vector3(float(point.x), 0.40 + float(point.y) * 0.35, -1.0).normalized() * STAR_DOME_RADIUS
-			if previous != Vector3.ZERO:
-				line_mesh.surface_add_vertex(previous)
-				line_mesh.surface_add_vertex(sky_point)
-			previous = sky_point
-			var star_mesh := SphereMesh.new()
-			star_mesh.radius = 0.24 if star_index % 4 else 0.34
-			star_mesh.height = star_mesh.radius * 2.0
-			star_mesh.radial_segments = 6
-			star_mesh.rings = 3
-			var star_node := MeshInstance3D.new()
-			star_node.name = "Star_%02d" % star_index
-			star_node.mesh = star_mesh
-			star_node.position = sky_point
-			var star_material := StandardMaterial3D.new()
-			star_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-			star_material.albedo_color = Color("c9e9ff")
-			star_material.emission_enabled = true
-			star_material.emission = Color("90cfff")
-			star_material.emission_energy_multiplier = 2.0
-			star_node.material_override = star_material
-			_star_dome.add_child(star_node)
-			star_index += 1
-	line_mesh.surface_end()
-	var lines := MeshInstance3D.new()
-	lines.name = "ConstellationLines"
-	lines.mesh = line_mesh
-	lines.material_override = line_material
-	_star_dome.add_child(lines)
-	_star_dome.visible = false
-
-
-func _add_star_multimesh(layer_name: String, count: int, radius: float, tint: Color, energy: float, rng: RandomNumberGenerator) -> void:
-	var sphere := SphereMesh.new()
-	sphere.radius = radius
-	sphere.height = radius * 2.0
-	sphere.radial_segments = 5
-	sphere.rings = 3
-
-	var star_material := StandardMaterial3D.new()
-	star_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	star_material.albedo_color = tint
-	star_material.emission_enabled = true
-	star_material.emission = tint
-	star_material.emission_energy_multiplier = energy
-
-	var multimesh := MultiMesh.new()
-	multimesh.transform_format = MultiMesh.TRANSFORM_3D
-	multimesh.mesh = sphere
-	multimesh.instance_count = count
-	for index in range(count):
-		var vertical: float = rng.randf_range(-1.0, 1.0)
-		var azimuth: float = rng.randf_range(0.0, TAU)
-		var horizontal: float = sqrt(maxf(0.0, 1.0 - vertical * vertical))
-		var direction := Vector3(horizontal * cos(azimuth), vertical, horizontal * sin(azimuth))
-		var size_scale: float = rng.randf_range(0.55, 1.45)
-		var transform_basis := Basis.IDENTITY.scaled(Vector3.ONE * size_scale)
-		var position: Vector3 = direction * STAR_DOME_RADIUS * 0.94
-		multimesh.set_instance_transform(index, Transform3D(transform_basis, position))
-
-	var stars := MultiMeshInstance3D.new()
-	stars.name = layer_name
-	stars.multimesh = multimesh
-	stars.material_override = star_material
-	_star_dome.add_child(stars)
-
-
 func _update_ambience(_delta: float) -> void:
 	var phase: float = _day_clock / DAY_CYCLE_SECONDS
 	# Sunrise begins at cycle wrap; sunset begins at 75% of the cycle.
@@ -365,6 +291,8 @@ func _update_ambience(_delta: float) -> void:
 	var night: float = smoothstep(0.75, 0.87, phase) * (1.0 - smoothstep(0.94, 1.0, phase))
 	_update_ship_lanterns(night)
 	for root in _island_nodes.values():
+		if not root.visible:
+			continue
 		var base: Node = root.get_node_or_null("FactionHarbor")
 		if base == null: base = root.get_node_or_null("HomeBase3D")
 		if base != null:
@@ -390,9 +318,6 @@ func _update_ambience(_delta: float) -> void:
 		else:
 			solar_elevation = -sin(PI * (phase - 0.75) / 0.25)
 		_sunlight.rotation_degrees = Vector3(-90.0 + 58.0 * solar_elevation, -28.0 + phase * 360.0, 0.0)
-	if _star_dome != null:
-		_star_dome.visible = night > 0.18
-		_star_dome.rotation.y = phase * TAU
 
 
 func _cyclic_pulse(phase: float, center: float, core: float, fade: float) -> float:
@@ -436,7 +361,7 @@ func _update_ship_lanterns(night: float) -> void:
 		return
 	_update_lanterns_for(_ship, night)
 	for model in _traffic_models.values():
-		if is_instance_valid(model):
+		if is_instance_valid(model) and model.visible:
 			_update_lanterns_for(model, night)
 
 func _update_lanterns_for(ship: Node3D, night: float) -> void:
