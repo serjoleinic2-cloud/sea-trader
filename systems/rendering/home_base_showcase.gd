@@ -27,7 +27,7 @@ func _ready() -> void:
 	add_child(_camera)
 	_sun = DirectionalLight3D.new()
 	_sun.rotation_degrees = Vector3(-48, -30, 0)
-	_sun.light_energy = 0.65
+	_sun.light_energy = 1.25
 	_sun.shadow_enabled = true
 	add_child(_sun)
 	_environment = Environment.new()
@@ -35,7 +35,7 @@ func _ready() -> void:
 	_environment.background_color = Color("81bbd4")
 	_environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	_environment.ambient_light_color = Color("b7d7df")
-	_environment.ambient_light_energy = 0.3
+	_environment.ambient_light_energy = 0.65
 	_environment.tonemap_mode = Environment.TONE_MAPPER_LINEAR
 	_environment.fog_enabled = true
 	_environment.fog_light_color = Color("80b7bb")
@@ -142,10 +142,10 @@ func _change_level(value: float) -> void:
 func _set_night(enabled: bool) -> void:
 	_night = enabled
 	_base.set_night_strength(1.0 if enabled else 0.0)
-	_sun.light_energy = 0.10 if enabled else 0.65
+	_sun.light_energy = 0.10 if enabled else 1.25
 	_sun.light_color = Color("91b4e3") if enabled else Color("fff0d2")
 	_environment.background_color = Color("081629") if enabled else Color("81bbd4")
-	_environment.ambient_light_energy = 0.18 if enabled else 0.3
+	_environment.ambient_light_energy = 0.22 if enabled else 0.65
 	_environment.fog_light_color = Color("152b42") if enabled else Color("80b7bb")
 	var renderer = load("res://systems/rendering/approach_3d_view.gd").new()
 	for ship in get_children():
