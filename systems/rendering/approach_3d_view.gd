@@ -10,7 +10,7 @@ const FOG_RADIUS_CHUNKS: int = 6
 const FOG_HEIGHT: float = 28.0
 const DAY_CYCLE_SECONDS: float = 300.0
 const STAR_DOME_RADIUS: float = 420.0
-const OceanSurface = preload("res://systems/rendering/ocean_surface.gd")
+const SEA_LEVEL: float = -0.18
 
 var _world_data: Dictionary = {}
 var _map_world: CanvasItem
@@ -38,20 +38,15 @@ var _camera_initialized: bool = false
 var _environment: Environment
 var _sky_material: ShaderMaterial
 var _sunlight: DirectionalLight3D
-var _water_shader_material: ShaderMaterial
 var _star_dome: Node3D
-var _wake_material: StandardMaterial3D
 var _day_clock: float = 0.0
-var _wave_clock: float = 0.0
+var _animation_clock: float = 0.0
 var _orbit_dragging: bool = false
 var _manual_close_view: bool = false
 var _camera_orbit_yaw: float = 0.0
 var _camera_orbit_pitch: float = 0.0
 var _touch_points: Dictionary = {}
 var _last_touch_distance: float = 0.0
-var _quality_clock: float = 0.0
-var _quality_gpu_total: float = 0.0
-var _quality_samples: int = 0
 
 
 func _ready() -> void:
@@ -71,7 +66,6 @@ func _on_active_ship_changed(_ship_type_id: String) -> void:
 		_ship.queue_free()
 	_ship = _make_ship()
 	_scene_root.add_child(_ship)
-	_add_ship_wake()
 
 
 func initialize(world_data: Dictionary, map_world: CanvasItem, map_ship: CanvasItem, trader_traffic: Node = null, fleet_traffic: Node = null) -> void:
@@ -101,21 +95,15 @@ func initialize(world_data: Dictionary, map_world: CanvasItem, map_ship: CanvasI
 		_fleet_traffic.set_process(false)
 	_subviewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 	_subviewport.msaa_3d = Viewport.MSAA_2X
-	RenderingServer.viewport_set_measure_render_time(_subviewport.get_viewport_rid(), true)
 	_sync_generated_world(_world_data)
 
 
 func _process(delta: float) -> void:
-	_wave_clock += delta
-	if _water_shader_material != null:
-		_water_shader_material.set_shader_parameter("ocean_time", _wave_clock)
+	_animation_clock += delta
 	_day_clock = fposmod(_day_clock + delta, DAY_CYCLE_SECONDS)
 	if str(GameState.ship_state.get("docked_port_id", "")) != "":
 		_viewport_container.hide()
 		_subviewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
-		_quality_clock = 0.0
-		_quality_gpu_total = 0.0
-		_quality_samples = 0
 		return
 	_viewport_container.show()
 	_update_ambience(delta)
@@ -152,32 +140,6 @@ func _process(delta: float) -> void:
 	_sync_fog(ship_position)
 	_sync_traffic(_trader_traffic, "trader")
 	_sync_traffic(_fleet_traffic, "fleet")
-	_update_render_quality(delta)
-
-
-func _update_render_quality(delta: float) -> void:
-	# Scale only 3D buffers when measured GPU work exceeds the frame budget.
-	# HUD, town illustrations and all other 2D screens retain native resolution.
-	# Dummy/unsupported renderers report zero; leave their scale unchanged.
-	var gpu_ms: float = RenderingServer.viewport_get_measured_render_time_gpu(_subviewport.get_viewport_rid())
-	if gpu_ms <= 0.0 or delta > 0.25:
-		return
-	_quality_clock += delta
-	_quality_gpu_total += gpu_ms
-	_quality_samples += 1
-	if _quality_clock < 1.5:
-		return
-	var average: float = _quality_gpu_total / float(_quality_samples)
-	var scale_value: float = _subviewport.scaling_3d_scale
-	if average > 13.0:
-		scale_value = maxf(.5, scale_value-.15)
-	elif average < 7.0:
-		scale_value = minf(1.0, scale_value+.10)
-	if not is_equal_approx(scale_value, _subviewport.scaling_3d_scale):
-		_subviewport.scaling_3d_scale = scale_value
-	_quality_clock = 0.0
-	_quality_gpu_total = 0.0
-	_quality_samples = 0
 
 
 func _input(event: InputEvent) -> void:
@@ -268,14 +230,13 @@ func _build_scene() -> void:
 	_sunlight = DirectionalLight3D.new()
 	_sunlight.rotation_degrees = Vector3(-42.0, -28.0, 0.0)
 	_sunlight.light_energy = 1.25
-	_sunlight.shadow_enabled = true
-	_sunlight.directional_shadow_max_distance = 180.0
+	# Keep directional lighting without the expensive shadow pass.
+	_sunlight.shadow_enabled = false
 	_scene_root.add_child(_sunlight)
 
 	_add_water()
 	_ship = _make_ship()
 	_scene_root.add_child(_ship)
-	_add_ship_wake()
 	_build_star_dome()
 	_sailing_gulls = load("res://systems/rendering/seabird_flock.gd").new()
 	_sailing_gulls.periodic = true
@@ -290,38 +251,19 @@ func _build_scene() -> void:
 func _add_water() -> void:
 	var plane := PlaneMesh.new()
 	plane.size = Vector2(2400.0, 2400.0)
-	# The shader concentrates this grid near the ship. Dense distant vertices
-	# added GPU cost without visible wave detail, especially on integrated GPUs.
-	plane.subdivide_width = 192
-	plane.subdivide_depth = 192
-	var shader: Shader = load("res://assets/world/materials/tropical_ocean.gdshader")
 	_water = MeshInstance3D.new()
-	_water.name = "AnimatedOcean"
+	_water.name = "PlainOcean"
 	_water.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	_water.mesh = plane
-	_water_shader_material = ShaderMaterial.new()
-	_water_shader_material.shader = shader
-	_water.material_override = _water_shader_material
-	_water.position.y = -0.18
+	# Diagnostic baseline: two triangles, opaque colour, no waves, depth
+	# sampling, reflection, glints, foam, transparency, or lighting effects.
+	var material := StandardMaterial3D.new()
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	material.albedo_color = Color("247c88")
+	material.roughness = 1.0
+	_water.material_override = material
+	_water.position.y = SEA_LEVEL
 	_scene_root.add_child(_water)
-
-
-func _add_ship_wake() -> void:
-	var wake := MeshInstance3D.new()
-	wake.name = "BioluminescentWake"
-	var plane := PlaneMesh.new()
-	plane.size = Vector2(0.8, 4.8)
-	wake.mesh = plane
-	wake.position = Vector3(0.0, 0.08, 2.5)
-	_wake_material = StandardMaterial3D.new()
-	_wake_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	_wake_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	_wake_material.albedo_color = Color(0.15, 0.95, 0.90, 0.0)
-	_wake_material.emission_enabled = true
-	_wake_material.emission = Color(0.10, 0.82, 0.90)
-	_wake_material.emission_energy_multiplier = 1.4
-	wake.material_override = _wake_material
-	_ship.add_child(wake)
 
 
 func _build_star_dome() -> void:
@@ -451,14 +393,6 @@ func _update_ambience(_delta: float) -> void:
 	if _star_dome != null:
 		_star_dome.visible = night > 0.18
 		_star_dome.rotation.y = phase * TAU
-	if _wake_material != null:
-		var velocity: Vector2 = Vector2(GameState.ship_state.get("velocity", Vector2.ZERO))
-		var speed_factor: float = clampf(velocity.length() / 80.0, 0.25, 1.0)
-		_wake_material.albedo_color.a = night * speed_factor * 0.78
-		_wake_material.emission_energy_multiplier = lerpf(0.4, 1.8, night)
-	if _water_shader_material != null:
-		_water_shader_material.set_shader_parameter("twilight_amount", twilight * 0.38)
-		_water_shader_material.set_shader_parameter("twilight_reflection", Vector3(0.95, 0.41, 0.18))
 
 
 func _cyclic_pulse(phase: float, center: float, core: float, fade: float) -> float:
@@ -507,7 +441,7 @@ func _update_ship_lanterns(night: float) -> void:
 
 func _update_lanterns_for(ship: Node3D, night: float) -> void:
 	var strength: float = smoothstep(0.08, 0.55, night)
-	var flicker: float = 1.0 + sin(_wave_clock * 9.1) * 0.025 + sin(_wave_clock * 13.7) * 0.015
+	var flicker: float = 1.0 + sin(_animation_clock * 9.1) * 0.025 + sin(_animation_clock * 13.7) * 0.015
 	for lantern in ship.get_children():
 		if not str(lantern.name).begins_with("KeroseneLantern"):
 			continue
@@ -1039,7 +973,9 @@ func _sync_traffic(traffic_renderer: Node, traffic_group: String) -> void:
 			heading = Vector2.UP
 		model.position = Vector3(position.x * MAP_TO_METERS, 0.12, position.y * MAP_TO_METERS)
 		model.rotation.y = -heading.angle() - PI * 0.5
-		OceanSurface.float_ship(model, position * MAP_TO_METERS, heading.angle(), maxf(3.48, float(vessel.get("length", 87.0)) * MAP_TO_METERS), _wave_clock)
+		model.position.y = SEA_LEVEL + 0.04
+		model.rotation.x = 0.0
+		model.rotation.z = 0.0
 
 	for raw_model_key in _traffic_models.keys():
 		var model_key: String = str(raw_model_key)
@@ -1080,9 +1016,9 @@ func _update_camera(ship_position: Vector2, close_factor: float, delta: float) -
 	if _sailing_gulls != null:
 		_sailing_gulls.position = ship_world_position
 	_ship.position = ship_world_position
-	# Visual motion only: navigation, collision and the camera keep a stable base.
-	var visual: Dictionary = GameData.read("res://data/world/ship_visuals.json").get("ships", {}).get(str(GameState.ship_state.get("ship_id", "ship_sloop")), {})
-	OceanSurface.float_ship(_ship, ship_position * MAP_TO_METERS, -_ship.rotation.y - PI * 0.5, float(visual.get("display_length", 3.48)), _wave_clock)
+	_ship.position.y = SEA_LEVEL + 0.04
+	_ship.rotation.x = 0.0
+	_ship.rotation.z = 0.0
 
 	var forward := Vector3(cos(heading), 0.0, sin(heading))
 	var map_zoom: Vector2 = Vector2.ONE

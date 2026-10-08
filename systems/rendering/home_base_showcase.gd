@@ -28,7 +28,7 @@ func _ready() -> void:
 	_sun = DirectionalLight3D.new()
 	_sun.rotation_degrees = Vector3(-48, -30, 0)
 	_sun.light_energy = 1.25
-	_sun.shadow_enabled = true
+	_sun.shadow_enabled = false
 	add_child(_sun)
 	_environment = Environment.new()
 	_environment.background_mode = Environment.BG_COLOR
@@ -46,12 +46,12 @@ func _ready() -> void:
 	var water := MeshInstance3D.new()
 	var plane := PlaneMesh.new()
 	plane.size = Vector2(2400, 2400)
-	plane.subdivide_width = 512
-	plane.subdivide_depth = 512
 	water.mesh = plane
-	var material := ShaderMaterial.new()
-	var shader: Shader = load("res://assets/world/materials/tropical_ocean.gdshader")
-	material.shader = shader
+	water.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var material := StandardMaterial3D.new()
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	material.albedo_color = Color("247c88")
+	material.roughness = 1.0
 	water.material_override = material
 	water.position.y = -0.06
 	add_child(water)
