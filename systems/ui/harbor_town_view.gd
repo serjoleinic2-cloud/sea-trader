@@ -8,7 +8,7 @@ const NAMES: Array[String] = ["Причал", "Склад", "Мастерска�
 ## from the 3D showcase manifest: this is the live construction screen.
 # Captain's House aligns with the fishing wharf, raised 264 authored pixels.
 # Barracks aligns vertically with the Mage Guild, shifted right 358 authored pixels.
-const SITES: Array[Vector2] = [Vector2(.81,.79), Vector2(.40,.57), Vector2(.61,.5448), Vector2(.20,.37), Vector2(.865,.575), Vector2(.41,.37), Vector2(.18,.745), Vector2(.61,.3425), Vector2(.18,.52), Vector2(.8344,.3425)]
+const SITES: Array[Vector2] = [Vector2(.81,.79), Vector2(.40,.57), Vector2(.6327,.5448), Vector2(.20,.37), Vector2(.865,.575), Vector2(.41,.37), Vector2(.18,.745), Vector2(.61,.3425), Vector2(.18,.52), Vector2(.8344,.3425)]
 var _main: Node
 var _root: Control
 var _art: Control
@@ -72,6 +72,8 @@ func initialize(main: Node) -> void:
 		plot.tooltip_text = "Построить: " + NAMES[index]
 		container.add_child(plot)
 		_sites.append({"container":container,"sprite":sprite,"annex":annex,"tower":tower,"scaffold":scaffold,"plot":plot})
+	# Draw the workshop and its upgrades last; keep click order consistent with visibility.
+	_art.move_child(_sites[BUILDINGS.find("workshop")].container, -1)
 	_title = Label.new()
 	_title.add_theme_font_size_override("font_size", 23)
 	_title.add_theme_color_override("font_outline_color", Color("092430"))
