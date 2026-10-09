@@ -74,6 +74,9 @@ func apply_control(control: Control) -> void:
 	var theme: Theme = get_theme()
 	if control.theme != theme:
 		control.theme = theme
+	if control is Button and (control.has_meta("brass_close") or str(control.name) == "CloseButton" or str(control.text).begins_with("Закрыть")):
+		preload("res://systems/ui/brass_close_button.gd").apply(control)
+		return
 	if control.has_meta("preserve_art_style"):
 		return
 	if control.has_meta("sea_game_theme"):

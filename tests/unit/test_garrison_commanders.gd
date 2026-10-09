@@ -79,9 +79,9 @@ func test_legacy_commander_remains_visible_and_can_be_dismissed() -> void:
 	GameState.combat_state.commander={"name":"Сирена Вальтэра","race_id":"nerids","attack_bonus":6.0,"defense_bonus":4.0,"expenses_bonus":2.0}
 	combat._normalize_state(); window.open()
 	assert_eq(combat.get_commander().id,"nerids_marshal")
-	assert_eq(window._art_screen._hire.text,"СНЯТЬ НАЗНАЧЕННОГО")
-	assert_false(window._art_screen._hire.disabled)
-	window._art_screen._hire.pressed.emit()
+	assert_eq(window._art_screen._dismiss_button.text,"В РЕЗЕРВ")
+	assert_false(window._art_screen._dismiss_button.disabled)
+	window._art_screen._dismiss_button.pressed.emit()
 	assert_true(combat.get_commander().is_empty())
 
 func test_command_bonus_applies_to_embarked_army_without_adding_home_units() -> void:
@@ -90,3 +90,65 @@ func test_command_bonus_applies_to_embarked_army_without_adding_home_units() -> 
 	combat.hire_commander(window._commander_profile("nerids",0),0)
 	assert_gt(combat.get_attack_power(troops),base)
 	assert_lt(combat.get_attack_power(troops),combat.get_attack_power())
+
+func test_owned_commander_returns_from_reserve_without_payment() -> void:
+	var profile: Dictionary = window._commander_profile("nerids",0)
+	profile.experience=91; profile.skills={"tactics":3}
+	assert_true(combat.hire_commander(profile,0).ok)
+	var money: float = GameState.player_state.money
+	assert_true(combat.dismiss_commander(0).ok)
+	assert_eq(combat.get_commander_reserve().size(),1)
+	assert_true(SaveSystem.load_game())
+	assert_true(combat.assign_reserved_commander(0,1).ok)
+	assert_eq(GameState.player_state.money,money)
+	assert_eq(combat.get_commander(1).experience,91)
+	assert_eq(combat.get_commander(1).skills.tactics,3)
+	assert_eq(combat.get_commander(1).portrait,profile.portrait)
+	assert_eq(combat.get_commander_reserve().size(),0)
+
+func test_full_reserve_allows_swap_but_blocks_destructive_dismissal() -> void:
+	assert_true(combat.hire_commander(window._commander_profile("nerids",0),0).ok)
+	for index in 10:
+		var profile: Dictionary = window._commander_profile("nerids",1)
+		profile.id="owned_"+str(index); profile.attack_bonus=1.0; profile.experience=index
+		GameState.combat_state.commander_reserve.append(profile)
+	var former: String = combat.get_commander().id
+	var money: float = GameState.player_state.money
+	assert_false(combat.dismiss_commander().ok)
+	assert_eq(combat.get_commander().id,former)
+	assert_true(combat.assign_reserved_commander(0,0).ok)
+	assert_eq(combat.get_commander().id,"owned_0")
+	assert_eq(combat.get_commander_reserve()[0].id,former)
+	assert_eq(combat.get_commander_reserve().size(),10)
+	assert_eq(GameState.player_state.money,money)
+	assert_true(combat.buy_commander_reserve_slot().ok)
+	assert_eq(combat.get_commander_reserve_capacity(),11)
+	assert_eq(GameState.player_state.money,money-1000.0)
+	assert_true(combat.dismiss_commander().ok)
+	assert_eq(combat.get_commander_reserve().size(),11)
+
+func test_reserve_interface_selects_owned_portrait_and_swaps() -> void:
+	combat.hire_commander(window._commander_profile("nerids",0),0)
+	combat.dismiss_commander(0)
+	window.open()
+	var screen: Control = window._art_screen
+	screen._reserve_tab.pressed.emit()
+	assert_eq(screen._reserve_tiles.size(),10)
+	assert_true(screen._reserve_mode)
+	assert_true(screen._candidate_cards[0].portrait.visible==false)
+	screen._reserve_tiles[0].button.pressed.emit()
+	assert_true(screen._hire.text.contains("БЕСПЛАТНО"))
+	screen._hire.pressed.emit()
+	assert_false(combat.get_commander().is_empty())
+	assert_eq(combat.get_commander_reserve().size(),0)
+
+func test_recruit_replacement_keeps_predecessor_and_reserve_is_home_only() -> void:
+	combat.hire_commander(window._commander_profile("nerids",0),0)
+	var replacement: Dictionary = window._commander_profile("nerids",1)
+	assert_true(combat.hire_commander(replacement,0).ok)
+	assert_eq(combat.get_commander_reserve().size(),1)
+	assert_eq(combat.get_commander().id,replacement.id)
+	GameState.ship_state.docked_port_id=""
+	assert_false(combat.assign_reserved_commander(0,0).ok)
+	assert_false(combat.buy_commander_reserve_slot().ok)
+	assert_false(combat.dismiss_commander().ok)

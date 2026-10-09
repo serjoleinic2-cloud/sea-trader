@@ -134,7 +134,10 @@ func _process(delta: float) -> void:
 	if _manual_close_view:
 		close_factor = 1.0
 	_set_transition(close_factor, delta)
-	_update_camera(ship_position, _transition_factor, delta)
+	if bool(GameState.combat_state.get("naval_battle",{}).get("active",false)) and not _manual_close_view:
+		_update_battle_camera(ship_position,delta)
+	else:
+		_update_camera(ship_position, _transition_factor, delta)
 	if _water != null:
 		_water.position.x = ship_position.x * MAP_TO_METERS
 		_water.position.z = ship_position.y * MAP_TO_METERS
@@ -219,6 +222,7 @@ func _build_viewport() -> void:
 	_subviewport = SubViewport.new()
 	_subviewport.size = Vector2i(get_viewport().get_visible_rect().size)
 	_subviewport.own_world_3d = true
+	_subviewport.audio_listener_enable_3d = true
 	_subviewport.transparent_bg = false
 	_subviewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
 	_viewport_container.add_child(_subviewport)
@@ -643,7 +647,7 @@ func _attach_catalog_scene(parent: Node3D, category: String, identity: String, t
 		if not racial.is_empty():
 			entries = [racial]
 	if entries.is_empty() or identity == "":
-		return null
+		return preload("res://systems/rendering/naval_ship_factory.gd").new().attach(parent,identity,target_size_m,true,faction_id) if category == "ships" and identity != "" else null
 	var available: Array[Dictionary] = []
 	for raw_entry in entries:
 		if not (raw_entry is Dictionary):
@@ -656,7 +660,7 @@ func _attach_catalog_scene(parent: Node3D, category: String, identity: String, t
 		if scene_path != "" and ResourceLoader.exists(scene_path):
 			available.append(entry)
 	if available.is_empty():
-		return null
+		return preload("res://systems/rendering/naval_ship_factory.gd").new().attach(parent,identity,target_size_m,true,faction_id) if category == "ships" else null
 	var chosen: Dictionary = available[posmod(abs(hash("%d:%s" % [int(GameState.world_state.get("seed", 0)), identity])), available.size())]
 	var packed_scene: PackedScene = load(str(chosen.get("scene", ""))) as PackedScene
 	if packed_scene == null:
@@ -897,9 +901,11 @@ func _sync_traffic(traffic_renderer: Node, traffic_group: String) -> void:
 			heading = Vector2.UP
 		model.position = Vector3(position.x * MAP_TO_METERS, 0.12, position.y * MAP_TO_METERS)
 		model.rotation.y = -heading.angle() - PI * 0.5
-		model.position.y = SEA_LEVEL + 0.04
-		model.rotation.x = 0.0
-		model.rotation.z = 0.0
+		var motion_time: float = Time.get_ticks_msec() * 0.001 + float(posmod(hash(model_key),100))/10.0
+		var hull_factor: float = clampf(100.0/maxf(80.0,float(vessel.get("length",100))),.4,1.0)
+		model.position.y = SEA_LEVEL + 0.04 + sin(motion_time*1.35)*.018*hull_factor
+		model.rotation.x = sin(motion_time*.85)*.008*hull_factor
+		model.rotation.z = sin(motion_time*1.1)*.013*hull_factor + clampf(float(vessel.get("turn_velocity",0))*-.07,-.05,.05)
 
 	for raw_model_key in _traffic_models.keys():
 		var model_key: String = str(raw_model_key)
@@ -926,7 +932,7 @@ func _make_traffic_ship(vessel: Dictionary) -> Node3D:
 	return ship
 
 
-func _update_camera(ship_position: Vector2, close_factor: float, delta: float) -> void:
+func _update_camera(ship_position: Vector2, close_factor: float, delta: float, move_camera: bool = true) -> void:
 	var velocity: Vector2 = Vector2(GameState.ship_state.get("velocity", Vector2.ZERO))
 	var heading: float = float(GameState.ship_state.get(
 		"heading",
@@ -944,6 +950,7 @@ func _update_camera(ship_position: Vector2, close_factor: float, delta: float) -
 	_ship.rotation.x = 0.0
 	_ship.rotation.z = 0.0
 
+	if not move_camera: return
 	var forward := Vector3(cos(heading), 0.0, sin(heading))
 	var map_zoom: Vector2 = Vector2.ONE
 	var map_camera: Camera2D = get_viewport().get_camera_2d()
@@ -968,6 +975,39 @@ func _update_camera(ship_position: Vector2, close_factor: float, delta: float) -
 	_camera.fov = lerpf(start_fov, 58.0, close_factor)
 
 
+
+func _update_battle_camera(ship_position: Vector2, delta: float) -> void:
+	# At the distant sailing zoom, cannon impacts were only a few pixels wide.
+	# Frame the nearby participants in the unobstructed three quarters of the screen.
+	_update_camera(ship_position,1.0,delta,false)
+	var minimum: Vector2 = ship_position
+	var maximum: Vector2 = ship_position
+	var battle: Dictionary = GameState.combat_state.get("naval_battle",{})
+	for ship in GameState.fleet_state:
+		if not battle.get("ship_ids",[]).has(str(ship.get("instance_id",""))): continue
+		var point: Vector2 = _map_vector(ship.get("escort_state",{}).get("position",ship_position))
+		if point.distance_to(ship_position)>1500: continue
+		minimum=minimum.min(point); maximum=maximum.max(point)
+	for id in battle.get("enemy_ids",[]):
+		var enemy: Dictionary = GameState.combat_state.get("naval_enemies",{}).get(id,{})
+		if enemy.is_empty(): continue
+		var point: Vector2 = _map_vector(enemy.get("position",ship_position))
+		minimum=minimum.min(point); maximum=maximum.max(point)
+	var middle: Vector2 = (minimum+maximum)*.5
+	var span: float = maxf(23.0,(maximum-minimum).length()*MAP_TO_METERS+12.0)
+	var center := Vector3(middle.x*MAP_TO_METERS,.6,middle.y*MAP_TO_METERS)
+	var right := Vector3.RIGHT
+	var focus: Vector3 = center+right*span*.15
+	var desired: Vector3 = focus+Vector3(0,span*.85,span*.6)
+	_camera.position=_camera.position.lerp(desired,1-exp(-delta*4.0))
+	_camera.look_at(focus,Vector3.UP)
+	_camera.fov=58.0
+
+func _map_vector(value: Variant) -> Vector2:
+	if value is Vector2: return value
+	if value is Array and value.size()>=2: return Vector2(float(value[0]),float(value[1]))
+	if value is Dictionary: return Vector2(float(value.get("x",0)),float(value.get("y",0)))
+	return Vector2.ZERO
 
 func _find_nearest_island(ship_position: Vector2) -> Dictionary:
 	var closest: Dictionary = {}

@@ -55,6 +55,7 @@ func _ready() -> void:
 	row.add_child(_selector)
 	var close := Button.new()
 	close.text = "Закрыть ✕"
+	preload("res://systems/ui/brass_close_button.gd").apply(close)
 	close.pressed.connect(_close)
 	row.add_child(close)
 	_surface = SubViewportContainer.new()

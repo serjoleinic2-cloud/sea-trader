@@ -125,6 +125,7 @@ func _ready() -> void:
 	_close_button = Button.new()
 	_close_button.name = "CloseButton"
 	_close_button.text = "×"
+	preload("res://systems/ui/brass_close_button.gd").apply(_close_button)
 	_close_button.tooltip_text = "Закрыть кабинет"
 	_close_button.custom_minimum_size = Vector2(42, 38)
 	_close_button.size = Vector2(42, 38)

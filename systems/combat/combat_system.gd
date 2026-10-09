@@ -43,6 +43,8 @@ func _normalize_state() -> void:
         if not assigned is Dictionary: state[slot_key] = {}; continue
         if not assigned.is_empty() and str(assigned.get("id", "")) == "":
             assigned["id"] = str(assigned.get("race_id", "humans")) + ("_marshal" if slot_key == "commander" else "_deputy")
+    if not state.get("commander_reserve", []) is Array: state["commander_reserve"] = []
+    state["commander_reserve_capacity"] = maxi(10,int(state.get("commander_reserve_capacity",10)))
     if not state.get("units", {}) is Dictionary:
         state["units"] = {}
     if not state.get("towers", []) is Array:
@@ -147,14 +149,20 @@ func hire_commander(candidate: Dictionary, slot: int = 0) -> Dictionary:
     if slot not in [0, 1]: return _result(false, "Выберите один из двух слотов.")
     if not is_at_home():
         return _result(false, "Командиров можно назначать только в главном порту.")
-    if not get_commander(slot).is_empty():
-        return _result(false, "Командир уже назначен. Сначала освободите его место.")
+    if not get_commander(slot).is_empty() and get_commander_reserve().size()>=get_commander_reserve_capacity():
+        return _result(false,"Резерв заполнен. Освободите место назначением или купите дополнительное.")
     var race_id := str(GameState.player_state.get("origin_race_id", ""))
     if race_id == "" or str(candidate.get("race_id", "")) != race_id:
         return _result(false, "Можно нанять только командира вашей расы.")
+    var current: Dictionary = get_commander(slot)
+    if not current.is_empty() and str(current.get("id",""))==str(candidate.get("id","")):
+        return _result(false,"Этот командир уже назначен в выбранный слот.")
     var other: Dictionary = get_commander(1 - slot)
     if not other.is_empty() and str(other.get("id", other.get("name", ""))) == str(candidate.get("id", candidate.get("name", ""))):
         return _result(false, "Этот командир уже занимает другой слот.")
+    for owned in get_commander_reserve():
+        if str(owned.get("id","")) == str(candidate.get("id","")):
+            return _result(false,"Этот командир уже ваш. Назначьте его из резерва.")
     var cost := maxi(0, int(candidate.get("cost", 610)))
     if float(GameState.player_state.get("money", 0.0)) < cost:
         return _result(false, "Не хватает монет: требуется %d." % cost)
@@ -170,6 +178,8 @@ func hire_commander(candidate: Dictionary, slot: int = 0) -> Dictionary:
     appointed.erase("defense")
     appointed.erase("expenses")
     GameState.player_state["money"] = old_money - cost
+    var previous: Dictionary = get_commander(slot)
+    if not previous.is_empty(): GameState.combat_state.commander_reserve.append(previous)
     GameState.combat_state["commander" if slot == 0 else "deputy_commander"] = appointed
     if not SaveSystem.save_game():
         GameState.player_state["money"] = old_money
@@ -183,12 +193,59 @@ func dismiss_commander(slot: int = 0) -> Dictionary:
         return _result(false, "Снять командира можно только в главном порту.")
     if get_commander(slot).is_empty():
         return _result(false, "Командир не назначен.")
+    if get_commander_reserve().size()>=get_commander_reserve_capacity():
+        return _result(false,"Резерв заполнен. Поменяйте командира местами с резервистом или купите место.")
     var old_state: Dictionary = GameState.combat_state.duplicate(true)
+    GameState.combat_state.commander_reserve.append(get_commander(slot))
     GameState.combat_state["commander" if slot == 0 else "deputy_commander"] = {}
     if not SaveSystem.save_game():
         GameState.combat_state = old_state
         return _result(false, "Не удалось сохранить изменение гарнизона.")
-    return _result(true, "Командир снят с должности. Оплата за найм не возвращается.")
+    return _result(true, "Командир переведён в резерв. Повторное назначение бесплатно.")
+
+func get_commander_reserve() -> Array:
+    return GameState.combat_state.get("commander_reserve",[]).duplicate(true)
+
+func get_commander_reserve_capacity() -> int:
+    return maxi(10,int(GameState.combat_state.get("commander_reserve_capacity",10)))
+
+func get_commander_reserve_slot_cost() -> int:
+    var rules: Dictionary = GameData.read("res://data/combat/commander_reserve_rules.json")
+    return int(rules.get("additional_slot_cost",1000)) + maxi(0,get_commander_reserve_capacity()-int(rules.get("initial_capacity",10)))*int(rules.get("additional_slot_cost_step",250))
+
+func buy_commander_reserve_slot() -> Dictionary:
+    if not is_at_home(): return _result(false,"Расширение резерва доступно в родных казармах.")
+    var cost: int = get_commander_reserve_slot_cost()
+    var old_money: float = float(GameState.player_state.get("money",0))
+    if old_money<cost: return _result(false,"Не хватает монет: требуется %d." % cost)
+    var capacity: int = get_commander_reserve_capacity()
+    GameState.player_state.money=old_money-cost
+    GameState.combat_state.commander_reserve_capacity=capacity+1
+    if not SaveSystem.save_game():
+        GameState.player_state.money=old_money
+        GameState.combat_state.commander_reserve_capacity=capacity
+        return _result(false,"Не удалось сохранить расширение резерва.")
+    return _result(true,"Место куплено. Вместимость резерва: %d." % (capacity+1))
+
+func assign_reserved_commander(index: int, slot: int = 0) -> Dictionary:
+    if slot not in [0,1] or not is_at_home(): return _result(false,"Выберите командный слот в родных казармах.")
+    var reserve: Array = GameState.combat_state.get("commander_reserve",[])
+    if index<0 or index>=reserve.size(): return _result(false,"Выберите командира в резерве.")
+    var candidate: Dictionary = reserve[index]
+    if str(candidate.get("race_id",""))!=str(GameState.player_state.get("origin_race_id","")):
+        return _result(false,"Можно назначить только командира вашей расы.")
+    var other: Dictionary = get_commander(1-slot)
+    if not other.is_empty() and str(other.get("id",""))==str(candidate.get("id","")):
+        return _result(false,"Этот командир уже занимает другой слот.")
+    var old_state: Dictionary = GameState.combat_state.duplicate(true)
+    var previous: Dictionary = get_commander(slot)
+    GameState.combat_state["commander" if slot==0 else "deputy_commander"] = candidate.duplicate(true)
+    if previous.is_empty(): reserve.remove_at(index)
+    else: reserve[index]=previous
+    if not SaveSystem.save_game():
+        GameState.combat_state=old_state
+        return _result(false,"Не удалось сохранить назначение из резерва.")
+    return _result(true,"%s назначен бесплатно.%s" % [str(candidate.get("name","Командир"))," Предыдущий командир перешёл в резерв." if not previous.is_empty() else ""])
 
 func get_recruitment_cost(unit_id: String, amount: int = 1) -> int:
     var base_cost := int(_catalog.get("units", {}).get(unit_id, {}).get("hire_cost", 0)) * maxi(0, amount)

@@ -49,6 +49,7 @@ func _ready() -> void:
 	header.add_child(_title)
 	var close := Button.new()
 	close.text = "×"
+	preload("res://systems/ui/brass_close_button.gd").apply(close)
 	close.custom_minimum_size = Vector2(44, 38)
 	close.pressed.connect(close_window)
 	header.add_child(close)

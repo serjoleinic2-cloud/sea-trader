@@ -35,6 +35,7 @@ func _ready() -> void:
 	box.add_child(_action)
 	var close: Button = Button.new()
 	close.text = "Закрыть"
+	preload("res://systems/ui/brass_close_button.gd").apply(close)
 	close.add_theme_font_size_override("font_size", 20)
 	close.custom_minimum_size.y = 46
 	close.pressed.connect(func() -> void: _open = false)

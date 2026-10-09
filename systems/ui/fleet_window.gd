@@ -66,6 +66,7 @@ func _ready() -> void:
 	scroll.add_child(_list)
 	var close_button: Button = Button.new()
 	close_button.text = "Закрыть"
+	preload("res://systems/ui/brass_close_button.gd").apply(close_button)
 	close_button.custom_minimum_size.y = 40
 	close_button.pressed.connect(_close)
 	box.add_child(close_button)

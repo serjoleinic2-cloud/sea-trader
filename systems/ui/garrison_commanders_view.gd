@@ -47,6 +47,16 @@ var _selected_candidate_indices: Dictionary = {}
 var _previous_offer_orders: Dictionary = {}
 var _portrait_catalog: Dictionary = {}
 var _roll_serial: int = 0
+var _reserve_mode: bool = false
+var _reserve_page: int = 0
+var _reserve_selected: int = -1
+var _reserve_tiles: Array = []
+var _reserve_tab: Button
+var _candidates_tab: Button
+var _expand_reserve: Button
+var _dismiss_button: Button
+var _reserve_prev: Button
+var _reserve_next: Button
 
 class Backdrop extends Control:
 	func _draw() -> void:
@@ -69,6 +79,8 @@ func _ready() -> void:
 	canvas=Control.new(); canvas.size=DESIGN; add_child(canvas)
 	var background:=Backdrop.new(); background.size=DESIGN; background.mouse_filter=MOUSE_FILTER_IGNORE; canvas.add_child(background)
 	_button(Rect2(28,20,125,48),"НАЗАД",func(): owner_window._close())
+	var close := _button(Rect2(1620,20,40,40),"",func(): owner_window._close())
+	preload("res://systems/ui/brass_close_button.gd").apply(close)
 	_label(Rect2(184,20,700,45),"КАЗАРМЫ · КОМАНДОВАНИЕ",30,Color("efdcac"))
 	_money_icon=_texture(Rect2(1112,25,32,32),load("res://assets/ui/styles/approved_hud/money.png") as Texture2D)
 	_money_icon.mouse_filter=Control.MOUSE_FILTER_STOP
@@ -128,9 +140,10 @@ func _ready() -> void:
 	_role_buttons.append(_button(Rect2(1135,572,225,44),"Главный командир",func(): _select_command_slot(0)))
 	_role_buttons.append(_button(Rect2(1375,572,250,44),"Заместитель",func(): _select_command_slot(1)))
 	for role_button in _role_buttons: role_button.toggle_mode=true
-	_candidate_refresh=_button(Rect2(1135,516,490,44),"СМЕНИТЬ КАНДИДАТА",_reroll_candidate)
+	_candidate_refresh=_button(Rect2(1135,516,295,44),"СМЕНИТЬ КАНДИДАТОВ",_reroll_candidate)
+	_dismiss_button=_button(Rect2(1440,516,185,44),"В РЕЗЕРВ",_dismiss_to_reserve)
 	_hire=_button(Rect2(1135,633,490,54),"",_appoint)
-	_candidate_heading=_label(Rect2(34,714,1604,22),"КАНДИДАТЫ ВАШЕЙ РАСЫ",16,Color("edce80"))
+	_candidate_heading=_label(Rect2(470,714,670,22),"КАНДИДАТЫ ВАШЕЙ РАСЫ",16,Color("edce80"))
 	for index in 3:
 		var x: float = 264+index*389
 		var frame:=_frame(Rect2(x,738,365,170),false)
@@ -140,6 +153,20 @@ func _ready() -> void:
 		var stats_label:=_label(Rect2(x+12,864,340,32),"",14,Color("77e7cf"))
 		var select_button:=_button(Rect2(x,738,365,170),"",_select_candidate.bind(index),true)
 		_candidate_cards.append({"frame":frame,"portrait":portrait,"name":name_label,"title":title_label,"stats":stats_label,"button":select_button})
+	_candidates_tab=_button(Rect2(34,705,205,34),"КАНДИДАТЫ",func(): _reserve_mode=false; _refresh_now())
+	_reserve_tab=_button(Rect2(249,705,205,34),"РЕЗЕРВ",func(): _reserve_mode=true; _refresh_now())
+	_expand_reserve=_button(Rect2(1140,705,340,34),"",_buy_reserve_slot)
+	_reserve_prev=_button(Rect2(1490,705,60,34),"‹",func(): _reserve_page=maxi(0,_reserve_page-1); _refresh_now())
+	_reserve_next=_button(Rect2(1560,705,60,34),"›",func(): _reserve_page+=1; _refresh_now())
+	for index in 10:
+		var x: float = 34+(index%5)*323
+		var y: float = 750+floori(float(index)/5.0)*78
+		var frame := _frame(Rect2(x,y,310,72),false)
+		var portrait := _texture(Rect2(x+6,y+5,62,62),null)
+		var name_label := _label(Rect2(x+78,y+6,225,23),"",15,Color("ede5cf"))
+		var stats_label := _label(Rect2(x+78,y+32,225,31),"",13,Color("77e7cf"))
+		var button := _button(Rect2(x,y,310,72),"",_select_reserve.bind(index),true)
+		_reserve_tiles.append({"frame":frame,"portrait":portrait,"name":name_label,"stats":stats_label,"button":button})
 	_notice=_label(Rect2(35,914,1590,27),"",17,Color("edd295"))
 
 func configure(window: Node) -> void:
@@ -234,6 +261,10 @@ func refresh(combat: Node) -> void:
 		offers=_candidate_offers.get(slot,[])
 	var selected_index: int = clampi(int(_selected_candidate_indices.get(slot,0)),0,offers.size()-1)
 	var candidate: Dictionary = offers[selected_index]
+	var reserve: Array = system.get_commander_reserve()
+	if _reserve_mode:
+		if _reserve_selected<0 or _reserve_selected>=reserve.size(): _reserve_selected=0 if not reserve.is_empty() else -1
+		candidate=reserve[_reserve_selected] if _reserve_selected>=0 else {}
 	var hired: Dictionary = system.get_commander(slot)
 	var is_hired: bool = not hired.is_empty()
 	_money.text=String.num_int64(int(GameState.player_state.get("money",0)))
@@ -266,12 +297,13 @@ func refresh(combat: Node) -> void:
 		controls.portrait.texture=_candidate_portrait(str(commander.get("race_id",race)),int(commander.get("portrait_variant",index))) if not commander.is_empty() else null
 		_set_frame_selected(controls.frame,index==slot)
 		_role_buttons[index].set_pressed_no_signal(index==role)
+	_hero.visible=not candidate.is_empty()
 	_hero.texture=_candidate_portrait(race,int(candidate.get("portrait_variant",0)))
 	_hero_emblem.texture=GameData.get_faction_emblem(race)
 	_hero_name.text=str(candidate.get("name","Командир")); _hero_title.text=str(candidate.get("title",""))
-	_profile_heading.text="КАНДИДАТ · %s" % ("КОМАНДИР" if slot==0 else "ЗАМЕСТИТЕЛЬ")
-	_status.text="КАНДИДАТ ВАШЕЙ РАСЫ · СЛОТ %d" % (slot+1)
-	_description.text="Слот %d: %s\nЦентральный портрет совпадает с выбранной карточкой снизу." % [slot+1,"главный командир" if slot==0 else "заместитель"]
+	_profile_heading.text=("ВАШ КОМАНДИР · %s" if _reserve_mode else "КАНДИДАТ · %s") % ("КОМАНДИР" if slot==0 else "ЗАМЕСТИТЕЛЬ")
+	_status.text=("РЕЗЕРВ · СЛОТ %d" if _reserve_mode else "КАНДИДАТ ВАШЕЙ РАСЫ · СЛОТ %d") % (slot+1)
+	_description.text="Выберите командира в резерве. Назначение бесплатно." if _reserve_mode else "Назначьте командира: бонусы усилят всю армию."
 	for key in _stats:
 		var value: float = float(candidate.get(str(key)+"_bonus",candidate.get(key,0)))
 		_stats[key].label.text="%+.1f%%" % value
@@ -279,13 +311,21 @@ func refresh(combat: Node) -> void:
 		_stats[key].label.add_theme_color_override("font_color",Color("ee8d75") if key=="expenses" and value>0 else Color("6fe7d1"))
 	var other_hired: Dictionary = system.get_commander(1-slot)
 	var portrait_in_use: bool = not other_hired.is_empty() and int(other_hired.get("portrait_variant",-1))==int(candidate.get("portrait_variant",-2))
-	_hire.text="СНЯТЬ НАЗНАЧЕННОГО" if is_hired else "НАНЯТЬ В СЛОТ %d · %d МОНЕТ" % [slot+1,int(candidate.get("cost",0))]
-	_hire.disabled=not system.is_at_home() or (not is_hired and (not hired.is_empty() or str(candidate.get("race_id",""))!=race or portrait_in_use or float(GameState.player_state.money)<int(candidate.get("cost",0))))
-	_candidate_refresh.disabled=not system.is_at_home()
-	_candidate_refresh.tooltip_text="Обновляет весь ряд кандидатов вашей расы для выбранного слота."
-	_hire.tooltip_text="Снимает текущего командира со слота." if is_hired else "Нанимает персонажа с выбранной карточки в пустой слот."
+	if _reserve_mode:
+		_hire.text="ПОМЕНЯТЬ МЕСТАМИ · БЕСПЛАТНО" if is_hired else "НАЗНАЧИТЬ ИЗ РЕЗЕРВА · БЕСПЛАТНО"
+		_hire.disabled=not system.is_at_home() or candidate.is_empty()
+	else:
+		_hire.text=("НАНЯТЬ И ЗАМЕНИТЬ · %d МОНЕТ" if is_hired else "НАНЯТЬ · %d МОНЕТ") % int(candidate.get("cost",0))
+		_hire.disabled=not system.is_at_home() or portrait_in_use or float(GameState.player_state.money)<int(candidate.get("cost",0)) or (is_hired and reserve.size()>=system.get_commander_reserve_capacity())
+	_candidate_refresh.disabled=not system.is_at_home() or _reserve_mode
+	_candidate_refresh.tooltip_text="Обновляет предложения найма; ваши командиры остаются в резерве."
+	_hire.tooltip_text="Текущий командир перейдёт в резерв. Повторное назначение уже купленного бесплатно."
+	_dismiss_button.disabled=not system.is_at_home() or not is_hired or reserve.size()>=system.get_commander_reserve_capacity()
+	_dismiss_button.tooltip_text="Перевести назначенного командира в резерв, сохранив опыт, навыки и портрет."
+	_refresh_reserve(reserve)
 	for index in _candidate_cards.size():
 		var card: Dictionary = _candidate_cards[index]
+		for control in card.values(): control.visible=not _reserve_mode
 		var offer: Dictionary = offers[index]
 		card.portrait.texture=_candidate_portrait(race,int(offer.get("portrait_variant",index)))
 		card.name.text=str(offer.get("name","Кандидат"))
@@ -307,11 +347,53 @@ func _select_command_slot(index: int) -> void:
 func _appoint() -> void:
 	if system==null: return
 	var candidate: Dictionary = _selected_candidate()
-	if candidate.is_empty(): return
-	var commander: Dictionary = system.get_commander(slot)
-	var result: Dictionary = system.dismiss_commander(slot) if not commander.is_empty() else system.hire_commander(candidate,slot)
+	if not _reserve_mode and candidate.is_empty(): return
+	var result: Dictionary = system.assign_reserved_commander(_reserve_selected,slot) if _reserve_mode else system.hire_commander(candidate,slot)
 	owner_window._notice.text=str(result.get("message",""))
 	owner_window._cards_dirty=true; owner_window._refresh(); refresh(system)
+
+func _refresh_reserve(reserve: Array) -> void:
+	var capacity: int = system.get_commander_reserve_capacity()
+	_reserve_page=clampi(_reserve_page,0,maxi(0,floori(float(capacity-1)/10.0)))
+	_reserve_tab.text="РЕЗЕРВ %d / %d" % [reserve.size(),capacity]
+	_candidate_heading.text="Выберите слот слева и своего командира · бесплатно" if _reserve_mode else "Новые кандидаты вашей расы"
+	_expand_reserve.visible=_reserve_mode
+	_expand_reserve.text="+ МЕСТО · %d МОНЕТ" % system.get_commander_reserve_slot_cost()
+	_expand_reserve.disabled=not system.is_at_home() or float(GameState.player_state.money)<system.get_commander_reserve_slot_cost()
+	_reserve_prev.visible=_reserve_mode and capacity>10
+	_reserve_next.visible=_reserve_mode and capacity>10
+	_reserve_prev.disabled=_reserve_page==0
+	_reserve_next.disabled=(_reserve_page+1)*10>=capacity
+	for index in 10:
+		var entry: Dictionary = _reserve_tiles[index]
+		var absolute: int = _reserve_page*10+index
+		for control in entry.values(): control.visible=_reserve_mode
+		var owned: Dictionary = reserve[absolute] if absolute<reserve.size() else {}
+		entry.portrait.texture=load(str(owned.portrait)) as Texture2D if not owned.is_empty() and ResourceLoader.exists(str(owned.get("portrait",""))) else (_candidate_portrait(str(owned.get("race_id","humans")),int(owned.get("portrait_variant",0))) if not owned.is_empty() else null)
+		entry.name.text=str(owned.get("name","Свободное место" if absolute<capacity else "Купите место"))
+		entry.stats.text="⚔ %+.1f%%   ◇ %+.1f%%" % [float(owned.get("attack_bonus",0)),float(owned.get("defense_bonus",0))] if not owned.is_empty() else "Свободно"
+		entry.button.disabled=owned.is_empty()
+		entry.button.tooltip_text="Выбрать для назначения в слот %d" % (slot+1)
+		_set_frame_selected(entry.frame,absolute==_reserve_selected and not owned.is_empty())
+
+func _select_reserve(tile: int) -> void:
+	_reserve_selected=_reserve_page*10+tile
+	_refresh_now()
+
+func _dismiss_to_reserve() -> void:
+	var result: Dictionary = system.dismiss_commander(slot)
+	owner_window._notice.text=str(result.get("message",""))
+	if bool(result.get("ok",false)):
+		_reserve_mode=true
+		_reserve_selected=system.get_commander_reserve().size()-1
+		_reserve_page=floori(float(_reserve_selected)/10.0)
+	owner_window._cards_dirty=true
+	owner_window._refresh(); _refresh_now()
+
+func _buy_reserve_slot() -> void:
+	var result: Dictionary = system.buy_commander_reserve_slot()
+	owner_window._notice.text=str(result.get("message",""))
+	_refresh_now()
 
 func _frame(rect: Rect2, hero: bool) -> Panel:
 	var panel:=Panel.new(); panel.set_meta("preserve_art_style",true); panel.mouse_filter=MOUSE_FILTER_IGNORE
@@ -325,7 +407,7 @@ func _set_frame_selected(panel: Panel, selected: bool) -> void:
 
 func _label(rect: Rect2, value: String, font_size: int, color: Color) -> Label:
 	var label:=Label.new(); label.position=rect.position; label.size=rect.size; label.text=value; label.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART; label.vertical_alignment=VERTICAL_ALIGNMENT_CENTER; label.mouse_filter=MOUSE_FILTER_IGNORE
-	label.add_theme_font_size_override("font_size",font_size); label.add_theme_color_override("font_color",color); label.set_meta("compact_description",true); canvas.add_child(label)
+	label.add_theme_font_size_override("font_size",font_size); label.add_theme_color_override("font_color",color); label.set_meta("fixed_font_size",font_size); label.set_meta("compact_description",true); canvas.add_child(label)
 	return label
 
 func _texture(rect: Rect2, texture: Texture2D) -> TextureRect:
@@ -347,7 +429,7 @@ func _bar(rect: Rect2, color: Color) -> Control:
 	return bar
 
 func _button(rect: Rect2, value: String, action: Callable, overlay: bool = false) -> Button:
-	var button:=Button.new(); button.set_meta("preserve_art_style",true); button.position=rect.position; button.size=rect.size; button.text=value; button.add_theme_font_size_override("font_size",17); button.set_meta("compact_description",true)
+	var button:=Button.new(); button.set_meta("preserve_art_style",true); button.position=rect.position; button.size=rect.size; button.text=value; button.add_theme_font_size_override("font_size",17); button.set_meta("fixed_font_size",17); button.set_meta("compact_description",true)
 	if overlay:
 		button.flat=true
 		var style:=StyleBoxFlat.new(); style.bg_color=Color(0,0,0,0); button.add_theme_stylebox_override("normal",style)

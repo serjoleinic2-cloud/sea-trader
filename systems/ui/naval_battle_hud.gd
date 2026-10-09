@@ -9,6 +9,7 @@ var _notice: Label
 var _surrender: ConfirmationDialog
 var _report: AcceptDialog
 var _open_amount: float = 0
+var _panel_collapsed: bool = false
 var _clock: float = 0
 var _report_time: float = -1
 var _truce: Button
@@ -30,20 +31,24 @@ func _ready() -> void:
 	for side in ["left","right","top","bottom"]: margin.add_theme_constant_override("margin_"+side,10)
 	_panel.add_child(margin)
 	var column:=VBoxContainer.new(); column.add_theme_constant_override("separation",5); margin.add_child(column)
-	var title:=Label.new(); title.text="МОРСКОЙ БОЙ"; title.add_theme_color_override("font_color",Color("eac46f")); title.add_theme_font_size_override("font_size",16); column.add_child(title)
+	var header:=HBoxContainer.new(); column.add_child(header)
+	var title:=Label.new(); title.text="МОРСКОЙ БОЙ"; title.add_theme_color_override("font_color",Color("eac46f")); title.add_theme_font_size_override("font_size",16); title.size_flags_horizontal=Control.SIZE_EXPAND_FILL; header.add_child(title)
+	var close:=Button.new(); preload("res://systems/ui/brass_close_button.gd").apply(close); close.tooltip_text="Свернуть панель · бой продолжается · Z открывает снова"; close.pressed.connect(func(): _panel_collapsed=true); header.add_child(close)
 	var actions:=HFlowContainer.new(); actions.add_theme_constant_override("separation",4); column.add_child(actions)
 	_button(actions,"Сдаться",func(): _surrender.popup_centered(Vector2i(500,200)))
 	_truce=_button(actions,"Перемирие",func(): _show_status(_system.propose_truce()))
 	_button(actions,"Общий сбор",func(): _show_status(_system.rally()))
-	_notice=Label.new(); _notice.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART; _notice.custom_minimum_size.y=22; _notice.add_theme_font_size_override("font_size",12); column.add_child(_notice)
+	_notice=Label.new(); _notice.set_meta("fixed_font_size",12); _notice.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART; _notice.custom_minimum_size.y=22; _notice.add_theme_font_size_override("font_size",12); column.add_child(_notice)
 	_map=preload("res://systems/ui/naval_tactical_map.gd").new(); _map.custom_minimum_size=Vector2(0,235); _map.size_flags_vertical=Control.SIZE_EXPAND_FILL; _map.size_flags_horizontal=Control.SIZE_EXPAND_FILL; column.add_child(_map)
-	var hint:=Label.new(); hint.text="Свой корабль → цель: атака · точка моря: курс\nОгонь только по вашему приказу"; hint.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART; hint.add_theme_font_size_override("font_size",11); column.add_child(hint)
+	var hint:=Label.new(); hint.set_meta("fixed_font_size",11); hint.text="Свой корабль → цель: атака · точка моря: курс\nОгонь только по вашему приказу"; hint.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART; hint.add_theme_font_size_override("font_size",11); column.add_child(hint)
 	_surrender=ConfirmationDialog.new(); _surrender.title="Сдаться"; _surrender.dialog_text="Сдача означает поражение. Будет списано 10% монет, осколков и свободных ресурсов домашнего склада."; _surrender.ok_button_text="Сдаться"; _surrender.cancel_button_text="Продолжить бой"; _surrender.confirmed.connect(func(): _show_status(_system.surrender())); add_child(_surrender)
 	_report=AcceptDialog.new(); _report.title="Итог морского боя"; add_child(_report)
 	if OS.is_debug_build():
 		_training_button=Button.new(); _training_button.text="ТЕСТ БОЯ · ВЫЗВАТЬ ПАТРУЛЬ"; _training_button.custom_minimum_size=Vector2(270,42); _training_button.set_meta("preserve_art_style",true); _training_button.pressed.connect(_create_training_encounter); add_child(_training_button)
 		_training_notice=AcceptDialog.new(); _training_notice.title="Учебный бой"; add_child(_training_notice)
 	_badge.hide(); _panel.hide(); _lantern.hide(); _attack_notice.hide()
+	for dialog in [_surrender,_report,_training_notice]:
+		if dialog!=null: preload("res://systems/ui/brass_close_button.gd").apply_dialog(dialog)
 
 func _button(parent: Control, text_value: String, callback: Callable) -> Button:
 	var button:=Button.new(); button.set_meta("preserve_art_style",true); button.set_meta("compact_hud",true); button.text=text_value; button.size_flags_horizontal=Control.SIZE_EXPAND_FILL; button.custom_minimum_size.y=42; button.add_theme_font_size_override("font_size",13)
@@ -65,7 +70,12 @@ func _create_training_encounter() -> void:
 	_training_notice.popup_centered(Vector2i(470, 170))
 
 func _start_battle() -> void:
-	if _system==null or _system.active() or _system.nearby_enemies().is_empty(): return
+	if _system==null: return
+	if _system.active():
+		_panel_collapsed=false
+		return
+	if _system.nearby_enemies().is_empty(): return
+	_panel_collapsed=false
 	_show_status(_system.begin_battle())
 
 func _unhandled_key_input(event: InputEvent) -> void:
@@ -78,19 +88,25 @@ func _process(delta: float) -> void:
 	var engaged: bool = _system.active()
 	var viewport: Vector2 = get_viewport().get_visible_rect().size
 	if _training_button != null:
-		_training_button.visible=not engaged
+		_training_button.visible=not engaged and str(GameState.ship_state.get("docked_port_id",""))==""
 		_training_button.position=Vector2(18, viewport.y - 62)
 	var width: float = clampf(viewport.x*.25, 290.0, 370.0)
 	var height: float = minf(viewport.y-92.0, 420.0)
-	if engaged and _open_amount==0: _map.center=_system.vector(GameState.ship_state.position)
-	_open_amount=move_toward(_open_amount,1.0 if engaged else 0.0,delta*4)
+	if engaged and _open_amount==0:
+		_map.center=_system.vector(GameState.ship_state.position)
+		var ids: Array = GameState.combat_state.naval_battle.ship_ids
+		_map.selected=str(ids[0]) if not ids.is_empty() else ""
+	_open_amount=move_toward(_open_amount,1.0 if engaged and not _panel_collapsed else 0.0,delta*4)
 	_panel.visible=_open_amount>0
 	_panel.size=Vector2(width,height)
-	_panel.position=Vector2(viewport.x-width*_open_amount,76)
+	var coordinator: Node = get_tree().get_first_node_in_group("window_coordinator")
+	var top: float = float(coordinator.get("_top_height"))+6.0 if coordinator!=null else 76.0
+	_panel.position=Vector2(viewport.x-width*_open_amount,top)
 	if engaged:
 		if _open_amount<.05: _map.center=_system.vector(GameState.ship_state.position)
 		var battle: Dictionary = GameState.combat_state.naval_battle
 		_notice.text=str(battle.get("notice","Бой идёт."))
+		_notice.text+="\nВремя %d:%02d · выстрелов %d" % [floori(float(battle.get("elapsed",0))/60.0),int(battle.get("elapsed",0))%60,int(battle.get("shots",0))]
 		_truce.disabled=bool(battle.get("truce_pending",false))
 		if bool(battle.get("enemy_initiated",false)) and _attack_notice_until < 0.0:
 			_attack_notice_until=_clock+4.0
@@ -101,7 +117,7 @@ func _process(delta: float) -> void:
 		_attack_notice.size=Vector2(viewport.x,34)
 		_attack_notice.position=_flagship_screen_position()+Vector2(-viewport.x*.5,-88)
 	var alert: bool = not _system.nearby_enemies().is_empty()
-	_badge.visible=alert; _badge.position=Vector2((viewport.x-_badge.size.x)*.5,viewport.y-100)
+	_badge.visible=alert or (engaged and _panel_collapsed); _badge.text="ОТКРЫТЬ БОЙ [Z]" if engaged else "НАЧАТЬ БОЙ [Z]"; _badge.position=Vector2((viewport.x-_badge.size.x)*.5,viewport.y-100)
 	_lantern.visible=alert and fmod(_clock,1)<.55
 	_lantern.position=_flagship_screen_position()+Vector2(-15,-55)
 	var report: Dictionary = GameState.combat_state.get("naval_report",{})

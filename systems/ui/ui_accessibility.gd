@@ -58,6 +58,9 @@ func _apply_control(control: Control) -> void:
 	if not is_instance_valid(control):
 		return
 	_game_theme.apply_control(control)
+	if control.has_meta("fixed_font_size"):
+		control.add_theme_font_size_override("font_size",int(control.get_meta("fixed_font_size")))
+		return
 	if _uses_font_size(control):
 		if not control.has_meta("ui_base_font_size"):
 			var base_size: int = DEFAULT_FONT_SIZE
@@ -67,7 +70,7 @@ func _apply_control(control: Control) -> void:
 		var stored_size: int = int(control.get_meta("ui_base_font_size", DEFAULT_FONT_SIZE))
 		var minimum_size: int = 11 if control.has_meta("compact_hud") else (14 if control.has_meta("compact_description") else MINIMUM_READABLE_SIZE)
 		control.add_theme_font_size_override("font_size", maxi(minimum_size, int(round(stored_size * _scale))))
-	if control is Button:
+	if control is Button and not control.has_meta("brass_close"):
 		if not control.has_meta("ui_base_min_height"):
 			control.set_meta("ui_base_min_height", maxf(36.0, control.custom_minimum_size.y))
 		var base_height: float = float(control.get_meta("ui_base_min_height", 36.0))

@@ -263,11 +263,14 @@ func _create_ship_indicators() -> void:
 		segment.tooltip_text = str(item.tip)
 		var label := Label.new()
 		label.text = str(item.label)
-		label.add_theme_font_size_override("font_size", 11)
+		label.set_meta("fixed_font_size", 12)
+		label.add_theme_font_size_override("font_size", 12)
+		label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		label.add_theme_color_override("font_color", Color("f1f3f3"))
 		segment.add_child(label)
 		var bar := ProgressBar.new()
 		bar.custom_minimum_size = Vector2(72, 7)
+		bar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		bar.show_percentage = false
 		bar.add_theme_stylebox_override("background", _meter_style(Color("132c36")))
 		bar.add_theme_stylebox_override("fill", _meter_style(Color("56c9d2")))
@@ -278,6 +281,7 @@ func _create_ship_indicators() -> void:
 			var separator := ColorRect.new()
 			separator.color = Color("81909a66")
 			separator.custom_minimum_size = Vector2(1, 16)
+			separator.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 			_ship_bar.add_child(separator)
 
 func _meter_style(color: Color) -> StyleBoxFlat:
@@ -503,8 +507,9 @@ func _wrap_panel(window: Node, panel: PanelContainer, flag: String) -> void:
 	var close: Button = Button.new()
 	close.name = "CloseButton"
 	close.text = "×"
+	preload("res://systems/ui/brass_close_button.gd").apply(close)
 	close.tooltip_text = "Закрыть · Esc"
-	close.custom_minimum_size = Vector2(48, 46)
+	close.custom_minimum_size = Vector2(40, 40)
 	close.add_theme_font_size_override("font_size", 20)
 	close.pressed.connect(_close_window.bind(window, flag))
 	header.add_child(close)
@@ -535,8 +540,11 @@ func _contains_scroll_container(node: Node) -> bool:
 
 func _wrap_port(port: Node) -> void:
 	port.install_art_layout()
+	port.get("_close_button").pressed.connect(func(): _port_expanded = false)
 
 func _apply_menu_style(node: Node) -> void:
+	if node is AcceptDialog:
+		preload("res://systems/ui/brass_close_button.gd").apply_dialog(node)
 	if node is Control:
 		_game_theme.apply_control(node)
 	for child in node.get_children():
@@ -553,7 +561,7 @@ func _enable_vertical_scrolling(node: Node) -> void:
 
 
 func _hide_duplicate_close(node: Node) -> void:
-	if node is Button and str(node.text).to_lower() == "закрыть":
+	if node is Button and (node.has_meta("brass_close") or str(node.text).to_lower() == "закрыть"):
 		node.hide()
 	for child in node.get_children():
 		_hide_duplicate_close(child)
@@ -686,7 +694,9 @@ func _process(_delta: float) -> void:
 	_status.text = str(GameState.world_state.get("autopilot_notice", ""))
 	if docked and not has_modal:
 		var port_panel: PanelContainer = _main.get_node("PortWindow").get("_sheet")
-		port_panel.size = Vector2(minf(1480.0, viewport.x - 40.0), maxf(200.0, viewport.y - _top_height - 24.0))
+		var bottom_menu: Control = _main.get_node("PortWindow").get("_bottom_menu")
+		var bottom_space: float = bottom_menu.size.y+28.0
+		port_panel.size = Vector2(minf(1480.0, viewport.x - 40.0), maxf(200.0, viewport.y - _top_height - bottom_space))
 		port_panel.position = Vector2((viewport.x - port_panel.size.x) * 0.5, _top_height + 4.0)
 
 func _layout_top_bar(viewport: Vector2) -> void:

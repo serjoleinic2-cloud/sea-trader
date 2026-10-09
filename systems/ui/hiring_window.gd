@@ -106,6 +106,7 @@ func _ready() -> void:
 	profile_column.add_child(_hire_button)
 	_close_button = Button.new()
 	_close_button.text = "Закрыть"
+	preload("res://systems/ui/brass_close_button.gd").apply(_close_button)
 	_close_button.custom_minimum_size.y = 34
 	_close_button.add_theme_font_size_override("font_size", 14)
 	_close_button.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN

@@ -10,6 +10,8 @@ var _combat_system: Node
 var _military_system: Node
 var _shots: Array[Dictionary] = []
 var _debris: Array[Dictionary] = []
+var _frames: Dictionary = {}
+var _audio = preload("res://systems/rendering/naval_battle_audio.gd").new()
 var _rng := RandomNumberGenerator.new()
 
 func initialize(approach_view: Node) -> void:
@@ -26,9 +28,10 @@ func _on_shot(origin: Vector2, target: Vector2, hit: bool, weapon_kind: String, 
 	var muzzle_map: Vector2 = origin + side * 13.0
 	var start := Vector3(muzzle_map.x * MAP_TO_METERS, 0.58, muzzle_map.y * MAP_TO_METERS)
 	start = _model_muzzle_position(attacker_id, start)
-	var finish := Vector3(target.x * MAP_TO_METERS, 0.48, target.y * MAP_TO_METERS)
+	var finish := Vector3(target.x * MAP_TO_METERS, 0.48 if hit else 0.08, target.y * MAP_TO_METERS)
 	var palette := _palette(weapon_kind)
 	_spawn_flash(start, palette.flash)
+	_audio.play(_world,"cannon_fire",start)
 	if _shots.size() >= MAX_ACTIVE_SHOTS:
 		_remove_shot(0)
 	var projectile := MeshInstance3D.new()
@@ -48,9 +51,8 @@ func _on_shot(origin: Vector2, target: Vector2, hit: bool, weapon_kind: String, 
 	tracer.mesh = trail_mesh
 	tracer.material_override = _glow_material(palette.trail, palette.energy * 0.75)
 	_world.add_child(tracer)
-	var distance: float = start.distance_to(finish)
-	var speed: float = 34.0 if weapon_kind == "mortar" else (58.0 if weapon_kind == "cannon" else 82.0)
-	_shots.append({"projectile": projectile, "tracer": tracer, "start": start, "finish": finish, "previous": start, "progress": 0.0, "duration": clampf(distance / speed, 0.16, 0.95), "hit": hit, "kind": weapon_kind})
+	var duration: float = preload("res://systems/combat/naval_artillery.gd").flight_seconds(origin,target,weapon_kind)
+	_shots.append({"projectile": projectile, "tracer": tracer, "start": start, "finish": finish, "previous": start, "progress": 0.0, "duration": duration, "hit": hit, "kind": weapon_kind})
 
 func _model_muzzle_position(attacker_id: String, fallback: Vector3) -> Vector3:
 	if attacker_id == "" or not is_instance_valid(_world): return fallback
@@ -85,19 +87,20 @@ func _process(delta: float) -> void:
 		shot.previous = current
 		if t >= 1.0:
 			if bool(shot.hit): _spawn_impact(shot.finish, str(shot.kind))
+			else: _spawn_splash(shot.finish)
 			_remove_shot(index)
 	for index in range(_debris.size() - 1, -1, -1):
 		var piece: Dictionary = _debris[index]
 		piece.ttl = float(piece.ttl) - delta
-		var node: MeshInstance3D = piece.node
+		var node: Node3D = piece.node
 		if not is_instance_valid(node) or float(piece.ttl) <= 0.0:
 			if is_instance_valid(node): node.queue_free()
 			_debris.remove_at(index)
 			continue
-		piece.velocity.y -= 2.4 * delta
+		if bool(piece.get("gravity",false)): piece.velocity.y -= 2.4 * delta
 		node.position += Vector3(piece.velocity) * delta
-		node.rotate_x(float(piece.spin.x) * delta)
-		node.rotate_z(float(piece.spin.y) * delta)
+		if node is AnimatedSprite3D:
+			node.modulate.a = minf(1.0, float(piece.ttl) * 3.0)
 
 func get_vessel_snapshots() -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
@@ -115,49 +118,52 @@ func _remove_shot(index: int) -> void:
 		if is_instance_valid(node): node.queue_free()
 	_shots.remove_at(index)
 
+func _animation(kind: String, duration: float) -> SpriteFrames:
+	var key: String = kind+str(duration)
+	if _frames.has(key): return _frames[key]
+	var texture: Texture2D = load("res://assets/vfx/naval/"+kind+".svg") as Texture2D
+	var frames := SpriteFrames.new()
+	frames.set_animation_loop("default",false)
+	frames.set_animation_speed("default",8.0/duration)
+	for index in 8:
+		var frame := AtlasTexture.new()
+		frame.atlas = texture
+		frame.region = Rect2(index*256,0,256,256)
+		frames.add_frame("default",frame)
+	_frames[key] = frames
+	return frames
+
+func _spawn_sprite(kind: String, at: Vector3, color: Color, size: float, duration: float, velocity: Vector3 = Vector3.ZERO) -> void:
+	if not is_instance_valid(_world): return
+	if _debris.size()>=80:
+		var oldest: Dictionary = _debris.pop_front()
+		if is_instance_valid(oldest.node): oldest.node.queue_free()
+	var sprite := AnimatedSprite3D.new()
+	sprite.name = "Naval_"+kind
+	sprite.sprite_frames = _animation(kind,duration)
+	sprite.pixel_size = size/256.0
+	sprite.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	sprite.shaded = false
+	sprite.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	sprite.modulate = color
+	sprite.position = at
+	_world.add_child(sprite)
+	sprite.play()
+	_debris.append({"node":sprite,"velocity":velocity,"gravity":kind=="splinter","ttl":duration})
+
 func _spawn_flash(at: Vector3, color: Color) -> void:
-	var flash := MeshInstance3D.new()
-	flash.name = "CannonMuzzleFlash"
-	var mesh := SphereMesh.new()
-	mesh.radius = 0.30
-	mesh.height = 0.18
-	mesh.radial_segments = 7
-	mesh.rings = 3
-	flash.mesh = mesh
-	flash.position = at
-	flash.scale = Vector3(1.0, 0.55, 1.5)
-	flash.material_override = _glow_material(color, 3.2)
-	_world.add_child(flash)
-	var light := OmniLight3D.new()
-	light.light_color = color
-	light.light_energy = 1.8
-	light.omni_range = 3.5
-	light.shadow_enabled = false
-	flash.add_child(light)
-	var timer := Timer.new()
-	timer.one_shot = true
-	timer.wait_time = 0.075
-	flash.add_child(timer)
-	timer.timeout.connect(flash.queue_free)
-	timer.start()
+	_spawn_sprite("flash",at,color,1.2,0.20)
+
+func _spawn_splash(at: Vector3) -> void:
+	_audio.play(_world,"water_splash",at)
+	# Eight camera-facing frames: lift, foam crown, droplets and collapse.
+	_spawn_sprite("splash",at+Vector3(0,0.85,0),Color.WHITE,2.8,1.3)
 
 func _spawn_impact(at: Vector3, weapon_kind: String) -> void:
-	if not is_instance_valid(_world): return
-	var wood := Color("a97543")
-	var spark: Color = _palette(weapon_kind).flash
+	_audio.play(_world,"hull_impact",at)
+	_spawn_sprite("impact",at,_palette(weapon_kind).flash,1.6,0.55)
 	for index in 6:
-		if _debris.size() >= 80:
-			var oldest: Dictionary = _debris.pop_front()
-			if is_instance_valid(oldest.node): oldest.node.queue_free()
-		var piece := MeshInstance3D.new()
-		piece.name = "HullSplinter"
-		var plank := BoxMesh.new()
-		plank.size = Vector3(_rng.randf_range(0.045, 0.10), _rng.randf_range(0.025, 0.06), _rng.randf_range(0.12, 0.24))
-		piece.mesh = plank
-		piece.material_override = _glow_material(spark if index < 2 else wood, 1.2 if index < 2 else 0.0)
-		piece.position = at + Vector3(_rng.randf_range(-0.16, 0.16), _rng.randf_range(0.20, 0.55), _rng.randf_range(-0.16, 0.16))
-		_world.add_child(piece)
-		_debris.append({"node": piece, "velocity": Vector3(_rng.randf_range(-1.2, 1.2), _rng.randf_range(0.8, 2.1), _rng.randf_range(-1.2, 1.2)), "spin": Vector2(_rng.randf_range(-9, 9), _rng.randf_range(-9, 9)), "ttl": _rng.randf_range(0.7, 1.35)})
+		_spawn_sprite("splinter",at+Vector3(0,0.25,0),Color.WHITE,0.35,1.2,Vector3(_rng.randf_range(-1.6,1.6),_rng.randf_range(1.5,2.8),_rng.randf_range(-1.6,1.6)))
 
 func _palette(kind: String) -> Dictionary:
 	match kind:

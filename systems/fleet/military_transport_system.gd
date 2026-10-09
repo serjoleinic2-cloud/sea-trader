@@ -281,6 +281,8 @@ func _step_ship(ship: Dictionary, index: int, delta: float) -> void:
 	if position.distance_to(target)<length*.26:
 		ship["status"]="В строю" if docked=="" else "На рейде порта"
 		state["blocked_seconds"] = 0.0
+		state["speed"] = 0.0
+		state["turn_velocity"] = 0.0
 		return
 	var cache: Dictionary = _paths.get(id,{})
 	# Moving formation targets used to trigger a full route rebuild every two
@@ -328,9 +330,16 @@ func _step_ship(ship: Dictionary, index: int, delta: float) -> void:
 	# Turn at a bounded angular speed even when the route planner has no path.
 	# Snapping to the first collision-free candidate made the ship oscillate as
 	# tiny changes in collision geometry changed which side was tested first.
-	var turn_rate: float = 2.2 if no_direct_route else 3.2
+	var definition: Dictionary = GameData.get_ship(str(ship.ship_type_id))
+	var turn_rate: float = clampf(95.0/maxf(80.0,length),.28,1.05)*float(definition.get("base_maneuverability",.85))
 	var player_velocity: Vector2 = _to_vector2(GameState.ship_state.get("velocity", Vector2.ZERO), Vector2.ZERO)
-	var speed: float = maxf(float(GameData.get_ship(str(ship.ship_type_id)).get("base_speed",118)),player_velocity.length()*float(_rules.catchup_speed_multiplier))
+	var cruise: float = float(definition.get("base_speed",118))
+	var requested: float = cruise if tactical else minf(cruise*1.25,maxf(cruise,player_velocity.length()*float(_rules.catchup_speed_multiplier)))
+	var acceleration: float = clampf(3200.0/maxf(80,length),10,40)
+	var brake_speed: float = sqrt(2.0*acceleration*maxf(0,position.distance_to(waypoint)-length*.2))
+	var alignment: float = clampf((current_heading.dot(direction)+1.0)*.5,.2,1.0)
+	var speed: float = move_toward(float(state.get("speed",0)),minf(requested,brake_speed)*alignment,acceleration*delta)
+	state["speed"] = speed
 	var distance: float = minf(speed*delta,position.distance_to(waypoint)*0.82)
 	var steering_angles: Array[float] = [0.0,.35,-.35,.7,-.7,1.1,-1.1]
 	if no_direct_route or float(state.get("blocked_seconds",0.0)) > float(_rules.stuck_repath_seconds):
@@ -355,6 +364,7 @@ func _step_ship(ship: Dictionary, index: int, delta: float) -> void:
 	var moved: bool = false
 	var turn_toward: Vector2 = best_wanted if best_wanted.length_squared() > 0.1 else (preferred if preferred.length_squared() > 0.1 else direction)
 	var turn: float = clampf(current_heading.angle_to(turn_toward), -turn_rate * delta, turn_rate * delta)
+	state["turn_velocity"] = turn/maxf(.001,delta)
 	var steer: Vector2 = current_heading.rotated(turn).normalized()
 	var next: Vector2 = position + steer * distance
 	if distance > 0.0 and _clear_segment(position, next, length, obstacles):
@@ -382,7 +392,7 @@ func get_vessel_snapshots() -> Array[Dictionary]:
 		var heading: Vector2 = _to_vector2(state.get("heading", Vector2.UP), Vector2.UP)
 		if heading.length_squared() < 0.0001:
 			heading = Vector2.UP
-		result.append({"id":str(ship.get("instance_id", "")),"ship_type_id":str(ship.get("ship_type_id", "")),"name":str(ship.get("name","Военный транспорт")),"position":position,"heading":heading.normalized(),"length":_length(ship),"kind":"fleet","faction_id":str(GameState.player_state.get("origin_race_id","humans")),"in_transit":bool(ship.get("escort_enabled",false)),"port_id":str(ship.get("current_port_id","")),"color":Color("cba761")})
+		result.append({"id":str(ship.get("instance_id", "")),"ship_type_id":str(ship.get("ship_type_id", "")),"name":str(ship.get("name","Военный транспорт")),"position":position,"heading":heading.normalized(),"length":_length(ship),"kind":"fleet","faction_id":str(GameState.player_state.get("origin_race_id","humans")),"in_transit":bool(ship.get("escort_enabled",false)),"port_id":str(ship.get("current_port_id","")),"speed":float(state.get("speed",0)),"turn_velocity":float(state.get("turn_velocity",0)),"color":Color("cba761")})
 	return result
 
 func _to_vector2(value: Variant, fallback: Vector2) -> Vector2:

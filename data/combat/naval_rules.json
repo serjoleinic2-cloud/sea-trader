@@ -24,7 +24,7 @@
       "cost": 140,
       "damage": 18,
       "range": 550,
-      "reload": 3,
+      "reload": 8,
       "accuracy": 0.82,
       "skill": "gunnery"
     },
@@ -33,7 +33,7 @@
       "cost": 240,
       "damage": 26,
       "range": 650,
-      "reload": 4,
+      "reload": 10,
       "accuracy": 0.88,
       "skill": "accuracy"
     },
@@ -42,7 +42,7 @@
       "cost": 300,
       "damage": 40,
       "range": 800,
-      "reload": 6,
+      "reload": 14,
       "accuracy": 0.7,
       "skill": "reload"
     }
@@ -51,10 +51,15 @@
   "gun_damage_growth_per_level": 0.12,
   "escort_readiness_radius_multiplier": 2,
   "minimum_gun_range": 300,
-  "maximum_accuracy": 0.98,
+  "maximum_accuracy": 0.95,
   "enemy_move_speed": 90,
   "enemy_standoff_range": 400,
   "enemy_attack_range": 650,
   "enemy_damage": 25,
-  "enemy_reload_seconds": 4
+  "enemy_reload_seconds": 9,
+  "enemy_accuracy": 0.72,
+  "training_minimum_seconds": 120,
+  "training_target_seconds": 180,
+  "training_minimum_hull": 2000,
+  "training_enemy_damage": 1
 }

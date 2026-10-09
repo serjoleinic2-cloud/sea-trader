@@ -147,7 +147,7 @@ func _draw_islands(chart_rect: Rect2) -> void:
 		if radius_px > 44.0:
 			var island_name: String = str(island.get("name", ""))
 			if island_name != "":
-				draw_string(ThemeDB.fallback_font, center + Vector2(-radius_px * 0.45, 5.0), island_name, HORIZONTAL_ALIGNMENT_LEFT, radius_px * 0.9, 15, Color("#e0d7a9"))
+				draw_string(ThemeDB.fallback_font, center + Vector2(-radius_px * 0.45, 5.0), island_name, HORIZONTAL_ALIGNMENT_LEFT, radius_px * 0.9, 11, Color("#e0d7a9"))
 
 
 func _draw_known_ports() -> void:
@@ -251,9 +251,9 @@ func _draw_fleet_ships() -> void:
 
 func _draw_label(position: Vector2, text: String, color: Color) -> void:
 	var font: Font = ThemeDB.fallback_font
-	var font_size: int = 16
+	var font_size: int = 12
 	var label_size: Vector2 = font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size)
-	var background := Rect2(position + Vector2(-4.0, -font_size - 3.0), label_size + Vector2(8.0, font_size + 7.0))
+	var background := Rect2(position + Vector2(-4.0, -font_size - 3.0), label_size + Vector2(8.0, 6.0))
 	draw_rect(background, Color(0.025, 0.055, 0.065, 0.88), true)
 	draw_rect(background, Color(0.52, 0.71, 0.68, 0.48), false, 1.0)
 	draw_string(font, position, text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, color)

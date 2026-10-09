@@ -46,6 +46,8 @@ var _selected_building_id: String = ""
 var _last_home_port_id: String = ""
 var _notice: String = ""
 var _current_section: String = "construction"
+var _shipyard_category: String = "trade"
+var _close_button: Button
 var _modernization_branch: String = "buildings"
 var _market_view: String = "personal"
 var _market_category: String = "all"
@@ -93,9 +95,17 @@ func install_art_layout() -> void:
 	column.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_port_scroll.add_child(column)
 	_port_banner = preload("res://systems/ui/faction_window_banner.gd").new()
-	column.add_child(_port_banner)
+	var header := HBoxContainer.new()
+	column.add_child(header)
+	_port_banner.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	header.add_child(_port_banner)
+	_close_button = Button.new()
+	_close_button.name = "CloseButton"
+	preload("res://systems/ui/brass_close_button.gd").apply(_close_button)
+	header.add_child(_close_button)
 	column.add_child(content)
 	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	content.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_update_merchant_art()
 
 func _update_merchant_art() -> void:
@@ -124,7 +134,7 @@ func _update_merchant_art() -> void:
 	if market:
 		_compact_market_text(_port_scroll)
 	# A full-height scroll keeps actions accessible on short screens.
-	_content_scroll.custom_minimum_size.y = 140 if market else minf(300,maxf(80,get_viewport().get_visible_rect().size.y-420))
+	_content_scroll.custom_minimum_size.y = 80 if _current_section == "shipyard" else (140 if market else minf(300,maxf(80,get_viewport().get_visible_rect().size.y-420)))
 
 func _compact_market_text(node: Node) -> void:
 	if node is Label or node is Button:
@@ -343,8 +353,12 @@ func _process(_delta: float) -> void:
 	_sheet.position = (viewport_size - _sheet.size) * 0.5 - Vector2(0.0, 38.0)
 	_bottom_menu.size = Vector2(minf(1220.0 if desktop_layout else 920.0, viewport_size.x - 24.0), 82.0)
 	if _content_scroll != null:
-		_content_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
-		_content_scroll.custom_minimum_size.y = 230.0 if _current_section == "market" else minf(300.0, maxf(80.0, viewport_size.y - 420.0))
+		_content_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED if _current_section == "shipyard" else ScrollContainer.SCROLL_MODE_AUTO
+		_content_scroll.custom_minimum_size.y = 80 if _current_section == "shipyard" else (230.0 if _current_section == "market" else minf(300.0, maxf(80.0, viewport_size.y - 420.0)))
+	_building_list.size_flags_vertical = Control.SIZE_EXPAND_FILL if _current_section == "shipyard" else Control.SIZE_FILL
+	_details.visible = _current_section != "shipyard" or not _notice.is_empty()
+	_save_button.visible = _current_section != "shipyard"
+	_leave_button.visible = _current_section != "shipyard"
 	_bottom_menu.position = Vector2((viewport_size.x - _bottom_menu.size.x) * 0.5, viewport_size.y - _bottom_menu.size.y - 14.0)
 	var is_home: bool = docked_port == str(GameState.world_state.get("home_port_id", ""))
 	if docked_port != _active_port_id:
@@ -429,8 +443,8 @@ func _refresh_text(port_id: String, is_home: bool) -> void:
 		]
 		return
 	if _current_section == "shipyard":
-		_title.text = "ВЕРФЬ"
-		_details.text = "Выберите корабль, чтобы посмотреть характеристики и начать постройку. " + _notice
+		_title.text = "ВЕРФЬ · УРОВЕНЬ %d" % int(port.get("buildings", {}).get("shipyard", {}).get("level", 0))
+		_details.text = _notice
 		return
 	if _current_section == "resources":
 		_refresh_resources_page(port, ship, port_name)
@@ -516,10 +530,6 @@ func _is_shipyard_active(port_id: String) -> bool:
 func _rebuild_shipyard_list() -> void:
 	for child in _building_list.get_children():
 		child.queue_free()
-	var heading: Label = Label.new()
-	heading.text = "КОРАБЛИ ДЛЯ ПОСТРОЙКИ"
-	heading.add_theme_font_size_override("font_size", 20)
-	_building_list.add_child(heading)
 	var systems: Array[Node] = get_tree().get_nodes_in_group("fleet_system")
 	if systems.is_empty():
 		var unavailable: Label = Label.new()
@@ -531,39 +541,76 @@ func _rebuild_shipyard_list() -> void:
 	var current_project: Dictionary = shipyard_systems[0].get_project() if not shipyard_systems.is_empty() else {}
 	var layout := HBoxContainer.new()
 	layout.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	layout.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	layout.add_theme_constant_override("separation", 18)
 	_building_list.add_child(layout)
 	var left := VBoxContainer.new()
-	left.custom_minimum_size.x = 250.0
+	left.custom_minimum_size.x = 235.0
+	left.name = "ShipyardControls"
 	left.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	left.add_theme_constant_override("separation", 9)
+	left.add_theme_constant_override("separation", 6)
 	layout.add_child(left)
 	var building_systems: Array[Node] = get_tree().get_nodes_in_group("building_project_system")
 	var building_system: Node = building_systems[0] if not building_systems.is_empty() else null
-	var level: int = building_system.get_building_level("shipyard") if building_system != null else 1
 	var info := Label.new()
-	info.text = "ВЕРФЬ · УРОВЕНЬ %d\n\n%s\n\nУлучшения расширяют доступ к судам и укрепляют производственную базу." % [level, building_system.get_building_description("shipyard") if building_system != null else "Строительство и обслуживание кораблей."]
+	info.text = "Выберите судно справа.\nУлучшайте верфь для доступа к новым классам."
 	info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	info.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	info.set_meta("compact_description", true)
+	info.set_meta("ui_base_font_size", 12)
+	info.add_theme_font_size_override("font_size", 14)
+	for category in [["trade", "Торговые корабли"], ["war", "Военные корабли"]]:
+		var tab := Button.new()
+		tab.text = category[1]
+		tab.toggle_mode = true
+		tab.button_pressed = _shipyard_category == category[0]
+		tab.set_meta("compact_description", true)
+		tab.set_meta("ui_base_font_size", 12)
+		tab.set_meta("ui_base_min_height", 28)
+		tab.custom_minimum_size.y = 32
+		tab.pressed.connect(_set_shipyard_category.bind(str(category[0])))
+		left.add_child(tab)
 	left.add_child(info)
 	var improve := Button.new()
 	improve.text = "Улучшить верфь"
-	improve.custom_minimum_size.y = 42
+	improve.custom_minimum_size.y = 32
+	improve.set_meta("compact_description", true)
+	improve.set_meta("ui_base_font_size", 12)
+	improve.set_meta("ui_base_min_height", 28)
 	improve.pressed.connect(_open_building_card.bind("shipyard"))
 	left.add_child(improve)
 	var my_fleet := Button.new()
 	my_fleet.text = "Мой флот и экипажи"
-	my_fleet.custom_minimum_size.y = 42
+	my_fleet.custom_minimum_size.y = 32
+	my_fleet.set_meta("compact_description", true)
+	my_fleet.set_meta("ui_base_font_size", 12)
+	my_fleet.set_meta("ui_base_min_height", 28)
 	my_fleet.pressed.connect(_open_fleet_management)
 	left.add_child(my_fleet)
+	for action in [["Сохранить игру", _save_progress], ["Выйти в море [E]", _leave_port]]:
+		var compact := Button.new()
+		compact.text = action[0]
+		compact.set_meta("compact_description", true)
+		compact.set_meta("ui_base_font_size", 12)
+		compact.set_meta("ui_base_min_height", 28)
+		compact.custom_minimum_size.y = 28
+		compact.pressed.connect(action[1])
+		left.add_child(compact)
+	var catalog_scroll := ScrollContainer.new()
+	catalog_scroll.name = "ShipCatalogScroll"
+	catalog_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	catalog_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	catalog_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	layout.add_child(catalog_scroll)
 	var grid := HFlowContainer.new()
 	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	grid.alignment = FlowContainer.ALIGNMENT_CENTER
 	grid.add_theme_constant_override("h_separation", 16)
 	grid.add_theme_constant_override("v_separation", 10)
-	layout.add_child(grid)
+	catalog_scroll.add_child(grid)
 	for raw_ship in fleet_system.get_ship_types():
 		var ship: Dictionary = raw_ship
+		var military: bool = bool(ship.get("warship", false)) or str(ship.get("id", "")) == "ship_combat_cutter"
+		if military != (_shipyard_category == "war"): continue
 		var ship_id: String = str(ship.get("id", ""))
 		var access: Dictionary = fleet_system.get_ship_access(ship_id)
 		var can_continue: bool = current_project.is_empty() or str(current_project.get("ship_type_id", "")) == ship_id
@@ -581,7 +628,7 @@ func _rebuild_shipyard_list() -> void:
 		if icon_path != "" and ResourceLoader.exists(icon_path):
 			button.icon = load(icon_path) as Texture2D
 		button.disabled = not bool(access.get("ok", false)) or not can_continue
-		button.tooltip_text = str(access.get("message", "")) if not can_continue else ("Сначала завершите или отмените текущий проект." if not current_project.is_empty() else "")
+		button.tooltip_text = "Сначала завершите или отмените текущий проект." if not can_continue else str(access.get("message", ""))
 		button.pressed.connect(_open_ship_card.bind(ship_id))
 		var card := VBoxContainer.new()
 		card.custom_minimum_size.x = 250.0
@@ -596,6 +643,10 @@ func _rebuild_shipyard_list() -> void:
 		inspect.add_theme_font_size_override("font_size", 13)
 		inspect.pressed.connect(func(): preload("res://systems/ui/ship_inspection_window.gd").show_ship(self, ship_id))
 		card.add_child(inspect)
+
+func _set_shipyard_category(category: String) -> void:
+	_shipyard_category = category
+	_rebuild_shipyard_list()
 
 func _open_building_card(building_id: String) -> void:
 	_selected_building_id = building_id

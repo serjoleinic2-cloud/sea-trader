@@ -1,0 +1,5 @@
+{
+  "initial_capacity": 10,
+  "additional_slot_cost": 1000,
+  "additional_slot_cost_step": 250
+}

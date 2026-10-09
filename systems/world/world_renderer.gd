@@ -167,7 +167,7 @@ func _draw_port(port: Dictionary) -> void:
 	draw_arc(pos, radius, 0.0, TAU, 16, port_border_color, 2.0)
 	if str(GameState.world_state.get("home_port_id", "")) == str(port.id):
 		draw_arc(pos, radius + 10.0, 0.0, TAU, 32, Color("f5d142"), 3.0)
-		draw_string(ThemeDB.fallback_font, pos + Vector2(-18, -28), "БАЗА", HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color("f5d142"))
+		draw_string(ThemeDB.fallback_font, pos + Vector2(-18, -28), "БАЗА", HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color("f5d142"))
 	# Name label
 	draw_string(
 		ThemeDB.fallback_font,
@@ -175,7 +175,7 @@ func _draw_port(port: Dictionary) -> void:
 		port.name,
 		HORIZONTAL_ALIGNMENT_LEFT,
 		-1,
-		14,
+		11,
 		Color("ffffff")
 	)
 

@@ -94,6 +94,7 @@ func test_reverse_steering_inverts_bow_rotation() -> void:
 	_physics._update_heading(0.1)
 	var forward_turn: float = _physics._heading
 	_physics._heading = 0.0
+	_physics._yaw_velocity = 0.0 # New reverse fixture starts without the preceding forward turn inertia.
 	_physics._speed = -12.0
 	_physics.apply_control(-1.0, 1.0)
 	_physics._update_heading(0.1)

@@ -92,6 +92,7 @@ func _ready() -> void:
 	box.add_child(_details)
 	var close: Button = Button.new()
 	close.text = "Закрыть"
+	preload("res://systems/ui/brass_close_button.gd").apply(close)
 	close.custom_minimum_size.y = 42
 	close.pressed.connect(_close)
 	box.add_child(close)

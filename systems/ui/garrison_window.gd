@@ -80,6 +80,7 @@ func _ready() -> void:
 	heading.add_child(title)
 	var close_button := Button.new()
 	close_button.text = "Закрыть"
+	preload("res://systems/ui/brass_close_button.gd").apply(close_button)
 	close_button.custom_minimum_size = Vector2(100, 34)
 	close_button.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	close_button.add_theme_font_size_override("font_size", 14)

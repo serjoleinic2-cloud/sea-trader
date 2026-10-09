@@ -101,6 +101,7 @@ func _ready() -> void:
 	scroll.add_child(_destination_list)
 	var close_button := Button.new()
 	close_button.text = "ЗАКРЫТЬ КАРТУ  [N]"
+	preload("res://systems/ui/brass_close_button.gd").apply(close_button)
 	close_button.custom_minimum_size.y = 52
 	close_button.add_theme_font_size_override("font_size", 19)
 	close_button.pressed.connect(_toggle_panel)
@@ -157,9 +158,11 @@ func _rebuild_destinations() -> void:
 
 func _add_destination_button(port_id: String) -> void:
 	var button := Button.new()
-	button.custom_minimum_size.y = 44
+	button.custom_minimum_size.y = 28
+	button.set_meta("fixed_font_size",12)
+	button.set_meta("ui_base_min_height",28)
 	button.text = _port_system.get_port_name(port_id)
-	button.add_theme_font_size_override("font_size", 18)
+	button.add_theme_font_size_override("font_size", 12)
 	button.pressed.connect(_select_destination.bind(port_id))
 	_destination_list.add_child(button)
 

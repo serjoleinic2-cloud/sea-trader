@@ -25,6 +25,32 @@ func after_each() -> void:
 func _sea() -> void:
 	GameState.ship_state.docked_port_id=""
 
+func test_training_battle_remains_active_for_two_minutes_with_manual_fire() -> void:
+	_sea()
+	assert_true(navy.create_training_encounter().ok)
+	var enemy: Dictionary = GameState.combat_state.naval_enemies.debug_training_patrol
+	assert_gte(float(enemy.hull),2000.0)
+	assert_true(navy.begin_battle([enemy.id]).ok)
+	var ship: Dictionary = navy.warships()[0]
+	assert_eq(str(ship.naval_order.kind),"hold","starting battle never issues an attack")
+	navy._step_battle(.1)
+	assert_eq(int(GameState.combat_state.naval_battle.shots),0)
+	assert_true(navy.issue_order(str(ship.instance_id),navy.vector(enemy.position),str(enemy.id)).ok)
+	for step in 1190:
+		navy._step_battle(.1)
+	assert_true(navy.active(),"practice remains active at 119 seconds")
+	assert_gt(int(GameState.combat_state.naval_battle.shots),10,"manual attack visibly fires repeated artillery volleys")
+	assert_gt(float(enemy.hull),0)
+	assert_gt(float(ship.hull),0,"practice return fire cannot quickly destroy the player's vessel")
+	var battle: Dictionary = GameState.combat_state.naval_battle
+	battle.projectiles=[{"remaining":0.0,"hit":true,"damage":1000000.0,"target_kind":"enemy","target_id":enemy.id}]
+	navy._resolve_projectiles(battle,.1)
+	assert_eq(float(enemy.hull),1.0,"overpowered fleets still get two minutes of practice")
+	battle.elapsed=121.0
+	battle.projectiles=[{"remaining":0.0,"hit":true,"damage":1000000.0,"target_kind":"enemy","target_id":enemy.id}]
+	navy._resolve_projectiles(battle,.1)
+	assert_eq(float(enemy.hull),0.0,"training protection expires and battle can end normally")
+
 func test_catalog_models_slots_and_races() -> void:
 	var catalog: Array = GameData.read("res://data/ships/naval_ship_catalog.json").ships
 	assert_eq(catalog.size(),30)
@@ -176,3 +202,37 @@ func test_surrender_never_credits_negative_treasury() -> void:
 	_sea(); navy.begin_battle(); navy.surrender()
 	assert_eq(GameState.player_state.money,-100.0)
 	assert_eq(GameState.combat_state.naval_report.losses.money,0.0)
+
+func test_cannon_damage_waits_for_arrival_and_reload() -> void:
+	assert_true(navy.install_gun("war1",0,"cannon").ok)
+	GameState.fleet_state[0].escort_state.position=Vector2.ZERO
+	GameState.combat_state.naval_enemies.enemy1.position=Vector2(250,0)
+	_sea(); assert_true(navy.begin_battle().ok)
+	assert_true(navy.issue_order("war1",Vector2(250,0),"enemy1").ok)
+	var hull: float = GameState.combat_state.naval_enemies.enemy1.hull
+	navy._step_battle(.05)
+	assert_eq(GameState.combat_state.naval_enemies.enemy1.hull,hull,"firing cannot deal instant damage")
+	assert_eq(GameState.combat_state.naval_battle.projectiles.size(),1)
+	assert_gte(float(GameState.fleet_state[0].guns[0].cooldown),7.0,"artillery needs a visible reload")
+	var projectile: Dictionary = GameState.combat_state.naval_battle.projectiles[0]
+	projectile.hit=true # Exercise impact resolution independently of deterministic accuracy.
+	navy._step_battle(1.0)
+	assert_lt(GameState.combat_state.naval_enemies.enemy1.hull,hull)
+	assert_eq(int(GameState.combat_state.naval_battle.shots),1,"gun cannot fire again during reload")
+
+func test_misses_land_outside_hull_and_do_no_damage() -> void:
+	_sea(); assert_true(navy.begin_battle().ok)
+	var battle: Dictionary = GameState.combat_state.naval_battle
+	var enemy: Dictionary = GameState.combat_state.naval_enemies.enemy1
+	var impact: Vector2 = navy._queue_projectile(battle,Vector2.ZERO,Vector2(350,0),false,"cannon","enemy","enemy1",100,1,130)
+	assert_gt(impact.distance_to(Vector2(350,0)),65.0)
+	navy._resolve_projectiles(battle,4.0)
+	assert_eq(enemy.hull,280.0)
+
+func test_pending_projectiles_survive_saving() -> void:
+	_sea(); assert_true(navy.begin_battle().ok)
+	navy._queue_projectile(GameState.combat_state.naval_battle,Vector2.ZERO,Vector2(350,0),true,"cannon","enemy","enemy1",100,1,130)
+	assert_true(SaveSystem.save_game()); assert_true(SaveSystem.load_game())
+	assert_eq(GameState.combat_state.naval_battle.projectiles.size(),1)
+	navy._resolve_projectiles(GameState.combat_state.naval_battle,4.0)
+	assert_eq(GameState.combat_state.naval_enemies.enemy1.hull,180.0)

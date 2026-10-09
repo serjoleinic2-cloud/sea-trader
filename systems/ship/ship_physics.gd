@@ -21,6 +21,7 @@ var _heading: float = 0.0        # radians, 0 = right, PI/2 = down
 var _speed: float = 0.0          # current scalar speed (pixels/sec)
 var _throttle: float = 0.0       # -1..1 from ShipControl
 var _steering: float = 0.0       # -1..1 from ShipControl
+var _yaw_velocity: float = 0.0
 var _visual_roll: float = 0.0    # current visual roll in degrees
 
 # Reference to the ship visual node (set by ShipScene on ready)
@@ -53,6 +54,7 @@ func setup(ship_data: Dictionary, initialize_state: bool = true) -> void:
 	_throttle = 0.0
 	_steering = 0.0
 	_visual_roll = 0.0
+	_yaw_velocity = 0.0
 	if not initialize_state:
 		restore_from_state()
 		return
@@ -169,7 +171,8 @@ func _update_speed(delta: float) -> void:
 # ============================================================================
 
 func _update_heading(delta: float) -> void:
-	if absf(_steering) < 0.01 or absf(_speed) < 1.0:
+	if absf(_speed) < 1.0:
+		_yaw_velocity = 0.0
 		return
 
 	var steering_ratio: float = _get_steering_ratio()
@@ -183,7 +186,9 @@ func _update_heading(delta: float) -> void:
 	# Steering while backing up turns the stern in the same requested
 	# direction as forward steering; invert the bow rotation during reverse.
 	var travel_direction: float = -1.0 if _speed < 0.0 else 1.0
-	_heading += _steering * turn_rate * delta * travel_direction
+	var requested: float = _steering * turn_rate * travel_direction
+	_yaw_velocity = move_toward(_yaw_velocity,requested,turn_rate*1.8*delta)
+	_heading += _yaw_velocity*delta
 
 
 # ============================================================================

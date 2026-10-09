@@ -83,6 +83,8 @@ func create_training_encounter() -> Dictionary:
 	var race_index: int = race_ids.find(player_race)
 	var enemy_race: String = race_ids[(race_index + 1) % race_ids.size()]
 	var player_position: Vector2 = vector(GameState.ship_state.get("position", Vector2.ZERO))
+	var positions: Array[Vector2] = _training_positions(player_position)
+	if positions.is_empty(): return _result(false,"Здесь берег или причалы мешают стрельбе. Отойдите дальше в открытое море.")
 	var ship: Dictionary = {}
 	for candidate in warships():
 		if float(candidate.get("hull", 0.0)) > 0.0:
@@ -110,28 +112,61 @@ func create_training_encounter() -> Dictionary:
 			ship["commander"] = {"name": "Учебный командир", "race_id": player_race, "level": 1, "experience": 0, "skill_points": 0, "skills": {"gunnery": 1, "accuracy": 1, "reload": 0}}
 			if ship.guns.size() > 0: ship.guns[0] = {"kind": "cannon", "level": 1, "experience": 0, "cooldown": 0.0}
 			if ship.guns.size() > 1: ship.guns[1] = {"kind": "rune", "level": 1, "experience": 0, "cooldown": 0.0}
+		normalize_ship(ship)
+		ship.hull = hull_max(ship)
+		var armed: bool = false
+		for gun in ship.guns:
+			if not gun.is_empty(): armed = true
+		if not armed and not ship.guns.is_empty(): ship.guns[0] = {"kind":"cannon","level":1,"experience":0,"cooldown":0.0}
 		ship["escort_enabled"] = true
 		ship["current_port_id"] = ""
 		ship["autopilot"] = {}
-		ship["escort_state"] = {"initialized": true, "position": player_position + Vector2(-alert_radius() * 0.5, 0.0), "heading": Vector2.LEFT, "blocked_seconds": 0.0, "avoidance_heading": Vector2.ZERO}
+		ship["escort_state"] = {"initialized": true, "position": positions[0], "heading": Vector2.LEFT, "blocked_seconds": 0.0, "avoidance_heading": Vector2.ZERO}
+		# Practice durability accounts for the maximum sustained damage of the entire escort.
+		var damage_per_second: float = 0.0
+		for ally in warships():
+			if not bool(ally.get("escort_enabled", false)): continue
+			for gun in ally.get("guns", []):
+				if gun.is_empty(): continue
+				var definition: Dictionary = _rules.guns.get(str(gun.kind), {})
+				var skills: Dictionary = ally.get("commander",{}).get("skills",{})
+				var bonus: float = float(_rules.skill_bonus)
+				var damage: float = float(definition.get("damage",18)) * (1.0+float(_rules.gun_damage_growth_per_level)*(int(gun.level)-1)) * (1.0+bonus*int(skills.get("gunnery",0)))
+				var reload_time: float = float(definition.get("reload",8))/(1.0+bonus*int(skills.get("reload",0)))
+				damage_per_second += damage/maxf(.1,reload_time)
+		var training_hull: float = maxf(float(_rules.training_minimum_hull),damage_per_second*float(_rules.training_target_seconds))
+		GameState.combat_state.naval_report = {}
 		var enemy_id: String = "debug_training_patrol"
 		var enemy_definition: Dictionary = GameData.get_ship("war_%s_1" % enemy_race)
 		GameState.combat_state.naval_enemies[enemy_id] = {
 			"id": enemy_id,
 			"ship_type_id": str(enemy_definition.get("id", "war_%s_1" % enemy_race)),
-			"name": "Учебный патруль",
+			"name": "Учебный патруль · 2+ минуты",
+			"training": true,
 			"faction_id": enemy_race,
-			"position": player_position + Vector2(alert_radius() * 0.55, 0.0),
+			"position": positions[1],
 			"heading": Vector2.LEFT,
-			"hull": float(enemy_definition.get("hull_max", 280.0)),
-			"hull_max": float(enemy_definition.get("hull_max", 280.0)),
+			"hull": training_hull,
+			"hull_max": training_hull,
 			"level": 1,
 			"hostile": false,
 			"warning": 0.0,
-			"cooldown": 0.0,
+			"cooldown": 3.0,
 			"retreat_until": 0.0
 		}
-	, "Учебный патруль создан рядом. Нажмите Z, чтобы сразу начать бой." )
+	, "Учебный патруль: от 2000 прочности, минимум 2 минуты проверки. Нажмите Z, затем на красный корабль на карте справа — выбранный боевой корабль атакует." )
+
+func _training_positions(origin: Vector2) -> Array[Vector2]:
+	var radius: float = alert_radius()
+	for turn in 24:
+		var direction: Vector2 = Vector2.from_angle(turn*TAU/24.0)
+		var ally: Vector2 = origin+direction*radius*.4
+		var enemy: Vector2 = origin+direction*radius*.8
+		if _military!=null:
+			if not _military._free(ally,130) or not _military._free(enemy,130): continue
+			if _military._guard.is_navigation_move_blocked(origin,ally) or _military._guard.is_navigation_move_blocked(ally,enemy): continue
+		return [ally,enemy]
+	return []
 
 func _enemy_alive(enemy: Dictionary) -> bool:
 	return float(enemy.get("hull",0))>0 and float(enemy.get("retreat_until",0))<=_clock
@@ -250,12 +285,15 @@ func begin_battle(enemy_ids: Array = [], enemy_initiated: bool = false) -> Dicti
 	for enemy in near:
 		if enemy_ids.is_empty() or enemy_ids.has(str(enemy.id)): ids.append(str(enemy.id))
 	if ids.is_empty(): return _result(false,"Противник вышел из радиуса обнаружения.")
-	var battle: Dictionary = {"active":true,"enemy_initiated":enemy_initiated,"ship_ids":[],"enemy_ids":ids,"previous_escorts":{},"truce_pending":false,"shots":0,"notice":"Боевые корабли под вашим управлением."}
+	var battle: Dictionary = {"active":true,"enemy_initiated":enemy_initiated,"ship_ids":[],"enemy_ids":ids,"previous_escorts":{},"truce_pending":false,"shots":0,"elapsed":0.0,"projectiles":[],"notice":"Выберите свой корабль на карте справа, затем красный корабль врага: приказ атаковать."}
 	for ship in warships():
 		if bool(ship.get("escort_enabled",false)) and float(ship.get("hull",0))>0:
 			battle.ship_ids.append(str(ship.instance_id)); battle.previous_escorts[str(ship.instance_id)] = true
 	var status: Dictionary = _transaction(func():
+		GameState.combat_state.naval_report={}
 		GameState.combat_state.naval_battle=battle
+		for enemy_id in battle.enemy_ids:
+			GameState.combat_state.naval_enemies[enemy_id].retreat_until=0.0
 		for id in battle.ship_ids:
 			var ship: Dictionary = ship_by_id(str(id))
 			ship.escort_enabled=false; ship.naval_order={"kind":"hold","point":position(ship)}
@@ -272,6 +310,7 @@ func issue_order(id: String, point: Vector2, enemy_id: String = "") -> Dictionar
 	if enemy_id!="" and not GameState.combat_state.naval_battle.enemy_ids.has(enemy_id): return _result(false,"Цель не участвует в бою.")
 	return _transaction(func():
 		ship.naval_order={"kind":"move" if enemy_id=="" else "attack","point":point,"enemy_id":enemy_id}
+		GameState.combat_state.naval_battle.notice="%s: %s" % [str(ship.name),"курс задан" if enemy_id=="" else "атака назначена · орудия перезаряжаются между залпами"]
 		if _military!=null: _military.clear_orders(id),"Курс задан." if enemy_id=="" else "Цель назначена.")
 
 func rally() -> Dictionary:
@@ -390,11 +429,19 @@ func _detect_hostile() -> void:
 
 func _step_battle(delta: float) -> void:
 	var battle: Dictionary = GameState.combat_state.naval_battle
+	battle.elapsed=float(battle.get("elapsed",0.0))+delta
+	_resolve_projectiles(battle, delta)
 	var enemies: Array[Dictionary] = []
 	for id in battle.enemy_ids:
 		var enemy: Dictionary = GameState.combat_state.naval_enemies.get(id,{})
 		if not enemy.is_empty() and _enemy_alive(enemy): enemies.append(enemy)
-	if enemies.is_empty(): _finish("Победа",{}); return
+	if enemies.is_empty():
+		var destroyed: bool = not battle.enemy_ids.is_empty()
+		for id in battle.enemy_ids:
+			var target: Dictionary = GameState.combat_state.naval_enemies.get(id,{})
+			if target.is_empty() or float(target.get("hull",0))>0: destroyed=false
+		_finish("Победа" if destroyed else "Бой прерван: противник недоступен",{})
+		return
 	var allies: Array[Dictionary] = []
 	for id in battle.ship_ids:
 		var ship: Dictionary = ship_by_id(str(id))
@@ -419,14 +466,22 @@ func _step_battle(delta: float) -> void:
 		var to: Vector2 = position(nearest)
 		var length: float = float(_visuals.get(str(enemy.ship_type_id),{}).get("display_length",5.1))/.04
 		if from.distance_to(to)>float(_rules.enemy_standoff_range):
-			var next: Vector2 = from.move_toward(to,float(_rules.enemy_move_speed)*delta)
-			if _military!=null and _military._clear_segment(from,next,length,_military._obstacles(str(enemy.id))): enemy.position=next; enemy.heading=from.direction_to(next)
+			var heading: Vector2 = vector(enemy.get("heading",Vector2.UP)).normalized()
+			var turn: float = clampf(heading.angle_to(from.direction_to(to)),-delta*clampf(95.0/length,.28,1.0),delta*clampf(95.0/length,.28,1.0))
+			enemy.heading = heading.rotated(turn)
+			enemy.speed = move_toward(float(enemy.get("speed",0)),float(_rules.enemy_move_speed),clampf(3200.0/length,10,40)*delta)
+			var next: Vector2 = from+vector(enemy.heading)*float(enemy.speed)*delta
+			if _military!=null and _military._clear_segment(from,next,length,_military._obstacles(str(enemy.id))): enemy.position=next
 		enemy.cooldown=maxf(0,float(enemy.get("cooldown",0))-delta)
 		if float(enemy.cooldown)<=0 and from.distance_to(to)<float(_rules.enemy_attack_range) and (_military==null or not _military._guard.is_navigation_move_blocked(from,to)):
 			enemy.cooldown=float(_rules.enemy_reload_seconds)
-			nearest.hull=maxf(0,float(nearest.hull)-maxf(1,float(_rules.enemy_damage)-float(GameData.get_ship(str(nearest.ship_type_id)).get("armor",0))))
-			EventBus.naval_shot_fired.emit(from,to,true)
-			EventBus.naval_shot_visual.emit(from,to,true,"cannon",vector(enemy.get("heading",Vector2.LEFT)),str(enemy.get("id","")))
+			var sequence: int = int(battle.get("enemy_shots", 0)) + 1
+			battle.enemy_shots = sequence
+			var hit: bool = float(posmod(hash(str(enemy.id)+str(sequence)),1000))/1000.0 < float(_rules.get("enemy_accuracy",0.72))
+			var damage: float = float(_rules.training_enemy_damage) if bool(enemy.get("training",false)) else maxf(1,float(_rules.enemy_damage)-float(GameData.get_ship(str(nearest.ship_type_id)).get("armor",0)))
+			var impact: Vector2 = _queue_projectile(battle, from, to, hit, "cannon", "ally", str(nearest.instance_id), damage, sequence, _military._length(nearest) if _military != null else 130.0)
+			EventBus.naval_shot_fired.emit(from,impact,hit)
+			EventBus.naval_shot_visual.emit(from,impact,hit,"cannon",vector(enemy.get("heading",Vector2.LEFT)),str(enemy.get("id","")))
 	if bool(battle.get("truce_pending",false)) and _clock>=float(battle.get("truce_at",INF)):
 		var consent: bool = true
 		for enemy in enemies:
@@ -461,14 +516,38 @@ func _fire_ship(ship: Dictionary, enemies: Array[Dictionary], delta: float, batt
 		battle.shots=int(battle.shots)+1
 		var roll: float = float(posmod(hash(str(GameState.world_state.seed)+str(battle.shots)+str(ship.instance_id)),1000))/1000.0
 		var hit: bool = roll<minf(float(_rules.maximum_accuracy),float(definition.accuracy)+bonus*int(skills.get("accuracy",0)))
-		if hit:
-			var damage: float = float(definition.damage)*(1+float(_rules.gun_damage_growth_per_level)*(int(gun.level)-1))*(1+bonus*int(skills.get("gunnery",0)))
-			var armor: float = float(GameData.get_ship(str(target.ship_type_id)).get("armor",0))
-			target.hull=maxf(0,float(target.hull)-maxf(1,damage-armor))
-			gun.experience=int(gun.get("experience",0))+int(_rules.shot_xp)
-			_award_xp(ship,int(_rules.shot_xp))
-		EventBus.naval_shot_fired.emit(origin,vector(target.position),hit)
-		EventBus.naval_shot_visual.emit(origin,vector(target.position),hit,str(gun.get("kind","cannon")),vector(ship.get("escort_state",{}).get("heading",Vector2.UP)),str(ship.get("instance_id","")))
+		var damage: float = float(definition.damage)*(1+float(_rules.gun_damage_growth_per_level)*(int(gun.level)-1))*(1+bonus*int(skills.get("gunnery",0)))
+		var armor: float = float(GameData.get_ship(str(target.ship_type_id)).get("armor",0))
+		var length: float = float(_visuals.get(str(target.ship_type_id),{}).get("display_length",5.1))/.04
+		var impact: Vector2 = _queue_projectile(battle, origin, vector(target.position), hit, str(gun.kind), "enemy", str(target.id), maxf(1,damage-armor), int(battle.shots), length, str(ship.instance_id), ship.guns.find(gun))
+		EventBus.naval_shot_fired.emit(origin,impact,hit)
+		EventBus.naval_shot_visual.emit(origin,impact,hit,str(gun.get("kind","cannon")),vector(ship.get("escort_state",{}).get("heading",Vector2.UP)),str(ship.get("instance_id","")))
+
+func _queue_projectile(battle: Dictionary, origin: Vector2, target: Vector2, hit: bool, kind: String, target_kind: String, target_id: String, damage: float, sequence: int, length: float, shooter_id: String = "", gun_slot: int = -1) -> Vector2:
+	var artillery = preload("res://systems/combat/naval_artillery.gd")
+	var impact: Vector2 = artillery.impact_point(origin,target,hit,sequence,length)
+	if not battle.has("projectiles"): battle.projectiles = []
+	battle.projectiles.append({"remaining":artillery.flight_seconds(origin,impact,kind),"impact":impact,"hit":hit,"damage":damage,"target_kind":target_kind,"target_id":target_id,"shooter_id":shooter_id,"gun_slot":gun_slot})
+	return impact
+
+func _resolve_projectiles(battle: Dictionary, delta: float) -> void:
+	var pending: Array = battle.get("projectiles", [])
+	for index in range(pending.size()-1,-1,-1):
+		var shot: Dictionary = pending[index]
+		shot.remaining = float(shot.remaining)-delta
+		if float(shot.remaining)>0: continue
+		pending.remove_at(index)
+		if not bool(shot.hit): continue
+		var target: Dictionary = ship_by_id(str(shot.target_id)) if str(shot.target_kind)=="ally" else GameState.combat_state.naval_enemies.get(str(shot.target_id),{})
+		if target.is_empty() or float(target.get("hull",0))<=0: continue
+		var floor_hull: float = 1.0 if bool(target.get("training",false)) and float(battle.get("elapsed",0))<float(_rules.training_minimum_seconds) else 0.0
+		target.hull = maxf(floor_hull,float(target.hull)-float(shot.damage))
+		var shooter: Dictionary = ship_by_id(str(shot.get("shooter_id","")))
+		if shooter.is_empty(): continue
+		var slot: int = int(shot.get("gun_slot",-1))
+		if slot>=0 and slot<shooter.guns.size() and not shooter.guns[slot].is_empty():
+			shooter.guns[slot].experience=int(shooter.guns[slot].get("experience",0))+int(_rules.shot_xp)
+		_award_xp(shooter,int(_rules.shot_xp))
 
 func get_enemy_snapshots() -> Array[Dictionary]:
 	var result: Array[Dictionary] = []

@@ -35,7 +35,7 @@ func _gui_input(event: InputEvent) -> void:
 			for id in GameState.combat_state.naval_battle.ship_ids:
 				var ship: Dictionary = system.ship_by_id(str(id))
 				if not ship.is_empty() and point(system.position(ship)).distance_to(clicked)<16:
-					selected=str(id); accept_event(); return
+					selected=str(id); GameState.combat_state.naval_battle.notice="Выбран «%s». Нажмите красный корабль, чтобы атаковать." % str(ship.name); accept_event(); return
 			if selected!="":
 				var enemy_id: String = ""
 				for enemy in system.get_enemy_snapshots():
