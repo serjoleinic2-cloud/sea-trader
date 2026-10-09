@@ -149,6 +149,8 @@ func test_visual_roll_limited() -> void:
 	for _i in range(60):
 		_physics.physics_tick(0.1)
 	assert_lte(absf(_physics.get_visual_roll()), 12.01, "roll should be limited to MAX_ROLL_DEGREES")
+	assert_almost_eq(float(GameState.ship_state.get("visual_roll",0.0)),_physics.get_visual_roll(),0.001,"3D renderer receives the smoothed turn roll")
+	assert_gt(absf(float(GameState.ship_state.get("turn_velocity",0.0))),0.001,"turn velocity is exposed for ship animation")
 
 func test_fuel_not_below_zero() -> void:
 	GameState.ship_state["fuel"] = 0.05

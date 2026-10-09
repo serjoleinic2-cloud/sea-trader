@@ -70,7 +70,7 @@ func _process(delta: float) -> void:
 	if _approach != null and is_instance_valid(_approach):
 		if _combat_system == null: _combat_system = get_tree().get_first_node_in_group("naval_combat_system")
 		if _military_system == null: _military_system = get_tree().get_first_node_in_group("military_transport_system")
-		_approach.call("_sync_traffic", self, "combat")
+		_approach.call("_sync_traffic", self, "combat", delta)
 		_sync_damage_effects()
 	for index in range(_shots.size() - 1, -1, -1):
 		var shot: Dictionary = _shots[index]

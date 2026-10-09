@@ -25,38 +25,39 @@ func after_each() -> void:
 func _sea() -> void:
 	GameState.ship_state.docked_port_id=""
 
-func test_legacy_duplicate_training_ship_ids_do_not_cause_instant_defeat() -> void:
-	_sea()
+func test_legacy_training_squadron_is_retired_to_one_player_warship() -> void:
 	GameState.fleet_state = [
 		{"instance_id":"debug_training_warship","ship_type_id":"war_humans_1","name":"Старый учебный страж","hull":0.0},
-		{"instance_id":"debug_training_warship","ship_type_id":"war_humans_1","name":"Живой учебный страж","hull":280.0}
+		{"instance_id":"debug_training_warship_2","ship_type_id":"war_humans_2","name":"Живой учебный страж","hull":360.0},
+		{"instance_id":"debug_training_warship_archived_1","ship_type_id":"war_humans_3","name":"Запасной учебный страж","hull":180.0}
 	]
+	GameState.combat_state.naval_enemies={"debug_training_patrol":{"id":"debug_training_patrol","hull":2000.0}}
+	GameState.combat_state.naval_battle={"active":true,"ship_ids":["debug_training_warship_2"],"enemy_ids":["debug_training_patrol"]}
 	navy.initialize(main,military)
-	assert_eq(GameState.fleet_state.size(),2,"save migration keeps both fleet records")
-	assert_ne(str(GameState.fleet_state[0].instance_id),str(GameState.fleet_state[1].instance_id))
-	assert_eq(str(navy.ship_by_id("debug_training_warship").name),"Живой учебный страж")
-	assert_true(navy.create_training_encounter().ok)
-	assert_true(navy.begin_battle(["debug_training_patrol"]).ok)
-	navy._step_battle(.1)
-	assert_true(navy.active(),"an old destroyed ship cannot substitute for the living participant")
-	assert_true(navy.issue_order("debug_training_warship",navy.vector(GameState.combat_state.naval_enemies.debug_training_patrol.position),"debug_training_patrol").ok)
+	assert_eq(GameState.fleet_state.size(),1,"the retired 3v3 fixture leaves one player warship")
+	var retained: Dictionary=GameState.fleet_state[0]
+	assert_eq(str(retained.instance_id),"fleet_warship_retained")
+	assert_eq(str(retained.name),"Боевой страж")
+	assert_eq(str(retained.ship_type_id),"war_humans_2","the strongest surviving fixture is retained")
+	assert_true(bool(retained.escort_enabled))
+	assert_true(GameState.combat_state.naval_enemies.is_empty())
+	assert_false(navy.active(),"the obsolete training battle is closed")
 
-func test_destroyed_training_ship_is_reused_on_repeated_practice() -> void:
-	_sea()
-	navy._rules.training_ship_count=1
-	GameState.fleet_state = [{"instance_id":"debug_training_warship","ship_type_id":"war_humans_1","name":"Учебный страж","hull":0.0,"experience":42}]
+func test_retiring_training_fixture_never_removes_player_built_warships() -> void:
+	GameState.fleet_state.append({"instance_id":"debug_training_warship","ship_type_id":"war_humans_2","hull":360.0})
 	navy.initialize(main,military)
-	for encounter in 3:
-		assert_true(navy.create_training_encounter().ok)
-		assert_eq(GameState.fleet_state.size(),1,"repeated practice never duplicates the fixed ship ID")
-		var ship: Dictionary=navy.ship_by_id("debug_training_warship")
-		assert_gt(float(ship.hull),0)
-		assert_eq(int(ship.experience),42,"repair retains earned ship progression")
-		ship.hull=0.0
+	assert_eq(GameState.fleet_state.size(),1,"temporary fixtures are removed when a normal warship exists")
+	assert_eq(str(GameState.fleet_state[0].instance_id),"war1")
 
-func test_training_squadron_and_independent_map_orders() -> void:
+func test_three_ship_battle_supports_independent_map_orders() -> void:
 	_sea()
-	assert_true(navy.create_training_encounter().ok)
+	for index in range(2,4):
+		GameState.fleet_state.append({"instance_id":"war%d" % index,"ship_type_id":"war_humans_%d" % index,"name":"Страж %d" % index,"current_port_id":"","escort_enabled":true,"escort_state":{"initialized":true,"position":Vector2(-200,(index-2)*180-90),"heading":Vector2.RIGHT}})
+	navy.initialize(main,military)
+	GameState.combat_state.naval_enemies={}
+	for index in 3:
+		var enemy_id: String="enemy%d" % (index+1)
+		GameState.combat_state.naval_enemies[enemy_id]={"id":enemy_id,"ship_type_id":"war_surr_%d" % (index+1),"name":"Противник %d" % (index+1),"position":Vector2(260,index*160-160),"heading":Vector2.LEFT,"faction_id":"surr","hull":280.0,"hull_max":280.0,"hostile":false,"cooldown":1000.0,"retreat_until":0.0}
 	assert_eq(navy.warships().size(),3)
 	assert_true(navy.begin_battle().ok)
 	var battle: Dictionary=GameState.combat_state.naval_battle
@@ -76,7 +77,7 @@ func test_training_squadron_and_independent_map_orders() -> void:
 	var moving_ship: Dictionary=navy.ship_by_id(map.selected)
 	var start: Vector2=navy.position(moving_ship)
 	var move_click:=InputEventMouseButton.new(); move_click.button_index=MOUSE_BUTTON_LEFT; move_click.pressed=true
-	move_click.position=map.point(start+Vector2(-100,-150)); map._gui_input(move_click)
+	move_click.position=map.point(start+Vector2(-700,0)); map._gui_input(move_click)
 	assert_eq(str(moving_ship.naval_order.kind),"move","a sea click moves only the selected vessel")
 	for index in 2: assert_eq(str(navy.ship_by_id(str(battle.ship_ids[index])).naval_order.enemy_id),str(battle.enemy_ids[index]))
 	for step in 100:
@@ -107,9 +108,6 @@ func test_training_squadron_and_independent_map_orders() -> void:
 	assert_eq(GameState.combat_state.naval_battle.enemy_ids.size(),3)
 	assert_eq(navy.warships().map(func(ship): return ship.naval_order),before_orders,"individual orders survive reloading the battle")
 	navy.surrender()
-	var fleet_count: int=GameState.fleet_state.size()
-	assert_true(navy.create_training_encounter().ok)
-	assert_eq(GameState.fleet_state.size(),fleet_count,"repeated practice reuses all three ships")
 
 func test_bow_enemy_turns_toward_target_even_inside_firing_distance() -> void:
 	_sea()
@@ -123,33 +121,6 @@ func test_bow_enemy_turns_toward_target_even_inside_firing_distance() -> void:
 	for step in 100: navy._step_battle(.1)
 	assert_gt(navy.vector(enemy.heading).dot(Vector2.RIGHT),.5,"bow guns face the target instead of waiting forever")
 	assert_gt(int(GameState.combat_state.naval_battle.get("enemy_shots",0)),0,"the enemy actually returns fire")
-
-func test_training_battle_remains_active_for_two_minutes_with_manual_fire() -> void:
-	_sea()
-	assert_true(navy.create_training_encounter().ok)
-	var enemy: Dictionary = GameState.combat_state.naval_enemies.debug_training_patrol
-	assert_gte(float(enemy.hull),2000.0)
-	assert_true(navy.begin_battle([enemy.id]).ok)
-	var ship: Dictionary = navy.warships()[0]
-	assert_eq(str(ship.naval_order.kind),"hold","starting battle never issues an attack")
-	navy._step_battle(.1)
-	assert_eq(int(GameState.combat_state.naval_battle.shots),0)
-	assert_true(navy.issue_order(str(ship.instance_id),navy.vector(enemy.position),str(enemy.id)).ok)
-	for step in 1190:
-		navy._step_battle(.1)
-		military._step_ship(ship,0,.1)
-	assert_true(navy.active(),"practice remains active at 119 seconds")
-	assert_gte(int(GameState.combat_state.naval_battle.shots),8,"manual attack visibly fires repeated artillery salvos")
-	assert_gt(float(enemy.hull),0)
-	assert_gt(float(ship.hull),0,"practice return fire cannot quickly destroy the player's vessel")
-	var battle: Dictionary = GameState.combat_state.naval_battle
-	battle.projectiles=[{"remaining":0.0,"hit":true,"damage":1000000.0,"target_kind":"enemy","target_id":enemy.id}]
-	navy._resolve_projectiles(battle,.1)
-	assert_eq(float(enemy.hull),1.0,"overpowered fleets still get two minutes of practice")
-	battle.elapsed=121.0
-	battle.projectiles=[{"remaining":0.0,"hit":true,"damage":1000000.0,"target_kind":"enemy","target_id":enemy.id}]
-	navy._resolve_projectiles(battle,.1)
-	assert_eq(float(enemy.hull),0.0,"training protection expires and battle can end normally")
 
 func test_enemy_in_active_battle_remains_visible_with_a_stale_retreat_timer() -> void:
 	_sea()
@@ -219,6 +190,66 @@ func test_hostile_can_attack_only_ready_escort() -> void:
 	GameState.fleet_state[0].escort_enabled=false
 	for index in 20: navy._detect_hostile()
 	assert_false(navy.active())
+
+func test_foreign_patrols_spawn_in_groups_of_one_to_three() -> void:
+	main._navigation_world.ports["foreign"]={"id":"foreign","position":Vector2(500,0),"faction_id":"humans"}
+	_sea(); navy._ensure_patrols()
+	var patrols: Array=[]
+	for enemy in GameState.combat_state.naval_enemies.values():
+		if str(enemy.get("encounter_group",""))=="patrol_foreign": patrols.append(enemy)
+	assert_gte(patrols.size(),1)
+	assert_lte(patrols.size(),3)
+	for enemy in patrols:
+		assert_ne(str(enemy.faction_id),"humans","faction patrols belong to another race")
+		assert_eq(str(enemy.kind),"faction_patrol")
+
+func test_nearby_member_brings_its_patrol_group_into_battle() -> void:
+	_sea()
+	GameState.combat_state.naval_enemies={
+		"wing_1":{"id":"wing_1","ship_type_id":"war_surr_1","name":"Ведущий","position":Vector2(300,0),"heading":Vector2.LEFT,"faction_id":"surr","kind":"faction_patrol","encounter_group":"wing","hull":280.0,"hull_max":280.0,"retreat_until":0.0},
+		"wing_2":{"id":"wing_2","ship_type_id":"war_surr_1","name":"Ведомый","position":Vector2(navy.alert_radius()*1.5,0),"heading":Vector2.LEFT,"faction_id":"surr","kind":"faction_patrol","encounter_group":"wing","hull":280.0,"hull_max":280.0,"retreat_until":0.0}}
+	assert_true(navy.begin_battle(["wing_1"]).ok)
+	assert_eq(GameState.combat_state.naval_battle.enemy_ids.size(),2)
+
+func test_pirates_spawn_as_rare_black_faction_groups() -> void:
+	_sea(); navy._clock=1000.0; GameState.combat_state.next_pirate_at=0.0
+	navy._ensure_pirates()
+	var pirates: Array=[]
+	for enemy in GameState.combat_state.naval_enemies.values():
+		if str(enemy.get("kind",""))=="pirate": pirates.append(enemy)
+	assert_gte(pirates.size(),1)
+	assert_lte(pirates.size(),2)
+	for pirate in pirates:
+		assert_eq(str(pirate.faction_id),"pirates")
+		assert_true(bool(pirate.hostile))
+	var snapshots: Array[Dictionary]=navy.get_enemy_snapshots()
+	var pirate_snapshot: Dictionary={}
+	for snapshot in snapshots:
+		if str(snapshot.get("enemy_kind",""))=="pirate": pirate_snapshot=snapshot
+	assert_eq(pirate_snapshot.get("color",Color.WHITE),Color("17191f"))
+
+func test_unescorted_pirates_rob_free_cargo_but_not_sealed_contracts() -> void:
+	_sea(); GameState.fleet_state[0].escort_enabled=false
+	GameState.ship_state.cargo=[{"resource_id":"resource_timber","quantity":10},{"resource_id":"resource_parts","quantity":6,"contract_id":"sealed"}]
+	GameState.combat_state.naval_enemies={"pirate":{"id":"pirate","ship_type_id":"war_humans_1","name":"Чёрный корсар","position":Vector2(100,0),"heading":Vector2.LEFT,"faction_id":"pirates","kind":"pirate","hull":280.0,"hull_max":280.0,"hostile":true,"warning":0.0,"retreat_until":0.0}}
+	for index in int(navy._rules.hostile_warning_seconds): navy._detect_hostile()
+	assert_eq(GameState.player_state.money,190000.0)
+	assert_eq(GameState.ship_state.cargo.size(),2)
+	assert_eq(int(GameState.ship_state.cargo[0].quantity),9)
+	assert_eq(int(GameState.ship_state.cargo[1].quantity),6,"sealed contract cargo is protected")
+	assert_true(str(GameState.combat_state.naval_report.outcome).contains("ограбили"))
+
+func test_defeat_by_pirates_loots_cargo_after_the_ship_sinks() -> void:
+	_sea(); GameState.ship_state.cargo=[{"resource_id":"resource_timber","quantity":10}]
+	GameState.combat_state.naval_enemies.enemy1.kind="pirate"
+	GameState.combat_state.naval_enemies.enemy1.faction_id="pirates"
+	assert_true(navy.begin_battle(["enemy1"]).ok)
+	GameState.fleet_state[0].hull=0.0
+	for second in 9:
+		if navy.active(): navy._step_battle(1.0)
+	assert_false(navy.active())
+	assert_true(str(GameState.combat_state.naval_report.outcome).contains("пиратов"))
+	assert_eq(int(GameState.ship_state.cargo[0].quantity),9)
 
 func test_ship_gun_commander_progression_and_arsenal() -> void:
 	assert_true(navy.hire_commander("war1").ok)

@@ -23,7 +23,7 @@ func attach(parent: Node3D, identity: String, target_size: float, prefer_local: 
 		if scene!=null: model=scene.instantiate() as Node3D
 	if model==null:
 		model=preload("res://systems/rendering/naval_ship_visual.gd").new()
-		model.faction_id=str(definition.get("faction_id",faction_id if faction_id!="" else GameState.player_state.get("origin_race_id","humans")))
+		model.faction_id=faction_id if faction_id=="pirates" else str(definition.get("faction_id",faction_id if faction_id!="" else GameState.player_state.get("origin_race_id","humans")))
 		model.warship=bool(definition.get("warship",false))
 		model.ship_id=identity
 		model.tier=model_tier

@@ -151,8 +151,8 @@ func _process(delta: float) -> void:
 		_water.position.x = ship_position.x * MAP_TO_METERS
 		_water.position.z = ship_position.y * MAP_TO_METERS
 	_sync_fog(ship_position)
-	_sync_traffic(_trader_traffic, "trader")
-	_sync_traffic(_fleet_traffic, "fleet")
+	_sync_traffic(_trader_traffic, "trader", delta)
+	_sync_traffic(_fleet_traffic, "fleet", delta)
 	_cull_visuals()
 	_update_ambience(delta)
 
@@ -876,7 +876,7 @@ func _create_fog_tile(chunk_x: int, chunk_y: int) -> Node3D:
 	return tile
 
 
-func _sync_traffic(traffic_renderer: Node, traffic_group: String) -> void:
+func _sync_traffic(traffic_renderer: Node, traffic_group: String, delta: float = 1.0 / 60.0) -> void:
 	if traffic_renderer == null or not traffic_renderer.has_method("get_vessel_snapshots"):
 		return
 	var raw_snapshots: Variant = traffic_renderer.call("get_vessel_snapshots")
@@ -935,9 +935,12 @@ func _sync_traffic(traffic_renderer: Node, traffic_group: String) -> void:
 		var sink: float=smoothstep(0.0,1.0,clampf(float(vessel.get("sink_progress",0)),0.0,1.0))
 		var visible_length: float=maxf(3.48,float(vessel.get("length",87.0))*MAP_TO_METERS)
 		var sink_roll: float=-1.0 if posmod(hash(vessel_id),2)==0 else 1.0
-		model.position.y = SEA_LEVEL + 0.04 + sin(motion_time*1.35)*.018*hull_factor-sink*(.8+visible_length*.34)
-		model.rotation.x = sin(motion_time*.85)*.008*hull_factor+sink*.22
-		model.rotation.z = sin(motion_time*1.1)*.013*hull_factor + clampf(float(vessel.get("turn_velocity",0))*-.07,-.05,.05)+sink*sink_roll*.18
+		var target_turn_bank: float = clampf(float(vessel.get("turn_velocity",0))*-.09,-.08,.08)
+		var turn_bank: float = lerpf(float(model.get_meta("turn_bank",0.0)),target_turn_bank,1.0-exp(-delta*4.0))
+		model.set_meta("turn_bank",turn_bank)
+		model.position.y = SEA_LEVEL + 0.04 + sin(motion_time*1.35)*.026*hull_factor-sink*(.8+visible_length*.34)
+		model.rotation.x = sin(motion_time*.85)*.015*hull_factor+sink*.22
+		model.rotation.z = sin(motion_time*1.1)*.025*hull_factor+turn_bank+sink*sink_roll*.18
 
 	for raw_model_key in _traffic_models.keys():
 		var model_key: String = str(raw_model_key)
@@ -978,9 +981,11 @@ func _update_camera(ship_position: Vector2, close_factor: float, delta: float, m
 	if _sailing_gulls != null:
 		_sailing_gulls.position = ship_world_position
 	_ship.position = ship_world_position
-	_ship.position.y = SEA_LEVEL + 0.04
-	_ship.rotation.x = 0.0
-	_ship.rotation.z = 0.0
+	var motion_time: float = _animation_clock
+	var turn_bank: float = clampf(-deg_to_rad(float(GameState.ship_state.get("visual_roll",0.0)))*.45,-.095,.095)
+	_ship.position.y = SEA_LEVEL + 0.04 + sin(motion_time*1.35)*.026
+	_ship.rotation.x = sin(motion_time*.85)*.015
+	_ship.rotation.z = sin(motion_time*1.1)*.025+turn_bank
 
 	if not move_camera: return
 	var forward := Vector3(cos(heading), 0.0, sin(heading))

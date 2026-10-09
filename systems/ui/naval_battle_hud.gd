@@ -13,8 +13,6 @@ var _panel_collapsed: bool = false
 var _clock: float = 0
 var _report_time: float = -1
 var _truce: Button
-var _training_button: Button
-var _training_notice: AcceptDialog
 var _attack_notice: Label
 var _attack_notice_until: float = -1.0
 var _fit_pending: bool = false
@@ -45,11 +43,8 @@ func _ready() -> void:
 	var hint:=Label.new(); hint.set_meta("fixed_font_size",11); hint.text="ЛКМ: свой корабль → враг или точка моря\nЗажатая ПКМ: двигать карту · колёсико: масштаб\nОгонь только по вашему приказу"; hint.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART; hint.add_theme_font_size_override("font_size",11); column.add_child(hint)
 	_surrender=ConfirmationDialog.new(); _surrender.title="Сдаться"; _surrender.dialog_text="Сдача означает поражение. Будет списано 10% монет, осколков и свободных ресурсов домашнего склада."; _surrender.ok_button_text="Сдаться"; _surrender.cancel_button_text="Продолжить бой"; _surrender.confirmed.connect(func(): _show_status(_system.surrender())); add_child(_surrender)
 	_report=AcceptDialog.new(); _report.title="Итог морского боя"; add_child(_report)
-	if OS.is_debug_build():
-		_training_button=Button.new(); _training_button.text="ТЕСТ БОЯ · ВЫЗВАТЬ ПАТРУЛЬ"; _training_button.custom_minimum_size=Vector2(270,42); _training_button.set_meta("preserve_art_style",true); _training_button.pressed.connect(_create_training_encounter); add_child(_training_button)
-		_training_notice=AcceptDialog.new(); _training_notice.title="Учебный бой"; add_child(_training_notice)
 	_badge.hide(); _panel.hide(); _lantern.hide(); _attack_notice.hide()
-	for dialog in [_surrender,_report,_training_notice]:
+	for dialog in [_surrender,_report]:
 		if dialog!=null: preload("res://systems/ui/brass_close_button.gd").apply_dialog(dialog)
 
 func _button(parent: Control, text_value: String, callback: Callable) -> Button:
@@ -74,12 +69,6 @@ func _open_panel() -> void:
 	_panel_collapsed=false
 	_fit_pending=true
 
-func _create_training_encounter() -> void:
-	if _system == null: return
-	var result: Dictionary = _system.create_training_encounter()
-	_training_notice.dialog_text=str(result.get("message", "Не удалось создать учебный бой."))
-	_training_notice.popup_centered(Vector2i(470, 170))
-
 func _start_battle() -> void:
 	if _system==null: return
 	if _system.active():
@@ -98,9 +87,6 @@ func _process(delta: float) -> void:
 	_clock+=delta
 	var engaged: bool = _system.active()
 	var viewport: Vector2 = get_viewport().get_visible_rect().size
-	if _training_button != null:
-		_training_button.visible=not engaged and str(GameState.ship_state.get("docked_port_id",""))==""
-		_training_button.position=Vector2(18, viewport.y - 62)
 	var width: float = clampf(viewport.x*.25, 290.0, 370.0)
 	var coordinator: Node = get_tree().get_first_node_in_group("window_coordinator")
 	var top: float = float(coordinator.get("_top_height"))+6.0 if coordinator!=null else 76.0
@@ -144,6 +130,7 @@ func _process(delta: float) -> void:
 		if not loss.is_empty():
 			text_value+="\nСписано из казны: %d монет, %d осколков." % [int(loss.money),int(loss.magic_shards)]
 			for resource in loss.get("resources",{}): text_value+="\n%s: %d" % [str(GameData.get_good(str(resource)).get("name",resource)),int(loss.resources[resource])]
+			for resource in loss.get("cargo",{}): text_value+="\nПохищено из трюма · %s: %d" % [str(GameData.get_good(str(resource)).get("name",resource)),int(loss.cargo[resource])]
 		_report.dialog_text=text_value; _report.popup_centered(Vector2i(500,250))
 
 func _flagship_screen_position() -> Vector2:

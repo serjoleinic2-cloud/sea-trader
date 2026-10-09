@@ -17,34 +17,67 @@ func _ready() -> void:
 
 func initialize(main: Node, military: Node) -> void:
 	_main = main; _military = military
-	GameState.combat_state.merge({"naval_battle":{},"naval_enemies":{},"naval_arsenal":[],"naval_report":{},"naval_time":0.0},false)
+	GameState.combat_state.merge({"naval_battle":{},"naval_enemies":{},"naval_arsenal":[],"naval_report":{},"naval_time":0.0,"next_pirate_at":0.0,"pirate_sequence":0},false)
 	_clock = float(GameState.combat_state.naval_time)
-	_repair_training_ship_ids()
+	if float(GameState.combat_state.get("next_pirate_at",0.0))<=_clock:
+		GameState.combat_state["next_pirate_at"]=_clock+_next_pirate_delay()
+	_retire_training_encounter()
 	for ship in warships(): normalize_ship(ship)
 
-func _repair_training_ship_ids() -> void:
-	# Older practice encounters reused this ID after a destroyed ship was left in
-	# the fleet. Keep the living ship addressable and retain the older ships.
-	var matches: Array[Dictionary] = []
-	var used: Dictionary = {}
+func _retire_training_encounter() -> void:
+	# The temporary 3v3 button wrote its fixtures into the real save. Retire that
+	# scenario once, keep one useful player warship only when no normal warship
+	# already exists, and never touch ships the player built through the shipyard.
+	var temporary: Array[Dictionary] = []
+	var permanent_warship_exists: bool = false
 	for ship in GameState.fleet_state:
+		if str(ship.get("instance_id", "")).begins_with("debug_training_warship"):
+			temporary.append(ship)
+		elif bool(GameData.get_ship(str(ship.get("ship_type_id", ""))).get("warship", false)):
+			permanent_warship_exists = true
+	var keeper: Dictionary = {}
+	if not permanent_warship_exists and not temporary.is_empty():
+		keeper = temporary[0]
+		for ship in temporary:
+			if float(ship.get("hull", 0)) > float(keeper.get("hull", 0)):
+				keeper = ship
+	var retained_fleet: Array = []
+	for ship in GameState.fleet_state:
+		if not temporary.has(ship):
+			retained_fleet.append(ship)
+	if not keeper.is_empty():
+		keeper["instance_id"] = _unique_retained_warship_id(retained_fleet)
+		keeper["name"] = "Боевой страж"
+		keeper["status"] = "В сопровождении"
+		keeper["escort_enabled"] = true
+		keeper.erase("sinking")
+		keeper.erase("sink_elapsed")
+		retained_fleet.append(keeper)
+	GameState.fleet_state = retained_fleet
+	var enemies: Dictionary = GameState.combat_state.get("naval_enemies", {})
+	for raw_id in enemies.keys():
+		if str(raw_id).begins_with("debug_training_patrol"):
+			enemies.erase(raw_id)
+	var battle: Dictionary = GameState.combat_state.get("naval_battle", {})
+	var legacy_battle: bool = false
+	for raw_id in battle.get("ship_ids", []):
+		legacy_battle = legacy_battle or str(raw_id).begins_with("debug_training_warship")
+	for raw_id in battle.get("enemy_ids", []):
+		legacy_battle = legacy_battle or str(raw_id).begins_with("debug_training_patrol")
+	if legacy_battle:
+		GameState.combat_state["naval_battle"] = {}
+		GameState.combat_state["naval_report"] = {}
+
+func _unique_retained_warship_id(fleet: Array) -> String:
+	var used: Dictionary = {}
+	for ship in fleet:
 		used[str(ship.get("instance_id", ""))] = true
-		if str(ship.get("instance_id", "")) == "debug_training_warship": matches.append(ship)
-	if matches.size() < 2: return
-	var keeper: Dictionary = matches[0]
-	for ship in matches:
-		if float(ship.get("hull", 0)) > 0:
-			keeper = ship
-			break
-	var suffix: int = 1
-	for ship in matches:
-		if is_same(ship, keeper): continue
-		var id: String = "debug_training_warship_archived_%d" % suffix
-		while used.has(id):
-			suffix += 1
-			id = "debug_training_warship_archived_%d" % suffix
-		ship.instance_id = id
-		used[id] = true
+	var id: String = "fleet_warship_retained"
+	var suffix: int = 2
+	while used.has(id):
+		id = "fleet_warship_retained_%d" % suffix
+		suffix += 1
+	return id
 
 func warships() -> Array[Dictionary]:
 	var ships: Array[Dictionary] = []
@@ -97,110 +130,6 @@ func nearby_enemies() -> Array[Dictionary]:
 	for enemy in GameState.combat_state.get("naval_enemies",{}).values():
 		if _enemy_alive(enemy) and vector(enemy.position).distance_to(player)<=alert_radius(): result.append(enemy)
 	return result
-
-func create_training_encounter() -> Dictionary:
-	if not OS.is_debug_build(): return _result(false,"Учебный бой доступен только в отладочной сборке.")
-	if active(): return _result(false,"Сначала завершите текущий бой.")
-	if str(GameState.ship_state.get("docked_port_id", "")) != "":
-		return _result(false,"Выйдите из порта в море, затем вызовите учебный патруль.")
-	var race_ids: Array[String] = ["nerids", "surr", "meridians", "aery", "crystari", "humans"]
-	var player_race: String = str(GameState.player_state.get("origin_race_id", "humans"))
-	var race_index: int = race_ids.find(player_race)
-	var enemy_race: String = race_ids[(race_index + 1) % race_ids.size()]
-	var player_position: Vector2 = vector(GameState.ship_state.get("position", Vector2.ZERO))
-	var count: int = int(_rules.get("training_ship_count",3))
-	var ships: Array[Dictionary] = []
-	for candidate in warships():
-		if float(candidate.get("hull",0))>0 and ships.size()<count: ships.append(candidate)
-	for index in count:
-		if ships.size()>=count: break
-		var id: String = "debug_training_warship" if index==0 else "debug_training_warship_%d" % (index+1)
-		var candidate: Dictionary = ship_by_id(id)
-		if not candidate.is_empty() and ships.any(func(existing): return is_same(existing,candidate)): continue
-		if candidate.is_empty(): candidate = _new_training_ship(id,player_race,mini(ships.size()+1,3))
-		ships.append(candidate)
-	var largest: float = float(_visuals.get("war_%s_3" % enemy_race,{}).get("display_length",7.3))/.04
-	for ship in ships:
-		largest=maxf(largest,float(_visuals.get(str(ship.ship_type_id),{}).get("display_length",5.1))/.04)
-	var positions: Array[Vector2] = _training_positions(player_position,count,largest)
-	if positions.is_empty(): return _result(false,"Здесь берег или причалы мешают стрельбе. Отойдите дальше в открытое море.")
-	return _transaction(func():
-		for index in ships.size():
-			var ship: Dictionary = ships[index]
-			if ship_by_id(str(ship.instance_id)).is_empty(): GameState.fleet_state.append(ship)
-			normalize_ship(ship)
-			ship.hull = hull_max(ship)
-			ship.erase("sinking")
-			ship.erase("sink_elapsed")
-			ship.naval_reload = 0.0
-			for gun in ship.guns:
-				if not gun.is_empty(): gun.cooldown = 0.0
-			var armed: bool = ship.guns.any(func(gun): return not gun.is_empty())
-			if not armed and not ship.guns.is_empty(): ship.guns[0] = {"kind":"cannon","level":1,"experience":0,"cooldown":0.0}
-			ship["escort_enabled"] = true
-			ship["current_port_id"] = ""
-			ship["autopilot"] = {}
-			ship["escort_state"] = {"initialized": true, "position": positions[index*2], "heading": positions[index*2].direction_to(positions[index*2+1]), "blocked_seconds": 0.0, "avoidance_heading": Vector2.ZERO}
-		# Practice durability accounts for the maximum sustained damage of the entire escort.
-		var damage_per_second: float = 0.0
-		for ally in warships():
-			if not bool(ally.get("escort_enabled", false)): continue
-			var volley_damage: float = 0.0
-			var volley_reload: float = 0.0
-			for gun in ally.get("guns", []):
-				if gun.is_empty(): continue
-				var definition: Dictionary = _rules.guns.get(str(gun.kind), {})
-				var skills: Dictionary = ally.get("commander",{}).get("skills",{})
-				var bonus: float = float(_rules.skill_bonus)
-				var damage: float = float(definition.get("damage",18)) * (1.0+float(_rules.gun_damage_growth_per_level)*(int(gun.level)-1)) * (1.0+bonus*int(skills.get("gunnery",0)))
-				var reload_time: float = float(definition.get("reload",8))/(1.0+bonus*int(skills.get("reload",0)))
-				volley_damage += damage
-				volley_reload = maxf(volley_reload,reload_time)
-			damage_per_second += volley_damage/maxf(.1,volley_reload)
-		var training_hull: float = maxf(float(_rules.training_minimum_hull),damage_per_second*float(_rules.training_target_seconds))
-		GameState.combat_state.naval_report = {}
-		for index in count:
-			var enemy_id: String = "debug_training_patrol" if index==0 else "debug_training_patrol_%d" % (index+1)
-			var enemy_definition: Dictionary = GameData.get_ship("war_%s_%d" % [enemy_race,mini(index+1,3)])
-			GameState.combat_state.naval_enemies[enemy_id] = {
-			"id": enemy_id,
-			"ship_type_id": str(enemy_definition.get("id", "war_%s_1" % enemy_race)),
-			"name": "Учебный патруль №%d" % (index+1),
-			"training": true,
-			"training_group": "debug_training_patrol",
-			"faction_id": enemy_race,
-			"position": positions[index*2+1],
-			"heading": positions[index*2+1].direction_to(positions[index*2]),
-			"hull": training_hull,
-			"hull_max": training_hull,
-			"level": 1,
-			"hostile": false,
-			"warning": 0.0,
-			"cooldown": 3.0,
-			"retreat_until": 0.0
-			}
-	, "Учебный бой: %d ваших боевых корабля против %d врагов, минимум 2 минуты. Z — начать; ЛКМ — выбрать корабль и цель; зажатая ПКМ — двигать карту; колёсико — масштаб." % [ships.size(),count])
-
-func _new_training_ship(id: String, race: String, tier: int) -> Dictionary:
-	return {"instance_id":id,"ship_type_id":"war_%s_%d" % [race,tier],"name":"Учебный страж №%d" % tier,"current_port_id":"","status":"В сопровождении","crew":[],"cargo":[],"cargo_capacity":0,"autopilot":{},"escort_enabled":true,"escort_state":{},"embarked_units":{"coast_guard":{"count":8,"level":1,"experience":0}},"commander":{"name":"Учебный командир","race_id":race,"level":1,"experience":0,"skill_points":0,"skills":{"gunnery":1,"accuracy":1,"reload":0}},"guns":[{"kind":"cannon","level":1,"experience":0,"cooldown":0.0},{"kind":"rune","level":1,"experience":0,"cooldown":0.0}]}
-
-func _training_positions(origin: Vector2, count: int, largest_length: float) -> Array[Vector2]:
-	var radius: float = alert_radius()
-	var spacing: float = largest_length*float(_rules.get("training_row_spacing_lengths",2.2))
-	for turn in 24:
-		var direction: Vector2 = Vector2.from_angle(turn*TAU/24.0)
-		var result: Array[Vector2] = []
-		for index in count:
-			var row: int = 0 if index==0 else ceili(index/2.0)*(1 if index%2==1 else -1)
-			var offset: Vector2 = direction.orthogonal()*spacing*row
-			var ally: Vector2 = origin-direction*radius*.5+offset
-			var enemy: Vector2 = origin+direction*radius*.5+offset
-			if _military!=null:
-				if not _military._free(ally,largest_length) or not _military._free(enemy,largest_length): break
-				if _military._guard.is_navigation_move_blocked(origin,ally) or _military._guard.is_navigation_move_blocked(ally,enemy): break
-			result.append_array([ally,enemy])
-		if result.size()==count*2: return result
-	return []
 
 func _enemy_alive(enemy: Dictionary) -> bool:
 	return float(enemy.get("hull",0))>0 and float(enemy.get("retreat_until",0))<=_clock
@@ -315,21 +244,16 @@ func begin_battle(enemy_ids: Array = [], enemy_initiated: bool = false) -> Dicti
 	if not ready_for_battle(): return _result(false,"Для боя нужен боевой корабль в сопровождении в море.")
 	if bool(GameState.combat_state.get("active_raid",{}).get("active",false)): return _result(false,"Сначала завершите десантную операцию.")
 	var near: Array[Dictionary] = nearby_enemies()
-	# The debug exercise has exactly its own three targets; unrelated NPCs remain
-	# outside the exercise even if their patrol happens to pass nearby.
-	if enemy_ids.is_empty() and near.any(func(enemy): return str(enemy.get("training_group",""))=="debug_training_patrol"):
-		near=near.filter(func(enemy): return str(enemy.get("training_group",""))=="debug_training_patrol")
 	var ids: Array = []
 	for enemy in near:
 		if enemy_ids.is_empty() or enemy_ids.has(str(enemy.id)): ids.append(str(enemy.id))
-	# A practice wing may be outside the initial five-hull alert circle. Once its
-	# lead vessel is engaged, include its nearby companions in the same battle.
-	var groups: Array = []
+	var groups: Array[String] = []
 	for id in ids:
-		var group: String = str(GameState.combat_state.naval_enemies[id].get("training_group",""))
+		var group: String=str(GameState.combat_state.naval_enemies.get(id,{}).get("encounter_group",""))
 		if group!="" and not groups.has(group): groups.append(group)
 	for enemy in GameState.combat_state.naval_enemies.values():
-		if groups.has(str(enemy.get("training_group",""))) and _enemy_alive(enemy) and vector(enemy.position).distance_to(vector(GameState.ship_state.position))<alert_radius()*2 and not ids.has(str(enemy.id)): ids.append(str(enemy.id))
+		if groups.has(str(enemy.get("encounter_group",""))) and _enemy_alive(enemy) and vector(enemy.position).distance_to(vector(GameState.ship_state.position))<alert_radius()*2.0 and not ids.has(str(enemy.id)):
+			ids.append(str(enemy.id))
 	if ids.is_empty(): return _result(false,"Противник вышел из радиуса обнаружения.")
 	var battle: Dictionary = {"active":true,"enemy_initiated":enemy_initiated,"ship_ids":[],"enemy_ids":ids,"previous_escorts":{},"truce_pending":false,"shots":0,"elapsed":0.0,"projectiles":[],"notice":"Выберите свой корабль на карте справа, затем красный корабль врага: приказ атаковать."}
 	for ship in warships():
@@ -387,26 +311,63 @@ func respond_truce(accepted: bool) -> Dictionary:
 
 func surrender() -> Dictionary:
 	if not active(): return _result(false,"Бой уже завершён.")
-	var fraction: float = float(_rules.surrender_fraction)
-	var losses: Dictionary = {"money":floor(maxf(0,float(GameState.player_state.money))*fraction),"magic_shards":floor(int(GameState.combat_state.get("magic_shards",0))*fraction),"resources":{}}
+	var losses: Dictionary = _losses_at_fraction(float(_rules.surrender_fraction),true,false)
+	return _finish("Сдача — поражение",losses)
+
+func _losses_at_fraction(fraction: float, include_home: bool, include_cargo: bool) -> Dictionary:
+	var losses: Dictionary = {"money":floor(maxf(0,float(GameState.player_state.money))*fraction),"magic_shards":0,"resources":{},"cargo":{}}
+	if include_home:
+		losses.magic_shards=floor(int(GameState.combat_state.get("magic_shards",0))*fraction)
 	var home: String = str(GameState.world_state.get("home_port_id",""))
 	var inventory: Dictionary = GameState.port_state.get(home,{}).get("inventory",{})
-	for resource in inventory:
-		var available: int = maxi(0,int(inventory[resource])-_economy.reserved(GameState.economy_state,str(resource)))
-		var lost: int = int(floor(available*fraction))
-		if lost>0: losses.resources[resource]=lost
-	return _finish("Сдача — поражение",losses)
+	if include_home:
+		for resource in inventory:
+			var available: int = maxi(0,int(inventory[resource])-_economy.reserved(GameState.economy_state,str(resource)))
+			var lost: int = int(floor(available*fraction))
+			if lost>0: losses.resources[resource]=lost
+	if include_cargo:
+		for raw_item in GameState.ship_state.get("cargo",[]):
+			var item: Dictionary=raw_item
+			if item.has("contract_id"): continue
+			var quantity: int=maxi(0,int(item.get("quantity",0)))
+			var lost: int=mini(quantity,maxi(1,int(ceil(quantity*fraction)))) if quantity>0 else 0
+			if lost>0:
+				var resource_id: String=str(item.get("resource_id",""))
+				losses.cargo[resource_id]=int(losses.cargo.get(resource_id,0))+lost
+	return losses
+
+func _battle_has_pirates(battle: Dictionary) -> bool:
+	for id in battle.get("enemy_ids",[]):
+		if str(GameState.combat_state.get("naval_enemies",{}).get(str(id),{}).get("kind",""))=="pirate": return true
+	return false
+
+func _apply_losses(losses: Dictionary) -> void:
+	if losses.is_empty(): return
+	GameState.player_state.money=float(GameState.player_state.money)-float(losses.get("money",0))
+	GameState.combat_state.magic_shards=int(GameState.combat_state.get("magic_shards",0))-int(losses.get("magic_shards",0))
+	var home: String=str(GameState.world_state.get("home_port_id",""))
+	if GameState.port_state.has(home):
+		for resource in losses.get("resources",{}):
+			GameState.port_state[home].inventory[resource]=maxi(0,int(GameState.port_state[home].inventory.get(resource,0))-int(losses.resources[resource]))
+	if not losses.get("cargo",{}).is_empty():
+		var remaining_to_take: Dictionary=losses.cargo.duplicate(true)
+		var retained_cargo: Array=[]
+		for raw_item in GameState.ship_state.get("cargo",[]):
+			var item: Dictionary=raw_item.duplicate(true)
+			if not item.has("contract_id"):
+				var resource_id: String=str(item.get("resource_id",""))
+				var take: int=mini(int(item.get("quantity",0)),int(remaining_to_take.get(resource_id,0)))
+				item.quantity=int(item.get("quantity",0))-take
+				remaining_to_take[resource_id]=int(remaining_to_take.get(resource_id,0))-take
+			if int(item.get("quantity",0))>0: retained_cargo.append(item)
+		GameState.ship_state["cargo"]=retained_cargo
 
 func _finish(outcome: String, losses: Dictionary) -> Dictionary:
 	if not active(): return _result(false,"Бой уже завершён.")
 	var old_ports: Dictionary = GameState.port_state.duplicate(true)
 	var result: Dictionary = _transaction(func():
 		var battle: Dictionary = GameState.combat_state.naval_battle
-		if not losses.is_empty():
-			GameState.player_state.money -= float(losses.money)
-			GameState.combat_state.magic_shards -= int(losses.magic_shards)
-			var home: String = str(GameState.world_state.get("home_port_id",""))
-			for resource in losses.resources: GameState.port_state[home].inventory[resource] -= int(losses.resources[resource])
+		_apply_losses(losses)
 		for id in battle.ship_ids:
 			var ship: Dictionary = ship_by_id(str(id))
 			if ship.is_empty(): continue
@@ -435,8 +396,9 @@ func _process(delta: float) -> void:
 	var step: float = clampf(delta,0,.25)
 	_clock+=step; _patrol_clock+=step; _save_clock+=step
 	GameState.combat_state.naval_time=_clock
+	if not active(): _step_world_patrols(step)
 	if _patrol_clock>=1:
-		_patrol_clock=0; _ensure_patrols(); _detect_hostile()
+		_patrol_clock=0; _ensure_patrols(); _ensure_pirates(); _detect_hostile()
 	if active(): _step_battle(step)
 	if _save_clock>=15:
 		_save_clock=0; SaveSystem.save_game()
@@ -450,30 +412,150 @@ func _ensure_patrols() -> void:
 		var port: Dictionary = ports[key]
 		var center: Vector2 = vector(port.get("position",Vector2.ZERO))
 		if center.distance_to(player)>alert_radius()*8: continue
-		var id: String = "patrol_"+str(key)
+		var group_id: String = "patrol_"+str(key)
 		var enemies: Dictionary = GameState.combat_state.naval_enemies
-		if enemies.has(id):
-			if float(enemies[id].get("retreat_until",0))>_clock or active() and GameState.combat_state.naval_battle.enemy_ids.has(id): continue
-			if float(enemies[id].get("hull",0))>0: continue
 		var race: String = resolver.resolve(port,int(GameState.world_state.seed))
-		var tier: int = 1+posmod(hash(id+str(GameState.world_state.seed)),2)
-		var definition: Dictionary = GameData.get_ship("war_%s_%d" % [race,tier])
-		var length: float = float(_visuals.get(definition.id,{}).get("display_length",5.1))/.04
-		var point: Vector2 = _military._spawn_position(center,length,_military._obstacles(id))
+		var player_race: String=str(GameState.player_state.get("origin_race_id","humans"))
+		if race==player_race:
+			var factions: Array=GameData.get_factions()
+			var at: int=factions.find_custom(func(faction): return str(faction.get("id",""))==race)
+			race=str(factions[(maxi(0,at)+1)%factions.size()].id) if not factions.is_empty() else "surr"
+		var minimum: int=int(_rules.get("patrol_group_min",1))
+		var maximum: int=maxi(minimum,int(_rules.get("patrol_group_max",3)))
+		var count: int=minimum+posmod(hash(group_id+str(GameState.world_state.seed)),maximum-minimum+1)
+		var cycle: int=floori(_clock/maxf(1.0,float(_rules.patrol_respawn_seconds)))
+		var attack_roll: float=float(posmod(hash(group_id+":hostile:"+str(cycle)),10000))/10000.0
+		var hostile: bool=attack_roll<float(_rules.get("patrol_attack_chance",.12))
+		for index in count:
+			var id: String=group_id if index==0 else "%s_%d" % [group_id,index+1]
+			if enemies.has(id):
+				if float(enemies[id].get("retreat_until",0))>_clock or active() and GameState.combat_state.naval_battle.enemy_ids.has(id): continue
+				if float(enemies[id].get("hull",0))>0: continue
+			var tier: int=1+posmod(hash(id+str(GameState.world_state.seed)),3)
+			var definition: Dictionary=GameData.get_ship("war_%s_%d" % [race,tier])
+			var length: float=float(_visuals.get(definition.id,{}).get("display_length",5.1))/.04
+			var point: Vector2=_military._spawn_position(center,length,_military._obstacles(id)) if _military!=null else center+Vector2.RIGHT*length*(index+1)
+			if not point.is_finite(): continue
+			enemies[id]={"id":id,"ship_type_id":definition.id,"name":"Патруль · "+str(definition.name),"faction_id":race,"kind":"faction_patrol","encounter_group":group_id,"position":point,"patrol_center":point,"roam_phase":float(posmod(hash(id+":phase"),628))/100.0,"heading":Vector2.UP,"turn_velocity":0.0,"speed":0.0,"hull":float(definition.hull_max),"hull_max":float(definition.hull_max),"level":1,"hostile":hostile,"warning":0.0,"cooldown":0.0,"retreat_until":0.0}
+
+func _next_pirate_delay() -> float:
+	var minimum: float=float(_rules.get("pirate_spawn_min_seconds",300))
+	var maximum: float=maxf(minimum,float(_rules.get("pirate_spawn_max_seconds",600)))
+	var sequence: int=int(GameState.combat_state.get("pirate_sequence",0))
+	var roll: float=float(posmod(hash(str(GameState.world_state.get("seed",0))+":pirate:"+str(sequence)),10000))/10000.0
+	return lerpf(minimum,maximum,roll)
+
+func _ensure_pirates() -> void:
+	if _clock<float(GameState.combat_state.get("next_pirate_at",INF)): return
+	if active() or str(GameState.ship_state.get("docked_port_id",""))!="":
+		GameState.combat_state["next_pirate_at"]=_clock+60.0
+		return
+	for enemy in GameState.combat_state.naval_enemies.values():
+		if str(enemy.get("kind",""))=="pirate" and _enemy_alive(enemy):
+			GameState.combat_state["next_pirate_at"]=_clock+60.0
+			return
+	var sequence: int=int(GameState.combat_state.get("pirate_sequence",0))+1
+	GameState.combat_state["pirate_sequence"]=sequence
+	var maximum: int=maxi(1,int(_rules.get("pirate_group_max",2)))
+	var count: int=1+posmod(hash(str(GameState.world_state.get("seed",0))+":pirate_count:"+str(sequence)),maximum)
+	var player: Vector2=vector(GameState.ship_state.get("position",Vector2.ZERO))
+	var direction: Vector2=Vector2.from_angle(float(posmod(hash("pirate_bearing:"+str(sequence)),628))/100.0)
+	var group_id: String="pirates_%d" % sequence
+	for index in count:
+		var id: String="%s_%d" % [group_id,index+1]
+		var tier: int=1+posmod(hash(id),3)
+		var definition: Dictionary=GameData.get_ship("war_humans_%d" % tier)
+		var length: float=float(_visuals.get(definition.id,{}).get("display_length",5.1))/.04
+		var desired: Vector2=player+direction.rotated((index-(count-1)*.5)*.18)*alert_radius()*1.55
+		var point: Vector2=_military._spawn_position(desired,length,_military._obstacles(id)) if _military!=null else desired
 		if not point.is_finite(): continue
-		enemies[id]={"id":id,"ship_type_id":definition.id,"name":"Патруль · "+str(definition.name),"faction_id":race,"position":point,"heading":Vector2.UP,"hull":float(definition.hull_max),"hull_max":float(definition.hull_max),"level":1,"hostile":posmod(hash(id+":hostile"),3)==0,"warning":0.0,"cooldown":0.0,"retreat_until":0.0}
+		GameState.combat_state.naval_enemies[id]={"id":id,"ship_type_id":definition.id,"name":"Пираты · Чёрный корсар","faction_id":"pirates","kind":"pirate","encounter_group":group_id,"position":point,"patrol_center":point,"roam_phase":0.0,"heading":point.direction_to(player),"turn_velocity":0.0,"speed":0.0,"hull":float(definition.hull_max),"hull_max":float(definition.hull_max),"level":tier,"hostile":true,"warning":0.0,"cooldown":0.0,"retreat_until":0.0}
+	GameState.combat_state["next_pirate_at"]=_clock+_next_pirate_delay()
+
+func _step_world_patrols(delta: float) -> void:
+	var player: Vector2=vector(GameState.ship_state.get("position",Vector2.ZERO))
+	var docked: bool=str(GameState.ship_state.get("docked_port_id",""))!=""
+	for enemy in GameState.combat_state.get("naval_enemies",{}).values():
+		if not _enemy_alive(enemy): continue
+		var current: Vector2=vector(enemy.get("position",Vector2.ZERO))
+		var pirate: bool=str(enemy.get("kind",""))=="pirate"
+		var target: Vector2
+		if pirate and not docked:
+			target=player
+		else:
+			var center: Vector2=vector(enemy.get("patrol_center",current))
+			var phase: float=float(enemy.get("roam_phase",0.0))+_clock*.08
+			target=center+Vector2.from_angle(phase)*float(_rules.get("patrol_roam_radius",140))
+		var direction: Vector2=current.direction_to(target)
+		if direction.length_squared()<.01: continue
+		var heading: Vector2=vector(enemy.get("heading",direction)).normalized()
+		var turn_rate: float=.42 if pirate else .28
+		var turn: float=clampf(heading.angle_to(direction),-turn_rate*delta,turn_rate*delta)
+		var steer: Vector2=heading.rotated(turn).normalized()
+		var cruise: float=float(_rules.get("patrol_cruise_speed",26))*(1.45 if pirate else 1.0)
+		if pirate and current.distance_to(player)<alert_radius()*.72: cruise=0.0
+		var speed: float=move_toward(float(enemy.get("speed",0.0)),cruise,18.0*delta)
+		var next: Vector2=current+steer*speed*delta
+		var length: float=float(_visuals.get(str(enemy.get("ship_type_id","")),{}).get("display_length",5.1))/.04
+		if _world_patrol_segment_clear(str(enemy.id),current,next,length):
+			enemy.position=next
+			enemy.heading=steer
+			enemy.speed=speed
+			enemy.turn_velocity=turn/maxf(.001,delta)
+		else:
+			enemy.heading=heading.rotated(turn_rate*delta)
+			enemy.speed=0.0
+			enemy.roam_phase=float(enemy.get("roam_phase",0.0))+1.2
+
+func _world_patrol_segment_clear(id: String, from: Vector2, to: Vector2, length: float) -> bool:
+	# World patrols move every frame. Avoid rebuilding renderer snapshot lists here;
+	# coast checks plus the small naval-enemy dictionary are enough and keep ports smooth.
+	if _military!=null and _military._blocked(from,to,length): return false
+	var obstacles: Array[Dictionary]=[{"id":"player","position":vector(GameState.ship_state.get("position",Vector2.ZERO)),"length":float(_visuals.get(str(GameState.ship_state.get("ship_id","ship_sloop")),{}).get("display_length",3.48))/.04}]
+	for other in GameState.combat_state.get("naval_enemies",{}).values():
+		if str(other.get("id",""))!=id and _enemy_alive(other):
+			obstacles.append({"id":str(other.get("id","")),"position":vector(other.get("position",Vector2.ZERO)),"length":float(_visuals.get(str(other.get("ship_type_id","")),{}).get("display_length",5.1))/.04})
+	for other in obstacles:
+		var center: Vector2=vector(other.position)
+		var gap: float=(length+float(other.length))*.72
+		var distance: float=center.distance_to(Geometry2D.get_closest_point_to_segment(center,from,to))
+		if from.distance_to(center)<gap and to.distance_to(center)>from.distance_to(center): continue
+		if distance<gap: return false
+	return true
 
 func _detect_hostile() -> void:
 	var nearby: Array[Dictionary] = nearby_enemies()
 	var ids: Array[String] = []
 	for enemy in nearby: ids.append(str(enemy.id))
 	for enemy in GameState.combat_state.naval_enemies.values():
+		var pirate: bool=str(enemy.get("kind",""))=="pirate"
+		var unescorted_pirate: bool=pirate and not ready_for_battle() and str(GameState.ship_state.get("docked_port_id",""))=="" and _enemy_alive(enemy) and vector(enemy.position).distance_to(vector(GameState.ship_state.position))<=alert_radius()*.72
+		if unescorted_pirate:
+			enemy.warning=float(enemy.get("warning",0))+1
+			if float(enemy.warning)>=float(_rules.hostile_warning_seconds):
+				_resolve_unescorted_piracy(enemy)
+				return
+			continue
 		if ids.has(str(enemy.id)) and bool(enemy.get("hostile",false)):
 			enemy.warning=float(enemy.get("warning",0))+1
 			if float(enemy.warning)>=float(_rules.hostile_warning_seconds): begin_battle([str(enemy.id)],true); return
 		else: enemy.warning=0.0
 
+func _resolve_unescorted_piracy(enemy: Dictionary) -> void:
+	var losses: Dictionary=_losses_at_fraction(float(_rules.get("pirate_unescorted_loot_fraction",.05)),false,true)
+	var old_cargo: Array=GameState.ship_state.get("cargo",[]).duplicate(true)
+	var old_money: float=float(GameState.player_state.money)
+	var result: Dictionary=_transaction(func():
+		_apply_losses(losses)
+		enemy.retreat_until=_clock+float(_rules.patrol_respawn_seconds)
+		enemy.warning=0.0
+		GameState.combat_state.naval_report={"outcome":"Пираты ограбили незащищённый корабль","losses":losses,"time":_clock},"Пираты забрали часть груза и скрылись.")
+	if not bool(result.get("ok",false)):
+		GameState.ship_state["cargo"]=old_cargo
+		GameState.player_state.money=old_money
+
 func _step_battle(delta: float) -> void:
+	if not active(): return
 	var battle: Dictionary = GameState.combat_state.naval_battle
 	battle.elapsed=float(battle.get("elapsed",0.0))+delta
 	_resolve_projectiles(battle, delta)
@@ -526,7 +608,9 @@ func _step_battle(delta: float) -> void:
 		if _side_is_sinking(battle.ship_ids,true):
 			battle.notice="Флот уничтожен · корабли уходят под воду"
 			return
-		_finish("Поражение",{})
+		var pirate_defeat: bool=_battle_has_pirates(battle)
+		var defeat_losses: Dictionary=_losses_at_fraction(float(_rules.pirate_loot_fraction),false,true) if pirate_defeat else {}
+		_finish("Поражение от пиратов — часть груза разграблена" if pirate_defeat else "Поражение",defeat_losses)
 		return
 	for enemy in enemies:
 		if not _enemy_alive(enemy): continue
@@ -564,7 +648,7 @@ func _step_battle(delta: float) -> void:
 			var sequence: int = int(battle.get("enemy_shots", 0)) + 1
 			battle.enemy_shots = sequence
 			var hit: bool = float(posmod(hash(str(enemy.id)+str(sequence)),1000))/1000.0 < float(_rules.get("enemy_accuracy",0.72))
-			var damage: float = float(_rules.training_enemy_damage) if bool(enemy.get("training",false)) else maxf(1,float(_rules.enemy_damage)-float(GameData.get_ship(str(nearest.ship_type_id)).get("armor",0)))
+			var damage: float = maxf(1,float(_rules.enemy_damage)-float(GameData.get_ship(str(nearest.ship_type_id)).get("armor",0)))
 			var impact: Vector2 = _queue_projectile(battle, from, to, hit, "cannon", "ally", str(nearest.instance_id), damage, sequence, _military._length(nearest) if _military != null else 130.0)
 			EventBus.naval_shot_fired.emit(from,impact,hit)
 			EventBus.naval_shot_visual.emit(from,impact,hit,"cannon",vector(enemy.get("heading",Vector2.LEFT)),str(enemy.get("id","")))
@@ -670,8 +754,7 @@ func _resolve_projectiles(battle: Dictionary, delta: float) -> void:
 		if not bool(shot.hit): continue
 		var target: Dictionary = ship_by_id(str(shot.target_id)) if str(shot.target_kind)=="ally" else GameState.combat_state.naval_enemies.get(str(shot.target_id),{})
 		if target.is_empty() or float(target.get("hull",0))<=0: continue
-		var floor_hull: float = 1.0 if bool(target.get("training",false)) and float(battle.get("elapsed",0))<float(_rules.training_minimum_seconds) else 0.0
-		target.hull = maxf(floor_hull,float(target.hull)-float(shot.damage))
+		target.hull = maxf(0.0,float(target.hull)-float(shot.damage))
 		if float(target.hull)<=0:
 			target["sinking"]=true
 			target["sink_elapsed"]=0.0
@@ -692,7 +775,8 @@ func get_enemy_snapshots() -> Array[Dictionary]:
 		var participating: bool = active_enemy_ids.has(str(enemy.get("id","")))
 		var sink: float=sinking_progress(enemy)
 		if (float(enemy.get("hull",0))<=0 and (not participating or sink>=1.0)) or (not participating and not _enemy_alive(enemy)): continue
-		result.append({"id":str(enemy.id),"name":str(enemy.name),"ship_type_id":str(enemy.ship_type_id),"position":vector(enemy.position),"heading":vector(enemy.get("heading",Vector2.UP)),"length":float(_visuals.get(str(enemy.ship_type_id),{}).get("display_length",5.1))/.04,"faction_id":str(enemy.faction_id),"kind":"naval_enemy","in_transit":active(),"color":Color("ff8464"),"hull":float(enemy.get("hull",0)),"hull_max":float(enemy.get("hull_max",1)),"sinking":bool(enemy.get("sinking",false)),"sink_progress":sink})
+		var pirate: bool=str(enemy.get("kind",""))=="pirate"
+		result.append({"id":str(enemy.id),"name":str(enemy.name),"ship_type_id":str(enemy.ship_type_id),"position":vector(enemy.position),"heading":vector(enemy.get("heading",Vector2.UP)),"length":float(_visuals.get(str(enemy.ship_type_id),{}).get("display_length",5.1))/.04,"faction_id":str(enemy.faction_id),"kind":"naval_enemy","enemy_kind":str(enemy.get("kind","faction_patrol")),"in_transit":active(),"speed":float(enemy.get("speed",0)),"turn_velocity":float(enemy.get("turn_velocity",0)),"color":Color("17191f") if pirate else Color("ff8464"),"hull":float(enemy.get("hull",0)),"hull_max":float(enemy.get("hull_max",1)),"sinking":bool(enemy.get("sinking",false)),"sink_progress":sink})
 	return result
 
 func _result(ok: bool, message: String) -> Dictionary:

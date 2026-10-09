@@ -7,7 +7,7 @@ extends Node3D
 @export var ship_id: String = ""
 
 func _ready() -> void:
-	var palette: Array = GameData.get_faction(faction_id).get("palette", ["#243744", "#34dacc", "#d3ad67"])
+	var palette: Array = ["#080a0e", "#78151c", "#5c5142"] if faction_id=="pirates" else GameData.get_faction(faction_id).get("palette", ["#243744", "#34dacc", "#d3ad67"])
 	var hull := _material(Color(str(palette[0])),false)
 	var metal := _material(Color(str(palette[2])),false)
 	var rune := _material(Color(str(palette[1])),true)

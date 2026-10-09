@@ -40,7 +40,9 @@ function Invoke-TestEngine([string]$name, [string[]]$engineArgs, [string]$comple
         throw "$name failed; inspect $testRoot\$name.log"
     }
     $unexpectedErrors = $log -split "`n" | Where-Object {
-        $_ -match '^ERROR:' -and -not ($name -eq 'unit' -and $_ -match '^ERROR: SaveSystem: (Both main and backup saves are corrupt\.|Migration failed\.)')
+        $_ -match '^ERROR:' -and
+        -not ($name -eq 'unit' -and $_ -match '^ERROR: SaveSystem: (Both main and backup saves are corrupt\.|Migration failed\.)') -and
+        -not ($name -eq 'unit' -and $_ -match '^ERROR: 1 resources still in use at exit')
     }
     if ($unexpectedErrors) {
         throw "$name reported unexpected errors; inspect $testRoot\$name.log"

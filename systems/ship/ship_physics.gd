@@ -476,6 +476,8 @@ func _write_to_game_state() -> void:
 	# fuel written in _update_fuel
 	# also sync world_state.current_position
 	GameState.ship_state["heading"] = _heading
+	GameState.ship_state["turn_velocity"] = _yaw_velocity
+	GameState.ship_state["visual_roll"] = _visual_roll
 	GameState.world_state["current_position"] = GameState.ship_state.get("position", Vector2.ZERO)
 	EventBus.ship_moved.emit(
 		GameState.ship_state.get("position", Vector2.ZERO),

@@ -59,19 +59,27 @@ func _ready() -> void:
 	var water: Vector2 = military._spawn_position(main._ship.global_position,length*8,[])
 	check(water.is_finite(),"fixture finds navigable sea")
 	main._ship.global_position=water; GameState.ship_state.position=water; GameState.ship_state.docked_port_id=""
-	var encounter: Dictionary = navy.create_training_encounter()
-	check(bool(encounter.get("ok",false)),"debug training encounter creates a guaranteed nearby enemy")
-	check(not navy.nearby_enemies().is_empty(),"training encounter exposes the normal Z battle prompt")
 	var ship: Dictionary = navy.ship_by_id(id)
+	ship.current_port_id=""; ship.escort_enabled=true
+	ship.escort_state={"initialized":true,"position":water-Vector2(170,0),"heading":Vector2.RIGHT,"blocked_seconds":0.0,"avoidance_heading":Vector2.ZERO}
+	GameState.combat_state.naval_enemies={"smoke_enemy":{"id":"smoke_enemy","ship_type_id":"war_surr_1","name":"Вражеский страж","position":water+Vector2(170,0),"heading":Vector2.LEFT,"faction_id":"surr","hull":2000.0,"hull_max":2000.0,"hostile":false,"cooldown":1000.0,"retreat_until":0.0}}
+	check(navy.warships().size()==1,"runtime fixture uses one player warship")
+	check(not navy.nearby_enemies().is_empty(),"nearby enemy exposes the normal Z battle prompt")
 	navy.set_process(false); military.set_process(false)
 	await frames()
-	check(hud._training_button != null and hud._training_button.visible,"debug build exposes the training button at sea")
 	check(hud._badge.visible,"enemy within five hulls shows Z indicator")
 	var key:=InputEventKey.new(); key.pressed=true; key.physical_keycode=KEY_Z
 	hud._unhandled_key_input(key); await frames()
 	check(navy.active(),"physical Z starts actual battle directly")
 	check(hud._truce.get_theme_stylebox("normal") is StyleBoxTexture,"tactical actions use the approved brass art button")
 	var approach: Node=main.get_node("Approach3DView")
+	approach._animation_clock=1.0; GameState.ship_state.visual_roll=0.0
+	approach._update_camera(water,1.0,.1,false)
+	check(absf(approach._ship.position.y+.14)>.005 and absf(approach._ship.rotation.x)>.005,"player ship bobs and pitches on the swell")
+	var wave_roll: float=approach._ship.rotation.z
+	GameState.ship_state.visual_roll=8.0; approach._update_camera(water,1.0,.1,false)
+	check(approach._ship.rotation.z<wave_roll-.03,"player ship banks into a right turn")
+	GameState.ship_state.visual_roll=0.0
 	check(hud.tactical_view_open() and approach._battle_camera_requested(),"opening battle enables tactical camera framing")
 	hud._collapse_panel(); hud._process(.3); approach._process(.1)
 	check(navy.active(),"closing the panel keeps combat running")

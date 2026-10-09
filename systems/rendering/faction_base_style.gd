@@ -139,7 +139,7 @@ func _recolor(node: Node, palette: Array, faction_id: String) -> void:
 
 func apply_ship(ship: Node3D, faction_id: String) -> void:
 	var faction: Dictionary = GameData.get_faction(faction_id)
-	var palette: Array = faction.get("palette", ["#132b43", "#2bbcc1", "#c49a58"])
+	var palette: Array = ["#080a0e", "#78151c", "#5c5142"] if faction_id=="pirates" else faction.get("palette", ["#132b43", "#2bbcc1", "#c49a58"])
 	_recolor(ship, palette, faction_id)
 	apply_surface_details(ship)
 	ship.set_meta("visual_faction", faction_id)
@@ -328,7 +328,7 @@ func make_flag(faction_id: String, height: float = 4.5) -> Node3D:
 	material.shader = load("res://assets/world/props/heraldry/flag_cloth.gdshader")
 	material.set_shader_parameter("emblem", GameData.get_faction_emblem(faction_id))
 	var faction: Dictionary = GameData.get_faction(faction_id)
-	var palette: Array = faction.get("palette", ["#132b43"])
+	var palette: Array = ["#080a0e"] if faction_id=="pirates" else faction.get("palette", ["#132b43"])
 	material.set_shader_parameter("cloth_color", Color(str(palette[0])))
 	cloth.material_override = material
 	flag.add_child(cloth)
