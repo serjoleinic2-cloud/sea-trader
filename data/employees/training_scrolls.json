@@ -1,0 +1,52 @@
+{
+  "version": 1,
+  "legacy_distribution": [
+    "scroll_seafaring",
+    "scroll_navigation",
+    "scroll_engineering",
+    "scroll_logistics",
+    "scroll_efficiency"
+  ],
+  "types": {
+    "scroll_seafaring": {
+      "name": "Свиток морского хода",
+      "short_name": "Морской ход",
+      "description": "Ускоряет обучение навыкам скорости и управления парусами.",
+      "stat": "speed",
+      "progress_points": 2,
+      "icon": "res://assets/ui/training_scrolls/scroll_seafaring.svg"
+    },
+    "scroll_navigation": {
+      "name": "Свиток навигации",
+      "short_name": "Навигация",
+      "description": "Развивает знание берегов, фарватеров и безопасных маршрутов.",
+      "stat": "navigation",
+      "progress_points": 2,
+      "icon": "res://assets/ui/training_scrolls/scroll_navigation.svg"
+    },
+    "scroll_engineering": {
+      "name": "Свиток корабельного дела",
+      "short_name": "Ремонт",
+      "description": "Помогает осваивать ремонт корпуса, механизмов и оснастки.",
+      "stat": "repair",
+      "progress_points": 2,
+      "icon": "res://assets/ui/training_scrolls/scroll_engineering.svg"
+    },
+    "scroll_logistics": {
+      "name": "Свиток портовой логистики",
+      "short_name": "Погрузка",
+      "description": "Учит быстрее размещать груз и руководить палубными работами.",
+      "stat": "loading",
+      "progress_points": 2,
+      "icon": "res://assets/ui/training_scrolls/scroll_logistics.svg"
+    },
+    "scroll_efficiency": {
+      "name": "Свиток бережного хода",
+      "short_name": "Топливо",
+      "description": "Развивает экономичное управление двигателями и запасами топлива.",
+      "stat": "fuel",
+      "progress_points": 2,
+      "icon": "res://assets/ui/training_scrolls/scroll_efficiency.svg"
+    }
+  }
+}

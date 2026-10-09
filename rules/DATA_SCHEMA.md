@@ -93,6 +93,7 @@ units: {}                    # unit_id → { count, level, experience }
 towers: []                   # up to two universal towers with a crystal socket
 crystals: {}                 # crystal_id → count; all owned crystals rise with Mage Guild level
 magic_shards: int            # non-tradeable crafting material earned from victories/events
+progression_state.training_scroll_inventory: Dictionary[String, int] # five non-tradeable typed crew-training scrolls; legacy training_scrolls migrates here
 fort_integrity: float        # 0–100; damaged by a lost base defense
 recruitment: {}              # one active training job with completion timestamp
 construction_job: {}         # garrison/tower project with materials already reserved

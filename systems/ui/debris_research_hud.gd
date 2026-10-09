@@ -1,5 +1,7 @@
 extends CanvasLayer
 
+const TrainingScrolls = preload("res://systems/employees/training_scrolls.gd")
+
 ## Contextual sea-foundation research. Finds rare deterministic floating objects
 ## near the controlled ship and pays the reward directly into the home port.
 
@@ -184,11 +186,13 @@ func _claim_nearest() -> void:
 	home["inventory"] = inventory
 	if home_id != "":
 		GameState.port_state[home_id] = home
-	var scrolls: int = int(GameState.progression_state.get("training_scrolls", 0))
-	GameState.progression_state["training_scrolls"] = scrolls + 1
+	var scroll_ids: Array = TrainingScrolls.ordered_ids()
+	var scroll_id: String = str(scroll_ids[rng.randi_range(0, scroll_ids.size() - 1)]) if not scroll_ids.is_empty() else ""
+	TrainingScrolls.grant(scroll_id)
 	SaveSystem.save_game()
 	var material_names := {"resource_timber": "древесины", "resource_parts": "деталей", "resource_fish": "рыбы"}
-	_status.text = "Исследовано: +%d монет, +%d %s, +1 свиток обучения\nНаграда отправлена на склад базы." % [money, material_amount, material_names.get(material_id, material_id)]
+	var scroll_name: String = str(TrainingScrolls.definitions().get(scroll_id, {}).get("name", "Свиток обучения"))
+	_status.text = "Исследовано: +%d монет, +%d %s, +1 «%s»\nНаграда отправлена на склад базы." % [money, material_amount, material_names.get(material_id, material_id), scroll_name]
 	_notice_timer = 3.5
 	_progress = 0.0
 	_nearest = {}

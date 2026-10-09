@@ -11,6 +11,7 @@ var _progression: Dictionary = {}
 var _travel_action_distance: float = 0.0
 var _last_action_position: Vector2 = Vector2.ZERO
 var _has_action_position: bool = false
+const TrainingScrolls = preload("res://systems/employees/training_scrolls.gd")
 
 func _ready() -> void:
 	add_to_group("hiring_system")
@@ -23,6 +24,7 @@ func initialize(_unused_port_system: Node = null) -> void:
 	_skills = catalog.get("skills", {})
 	_progression = catalog.get("progression", {})
 	_requirements = GameData.get_crew_requirements()
+	TrainingScrolls.migrate_legacy()
 	for employee in GameState.employee_state:
 		if str(employee.get("employment_type", "contract")) == "contract":
 			employee["employment_type"] = "permanent"
@@ -48,6 +50,24 @@ func get_stat_labels() -> Dictionary:
 
 func get_skill_catalog() -> Dictionary:
 	return _skills.duplicate(true)
+
+func get_training_scroll_catalog() -> Dictionary:
+	return TrainingScrolls.definitions()
+
+func get_training_scroll_order() -> Array:
+	return TrainingScrolls.ordered_ids()
+
+func get_training_scroll_inventory() -> Dictionary:
+	return TrainingScrolls.inventory()
+
+func get_training_scroll_total() -> int:
+	return TrainingScrolls.total()
+
+func get_training_scroll_type_for_skill(skill_id: String) -> String:
+	return TrainingScrolls.type_for_skill(_skills.get(skill_id, {}))
+
+func is_living_employee(employee: Dictionary) -> bool:
+	return TrainingScrolls.is_living(employee)
 
 func get_employment_types() -> Dictionary:
 	return _employment_types.duplicate(true)
@@ -231,16 +251,25 @@ func choose_skill(employee_id: String, skill_id: String) -> Dictionary:
 		return {"ok": true, "message": "Выбран навык «%s». Он развивается в рейсах." % str(_skills[skill_id].get("name", skill_id))}
 	return {"ok": false, "message": "Сотрудник не найден."}
 
-func use_training_scroll(employee_id: String, skill_id: String) -> Dictionary:
+func use_training_scroll(employee_id: String, skill_id: String, scroll_type_id: String = "") -> Dictionary:
 	if str(GameState.ship_state.get("docked_port_id", "")) == "":
 		return {"ok": false, "message": "Свиток можно применить только в порту."}
-	var scrolls: int = int(GameState.progression_state.get("training_scrolls", 0))
-	if scrolls <= 0:
-		return {"ok": false, "message": "У вас нет свитков обучения."}
+	var skill_definition: Dictionary = _skills.get(skill_id, {})
+	if skill_definition.is_empty(): return {"ok": false, "message": "Неизвестное направление обучения."}
+	var required_type: String = TrainingScrolls.type_for_skill(skill_definition)
+	if scroll_type_id == "": scroll_type_id = required_type
+	if not TrainingScrolls.is_compatible(scroll_type_id, skill_definition):
+		return {"ok": false, "message": "Этот тип свитка не подходит для выбранного навыка."}
+	var scroll_definition: Dictionary = TrainingScrolls.definitions().get(scroll_type_id, {})
+	var available: int = int(TrainingScrolls.inventory().get(scroll_type_id, 0))
+	if available <= 0:
+		return {"ok": false, "message": "Нет свитка «%s»." % str(scroll_definition.get("short_name", scroll_type_id))}
 	for index in range(GameState.employee_state.size()):
 		var employee: Dictionary = GameState.employee_state[index]
 		if str(employee.get("employee_instance_id", "")) != employee_id:
 			continue
+		if not TrainingScrolls.is_living(employee):
+			return {"ok": false, "message": "Обучать можно только живого и дееспособного персонажа."}
 		if _employment_type(employee) != "permanent":
 			return {"ok": false, "message": "Свитки доступны только постоянному персоналу."}
 		var skills: Array = employee.get("skills", [])
@@ -250,18 +279,19 @@ func use_training_scroll(employee_id: String, skill_id: String) -> Dictionary:
 			var progress: int = int(skill.get("progress", 0))
 			if progress >= 100:
 				return {"ok": false, "message": "Этот навык уже полностью освоен."}
-			var added_progress: int = mini(2, 100 - progress)
+			var added_progress: int = mini(int(scroll_definition.get("progress_points", 2)), 100 - progress)
 			skill["progress"] = progress + added_progress
 			if int(skill["progress"]) >= 100 and str(employee.get("active_skill_id", "")) == skill_id:
 				employee["active_skill_id"] = ""
 			employee["skills"] = skills
 			_rebuild_skill_stats(employee)
 			GameState.employee_state[index] = employee
-			GameState.progression_state["training_scrolls"] = scrolls - 1
+			if not TrainingScrolls.consume(scroll_type_id):
+				return {"ok": false, "message": "Свиток уже был использован."}
 			SaveSystem.save_game()
 			return {
 				"ok": true,
-				"message": "Свиток применён: навык продвинулся на %d%%. Осталось свитков: %d." % [added_progress, scrolls - 1]
+				"message": "%s применён: навык продвинулся на %d%%. Осталось свитков этого типа: %d." % [str(scroll_definition.get("name", "Свиток")), added_progress, available - 1]
 			}
 		return {"ok": false, "message": "У этого сотрудника нет такого навыка."}
 	return {"ok": false, "message": "Сотрудник не найден."}

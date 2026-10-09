@@ -163,6 +163,8 @@ var progression_state: Dictionary = {
 	"player_xp": 0,
 	"port_levels": {},
 	"company_level": 0,
+	"training_scrolls": 0,
+	"training_scroll_inventory": {},
 	"unlocked_ship_ids": [],
 	"unlocked_upgrade_ids": [],
 	"unlocked_region_ids": []
@@ -279,6 +281,8 @@ func reset_to_defaults() -> void:
 		"player_xp": 0,
 		"port_levels": {},
 		"company_level": 0,
+		"training_scrolls": 0,
+		"training_scroll_inventory": {},
 		"unlocked_ship_ids": [],
 		"unlocked_upgrade_ids": [],
 		"unlocked_region_ids": []

@@ -1,6 +1,7 @@
 extends "res://tests/test_base.gd"
 
 var _system: Node
+const TrainingScrolls = preload("res://systems/employees/training_scrolls.gd")
 
 func before_each() -> void:
 	SaveSystem.delete_save()
@@ -105,7 +106,8 @@ func test_training_scroll_advances_selected_skill_by_two_points_in_port() -> voi
 	var result: Dictionary = _system.use_training_scroll("officer", "steady_course")
 	assert_true(bool(result.get("ok", false)))
 	assert_eq(int(GameState.employee_state[0].skills[0].progress), 42)
-	assert_eq(int(GameState.progression_state.training_scrolls), 2)
+	assert_eq(_system.get_training_scroll_total(), 2)
+	assert_eq(int(_system.get_training_scroll_inventory().scroll_seafaring), 0)
 
 func test_training_scroll_requires_port_and_cannot_raise_a_skill_past_100() -> void:
 	GameState.progression_state["training_scrolls"] = 1
@@ -113,16 +115,39 @@ func test_training_scroll_requires_port_and_cannot_raise_a_skill_past_100() -> v
 		"skills": [{"id": "steady_course", "progress": 99}], "stats": {}, "skill_stats": {}}]
 	var sailing_result: Dictionary = _system.use_training_scroll("officer", "steady_course")
 	assert_false(bool(sailing_result.get("ok", false)))
-	assert_eq(int(GameState.progression_state.training_scrolls), 1)
+	assert_eq(_system.get_training_scroll_total(), 1)
 	GameState.ship_state["docked_port_id"] = "harbor"
 	var port_result: Dictionary = _system.use_training_scroll("officer", "steady_course")
 	assert_true(bool(port_result.get("ok", false)))
 	assert_eq(int(GameState.employee_state[0].skills[0].progress), 100)
 	assert_eq(str(GameState.employee_state[0].get("active_skill_id", "")), "")
-	assert_eq(int(GameState.progression_state.training_scrolls), 0)
+	assert_eq(_system.get_training_scroll_total(), 0)
 	var capped_result: Dictionary = _system.use_training_scroll("officer", "steady_course")
 	assert_false(bool(capped_result.get("ok", false)))
-	assert_eq(int(GameState.progression_state.training_scrolls), 0)
+	assert_eq(_system.get_training_scroll_total(), 0)
+
+func test_training_scroll_type_must_match_and_living_unit_is_required() -> void:
+	GameState.ship_state["docked_port_id"] = "harbor"
+	GameState.progression_state["training_scroll_inventory"] = {"scroll_seafaring":1,"scroll_navigation":1}
+	GameState.employee_state = [{"employee_instance_id":"officer","employment_type":"permanent","is_alive":true,
+		"skills":[{"id":"steady_course","progress":10}],"stats":{},"skill_stats":{}}]
+	var wrong: Dictionary = _system.use_training_scroll("officer", "steady_course", "scroll_navigation")
+	assert_false(bool(wrong.get("ok",false)))
+	assert_eq(_system.get_training_scroll_total(),2,"wrong type is not consumed")
+	GameState.employee_state[0]["health"]=0
+	var dead: Dictionary = _system.use_training_scroll("officer", "steady_course", "scroll_seafaring")
+	assert_false(bool(dead.get("ok",false)))
+	assert_eq(_system.get_training_scroll_total(),2,"a dead unit cannot consume a scroll")
+
+func test_legacy_scrolls_migrate_without_loss_into_five_types() -> void:
+	GameState.progression_state["training_scroll_inventory"]={}
+	GameState.progression_state["training_scrolls"]=7
+	var inventory: Dictionary=TrainingScrolls.migrate_legacy()
+	assert_eq(TrainingScrolls.total(),7)
+	assert_eq(int(inventory.scroll_seafaring),2)
+	assert_eq(int(inventory.scroll_navigation),2)
+	assert_eq(int(inventory.scroll_engineering),1)
+	assert_eq(int(GameState.progression_state.training_scrolls),0)
 
 func test_port_crew_window_offers_scroll_for_reserve_employee() -> void:
 	GameState.ship_state["docked_port_id"] = "harbor"
@@ -137,9 +162,13 @@ func test_port_crew_window_offers_scroll_for_reserve_employee() -> void:
 	crew_ui._refresh()
 	var has_scroll_action: bool = false
 	for button in crew_ui.find_children("*", "Button", true, false):
-		if str(button.text).begins_with("Свиток"):
+		if str(button.text).begins_with("Применить"):
 			has_scroll_action = true
 	assert_true(has_scroll_action, "the port crew window exposes training for employees in reserve")
+	assert_eq(crew_ui._scroll_list.get_child_count(),7,"right column shows its heading, hint and five scroll cards")
+	var scroll_icons: Array=crew_ui.find_children("*", "TextureRect", true, false).filter(func(node): return node.has_meta("training_scroll_icon"))
+	assert_eq(scroll_icons.size(),5)
+	for icon in scroll_icons: assert_true(icon.texture is Texture2D,"every scroll type has its own image")
 	crew_ui.free()
 
 func test_hiring_and_crew_screens_show_portraits_and_empty_crew_cells() -> void:
