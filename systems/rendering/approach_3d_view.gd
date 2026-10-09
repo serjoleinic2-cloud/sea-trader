@@ -75,10 +75,8 @@ func initialize(world_data: Dictionary, map_world: CanvasItem, map_ship: CanvasI
 	_map_ship = map_ship
 	_trader_traffic = trader_traffic
 	_fleet_traffic = fleet_traffic
-	# Fixed sky direction, facing the home bay; never attached to ship heading.
-	var home: Dictionary = world_data.get("ports", {}).get(str(GameState.world_state.get("home_port_id", "")), {})
-	var planet_bearing: float = float(home.get("harbor_angle", 0.0)) + PI + 0.32
-	var planet_direction := Vector3(cos(planet_bearing), -0.10, sin(planet_bearing))
+	# Default near-horizon placement; updated from the sailing camera while close in.
+	var planet_direction := Vector3(0.0, 0.16, -1.0)
 	_sky_material.set_shader_parameter("jupiter_direction", planet_direction)
 	# The strategy view is 3D from the start. Keep the 2D camera active so zoom
 	# and movement still use the existing systems; traffic markers remain above it.
@@ -233,7 +231,6 @@ func _build_scene() -> void:
 	_environment = Environment.new()
 	_sky_material = ShaderMaterial.new()
 	_sky_material.shader = load("res://assets/world/materials/tropical_sky.gdshader")
-	_sky_material.set_shader_parameter("jupiter_texture", load("res://assets/world/sky/jupiter_voyager.jpg"))
 	var sky := Sky.new()
 	sky.sky_material = _sky_material
 	sky.process_mode = Sky.PROCESS_MODE_INCREMENTAL
@@ -966,6 +963,11 @@ func _update_camera(ship_position: Vector2, close_factor: float, delta: float) -
 	var focus: Vector3 = ship_world_position + orbit_forward * look_distance + Vector3.UP * (0.8 * close_factor + tan(_camera_orbit_pitch) * 12.0 * close_factor)
 	var map_up := Vector3(0.0, 0.0, -1.0)
 	_camera.look_at(focus, map_up.lerp(Vector3.UP, close_factor).normalized())
+	if _sky_material != null and close_factor > 0.5:
+		var horizontal_forward := -_camera.global_basis.z
+		horizontal_forward.y = 0.0
+		horizontal_forward = horizontal_forward.normalized().rotated(Vector3.UP, 0.22)
+		_sky_material.set_shader_parameter("jupiter_direction", (horizontal_forward + Vector3.UP * 0.16).normalized())
 	_camera.fov = lerpf(start_fov, 58.0, close_factor)
 
 

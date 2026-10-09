@@ -64,6 +64,15 @@ func test_escorts_form_behind_left_and_keep_separation() -> void:
 	assert_gte(a.distance_to(b),system._length(GameState.fleet_state[0])*2.0,"escort ships maintain a two-hull center gap")
 	assert_gt(a.length(),170.0,"does not obstruct player hull")
 
+func test_escort_replans_only_after_a_stall_and_cooldown() -> void:
+	var cache: Dictionary = {"path":PackedVector2Array(),"target":Vector2.ZERO,"time":10.0}
+	system._time = 12.0
+	assert_false(system._route_replan_due(cache,{"blocked_seconds":0.0}),"a moving escort does not rebuild its route on a two-second timer")
+	assert_false(system._route_replan_due(cache,{"blocked_seconds":1.0}),"a stalled ship respects the route retry interval")
+	system._time = 16.0
+	assert_false(system._route_replan_due(cache,{"blocked_seconds":0.5}),"brief collision recovery does not trigger route planning")
+	assert_true(system._route_replan_due(cache,{"blocked_seconds":0.75}),"a persistently blocked escort can replan after the cooldown")
+
 func test_escort_tracks_player_after_leaving_port() -> void:
 	GameState.ship_state.docked_port_id = ""
 	var ship: Dictionary = GameState.fleet_state[0]

@@ -6,7 +6,7 @@
   "formation_aft_lengths": 2.0,
   "formation_left_lengths": 1.5,
   "max_raid_distance": 1200,
-  "repath_seconds": 2.0,
+  "blocked_route_retry_seconds": 6.0,
   "stuck_repath_seconds": 3.0,
   "catchup_speed_multiplier": 1.35
 }

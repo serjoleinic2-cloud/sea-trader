@@ -45,6 +45,12 @@ func vessels() -> Array[Dictionary]:
 func clear_orders(id: String) -> void:
 	_paths.erase(id)
 
+func _route_replan_due(cache: Dictionary, state: Dictionary) -> bool:
+	if cache.is_empty():
+		return true
+	var retry: float = float(_rules.get("blocked_route_retry_seconds", 6.0))
+	return float(state.get("blocked_seconds", 0.0)) >= 0.75 and _time - float(cache.get("time", -INF)) >= retry
+
 func get_transport(id: String) -> Dictionary:
 	for ship in vessels():
 		if str(ship.instance_id) == id: return ship
@@ -277,11 +283,24 @@ func _step_ship(ship: Dictionary, index: int, delta: float) -> void:
 		state["blocked_seconds"] = 0.0
 		return
 	var cache: Dictionary = _paths.get(id,{})
-	if cache.is_empty() or (_time-float(cache.get("time",0))>float(_rules.repath_seconds) and (_to_vector2(cache.get("target",Vector2.INF), Vector2.INF).distance_to(target)>length*.6 or float(state.get("blocked_seconds",0))>float(_rules.stuck_repath_seconds))):
-		var islands: Array = _navigation_world().get("islands",[]).duplicate(true)
+	# Moving formation targets used to trigger a full route rebuild every two
+	# seconds. Let local collision steering follow the wake continuously; rebuild
+	# a coastal route only for a ship that has actually stopped against an obstacle.
+	if _route_replan_due(cache, state):
+		var islands: Array = []
+		var world_islands: Array = _navigation_world().get("islands",[])
+		var route_bounds := Rect2(position, target-position).abs().grow(700.0+length)
+		for raw_island in world_islands:
+			var island: Dictionary = raw_island
+			var island_position: Vector2 = _to_vector2(island.get("position",Vector2.ZERO),Vector2.ZERO)
+			var island_radius: float = float(island.get("radius",0.0))
+			var bounds: Rect2 = island.get("navigation_bounds",Rect2(island_position-Vector2.ONE*island_radius,Vector2.ONE*island_radius*2.0))
+			if not bounds.grow(700.0+length).intersects(route_bounds):
+				continue
+			var nearby: Dictionary = island.duplicate(false)
+			nearby["radius"] = island_radius+length*.55
+			islands.append(nearby)
 		# Planner nodes must clear the entire escort hull, not just its centre point.
-		for island in islands:
-			island["radius"] = float(island.get("radius",0))+length*.55
 		if float(state.get("blocked_seconds",0))>float(_rules.stuck_repath_seconds):
 			for obstacle in obstacles:
 				var obstacle_position: Vector2 = _to_vector2(obstacle.get("position", Vector2.ZERO), Vector2.ZERO)
