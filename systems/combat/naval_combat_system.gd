@@ -19,7 +19,32 @@ func initialize(main: Node, military: Node) -> void:
 	_main = main; _military = military
 	GameState.combat_state.merge({"naval_battle":{},"naval_enemies":{},"naval_arsenal":[],"naval_report":{},"naval_time":0.0},false)
 	_clock = float(GameState.combat_state.naval_time)
+	_repair_training_ship_ids()
 	for ship in warships(): normalize_ship(ship)
+
+func _repair_training_ship_ids() -> void:
+	# Older practice encounters reused this ID after a destroyed ship was left in
+	# the fleet. Keep the living ship addressable and retain the older ships.
+	var matches: Array[Dictionary] = []
+	var used: Dictionary = {}
+	for ship in GameState.fleet_state:
+		used[str(ship.get("instance_id", ""))] = true
+		if str(ship.get("instance_id", "")) == "debug_training_warship": matches.append(ship)
+	if matches.size() < 2: return
+	var keeper: Dictionary = matches[0]
+	for ship in matches:
+		if float(ship.get("hull", 0)) > 0:
+			keeper = ship
+			break
+	var suffix: int = 1
+	for ship in matches:
+		if is_same(ship, keeper): continue
+		var id: String = "debug_training_warship_archived_%d" % suffix
+		while used.has(id):
+			suffix += 1
+			id = "debug_training_warship_archived_%d" % suffix
+		ship.instance_id = id
+		used[id] = true
 
 func warships() -> Array[Dictionary]:
 	var ships: Array[Dictionary] = []
@@ -90,6 +115,9 @@ func create_training_encounter() -> Dictionary:
 		if float(candidate.get("hull", 0.0)) > 0.0:
 			ship = candidate
 			break
+	# Repair the existing practice vessel instead of appending another ship with
+	# the same ID every time a previous practice vessel has been destroyed.
+	if ship.is_empty(): ship = ship_by_id("debug_training_warship")
 	return _transaction(func():
 		if ship.is_empty():
 			var ship_type_id: String = "war_%s_1" % player_race
@@ -114,6 +142,9 @@ func create_training_encounter() -> Dictionary:
 			if ship.guns.size() > 1: ship.guns[1] = {"kind": "rune", "level": 1, "experience": 0, "cooldown": 0.0}
 		normalize_ship(ship)
 		ship.hull = hull_max(ship)
+		ship.naval_reload = 0.0
+		for gun in ship.guns:
+			if not gun.is_empty(): gun.cooldown = 0.0
 		var armed: bool = false
 		for gun in ship.guns:
 			if not gun.is_empty(): armed = true
@@ -487,12 +518,14 @@ func _step_battle(delta: float) -> void:
 		var length: float = float(_visuals.get(str(enemy.ship_type_id),{}).get("display_length",5.1))/.04
 		var enemy_definition: Dictionary=GameData.get_ship(str(enemy.get("ship_type_id","")))
 		var enemy_broadside: bool=str(enemy_definition.get("gun_mounting","broadside"))=="broadside"
-		if enemy_broadside and from.distance_to(to)<=float(_rules.enemy_standoff_range):
+		if from.distance_to(to)<=float(_rules.enemy_standoff_range):
 			var enemy_heading: Vector2=vector(enemy.get("heading",Vector2.UP)).normalized()
-			var side_heading: Vector2=from.direction_to(to).orthogonal()
-			if enemy_heading.dot(side_heading)<enemy_heading.dot(-side_heading): side_heading=-side_heading
+			var firing_heading: Vector2=from.direction_to(to)
+			if enemy_broadside:
+				firing_heading=firing_heading.orthogonal()
+				if enemy_heading.dot(firing_heading)<enemy_heading.dot(-firing_heading): firing_heading=-firing_heading
 			var turn_rate: float=clampf(95.0/maxf(80.0,length),.28,1.0)
-			enemy.heading=enemy_heading.rotated(clampf(enemy_heading.angle_to(side_heading),-delta*turn_rate,delta*turn_rate))
+			enemy.heading=enemy_heading.rotated(clampf(enemy_heading.angle_to(firing_heading),-delta*turn_rate,delta*turn_rate))
 			enemy.speed=move_toward(float(enemy.get("speed",0)),0.0,clampf(3200.0/maxf(80.0,length),10,40)*delta)
 		elif from.distance_to(to)>float(_rules.enemy_standoff_range):
 			var heading: Vector2 = vector(enemy.get("heading",Vector2.UP)).normalized()

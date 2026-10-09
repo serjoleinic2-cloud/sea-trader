@@ -25,6 +25,47 @@ func after_each() -> void:
 func _sea() -> void:
 	GameState.ship_state.docked_port_id=""
 
+func test_legacy_duplicate_training_ship_ids_do_not_cause_instant_defeat() -> void:
+	_sea()
+	GameState.fleet_state = [
+		{"instance_id":"debug_training_warship","ship_type_id":"war_humans_1","name":"Старый учебный страж","hull":0.0},
+		{"instance_id":"debug_training_warship","ship_type_id":"war_humans_1","name":"Живой учебный страж","hull":280.0}
+	]
+	navy.initialize(main,military)
+	assert_eq(GameState.fleet_state.size(),2,"save migration keeps both fleet records")
+	assert_ne(str(GameState.fleet_state[0].instance_id),str(GameState.fleet_state[1].instance_id))
+	assert_eq(str(navy.ship_by_id("debug_training_warship").name),"Живой учебный страж")
+	assert_true(navy.create_training_encounter().ok)
+	assert_true(navy.begin_battle(["debug_training_patrol"]).ok)
+	navy._step_battle(.1)
+	assert_true(navy.active(),"an old destroyed ship cannot substitute for the living participant")
+	assert_true(navy.issue_order("debug_training_warship",navy.vector(GameState.combat_state.naval_enemies.debug_training_patrol.position),"debug_training_patrol").ok)
+
+func test_destroyed_training_ship_is_reused_on_repeated_practice() -> void:
+	_sea()
+	GameState.fleet_state = [{"instance_id":"debug_training_warship","ship_type_id":"war_humans_1","name":"Учебный страж","hull":0.0,"experience":42}]
+	navy.initialize(main,military)
+	for encounter in 3:
+		assert_true(navy.create_training_encounter().ok)
+		assert_eq(GameState.fleet_state.size(),1,"repeated practice never duplicates the fixed ship ID")
+		var ship: Dictionary=navy.ship_by_id("debug_training_warship")
+		assert_gt(float(ship.hull),0)
+		assert_eq(int(ship.experience),42,"repair retains earned ship progression")
+		ship.hull=0.0
+
+func test_bow_enemy_turns_toward_target_even_inside_firing_distance() -> void:
+	_sea()
+	var ship: Dictionary=navy.ship_by_id("war1")
+	ship.escort_state.position=Vector2(200,0)
+	var enemy: Dictionary=GameState.combat_state.naval_enemies.enemy1
+	enemy.position=Vector2.ZERO
+	enemy.heading=Vector2.LEFT
+	enemy.cooldown=0.0
+	assert_true(navy.begin_battle(["enemy1"]).ok)
+	for step in 100: navy._step_battle(.1)
+	assert_gt(navy.vector(enemy.heading).dot(Vector2.RIGHT),.5,"bow guns face the target instead of waiting forever")
+	assert_gt(int(GameState.combat_state.naval_battle.get("enemy_shots",0)),0,"the enemy actually returns fire")
+
 func test_training_battle_remains_active_for_two_minutes_with_manual_fire() -> void:
 	_sea()
 	assert_true(navy.create_training_encounter().ok)
