@@ -109,6 +109,8 @@ func _refresh() -> void:
 	var raw_crew: Variant = GameState.ship_state.get("crew", [])
 	_captain_portrait.texture = GameData.get_faction_portrait(str(GameState.player_state.get("origin_race_id", "humans")))
 	var crew_ids: Array = raw_crew if raw_crew is Array else []
+	var docked_in_port: bool = str(GameState.ship_state.get("docked_port_id", "")) != ""
+	var scroll_count: int = int(GameState.progression_state.get("training_scrolls", 0))
 	var ship_id: String = str(GameState.ship_state.get("ship_id", "default"))
 	var limits: Dictionary = _requirements.get(ship_id, _requirements.get("default", {}))
 	var totals: Dictionary = {"speed": 0, "loading": 0, "fuel": 0, "repair": 0, "navigation": 0}
@@ -116,22 +118,25 @@ func _refresh() -> void:
 	var assigned_count: int = 0
 	for raw_employee in GameState.employee_state:
 		var employee: Dictionary = raw_employee
-		if not crew_ids.has(str(employee.get("employee_instance_id", ""))):
+		var is_assigned: bool = crew_ids.has(str(employee.get("employee_instance_id", "")))
+		if not is_assigned and not docked_in_port:
 			continue
-		assigned_count += 1
 		var stats: Dictionary = _system.get_effective_stats(employee)
-		for stat_id in totals:
-			totals[stat_id] = int(totals[stat_id]) + int(stats.get(stat_id, 0))
-		_add_employee_card(employee, stats, assigned_count)
+		if is_assigned:
+			assigned_count += 1
+			for stat_id in totals:
+				totals[stat_id] = int(totals[stat_id]) + int(stats.get(stat_id, 0))
+		_add_employee_card(employee, stats, assigned_count, is_assigned, docked_in_port, scroll_count)
 	var maximum_crew: int = int(limits.get("max_crew", 1))
 	for slot_index in range(assigned_count, maximum_crew):
 		_add_empty_slot(slot_index + 1)
 	_summary.text = (
-		"Занятые ячейки: %d / %d • штатные сотрудники остаются, пока вы их не замените или не уволите\n"
+		"Занятые ячейки: %d / %d • штатные сотрудники остаются, пока вы их не замените или не уволите%s\n"
 		+ "Итог: скорость %+d%% | погрузка %+d%% | топливо %+d%% | ремонт %+d%% | навигация %+d%%"
 	) % [
 		assigned_count,
 		maximum_crew,
+		(" • свитки обучения: %d — выберите навык сотрудника ниже" % scroll_count) if docked_in_port else "",
 		int(totals.get("speed", 0)),
 		int(totals.get("loading", 0)),
 		int(totals.get("fuel", 0)),
@@ -154,7 +159,7 @@ func _add_empty_slot(slot_number: int) -> void:
 	label.add_theme_font_size_override("font_size", 18)
 	card.add_child(label)
 
-func _add_employee_card(employee: Dictionary, stats: Dictionary, slot_number: int) -> void:
+func _add_employee_card(employee: Dictionary, stats: Dictionary, slot_number: int, is_assigned: bool, docked_in_port: bool, scroll_count: int) -> void:
 	var permanent: bool = str(employee.get("employment_type", "contract")) == "permanent"
 	var border: Color = Color(0.78, 0.62, 0.24, 1.0) if permanent else Color(0.18, 0.42, 0.56, 1.0)
 	var card: PanelContainer = _make_card(Color(0.08, 0.11, 0.15, 1.0), border)
@@ -174,8 +179,9 @@ func _add_employee_card(employee: Dictionary, stats: Dictionary, slot_number: in
 	profile_text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	profile.add_child(profile_text)
 	var header: Label = Label.new()
-	header.text = "ЯЧЕЙКА %d  •  %s\n%s — %s, ранг %d" % [
-		slot_number,
+	var slot_label: String = "СЛОТ %d" % slot_number if is_assigned else "РЕЗЕРВ • ОБУЧЕНИЕ В ПОРТУ"
+	header.text = "%s  •  %s\n%s — %s, ранг %d" % [
+		slot_label,
 		str(employee.get("race_name", "Экипаж")),
 		str(employee.get("name", "")),
 		str(employee.get("role_name", "")),
@@ -190,7 +196,7 @@ func _add_employee_card(employee: Dictionary, stats: Dictionary, slot_number: in
 	salary.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	profile_text.add_child(salary)
 	if permanent:
-		_add_permanent_progress(box, employee)
+		_add_permanent_progress(box, employee, docked_in_port, scroll_count)
 	else:
 		var contract: Label = Label.new()
 		contract.text = "Осталось рейсов: %d / %d • параметры фиксированы • опыт не начисляется" % [
@@ -209,11 +215,12 @@ func _add_employee_card(employee: Dictionary, stats: Dictionary, slot_number: in
 	]
 	stat_text.add_theme_font_size_override("font_size", 18)
 	box.add_child(stat_text)
-	var dismiss_button: Button = Button.new()
-	dismiss_button.text = "Уволить"
-	dismiss_button.custom_minimum_size.y = 36
-	dismiss_button.pressed.connect(_dismiss_employee.bind(str(employee.get("employee_instance_id", ""))))
-	box.add_child(dismiss_button)
+	if is_assigned:
+		var dismiss_button: Button = Button.new()
+		dismiss_button.text = "Уволить"
+		dismiss_button.custom_minimum_size.y = 36
+		dismiss_button.pressed.connect(_dismiss_employee.bind(str(employee.get("employee_instance_id", ""))))
+		box.add_child(dismiss_button)
 
 func _get_employee_portrait(employee: Dictionary) -> Texture2D:
 	var race_id: String = str(employee.get("race_id", "humans"))
@@ -222,7 +229,7 @@ func _get_employee_portrait(employee: Dictionary) -> Texture2D:
 		role_id = str(employee.get("role_name", "")).to_lower()
 	return CharacterArtCatalog.ship_officer_portrait(race_id, role_id, int(employee.get("portrait_id", 0)), _crew_portrait_atlas)
 
-func _add_permanent_progress(box: VBoxContainer, employee: Dictionary) -> void:
+func _add_permanent_progress(box: VBoxContainer, employee: Dictionary, docked_in_port: bool, scroll_count: int) -> void:
 	var mastery: int = int(employee.get("mastery_percent", 0))
 	var mastery_label: Label = Label.new()
 	mastery_label.text = "Владение профессией: %d%% • пройдено рейсов: %d" % [mastery, int(employee.get("experience", 0))]
@@ -248,6 +255,11 @@ func _add_permanent_progress(box: VBoxContainer, employee: Dictionary) -> void:
 		empty_skills.text = "Навыки: ещё не выбраны. Первый выбор откроется при 100% профессии."
 		empty_skills.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		box.add_child(empty_skills)
+		if docked_in_port and scroll_count > 0:
+			var scroll_hint := Label.new()
+			scroll_hint.text = "Свиток появится для применения после выбора навыка."
+			scroll_hint.add_theme_font_size_override("font_size", 14)
+			box.add_child(scroll_hint)
 	else:
 		for entry in skills:
 			var skill_id: String = str(entry.get("id", ""))
@@ -261,6 +273,16 @@ func _add_permanent_progress(box: VBoxContainer, employee: Dictionary) -> void:
 			skill_bar.value = progress
 			skill_bar.custom_minimum_size.y = 22
 			box.add_child(skill_bar)
+			if docked_in_port and progress < 100:
+				var scroll_button := Button.new()
+				var scroll_points: int = mini(2, 100 - progress)
+				var bonus_gain: float = float(definition.get("max_bonus", 0)) * float(scroll_points) / 100.0
+				var bonus_text: String = ("%.2f" % bonus_gain).replace(".", ",")
+				scroll_button.text = "Свиток • +%d%% навыка (≈ +%s%% к бонусу)" % [scroll_points, bonus_text]
+				scroll_button.disabled = scroll_count <= 0
+				scroll_button.custom_minimum_size.y = 34
+				scroll_button.pressed.connect(_use_training_scroll.bind(str(employee.get("employee_instance_id", "")), skill_id))
+				box.add_child(scroll_button)
 	var can_choose: bool = mastery >= 100 and str(employee.get("active_skill_id", "")) == "" and skills.size() < int(_system.get_maximum_skill_slots(employee))
 	if can_choose:
 		var prompt: Label = Label.new()
@@ -299,6 +321,11 @@ func _dismiss_employee(employee_id: String) -> void:
 
 func _choose_skill(employee_id: String, skill_id: String) -> void:
 	var result: Dictionary = _system.choose_skill(employee_id, skill_id)
+	_notice.text = str(result.get("message", ""))
+	_refresh()
+
+func _use_training_scroll(employee_id: String, skill_id: String) -> void:
+	var result: Dictionary = _system.use_training_scroll(employee_id, skill_id)
 	_notice.text = str(result.get("message", ""))
 	_refresh()
 

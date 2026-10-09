@@ -231,6 +231,41 @@ func choose_skill(employee_id: String, skill_id: String) -> Dictionary:
 		return {"ok": true, "message": "Выбран навык «%s». Он развивается в рейсах." % str(_skills[skill_id].get("name", skill_id))}
 	return {"ok": false, "message": "Сотрудник не найден."}
 
+func use_training_scroll(employee_id: String, skill_id: String) -> Dictionary:
+	if str(GameState.ship_state.get("docked_port_id", "")) == "":
+		return {"ok": false, "message": "Свиток можно применить только в порту."}
+	var scrolls: int = int(GameState.progression_state.get("training_scrolls", 0))
+	if scrolls <= 0:
+		return {"ok": false, "message": "У вас нет свитков обучения."}
+	for index in range(GameState.employee_state.size()):
+		var employee: Dictionary = GameState.employee_state[index]
+		if str(employee.get("employee_instance_id", "")) != employee_id:
+			continue
+		if _employment_type(employee) != "permanent":
+			return {"ok": false, "message": "Свитки доступны только постоянному персоналу."}
+		var skills: Array = employee.get("skills", [])
+		for skill in skills:
+			if str(skill.get("id", "")) != skill_id:
+				continue
+			var progress: int = int(skill.get("progress", 0))
+			if progress >= 100:
+				return {"ok": false, "message": "Этот навык уже полностью освоен."}
+			var added_progress: int = mini(2, 100 - progress)
+			skill["progress"] = progress + added_progress
+			if int(skill["progress"]) >= 100 and str(employee.get("active_skill_id", "")) == skill_id:
+				employee["active_skill_id"] = ""
+			employee["skills"] = skills
+			_rebuild_skill_stats(employee)
+			GameState.employee_state[index] = employee
+			GameState.progression_state["training_scrolls"] = scrolls - 1
+			SaveSystem.save_game()
+			return {
+				"ok": true,
+				"message": "Свиток применён: навык продвинулся на %d%%. Осталось свитков: %d." % [added_progress, scrolls - 1]
+			}
+		return {"ok": false, "message": "У этого сотрудника нет такого навыка."}
+	return {"ok": false, "message": "Сотрудник не найден."}
+
 func complete_voyage(crew_ids: Array) -> Array:
 	var retained_employees: Array = []
 	var retained_crew_ids: Array = []

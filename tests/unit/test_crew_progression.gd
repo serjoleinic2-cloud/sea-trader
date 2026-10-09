@@ -96,6 +96,52 @@ func test_action_specific_skill_advances_slowly_and_only_for_matching_action() -
 	assert_eq(GameState.employee_state[0].skills[0].progress, 1)
 	assert_eq(_system.get_effective_stats(GameState.employee_state[0]).speed, 0)
 
+func test_training_scroll_advances_selected_skill_by_two_points_in_port() -> void:
+	GameState.ship_state["docked_port_id"] = "harbor"
+	GameState.progression_state["training_scrolls"] = 3
+	GameState.employee_state = [{"employee_instance_id": "officer", "employment_type": "permanent",
+		"mastery_percent": 100, "active_skill_id": "steady_course",
+		"skills": [{"id": "steady_course", "progress": 40}], "stats": {"speed": 0}, "skill_stats": {}}]
+	var result: Dictionary = _system.use_training_scroll("officer", "steady_course")
+	assert_true(bool(result.get("ok", false)))
+	assert_eq(int(GameState.employee_state[0].skills[0].progress), 42)
+	assert_eq(int(GameState.progression_state.training_scrolls), 2)
+
+func test_training_scroll_requires_port_and_cannot_raise_a_skill_past_100() -> void:
+	GameState.progression_state["training_scrolls"] = 1
+	GameState.employee_state = [{"employee_instance_id": "officer", "employment_type": "permanent",
+		"skills": [{"id": "steady_course", "progress": 99}], "stats": {}, "skill_stats": {}}]
+	var sailing_result: Dictionary = _system.use_training_scroll("officer", "steady_course")
+	assert_false(bool(sailing_result.get("ok", false)))
+	assert_eq(int(GameState.progression_state.training_scrolls), 1)
+	GameState.ship_state["docked_port_id"] = "harbor"
+	var port_result: Dictionary = _system.use_training_scroll("officer", "steady_course")
+	assert_true(bool(port_result.get("ok", false)))
+	assert_eq(int(GameState.employee_state[0].skills[0].progress), 100)
+	assert_eq(str(GameState.employee_state[0].get("active_skill_id", "")), "")
+	assert_eq(int(GameState.progression_state.training_scrolls), 0)
+	var capped_result: Dictionary = _system.use_training_scroll("officer", "steady_course")
+	assert_false(bool(capped_result.get("ok", false)))
+	assert_eq(int(GameState.progression_state.training_scrolls), 0)
+
+func test_port_crew_window_offers_scroll_for_reserve_employee() -> void:
+	GameState.ship_state["docked_port_id"] = "harbor"
+	GameState.ship_state["crew"] = []
+	GameState.progression_state["training_scrolls"] = 2
+	GameState.employee_state = [{"employee_instance_id": "reserve", "employment_type": "permanent", "name": "Лоцман",
+		"role_id": "navigator", "race_id": "humans", "rank": 1, "mastery_percent": 100, "skills": [{"id": "coastal_memory", "progress": 20}],
+		"active_skill_id": "coastal_memory", "stats": {"navigation": 0}, "skill_stats": {}}]
+	var crew_ui: Node = load("res://systems/ui/crew_window.gd").new()
+	add_child(crew_ui)
+	crew_ui.initialize(_system)
+	crew_ui._refresh()
+	var has_scroll_action: bool = false
+	for button in crew_ui.find_children("*", "Button", true, false):
+		if str(button.text).begins_with("Свиток"):
+			has_scroll_action = true
+	assert_true(has_scroll_action, "the port crew window exposes training for employees in reserve")
+	crew_ui.free()
+
 func test_hiring_and_crew_screens_show_portraits_and_empty_crew_cells() -> void:
 	var candidate: Dictionary = _system.get_candidates()[0]
 	candidate["rank"] = 1
