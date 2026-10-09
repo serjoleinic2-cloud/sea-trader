@@ -82,6 +82,8 @@ func _ready() -> void:
 	check(int(GameState.combat_state.naval_battle.shots)==0,"own guns do not fire without an attack order")
 	var target_id: String = str(GameState.combat_state.naval_battle.enemy_ids[0])
 	navy.issue_order(id,navy.get_enemy_snapshots()[0].position,target_id)
+	var enemy_position: Vector2=navy.vector(navy.get_enemy_snapshots()[0].position)
+	ship.escort_state.heading=navy.position(ship).direction_to(enemy_position)
 	navy._step_battle(.05)
 	navy._military=battle_military
 	check(int(GameState.combat_state.naval_battle.shots)>0,"attack order fires on its selected enemy")

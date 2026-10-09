@@ -58,7 +58,7 @@ func _model_muzzle_position(attacker_id: String, fallback: Vector3) -> Vector3:
 	if attacker_id == "" or not is_instance_valid(_world): return fallback
 	var model: Node3D = _world.get_node_or_null("Traffic_combat_" + attacker_id) as Node3D
 	if model == null: return fallback
-	for marker_name in ["MuzzlePoint", "GunMuzzle", "MuzzleFlash"]:
+	for marker_name in ["BowMuzzlePoint", "MuzzlePoint", "GunMuzzle", "MuzzleFlash"]:
 		var marker: Node3D = model.find_child(marker_name, true, false) as Node3D
 		if marker != null: return marker.global_position
 	return fallback

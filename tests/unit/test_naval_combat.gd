@@ -38,6 +38,7 @@ func test_training_battle_remains_active_for_two_minutes_with_manual_fire() -> v
 	assert_true(navy.issue_order(str(ship.instance_id),navy.vector(enemy.position),str(enemy.id)).ok)
 	for step in 1190:
 		navy._step_battle(.1)
+		military._step_ship(ship,0,.1)
 	assert_true(navy.active(),"practice remains active at 119 seconds")
 	assert_gte(int(GameState.combat_state.naval_battle.shots),8,"manual attack visibly fires repeated artillery salvos")
 	assert_gt(float(enemy.hull),0)
@@ -213,6 +214,7 @@ func test_surrender_never_credits_negative_treasury() -> void:
 func test_cannon_damage_waits_for_arrival_and_reload() -> void:
 	assert_true(navy.install_gun("war1",0,"cannon").ok)
 	GameState.fleet_state[0].escort_state.position=Vector2.ZERO
+	GameState.fleet_state[0].escort_state.heading=Vector2.RIGHT
 	GameState.combat_state.naval_enemies.enemy1.position=Vector2(250,0)
 	_sea(); assert_true(navy.begin_battle().ok)
 	assert_true(navy.issue_order("war1",Vector2(250,0),"enemy1").ok)
@@ -231,6 +233,7 @@ func test_broadside_guns_fire_as_a_synchronized_salvo() -> void:
 	GameState.combat_state.naval_enemies.enemy1.position=Vector2(300,0)
 	assert_true(navy.install_gun("war1",0,"cannon").ok)
 	assert_true(navy.install_gun("war1",1,"rune").ok)
+	GameState.fleet_state[0].escort_state.heading=Vector2.RIGHT
 	_sea()
 	assert_true(navy.begin_battle().ok)
 	assert_true(navy.issue_order("war1",Vector2(300,0),"enemy1").ok)
@@ -241,6 +244,24 @@ func test_broadside_guns_fire_as_a_synchronized_salvo() -> void:
 	assert_eq(int(GameState.combat_state.naval_battle.shots),2,"guns do not alternate like a machine gun")
 	for step in 5: navy._step_battle(1.0)
 	assert_eq(int(GameState.combat_state.naval_battle.shots),4,"the full battery fires its next salvo after reloading")
+
+func test_broadside_ship_turns_beam_on_and_fires_from_standoff() -> void:
+	_sea()
+	GameState.combat_state.naval_enemies.enemy1.position=Vector2(0,100)
+	var broadside_ship: Dictionary={"instance_id":"broadside","ship_type_id":"war_humans_2","name":"Корвет","current_port_id":"","escort_enabled":true,"escort_state":{"initialized":true,"position":Vector2(-200,100),"heading":Vector2.RIGHT}}
+	GameState.fleet_state.append(broadside_ship)
+	navy.normalize_ship(broadside_ship)
+	broadside_ship.guns[0]={"kind":"cannon","level":1,"experience":0,"cooldown":0.0}
+	assert_eq(str(GameData.get_ship("war_humans_2").gun_mounting),"broadside")
+	assert_true(navy.begin_battle().ok)
+	assert_true(navy.issue_order("broadside",Vector2(0,100),"enemy1").ok)
+	for step in 40:
+		navy._step_battle(.1)
+		military._step_ship(broadside_ship,1,.1)
+	var heading: Vector2=broadside_ship.escort_state.heading.normalized()
+	assert_lt(absf(heading.dot(Vector2.RIGHT)),.58,"the corvette turns its broadside toward the target")
+	assert_almost_eq(broadside_ship.escort_state.position.distance_to(Vector2(0,100)),200.0,1.0,"the broadside holds its standoff range")
+	assert_gt(int(GameState.combat_state.naval_battle.shots),0,"broadside guns fire after the hull aligns")
 
 func test_misses_land_outside_hull_and_do_no_damage() -> void:
 	_sea(); assert_true(navy.begin_battle().ok)

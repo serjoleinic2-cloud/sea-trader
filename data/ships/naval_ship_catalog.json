@@ -27,7 +27,9 @@
         "resource_varnish": 8,
         "resource_glass": 4
       },
-      "ui_icon": "res://assets/ui/ships/ship_combat_cutter.png"
+      "ui_icon": "res://assets/ui/ships/ship_combat_cutter.png",
+      "gun_mounting": "bow",
+      "bow_gun_slots": 2
     },
     {
       "id": "war_humans_2",
@@ -55,7 +57,9 @@
         "resource_varnish": 32,
         "resource_glass": 16
       },
-      "ui_icon": "res://assets/ui/ships/ship_combat_cutter.png"
+      "ui_icon": "res://assets/ui/ships/ship_combat_cutter.png",
+      "gun_mounting": "broadside",
+      "bow_gun_slots": 0
     },
     {
       "id": "war_humans_3",
@@ -83,7 +87,9 @@
         "resource_varnish": 72,
         "resource_glass": 36
       },
-      "ui_icon": "res://assets/ui/ships/ship_combat_cutter.png"
+      "ui_icon": "res://assets/ui/ships/ship_combat_cutter.png",
+      "gun_mounting": "broadside",
+      "bow_gun_slots": 0
     },
     {
       "id": "war_humans_4",
@@ -111,7 +117,9 @@
         "resource_varnish": 128,
         "resource_glass": 64
       },
-      "ui_icon": "res://assets/ui/ships/ship_combat_cutter.png"
+      "ui_icon": "res://assets/ui/ships/ship_combat_cutter.png",
+      "gun_mounting": "broadside",
+      "bow_gun_slots": 0
     },
     {
       "id": "war_humans_5",
@@ -139,7 +147,9 @@
         "resource_varnish": 200,
         "resource_glass": 100
       },
-      "ui_icon": "res://assets/ui/ships/ship_combat_cutter.png"
+      "ui_icon": "res://assets/ui/ships/ship_combat_cutter.png",
+      "gun_mounting": "broadside",
+      "bow_gun_slots": 0
     },
     {
       "id": "war_nerids_1",
@@ -167,7 +177,9 @@
         "resource_varnish": 8,
         "resource_glass": 4
       },
-      "ui_icon": "res://assets/ui/ships/ship_combat_cutter.png"
+      "ui_icon": "res://assets/ui/ships/ship_combat_cutter.png",
+      "gun_mounting": "bow",
+      "bow_gun_slots": 2
     },
     {
       "id": "war_nerids_2",
@@ -195,7 +207,9 @@
         "resource_varnish": 32,
         "resource_glass": 16
       },
-      "ui_icon": "res://assets/ui/ships/ship_combat_cutter.png"
+      "ui_icon": "res://assets/ui/ships/ship_combat_cutter.png",
+      "gun_mounting": "broadside",
+      "bow_gun_slots": 0
     },
     {
       "id": "war_nerids_3",
@@ -223,7 +237,9 @@
         "resource_varnish": 72,
         "resource_glass": 36
       },
-      "ui_icon": "res://assets/ui/ships/ship_combat_cutter.png"
+      "ui_icon": "res://assets/ui/ships/ship_combat_cutter.png",
+      "gun_mounting": "broadside",
+      "bow_gun_slots": 0
     },
     {
       "id": "war_nerids_4",
@@ -251,7 +267,9 @@
         "resource_varnish": 128,
         "resource_glass": 64
       },
-      "ui_icon": "res://assets/ui/ships/ship_combat_cutter.png"
+      "ui_icon": "res://assets/ui/ships/ship_combat_cutter.png",
+      "gun_mounting": "broadside",
+      "bow_gun_slots": 0
     },
     {
       "id": "war_nerids_5",
@@ -279,7 +297,9 @@
         "resource_varnish": 200,
         "resource_glass": 100
       },
-      "ui_icon": "res://assets/ui/ships/ship_combat_cutter.png"
+      "ui_icon": "res://assets/ui/ships/ship_combat_cutter.png",
+      "gun_mounting": "broadside",
+      "bow_gun_slots": 0
     },
     {
       "id": "war_surr_1",
@@ -307,7 +327,9 @@
         "resource_varnish": 8,
         "resource_glass": 4
       },
-      "ui_icon": "res://assets/ui/ships/ship_combat_cutter.png"
+      "ui_icon": "res://assets/ui/ships/ship_combat_cutter.png",
+      "gun_mounting": "bow",
+      "bow_gun_slots": 2
     },
     {
       "id": "war_surr_2",
@@ -335,7 +357,9 @@
         "resource_varnish": 32,
         "resource_glass": 16
       },
-      "ui_icon": "res://assets/ui/ships/ship_combat_cutter.png"
+      "ui_icon": "res://assets/ui/ships/ship_combat_cutter.png",
+      "gun_mounting": "broadside",
+      "bow_gun_slots": 0
     },
     {
       "id": "war_surr_3",
@@ -363,7 +387,9 @@
         "resource_varnish": 72,
         "resource_glass": 36
       },
-      "ui_icon": "res://assets/ui/ships/ship_combat_cutter.png"
+      "ui_icon": "res://assets/ui/ships/ship_combat_cutter.png",
+      "gun_mounting": "broadside",
+      "bow_gun_slots": 0
     },
     {
       "id": "war_surr_4",
@@ -391,7 +417,9 @@
         "resource_varnish": 128,
         "resource_glass": 64
       },
-      "ui_icon": "res://assets/ui/ships/ship_combat_cutter.png"
+      "ui_icon": "res://assets/ui/ships/ship_combat_cutter.png",
+      "gun_mounting": "broadside",
+      "bow_gun_slots": 0
     },
     {
       "id": "war_surr_5",
@@ -419,7 +447,9 @@
         "resource_varnish": 200,
         "resource_glass": 100
       },
-      "ui_icon": "res://assets/ui/ships/ship_combat_cutter.png"
+      "ui_icon": "res://assets/ui/ships/ship_combat_cutter.png",
+      "gun_mounting": "broadside",
+      "bow_gun_slots": 0
     },
     {
       "id": "war_meridians_1",
@@ -447,7 +477,9 @@
         "resource_varnish": 8,
         "resource_glass": 4
       },
-      "ui_icon": "res://assets/ui/ships/ship_combat_cutter.png"
+      "ui_icon": "res://assets/ui/ships/ship_combat_cutter.png",
+      "gun_mounting": "bow",
+      "bow_gun_slots": 2
     },
     {
       "id": "war_meridians_2",
@@ -475,7 +507,9 @@
         "resource_varnish": 32,
         "resource_glass": 16
       },
-      "ui_icon": "res://assets/ui/ships/ship_combat_cutter.png"
+      "ui_icon": "res://assets/ui/ships/ship_combat_cutter.png",
+      "gun_mounting": "broadside",
+      "bow_gun_slots": 0
     },
     {
       "id": "war_meridians_3",
@@ -503,7 +537,9 @@
         "resource_varnish": 72,
         "resource_glass": 36
       },
-      "ui_icon": "res://assets/ui/ships/ship_combat_cutter.png"
+      "ui_icon": "res://assets/ui/ships/ship_combat_cutter.png",
+      "gun_mounting": "broadside",
+      "bow_gun_slots": 0
     },
     {
       "id": "war_meridians_4",
@@ -531,7 +567,9 @@
         "resource_varnish": 128,
         "resource_glass": 64
       },
-      "ui_icon": "res://assets/ui/ships/ship_combat_cutter.png"
+      "ui_icon": "res://assets/ui/ships/ship_combat_cutter.png",
+      "gun_mounting": "broadside",
+      "bow_gun_slots": 0
     },
     {
       "id": "war_meridians_5",
@@ -559,7 +597,9 @@
         "resource_varnish": 200,
         "resource_glass": 100
       },
-      "ui_icon": "res://assets/ui/ships/ship_combat_cutter.png"
+      "ui_icon": "res://assets/ui/ships/ship_combat_cutter.png",
+      "gun_mounting": "broadside",
+      "bow_gun_slots": 0
     },
     {
       "id": "war_aery_1",
@@ -587,7 +627,9 @@
         "resource_varnish": 8,
         "resource_glass": 4
       },
-      "ui_icon": "res://assets/ui/ships/ship_combat_cutter.png"
+      "ui_icon": "res://assets/ui/ships/ship_combat_cutter.png",
+      "gun_mounting": "bow",
+      "bow_gun_slots": 2
     },
     {
       "id": "war_aery_2",
@@ -615,7 +657,9 @@
         "resource_varnish": 32,
         "resource_glass": 16
       },
-      "ui_icon": "res://assets/ui/ships/ship_combat_cutter.png"
+      "ui_icon": "res://assets/ui/ships/ship_combat_cutter.png",
+      "gun_mounting": "broadside",
+      "bow_gun_slots": 0
     },
     {
       "id": "war_aery_3",
@@ -643,7 +687,9 @@
         "resource_varnish": 72,
         "resource_glass": 36
       },
-      "ui_icon": "res://assets/ui/ships/ship_combat_cutter.png"
+      "ui_icon": "res://assets/ui/ships/ship_combat_cutter.png",
+      "gun_mounting": "broadside",
+      "bow_gun_slots": 0
     },
     {
       "id": "war_aery_4",
@@ -671,7 +717,9 @@
         "resource_varnish": 128,
         "resource_glass": 64
       },
-      "ui_icon": "res://assets/ui/ships/ship_combat_cutter.png"
+      "ui_icon": "res://assets/ui/ships/ship_combat_cutter.png",
+      "gun_mounting": "broadside",
+      "bow_gun_slots": 0
     },
     {
       "id": "war_aery_5",
@@ -699,7 +747,9 @@
         "resource_varnish": 200,
         "resource_glass": 100
       },
-      "ui_icon": "res://assets/ui/ships/ship_combat_cutter.png"
+      "ui_icon": "res://assets/ui/ships/ship_combat_cutter.png",
+      "gun_mounting": "broadside",
+      "bow_gun_slots": 0
     },
     {
       "id": "war_crystari_1",
@@ -727,7 +777,9 @@
         "resource_varnish": 8,
         "resource_glass": 4
       },
-      "ui_icon": "res://assets/ui/ships/ship_combat_cutter.png"
+      "ui_icon": "res://assets/ui/ships/ship_combat_cutter.png",
+      "gun_mounting": "bow",
+      "bow_gun_slots": 2
     },
     {
       "id": "war_crystari_2",
@@ -755,7 +807,9 @@
         "resource_varnish": 32,
         "resource_glass": 16
       },
-      "ui_icon": "res://assets/ui/ships/ship_combat_cutter.png"
+      "ui_icon": "res://assets/ui/ships/ship_combat_cutter.png",
+      "gun_mounting": "broadside",
+      "bow_gun_slots": 0
     },
     {
       "id": "war_crystari_3",
@@ -783,7 +837,9 @@
         "resource_varnish": 72,
         "resource_glass": 36
       },
-      "ui_icon": "res://assets/ui/ships/ship_combat_cutter.png"
+      "ui_icon": "res://assets/ui/ships/ship_combat_cutter.png",
+      "gun_mounting": "broadside",
+      "bow_gun_slots": 0
     },
     {
       "id": "war_crystari_4",
@@ -811,7 +867,9 @@
         "resource_varnish": 128,
         "resource_glass": 64
       },
-      "ui_icon": "res://assets/ui/ships/ship_combat_cutter.png"
+      "ui_icon": "res://assets/ui/ships/ship_combat_cutter.png",
+      "gun_mounting": "broadside",
+      "bow_gun_slots": 0
     },
     {
       "id": "war_crystari_5",
@@ -839,7 +897,9 @@
         "resource_varnish": 200,
         "resource_glass": 100
       },
-      "ui_icon": "res://assets/ui/ships/ship_combat_cutter.png"
+      "ui_icon": "res://assets/ui/ships/ship_combat_cutter.png",
+      "gun_mounting": "broadside",
+      "bow_gun_slots": 0
     }
   ]
 }

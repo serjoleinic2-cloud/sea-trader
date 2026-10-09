@@ -278,6 +278,23 @@ func _step_ship(ship: Dictionary, index: int, delta: float) -> void:
 	if not target.is_finite():
 		ship["status"]="Ожидает свободный проход"
 		return
+	var attack_order: Dictionary=ship.get("naval_order",{})
+	var facing_heading: Vector2=Vector2.ZERO
+	if attack_order.has("broadside_heading"): facing_heading=_to_vector2(attack_order.broadside_heading,Vector2.ZERO)
+	elif attack_order.has("bow_heading"): facing_heading=_to_vector2(attack_order.bow_heading,Vector2.ZERO)
+	if tactical and str(attack_order.get("kind",""))=="attack" and facing_heading.length_squared()>.1 and position.distance_to(target)<length*.26:
+		var current_broadside_heading: Vector2=_to_vector2(state.get("heading",Vector2.UP),Vector2.UP).normalized()
+		var desired_heading: Vector2=facing_heading.normalized()
+		var broadside_turn_rate: float=clampf(95.0/maxf(80.0,length),.28,1.05)*float(GameData.get_ship(str(ship.ship_type_id)).get("base_maneuverability",.85))
+		var broadside_turn: float=clampf(current_broadside_heading.angle_to(desired_heading),-broadside_turn_rate*delta,broadside_turn_rate*delta)
+		state["heading"]=current_broadside_heading.rotated(broadside_turn).normalized()
+		state["turn_velocity"]=broadside_turn/maxf(.001,delta)
+		state["speed"]=move_toward(float(state.get("speed",0.0)),0.0,clampf(3200.0/maxf(80.0,length),10,40)*delta)
+		state["position"]=position
+		state["blocked_seconds"]=0.0
+		ship["escort_state"]=state
+		ship["status"]="Бортом к противнику" if attack_order.has("broadside_heading") else "Носом к противнику"
+		return
 	if position.distance_to(target)<length*.26:
 		ship["status"]="В строю" if docked=="" else "На рейде порта"
 		state["blocked_seconds"] = 0.0

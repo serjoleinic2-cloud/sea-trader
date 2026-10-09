@@ -458,7 +458,23 @@ func _step_battle(delta: float) -> void:
 				if not enemy.is_empty() and _enemy_alive(enemy):
 					var enemy_point: Vector2 = vector(enemy.position)
 					var dist: float = position(ship).distance_to(enemy_point)
-					order.point=position(ship) if dist<=_ship_range(ship)*.82 else enemy_point+enemy_point.direction_to(position(ship))*_ship_range(ship)*.72
+					var broadside: bool = str(GameData.get_ship(str(ship.ship_type_id)).get("gun_mounting","broadside"))=="broadside"
+					if broadside and dist<=_ship_range(ship)*.82:
+						var heading: Vector2=vector(ship.get("escort_state",{}).get("heading",Vector2.UP))
+						var toward_target: Vector2=position(ship).direction_to(enemy_point)
+						var side_heading: Vector2=toward_target.orthogonal()
+						if heading.normalized().dot(side_heading)<heading.normalized().dot(-side_heading): side_heading=-side_heading
+						order["broadside_heading"]=side_heading
+						order.erase("bow_heading")
+						order.point=position(ship)
+					elif not broadside and dist<=_ship_range(ship)*.82:
+						order.erase("broadside_heading")
+						order["bow_heading"]=position(ship).direction_to(enemy_point)
+						order.point=position(ship)
+					else:
+						order.erase("broadside_heading")
+						order.erase("bow_heading")
+						order.point=enemy_point+enemy_point.direction_to(position(ship))*_ship_range(ship)*.72
 			_fire_ship(ship,enemies,delta,battle)
 	if allies.is_empty(): _finish("Поражение",{}); return
 	for enemy in enemies:
@@ -469,7 +485,16 @@ func _step_battle(delta: float) -> void:
 		var from: Vector2 = vector(enemy.position)
 		var to: Vector2 = position(nearest)
 		var length: float = float(_visuals.get(str(enemy.ship_type_id),{}).get("display_length",5.1))/.04
-		if from.distance_to(to)>float(_rules.enemy_standoff_range):
+		var enemy_definition: Dictionary=GameData.get_ship(str(enemy.get("ship_type_id","")))
+		var enemy_broadside: bool=str(enemy_definition.get("gun_mounting","broadside"))=="broadside"
+		if enemy_broadside and from.distance_to(to)<=float(_rules.enemy_standoff_range):
+			var enemy_heading: Vector2=vector(enemy.get("heading",Vector2.UP)).normalized()
+			var side_heading: Vector2=from.direction_to(to).orthogonal()
+			if enemy_heading.dot(side_heading)<enemy_heading.dot(-side_heading): side_heading=-side_heading
+			var turn_rate: float=clampf(95.0/maxf(80.0,length),.28,1.0)
+			enemy.heading=enemy_heading.rotated(clampf(enemy_heading.angle_to(side_heading),-delta*turn_rate,delta*turn_rate))
+			enemy.speed=move_toward(float(enemy.get("speed",0)),0.0,clampf(3200.0/maxf(80.0,length),10,40)*delta)
+		elif from.distance_to(to)>float(_rules.enemy_standoff_range):
 			var heading: Vector2 = vector(enemy.get("heading",Vector2.UP)).normalized()
 			var turn: float = clampf(heading.angle_to(from.direction_to(to)),-delta*clampf(95.0/length,.28,1.0),delta*clampf(95.0/length,.28,1.0))
 			enemy.heading = heading.rotated(turn)
@@ -477,7 +502,11 @@ func _step_battle(delta: float) -> void:
 			var next: Vector2 = from+vector(enemy.heading)*float(enemy.speed)*delta
 			if _military!=null and _military._clear_segment(from,next,length,_military._obstacles(str(enemy.id))): enemy.position=next
 		enemy.cooldown=maxf(0,float(enemy.get("cooldown",0))-delta)
-		if float(enemy.cooldown)<=0 and from.distance_to(to)<float(_rules.enemy_attack_range) and (_military==null or not _military._guard.is_navigation_move_blocked(from,to)):
+		var enemy_facing: Vector2=vector(enemy.get("heading",Vector2.UP)).normalized()
+		var enemy_target_direction: Vector2=from.direction_to(to)
+		var enemy_alignment: float=enemy_facing.dot(enemy_target_direction)
+		var enemy_gun_aligned: bool=enemy_broadside and absf(enemy_alignment)<=.58 or not enemy_broadside and enemy_alignment>=.5
+		if float(enemy.cooldown)<=0 and enemy_gun_aligned and from.distance_to(to)<float(_rules.enemy_attack_range) and (_military==null or not _military._guard.is_navigation_move_blocked(from,to)):
 			enemy.cooldown=float(_rules.enemy_reload_seconds)
 			var sequence: int = int(battle.get("enemy_shots", 0)) + 1
 			battle.enemy_shots = sequence
@@ -509,6 +538,9 @@ func _fire_ship(ship: Dictionary, enemies: Array[Dictionary], delta: float, batt
 		if str(enemy.id)==target_id: target=enemy; break
 	if target.is_empty() or not _enemy_alive(target): return
 	var skills: Dictionary = ship.get("commander",{}).get("skills",{})
+	var mounting: String=str(GameData.get_ship(str(ship.get("ship_type_id",""))).get("gun_mounting","broadside"))
+	var heading: Vector2=vector(ship.get("escort_state",{}).get("heading",Vector2.UP)).normalized()
+	var target_direction: Vector2=origin.direction_to(vector(target.position))
 	var remaining: float = float(ship.get("naval_reload",-1.0))
 	if remaining<0.0:
 		remaining=0.0
@@ -524,6 +556,9 @@ func _fire_ship(ship: Dictionary, enemies: Array[Dictionary], delta: float, batt
 		if gun.is_empty(): continue
 		var definition: Dictionary = _rules.guns.get(str(gun.kind),{})
 		if definition.is_empty() or origin.distance_to(vector(target.position))>float(definition.range) or not _enemy_alive(target): continue
+		var alignment: float=heading.dot(target_direction)
+		if mounting=="bow" and alignment<0.5: continue
+		if mounting!="bow" and absf(alignment)>0.58: continue
 		if _military!=null and _military._guard.is_navigation_move_blocked(origin,vector(target.position)): continue
 		var bonus: float = float(_rules.skill_bonus)
 		volley_reload=maxf(volley_reload,float(definition.reload)/(1+bonus*int(skills.get("reload",0))))
@@ -541,7 +576,7 @@ func _fire_ship(ship: Dictionary, enemies: Array[Dictionary], delta: float, batt
 		ship.naval_reload=volley_reload
 		for loaded_gun in ship.get("guns",[]):
 			if not loaded_gun.is_empty(): loaded_gun.cooldown=volley_reload
-		battle.notice="%s: залп · перезарядка %d с" % [str(ship.name),ceili(volley_reload)]
+		battle.notice="%s: %s · перезарядка %d с" % [str(ship.name),"носовой залп на ходу" if mounting=="bow" else "бортовой залп",ceili(volley_reload)]
 
 func _queue_projectile(battle: Dictionary, origin: Vector2, target: Vector2, hit: bool, kind: String, target_kind: String, target_id: String, damage: float, sequence: int, length: float, shooter_id: String = "", gun_slot: int = -1) -> Vector2:
 	var artillery = preload("res://systems/combat/naval_artillery.gd")

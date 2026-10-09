@@ -46,15 +46,25 @@ func _ready() -> void:
 	_rod(Vector3(0,.6,-length*.6),Vector3(0,1.5,-length*.15),.008,rope)
 	if warship:
 		var slots: int = [2,3,4,6,8][tier-1]
+		var bow_slots: int=int(GameData.get_ship(ship_id).get("bow_gun_slots",0))
 		for index in slots:
-			var z: float = -length*.27+(index/2)*length*.16
-			var side: float = -1.0 if index%2==0 else 1.0
-			_box(Vector3(.3,.14,.34),Vector3(side*width*.25,.53,z),metal)
-			var muzzle := Vector3(side*(width*.48+.24),.7,z)
-			_rod(Vector3(side*width*.25,.7,z),muzzle,.055,hull)
+			var muzzle: Vector3
+			if index<bow_slots:
+				var bow_side: float=-1.0 if index%2==0 else 1.0
+				var x: float=bow_side*.14 if bow_slots>1 else 0.0
+				_box(Vector3(.22,.14,.28),Vector3(x,.53,-length*.42),metal)
+				muzzle=Vector3(x,.7,-length*.59)
+				_rod(Vector3(x,.7,-length*.4),muzzle,.055,hull)
+			else:
+				var broadside_index: int=index-bow_slots
+				var z: float=-length*.27+floori(float(broadside_index)/2.0)*length*.16
+				var side: float=-1.0 if broadside_index%2==0 else 1.0
+				_box(Vector3(.3,.14,.34),Vector3(side*width*.25,.53,z),metal)
+				muzzle=Vector3(side*(width*.48+.24),.7,z)
+				_rod(Vector3(side*width*.25,.7,z),muzzle,.055,hull)
 			if index==0:
 				var marker := Marker3D.new()
-				marker.name="MuzzlePoint"; marker.position=muzzle; add_child(marker)
+				marker.name="BowMuzzlePoint" if index<bow_slots else "MuzzlePoint"; marker.position=muzzle; add_child(marker)
 	else:
 		if ship_id.contains("tanker"):
 			for index in 3: _rod(Vector3(0,.73,-length*.25+index*.75),Vector3(0,.73,-length*.25+index*.75+.55),width*.32,metal)
