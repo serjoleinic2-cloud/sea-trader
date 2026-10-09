@@ -41,7 +41,7 @@ func _ready() -> void:
 	_notice=Label.new(); _notice.set_meta("fixed_font_size",12); _notice.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART; _notice.custom_minimum_size.y=22; _notice.add_theme_font_size_override("font_size",12); column.add_child(_notice)
 	_map=preload("res://systems/ui/naval_tactical_map.gd").new(); _map.custom_minimum_size=Vector2(0,120); _map.size_flags_vertical=Control.SIZE_EXPAND_FILL; _map.size_flags_horizontal=Control.SIZE_EXPAND_FILL; column.add_child(_map)
 	var hint:=Label.new(); hint.set_meta("fixed_font_size",11); hint.text="ЛКМ: свой корабль → враг или точка моря\nЗажатая ПКМ: двигать карту · колёсико: масштаб\nОгонь только по вашему приказу"; hint.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART; hint.add_theme_font_size_override("font_size",11); column.add_child(hint)
-	_surrender=ConfirmationDialog.new(); _surrender.title="Сдаться"; _surrender.dialog_text="Сдача означает поражение. Будет списано 10% монет, осколков и свободных ресурсов домашнего склада."; _surrender.ok_button_text="Сдаться"; _surrender.cancel_button_text="Продолжить бой"; _surrender.confirmed.connect(func(): _show_status(_system.surrender())); add_child(_surrender)
+	_surrender=ConfirmationDialog.new(); _surrender.title="Сдаться"; _surrender.dialog_text="Сдача означает поражение. Будет списано 10% текущей казны. Осколки, свитки, склад базы и контрактный груз защищены."; _surrender.ok_button_text="Сдаться"; _surrender.cancel_button_text="Продолжить бой"; _surrender.confirmed.connect(func(): _show_status(_system.surrender())); add_child(_surrender)
 	_report=AcceptDialog.new(); _report.title="Итог морского боя"; add_child(_report)
 	_badge.hide(); _panel.hide(); _lantern.hide(); _attack_notice.hide()
 	for dialog in [_surrender,_report]:
@@ -128,7 +128,8 @@ func _process(delta: float) -> void:
 		var text_value: String = str(report.outcome)
 		var loss: Dictionary = report.get("losses",{})
 		if not loss.is_empty():
-			text_value+="\nСписано из казны: %d монет, %d осколков." % [int(loss.money),int(loss.magic_shards)]
+			if int(loss.get("money",0))>0: text_value+="\nСписано из казны: %d монет." % int(loss.money)
+			if int(loss.get("magic_shards",0))>0: text_value+="\nПотеряно осколков: %d." % int(loss.magic_shards)
 			for resource in loss.get("resources",{}): text_value+="\n%s: %d" % [str(GameData.get_good(str(resource)).get("name",resource)),int(loss.resources[resource])]
 			for resource in loss.get("cargo",{}): text_value+="\nПохищено из трюма · %s: %d" % [str(GameData.get_good(str(resource)).get("name",resource)),int(loss.cargo[resource])]
 		_report.dialog_text=text_value; _report.popup_centered(Vector2i(500,250))

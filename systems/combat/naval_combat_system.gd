@@ -311,7 +311,7 @@ func respond_truce(accepted: bool) -> Dictionary:
 
 func surrender() -> Dictionary:
 	if not active(): return _result(false,"Бой уже завершён.")
-	var losses: Dictionary = _losses_at_fraction(float(_rules.surrender_fraction),true,false)
+	var losses: Dictionary = _losses_at_fraction(float(_rules.surrender_fraction),false,false)
 	return _finish("Сдача — поражение",losses)
 
 func _losses_at_fraction(fraction: float, include_home: bool, include_cargo: bool) -> Dictionary:

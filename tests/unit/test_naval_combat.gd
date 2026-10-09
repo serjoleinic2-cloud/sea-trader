@@ -176,9 +176,9 @@ func test_truce_needs_consent_and_surrender_is_once() -> void:
 	assert_true(navy.respond_truce(false).ok); assert_true(navy.active())
 	assert_true(navy.surrender().ok)
 	assert_eq(GameState.player_state.money,180000.0)
-	assert_eq(GameState.combat_state.magic_shards,90)
-	assert_eq(GameState.port_state.home.inventory.resource_timber,990,"only free warehouse resources are deducted")
-	assert_eq(GameState.port_state.home.inventory.resource_parts,270)
+	assert_eq(GameState.combat_state.magic_shards,100,"offline surrender does not erase long-term progression")
+	assert_eq(GameState.port_state.home.inventory.resource_timber,1000,"the home warehouse is protected from NPC battles")
+	assert_eq(GameState.port_state.home.inventory.resource_parts,300)
 	assert_false(navy.surrender().ok); assert_eq(GameState.player_state.money,180000.0)
 
 func test_hostile_can_attack_only_ready_escort() -> void:
