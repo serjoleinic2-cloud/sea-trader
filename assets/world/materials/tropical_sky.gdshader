@@ -4,7 +4,7 @@ shader_type sky;
 uniform float night_amount : hint_range(0.0, 1.0) = 0.0;
 uniform float twilight_amount : hint_range(0.0, 1.0) = 0.0;
 uniform vec3 jupiter_direction = vec3(0.0, -0.10, -1.0);
-uniform float jupiter_radius : hint_range(0.05, 0.5) = 0.14;
+uniform float jupiter_radius : hint_range(0.05, 0.5) = 0.30;
 
 float star_hash(vec2 cell) {
 	vec3 hash = fract(vec3(cell.xyx) * 0.1031);
@@ -34,33 +34,22 @@ vec3 sky_stars(vec3 direction) {
 		* dot_light * night_amount * smoothstep(0.025, 0.10, direction.y);
 }
 
-float ring_line(vec2 p, float major_radius, float minor_scale) {
-	float ellipse_radius = length(vec2(p.x / major_radius, p.y / (major_radius * minor_scale)));
-	float edge = abs(ellipse_radius - 1.0);
-	return 1.0 - smoothstep(0.014, 0.014 + max(fwidth(ellipse_radius), 0.0025), edge);
-}
-
-vec3 stylized_jupiter(vec2 surface, float radius_squared) {
-	float latitude = surface.y;
-	float longitude = surface.x;
-	float ripple = sin(longitude * 3.2 + sin(latitude * 7.0) * 0.42) * 0.035;
-	float bands = sin((latitude + ripple) * 38.0);
-	vec3 deep_teal = vec3(0.16, 0.39, 0.46);
-	vec3 pale_sand = vec3(0.80, 0.70, 0.53);
-	vec3 warm_coral = vec3(0.64, 0.34, 0.27);
-	vec3 base = mix(deep_teal, pale_sand, smoothstep(-0.28, 0.26, bands));
-	base = mix(base, warm_coral, smoothstep(0.82, 0.98, sin(latitude * 15.0 + ripple * 20.0)) * 0.48);
-	float contour = 1.0 - smoothstep(0.0, 0.075 + fwidth(latitude) * 2.0, abs(fract((latitude + ripple) * 15.0) - 0.5));
-	base = mix(base, vec3(0.07, 0.16, 0.22), contour * 0.72);
-	float radial = sqrt(radius_squared);
-	float outline = smoothstep(0.925, 0.966, radial) * (1.0 - smoothstep(0.982, 1.0, radial));
-	base = mix(base, vec3(0.045, 0.10, 0.15), outline);
-	float storm_distance = length(vec2((longitude - 0.43) * 0.70, latitude + 0.31));
-	float storm_outer = 1.0 - smoothstep(0.058, 0.073, storm_distance);
-	float storm_inner = 1.0 - smoothstep(0.032, 0.047, storm_distance);
-	base = mix(base, vec3(0.16, 0.10, 0.12), storm_outer);
-	base = mix(base, vec3(0.83, 0.43, 0.30), storm_inner);
-	return base;
+float ring_stone(vec2 p, float orbit_radius, float count, float seed, float size) {
+	float radial = length(p);
+	float angle = atan(p.y, p.x);
+	float segment = floor(fract(angle / 6.2831853 + 0.5) * count);
+	float random_value = star_hash(vec2(segment + seed * 31.0, seed + 7.0));
+	float center_angle = ((segment + 0.18 + random_value * 0.64) / count - 0.5) * 6.2831853;
+	float angle_delta = atan(sin(angle - center_angle), cos(angle - center_angle));
+	float perspective = mix(0.56, 1.42, smoothstep(-0.68, 0.68, sin(angle)));
+	float stone_size = size * mix(0.55, 1.3, random_value) * perspective;
+	float tangent = angle_delta * orbit_radius;
+	float stone_radial = radial - orbit_radius + (random_value - 0.5) * size * 0.5;
+	vec2 stone = vec2(tangent, stone_radial) / max(stone_size, 0.001);
+	float ax = abs(stone.x);
+	float ay = abs(stone.y);
+	float faceted_distance = max(max(ax, ay * 0.82), (ax + ay) * mix(0.62, 0.76, random_value));
+	return (1.0 - smoothstep(0.66, 1.05, faceted_distance)) * step(random_value, 0.93);
 }
 
 vec3 distant_jupiter(vec3 direction, vec3 background) {
@@ -69,34 +58,26 @@ vec3 distant_jupiter(vec3 direction, vec3 background) {
 	vec3 up = cross(right, center);
 	float center_depth = max(dot(direction, center), 0.0001);
 	vec2 screen = vec2(dot(direction, right), dot(direction, up)) / center_depth / tan(jupiter_radius);
-	float ring_angle = -0.24;
-	vec2 rings = vec2(cos(ring_angle) * screen.x - sin(ring_angle) * screen.y,
-		sin(ring_angle) * screen.x + cos(ring_angle) * screen.y);
-	float ring_mask = 0.0;
-	vec3 ring_color = vec3(0.35, 0.23, 0.19);
-	float ring_1 = ring_line(rings, 1.28, 0.16);
-	float ring_2 = ring_line(rings, 1.52, 0.17);
-	float ring_3 = ring_line(rings, 1.90, 0.175);
-	float ring_4 = ring_line(rings, 2.30, 0.18);
-	float ring_5 = ring_line(rings, 2.80, 0.18);
-	ring_mask = max(max(ring_1, ring_2), max(max(ring_3, ring_4), ring_5));
 	float radius_squared = dot(screen, screen);
-	float visible_sky = smoothstep(-0.035, 0.075, direction.y);
-	float visible_rings = ring_mask * (1.0 - smoothstep(0.94, 1.03, radius_squared)) * visible_sky;
-	vec3 ring_ink = mix(ring_color, vec3(0.72, 0.61, 0.49), night_amount * 0.72);
-	vec3 result = mix(background, ring_ink, visible_rings * 0.96);
-	if (dot(direction, center) > 0.0 && radius_squared < 1.0) {
-		vec3 normal = vec3(screen, sqrt(max(0.0, 1.0 - radius_squared)));
-		vec2 surface = vec2(atan(normal.x, normal.z), normal.y);
-		vec3 planet = stylized_jupiter(surface, radius_squared);
-		float horizon_haze = smoothstep(-0.025, 0.11, direction.y);
-		float limb = smoothstep(0.0, 0.016, 1.0 - radius_squared);
-		float visibility = mix(0.70, 0.95, night_amount) * limb * horizon_haze * visible_sky;
-		result = mix(result, planet, visibility);
-	}
-	float haze_shape = exp(-dot(screen, screen) * 0.14) * visible_sky;
-	vec3 haze_color = mix(vec3(0.91, 0.69, 0.51), vec3(0.38, 0.49, 0.64), night_amount);
-	result = mix(result, haze_color, haze_shape * 0.10);
+	float visible_sky = smoothstep(-0.025, 0.025, direction.y);
+	float ring_angle = 0.785398;
+	vec2 rings = vec2(cos(ring_angle) * screen.x + sin(ring_angle) * screen.y,
+		(-sin(ring_angle) * screen.x + cos(ring_angle) * screen.y) / 0.70);
+	float rocks_a = ring_stone(rings, 1.28, 22.0, 1.0, 0.040);
+	float rocks_b = ring_stone(rings, 1.72, 29.0, 2.0, 0.033);
+	float rocks_c = ring_stone(rings, 2.20, 36.0, 3.0, 0.026);
+	float rocks_back = max(max(rocks_a, rocks_b), rocks_c) * step(rings.y, 0.0) * visible_sky;
+	vec3 stone_color = mix(vec3(0.83, 0.89, 0.90), vec3(0.22, 0.27, 0.34), night_amount);
+	vec3 result = mix(background, stone_color * 0.86, rocks_back * 0.92);
+	float planet_hit = step(radius_squared, 1.0) * step(0.0, dot(direction, center)) * visible_sky;
+	vec3 planet_color = mix(vec3(0.73, 0.84, 0.88), vec3(0.15, 0.20, 0.27), night_amount);
+	float soft_shade = mix(0.94, 1.04, clamp(screen.x * 0.5 + 0.5, 0.0, 1.0));
+	result = mix(result, planet_color * soft_shade, planet_hit);
+	float rocks_front = max(max(rocks_a, rocks_b), rocks_c) * step(0.0, rings.y) * visible_sky;
+	result = mix(result, stone_color, rocks_front * 0.94);
+	float haze_shape = exp(-pow((direction.y - 0.025) * 9.0, 2.0)) * exp(-radius_squared * 0.10) * visible_sky;
+	vec3 haze_color = mix(vec3(0.82, 0.89, 0.91), vec3(0.20, 0.27, 0.37), night_amount);
+	result = mix(result, haze_color, haze_shape * 0.18);
 	return result;
 }
 
