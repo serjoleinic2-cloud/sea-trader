@@ -29,7 +29,7 @@ func warships() -> Array[Dictionary]:
 
 func normalize_ship(ship: Dictionary) -> void:
 	var definition: Dictionary = GameData.get_ship(str(ship.get("ship_type_id", "")))
-	ship.merge({"level":1,"experience":0,"hull":float(definition.get("hull_max",280)),"commander":{},"guns":[],"naval_order":{},"escort_enabled":false,"escort_state":{},"cargo":[],"autopilot":{}},false)
+	ship.merge({"level":1,"experience":0,"hull":float(definition.get("hull_max",280)),"commander":{},"guns":[],"naval_order":{},"naval_reload":-1.0,"escort_enabled":false,"escort_state":{},"cargo":[],"autopilot":{}},false)
 	while ship.guns.size() < int(definition.get("gun_slots",2)): ship.guns.append({})
 
 func ship_by_id(id: String) -> Dictionary:
@@ -126,6 +126,8 @@ func create_training_encounter() -> Dictionary:
 		var damage_per_second: float = 0.0
 		for ally in warships():
 			if not bool(ally.get("escort_enabled", false)): continue
+			var volley_damage: float = 0.0
+			var volley_reload: float = 0.0
 			for gun in ally.get("guns", []):
 				if gun.is_empty(): continue
 				var definition: Dictionary = _rules.guns.get(str(gun.kind), {})
@@ -133,7 +135,9 @@ func create_training_encounter() -> Dictionary:
 				var bonus: float = float(_rules.skill_bonus)
 				var damage: float = float(definition.get("damage",18)) * (1.0+float(_rules.gun_damage_growth_per_level)*(int(gun.level)-1)) * (1.0+bonus*int(skills.get("gunnery",0)))
 				var reload_time: float = float(definition.get("reload",8))/(1.0+bonus*int(skills.get("reload",0)))
-				damage_per_second += damage/maxf(.1,reload_time)
+				volley_damage += damage
+				volley_reload = maxf(volley_reload,reload_time)
+			damage_per_second += volley_damage/maxf(.1,volley_reload)
 		var training_hull: float = maxf(float(_rules.training_minimum_hull),damage_per_second*float(_rules.training_target_seconds))
 		GameState.combat_state.naval_report = {}
 		var enemy_id: String = "debug_training_patrol"
@@ -505,14 +509,25 @@ func _fire_ship(ship: Dictionary, enemies: Array[Dictionary], delta: float, batt
 		if str(enemy.id)==target_id: target=enemy; break
 	if target.is_empty() or not _enemy_alive(target): return
 	var skills: Dictionary = ship.get("commander",{}).get("skills",{})
+	var remaining: float = float(ship.get("naval_reload",-1.0))
+	if remaining<0.0:
+		remaining=0.0
+		for loaded_gun in ship.get("guns",[]):
+			if not loaded_gun.is_empty(): remaining=maxf(remaining,float(loaded_gun.get("cooldown",0.0)))
+	ship.naval_reload=maxf(0.0,remaining-delta)
+	for loaded_gun in ship.get("guns",[]):
+		if not loaded_gun.is_empty(): loaded_gun.cooldown=ship.naval_reload
+	if float(ship.naval_reload)>0.0: return
+	var fired: int=0
+	var volley_reload: float=0.0
 	for gun in ship.get("guns",[]):
 		if gun.is_empty(): continue
-		gun.cooldown=maxf(0,float(gun.get("cooldown",0))-delta)
 		var definition: Dictionary = _rules.guns.get(str(gun.kind),{})
-		if definition.is_empty() or float(gun.cooldown)>0 or origin.distance_to(vector(target.position))>float(definition.range) or not _enemy_alive(target): continue
+		if definition.is_empty() or origin.distance_to(vector(target.position))>float(definition.range) or not _enemy_alive(target): continue
 		if _military!=null and _military._guard.is_navigation_move_blocked(origin,vector(target.position)): continue
 		var bonus: float = float(_rules.skill_bonus)
-		gun.cooldown=float(definition.reload)/(1+bonus*int(skills.get("reload",0)))
+		volley_reload=maxf(volley_reload,float(definition.reload)/(1+bonus*int(skills.get("reload",0))))
+		fired+=1
 		battle.shots=int(battle.shots)+1
 		var roll: float = float(posmod(hash(str(GameState.world_state.seed)+str(battle.shots)+str(ship.instance_id)),1000))/1000.0
 		var hit: bool = roll<minf(float(_rules.maximum_accuracy),float(definition.accuracy)+bonus*int(skills.get("accuracy",0)))
@@ -522,6 +537,11 @@ func _fire_ship(ship: Dictionary, enemies: Array[Dictionary], delta: float, batt
 		var impact: Vector2 = _queue_projectile(battle, origin, vector(target.position), hit, str(gun.kind), "enemy", str(target.id), maxf(1,damage-armor), int(battle.shots), length, str(ship.instance_id), ship.guns.find(gun))
 		EventBus.naval_shot_fired.emit(origin,impact,hit)
 		EventBus.naval_shot_visual.emit(origin,impact,hit,str(gun.get("kind","cannon")),vector(ship.get("escort_state",{}).get("heading",Vector2.UP)),str(ship.get("instance_id","")))
+	if fired>0:
+		ship.naval_reload=volley_reload
+		for loaded_gun in ship.get("guns",[]):
+			if not loaded_gun.is_empty(): loaded_gun.cooldown=volley_reload
+		battle.notice="%s: залп · перезарядка %d с" % [str(ship.name),ceili(volley_reload)]
 
 func _queue_projectile(battle: Dictionary, origin: Vector2, target: Vector2, hit: bool, kind: String, target_kind: String, target_id: String, damage: float, sequence: int, length: float, shooter_id: String = "", gun_slot: int = -1) -> Vector2:
 	var artillery = preload("res://systems/combat/naval_artillery.gd")
@@ -551,8 +571,13 @@ func _resolve_projectiles(battle: Dictionary, delta: float) -> void:
 
 func get_enemy_snapshots() -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
+	var battle: Dictionary = GameState.combat_state.get("naval_battle",{})
+	var active_enemy_ids: Array = battle.get("enemy_ids",[]) if bool(battle.get("active",false)) else []
 	for enemy in GameState.combat_state.get("naval_enemies",{}).values():
-		if not _enemy_alive(enemy): continue
+		# Once a target enters combat, keep it in both the world and tactical map
+		# even if a stale patrol-retreat timer was saved before battle began.
+		var participating: bool = active_enemy_ids.has(str(enemy.get("id","")))
+		if float(enemy.get("hull",0))<=0 or (not participating and not _enemy_alive(enemy)): continue
 		result.append({"id":str(enemy.id),"name":str(enemy.name),"ship_type_id":str(enemy.ship_type_id),"position":vector(enemy.position),"heading":vector(enemy.get("heading",Vector2.UP)),"length":float(_visuals.get(str(enemy.ship_type_id),{}).get("display_length",5.1))/.04,"faction_id":str(enemy.faction_id),"kind":"naval_enemy","in_transit":active(),"color":Color("ff8464")})
 	return result
 

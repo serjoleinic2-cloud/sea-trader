@@ -24,7 +24,7 @@
       "cost": 140,
       "damage": 18,
       "range": 550,
-      "reload": 8,
+      "reload": 12,
       "accuracy": 0.82,
       "skill": "gunnery"
     },
@@ -33,7 +33,7 @@
       "cost": 240,
       "damage": 26,
       "range": 650,
-      "reload": 10,
+      "reload": 15,
       "accuracy": 0.88,
       "skill": "accuracy"
     },
@@ -42,7 +42,7 @@
       "cost": 300,
       "damage": 40,
       "range": 800,
-      "reload": 14,
+      "reload": 20,
       "accuracy": 0.7,
       "skill": "reload"
     }

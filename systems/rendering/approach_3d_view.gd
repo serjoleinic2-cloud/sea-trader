@@ -134,7 +134,8 @@ func _process(delta: float) -> void:
 	if _manual_close_view:
 		close_factor = 1.0
 	_set_transition(close_factor, delta)
-	if bool(GameState.combat_state.get("naval_battle",{}).get("active",false)) and not _manual_close_view:
+	if bool(GameState.combat_state.get("naval_battle",{}).get("active",false)):
+		# Combat framing overrides an earlier close camera gesture so both fleets remain in frame.
 		_update_battle_camera(ship_position,delta)
 	else:
 		_update_camera(ship_position, _transition_factor, delta)
@@ -157,6 +158,14 @@ func _cull_visuals() -> void:
 		root.visible = RenderVisibility.intersects_frustum(root.get_meta("visual_world_bounds"), planes, inside)
 		root.process_mode = Node.PROCESS_MODE_INHERIT if root.visible else Node.PROCESS_MODE_DISABLED
 	for model in _traffic_models.values():
+		var model_key: String = str(model.name)
+		if model_key.begins_with("Traffic_combat_"):
+			var battle: Dictionary = GameState.combat_state.get("naval_battle",{})
+			var vessel_id: String = model_key.trim_prefix("Traffic_combat_")
+			var battle_ids: Array = battle.get("enemy_ids",[]) if bool(battle.get("active",false)) else []
+			if battle_ids.has(vessel_id):
+				model.visible = true
+				continue
 		if not model.has_meta("visual_local_bounds"):
 			model.set_meta("visual_local_bounds", model.global_transform.affine_inverse() * RenderVisibility.bounds_for(model))
 		var bounds: AABB = model.global_transform * (model.get_meta("visual_local_bounds") as AABB)

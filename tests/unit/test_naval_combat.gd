@@ -39,7 +39,7 @@ func test_training_battle_remains_active_for_two_minutes_with_manual_fire() -> v
 	for step in 1190:
 		navy._step_battle(.1)
 	assert_true(navy.active(),"practice remains active at 119 seconds")
-	assert_gt(int(GameState.combat_state.naval_battle.shots),10,"manual attack visibly fires repeated artillery volleys")
+	assert_gte(int(GameState.combat_state.naval_battle.shots),8,"manual attack visibly fires repeated artillery salvos")
 	assert_gt(float(enemy.hull),0)
 	assert_gt(float(ship.hull),0,"practice return fire cannot quickly destroy the player's vessel")
 	var battle: Dictionary = GameState.combat_state.naval_battle
@@ -50,6 +50,13 @@ func test_training_battle_remains_active_for_two_minutes_with_manual_fire() -> v
 	battle.projectiles=[{"remaining":0.0,"hit":true,"damage":1000000.0,"target_kind":"enemy","target_id":enemy.id}]
 	navy._resolve_projectiles(battle,.1)
 	assert_eq(float(enemy.hull),0.0,"training protection expires and battle can end normally")
+
+func test_enemy_in_active_battle_remains_visible_with_a_stale_retreat_timer() -> void:
+	_sea()
+	GameState.combat_state.naval_enemies.enemy1.retreat_until=1000.0
+	GameState.combat_state.naval_battle={"active":true,"enemy_ids":["enemy1"],"ship_ids":["war1"]}
+	var snapshots: Array[Dictionary]=navy.get_enemy_snapshots()
+	assert_eq(snapshots.size(),1,"a battle participant is not hidden by a saved patrol cooldown")
 
 func test_catalog_models_slots_and_races() -> void:
 	var catalog: Array = GameData.read("res://data/ships/naval_ship_catalog.json").ships
@@ -219,6 +226,21 @@ func test_cannon_damage_waits_for_arrival_and_reload() -> void:
 	navy._step_battle(1.0)
 	assert_lt(GameState.combat_state.naval_enemies.enemy1.hull,hull)
 	assert_eq(int(GameState.combat_state.naval_battle.shots),1,"gun cannot fire again during reload")
+
+func test_broadside_guns_fire_as_a_synchronized_salvo() -> void:
+	GameState.combat_state.naval_enemies.enemy1.position=Vector2(300,0)
+	assert_true(navy.install_gun("war1",0,"cannon").ok)
+	assert_true(navy.install_gun("war1",1,"rune").ok)
+	_sea()
+	assert_true(navy.begin_battle().ok)
+	assert_true(navy.issue_order("war1",Vector2(300,0),"enemy1").ok)
+	navy._step_battle(.05)
+	assert_eq(int(GameState.combat_state.naval_battle.shots),2,"the ship fires both ready broadside guns together")
+	assert_almost_eq(float(GameState.fleet_state[0].naval_reload),15.0,.001,"the whole battery waits for its slowest gun to reload")
+	for step in 10: navy._step_battle(1.0)
+	assert_eq(int(GameState.combat_state.naval_battle.shots),2,"guns do not alternate like a machine gun")
+	for step in 5: navy._step_battle(1.0)
+	assert_eq(int(GameState.combat_state.naval_battle.shots),4,"the full battery fires its next salvo after reloading")
 
 func test_misses_land_outside_hull_and_do_no_damage() -> void:
 	_sea(); assert_true(navy.begin_battle().ok)
