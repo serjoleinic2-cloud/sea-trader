@@ -11,12 +11,15 @@ var _military_system: Node
 var _shots: Array[Dictionary] = []
 var _debris: Array[Dictionary] = []
 var _frames: Dictionary = {}
+var _damage_effects: Dictionary = {}
+var _rules: Dictionary = {}
 var _audio = preload("res://systems/rendering/naval_battle_audio.gd").new()
 var _rng := RandomNumberGenerator.new()
 
 func initialize(approach_view: Node) -> void:
 	_approach = approach_view
 	_world = approach_view.get("_scene_root") as Node3D
+	_rules = GameData.read("res://data/combat/naval_rules.json")
 	_rng.randomize()
 	if not EventBus.naval_shot_visual.is_connected(_on_shot):
 		EventBus.naval_shot_visual.connect(_on_shot)
@@ -68,6 +71,7 @@ func _process(delta: float) -> void:
 		if _combat_system == null: _combat_system = get_tree().get_first_node_in_group("naval_combat_system")
 		if _military_system == null: _military_system = get_tree().get_first_node_in_group("military_transport_system")
 		_approach.call("_sync_traffic", self, "combat")
+		_sync_damage_effects()
 	for index in range(_shots.size() - 1, -1, -1):
 		var shot: Dictionary = _shots[index]
 		shot.progress = float(shot.progress) + delta / float(shot.duration)
@@ -118,12 +122,12 @@ func _remove_shot(index: int) -> void:
 		if is_instance_valid(node): node.queue_free()
 	_shots.remove_at(index)
 
-func _animation(kind: String, duration: float) -> SpriteFrames:
-	var key: String = kind+str(duration)
+func _animation(kind: String, duration: float, loop: bool = false) -> SpriteFrames:
+	var key: String = kind+str(duration)+str(loop)
 	if _frames.has(key): return _frames[key]
 	var texture: Texture2D = load("res://assets/vfx/naval/"+kind+".svg") as Texture2D
 	var frames := SpriteFrames.new()
-	frames.set_animation_loop("default",false)
+	frames.set_animation_loop("default",loop)
 	frames.set_animation_speed("default",8.0/duration)
 	for index in 8:
 		var frame := AtlasTexture.new()
@@ -132,6 +136,58 @@ func _animation(kind: String, duration: float) -> SpriteFrames:
 		frames.add_frame("default",frame)
 	_frames[key] = frames
 	return frames
+
+func _sync_damage_effects() -> void:
+	if not is_instance_valid(_world): return
+	var keep: Dictionary = {}
+	for vessel in get_vessel_snapshots():
+		var maximum: float=maxf(1.0,float(vessel.get("hull_max",vessel.get("hull",1))))
+		var damage: float=1.0-clampf(float(vessel.get("hull",maximum))/maximum,0.0,1.0)
+		var level: int=2 if damage>=float(_rules.get("critical_damage_fraction",.7)) else (1 if damage>=float(_rules.get("fire_damage_fraction",.5)) else 0)
+		if level==0: continue
+		var id: String=str(vessel.get("id",""))
+		var model: Node3D=_world.get_node_or_null("Traffic_combat_"+id) as Node3D
+		if model==null: continue
+		keep[id]=true
+		var root: Node3D=_damage_effects.get(id) as Node3D
+		if root==null or not is_instance_valid(root) or int(root.get_meta("damage_level",0))!=level:
+			if is_instance_valid(root): root.queue_free()
+			root=_make_damage_effect(id,float(vessel.get("length",100))*MAP_TO_METERS,level)
+			_world.add_child(root)
+			_damage_effects[id]=root
+		root.global_transform=Transform3D(model.global_basis.orthonormalized(),model.global_position)
+		root.visible=float(vessel.get("sink_progress",0))<1.0
+	for raw_id in _damage_effects.keys():
+		var id: String=str(raw_id)
+		if keep.has(id): continue
+		var root: Node3D=_damage_effects[id] as Node3D
+		if is_instance_valid(root): root.queue_free()
+		_damage_effects.erase(id)
+
+func _make_damage_effect(id: String, length: float, level: int) -> Node3D:
+	var root:=Node3D.new()
+	root.name="DamageFX_"+id
+	root.set_meta("damage_level",level)
+	_add_loop_sprite(root,"fire",Vector3(-length*.09,.82,-length*.12),1.65 if level==1 else 2.15,Color.WHITE,id+"fire_a",.72)
+	_add_loop_sprite(root,"fire",Vector3(length*.08,.70,length*.13),1.35 if level==1 else 1.85,Color("fff2cf"),id+"fire_b",.61)
+	if level>=2:
+		_add_loop_sprite(root,"fire",Vector3(0,.9,-length*.01),2.5,Color("fff0cc"),id+"fire_c",.84)
+		_add_loop_sprite(root,"smoke",Vector3(-length*.02,2.05,-length*.02),4.1,Color(1,1,1,.92),id+"smoke",1.15)
+	return root
+
+func _add_loop_sprite(parent: Node3D, kind: String, position: Vector3, size: float, color: Color, phase_key: String, duration: float) -> void:
+	var sprite:=AnimatedSprite3D.new()
+	sprite.name=kind.capitalize()
+	sprite.sprite_frames=_animation(kind,duration,true)
+	sprite.pixel_size=size/256.0
+	sprite.billboard=BaseMaterial3D.BILLBOARD_ENABLED
+	sprite.shaded=false
+	sprite.cast_shadow=GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	sprite.modulate=color
+	sprite.position=position
+	parent.add_child(sprite)
+	sprite.play()
+	sprite.frame=posmod(hash(phase_key),8)
 
 func _spawn_sprite(kind: String, at: Vector3, color: Color, size: float, duration: float, velocity: Vector3 = Vector3.ZERO) -> void:
 	if not is_instance_valid(_world): return

@@ -932,9 +932,12 @@ func _sync_traffic(traffic_renderer: Node, traffic_group: String) -> void:
 		model.rotation.y = -heading.angle() - PI * 0.5
 		var motion_time: float = Time.get_ticks_msec() * 0.001 + float(posmod(hash(model_key),100))/10.0
 		var hull_factor: float = clampf(100.0/maxf(80.0,float(vessel.get("length",100))),.4,1.0)
-		model.position.y = SEA_LEVEL + 0.04 + sin(motion_time*1.35)*.018*hull_factor
-		model.rotation.x = sin(motion_time*.85)*.008*hull_factor
-		model.rotation.z = sin(motion_time*1.1)*.013*hull_factor + clampf(float(vessel.get("turn_velocity",0))*-.07,-.05,.05)
+		var sink: float=smoothstep(0.0,1.0,clampf(float(vessel.get("sink_progress",0)),0.0,1.0))
+		var visible_length: float=maxf(3.48,float(vessel.get("length",87.0))*MAP_TO_METERS)
+		var sink_roll: float=-1.0 if posmod(hash(vessel_id),2)==0 else 1.0
+		model.position.y = SEA_LEVEL + 0.04 + sin(motion_time*1.35)*.018*hull_factor-sink*(.8+visible_length*.34)
+		model.rotation.x = sin(motion_time*.85)*.008*hull_factor+sink*.22
+		model.rotation.z = sin(motion_time*1.1)*.013*hull_factor + clampf(float(vessel.get("turn_velocity",0))*-.07,-.05,.05)+sink*sink_roll*.18
 
 	for raw_model_key in _traffic_models.keys():
 		var model_key: String = str(raw_model_key)

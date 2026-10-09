@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2048" height="256" viewBox="0 0 2048 256">
+  <defs>
+    <radialGradient id="s"><stop stop-color="#343d45" stop-opacity=".88"/><stop offset=".58" stop-color="#202b33" stop-opacity=".62"/><stop offset="1" stop-color="#101920" stop-opacity="0"/></radialGradient>
+    <g id="p"><circle cx="127" cy="192" r="38" fill="url(#s)"/><circle cx="105" cy="151" r="45" fill="url(#s)"/><circle cx="151" cy="126" r="51" fill="url(#s)"/><circle cx="119" cy="76" r="55" fill="url(#s)"/></g>
+  </defs>
+  <g transform="translate(0 6) scale(.90)"><use href="#p"/></g>
+  <g transform="translate(256 -3) scale(.96)"><use href="#p"/></g>
+  <g transform="translate(512 -10) scale(1.02)"><use href="#p"/></g>
+  <g transform="translate(768 -18) scale(1.08)"><use href="#p"/></g>
+  <g transform="translate(1024 -24) scale(1.13)"><use href="#p"/></g>
+  <g transform="translate(1280 -29) scale(1.17)"><use href="#p"/></g>
+  <g transform="translate(1536 -20) scale(1.10)"><use href="#p"/></g>
+  <g transform="translate(1792 -8) scale(1.00)"><use href="#p"/></g>
+</svg>

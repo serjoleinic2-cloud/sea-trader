@@ -4,6 +4,7 @@ extends Node
 var _main: Node
 var _visuals: Dictionary = {}
 var _rules: Dictionary
+var _naval_rules: Dictionary
 var _guard = preload("res://systems/ship/ship_physics.gd").new()
 var _planner = preload("res://systems/navigation/coast_route_planner.gd").new()
 var _paths: Dictionary = {}
@@ -14,6 +15,7 @@ var _time: float = 0.0
 func _ready() -> void:
 	add_to_group("military_transport_system")
 	_rules = GameData.read("res://data/combat/military_transport_rules.json")
+	_naval_rules = GameData.read("res://data/combat/naval_rules.json")
 	_visuals = GameData.read("res://data/world/ship_visuals.json").get("ships",{})
 
 func initialize(main: Node) -> void:
@@ -407,9 +409,14 @@ func get_vessel_snapshots() -> Array[Dictionary]:
 		if not bool(state.get("initialized",false)):continue
 		var position: Vector2 = _to_vector2(state.get("position", Vector2.ZERO), Vector2.ZERO)
 		var heading: Vector2 = _to_vector2(state.get("heading", Vector2.UP), Vector2.UP)
+		var sink_duration: float=float(_naval_rules.get("sinking_duration_seconds",8.0))
+		var sink_progress: float=clampf(float(ship.get("sink_elapsed",0))/maxf(.1,sink_duration),0.0,1.0) if bool(ship.get("sinking",false)) else 0.0
+		if float(ship.get("hull",0))<=0 and sink_progress>=1.0: continue
 		if heading.length_squared() < 0.0001:
 			heading = Vector2.UP
-		result.append({"id":str(ship.get("instance_id", "")),"ship_type_id":str(ship.get("ship_type_id", "")),"name":str(ship.get("name","Военный транспорт")),"position":position,"heading":heading.normalized(),"length":_length(ship),"kind":"fleet","faction_id":str(GameState.player_state.get("origin_race_id","humans")),"in_transit":bool(ship.get("escort_enabled",false)),"port_id":str(ship.get("current_port_id","")),"speed":float(state.get("speed",0)),"turn_velocity":float(state.get("turn_velocity",0)),"color":Color("cba761")})
+		var definition: Dictionary=GameData.get_ship(str(ship.get("ship_type_id","")))
+		var maximum: float=float(definition.get("hull_max",maxf(1,float(ship.get("hull",1)))))*(1.0+float(_naval_rules.get("hull_growth_per_level",.06))*maxi(0,int(ship.get("level",1))-1))
+		result.append({"id":str(ship.get("instance_id", "")),"ship_type_id":str(ship.get("ship_type_id", "")),"name":str(ship.get("name","Военный транспорт")),"position":position,"heading":heading.normalized(),"length":_length(ship),"kind":"fleet","faction_id":str(GameState.player_state.get("origin_race_id","humans")),"in_transit":bool(ship.get("escort_enabled",false)),"port_id":str(ship.get("current_port_id","")),"speed":float(state.get("speed",0)),"turn_velocity":float(state.get("turn_velocity",0)),"color":Color("cba761"),"hull":float(ship.get("hull",0)),"hull_max":maximum,"sinking":bool(ship.get("sinking",false)),"sink_progress":sink_progress})
 	return result
 
 func _to_vector2(value: Variant, fallback: Vector2) -> Vector2:

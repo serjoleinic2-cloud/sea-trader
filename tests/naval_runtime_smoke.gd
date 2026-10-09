@@ -110,6 +110,18 @@ func _ready() -> void:
 	var vfx: Node = main.get_node("NavalCombatVFX")
 	EventBus.naval_shot_visual.emit(water, water + Vector2(180, 0), true, "rune", Vector2.UP, id)
 	check(not vfx.get("_shots").is_empty(),"3D naval VFX creates a visible projectile")
+	ship.hull=navy.hull_max(ship)*.5
+	vfx._process(.05)
+	var damage_root: Node3D=vfx._damage_effects.get(id) as Node3D
+	check(damage_root!=null and int(damage_root.get_meta("damage_level",0))==1,"50 percent damage creates the first 2D fire")
+	check(damage_root.find_child("Fire",true,false) is AnimatedSprite3D,"damage fire is a camera-facing 2D animation")
+	check(damage_root.get_child_count()==2,"half-damaged ship has two separate fire sources")
+	ship.hull=navy.hull_max(ship)*.3
+	vfx._process(.05)
+	damage_root=vfx._damage_effects.get(id) as Node3D
+	check(damage_root!=null and int(damage_root.get_meta("damage_level",0))==2,"70 percent damage enlarges fire and adds smoke")
+	check(damage_root.find_child("Smoke",true,false) is AnimatedSprite3D,"critical smoke is a camera-facing 2D animation")
+	check(damage_root.get_child_count()==4,"critical damage adds a third large fire source")
 	for viewport_size in [Vector2i(1280,720),Vector2i(1080,720),Vector2i(1080,1920)]:
 		get_tree().root.size=viewport_size
 		for i in 40: hud._process(.05)

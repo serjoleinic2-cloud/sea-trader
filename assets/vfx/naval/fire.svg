@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2048" height="256" viewBox="0 0 2048 256">
+  <defs>
+    <radialGradient id="g" cx="50%" cy="80%" r="65%"><stop stop-color="#fff7a2"/><stop offset=".42" stop-color="#ffb02e"/><stop offset=".78" stop-color="#ed481e"/><stop offset="1" stop-color="#8a1717" stop-opacity="0"/></radialGradient>
+    <g id="f"><ellipse cx="128" cy="210" rx="57" ry="18" fill="#ff7c19" opacity=".32"/><path d="M77 207C63 169 99 154 89 112c27 15 28 37 35 47 0-52 42-67 34-116 49 42 17 80 41 112 11 15 17 32 5 52z" fill="url(#g)"/><path d="M105 207c-8-23 18-39 14-72 17 14 18 29 22 39 5-27 28-35 25-61 27 29 5 60 20 94z" fill="#fff070" opacity=".88"/></g>
+  </defs>
+  <g transform="translate(0 0) scale(.88 1.0) translate(17 0)"><use href="#f"/></g>
+  <g transform="translate(256 0) scale(1.02 .91) translate(-3 22)"><use href="#f"/></g>
+  <g transform="translate(512 0) scale(.94 1.07) translate(8 -15)"><use href="#f"/></g>
+  <g transform="translate(768 0) scale(1.08 .96) translate(-10 10)"><use href="#f"/></g>
+  <g transform="translate(1024 0) scale(.91 1.04) translate(12 -8)"><use href="#f"/></g>
+  <g transform="translate(1280 0) scale(1.03 1.10) translate(-4 -22)"><use href="#f"/></g>
+  <g transform="translate(1536 0) scale(.96 .93) translate(5 17)"><use href="#f"/></g>
+  <g transform="translate(1792 0) scale(1.07 1.02) translate(-8 -5)"><use href="#f"/></g>
+</svg>

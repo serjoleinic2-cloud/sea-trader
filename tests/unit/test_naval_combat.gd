@@ -252,6 +252,39 @@ func test_actual_damage_victory_and_xp() -> void:
 	assert_gt(int(GameState.fleet_state[0].experience),80)
 	assert_gt(int(GameState.fleet_state[0].guns[0].experience),0)
 
+func test_destroyed_ship_sinks_before_battle_result() -> void:
+	_sea()
+	assert_true(navy.begin_battle().ok)
+	var enemy: Dictionary=GameState.combat_state.naval_enemies.enemy1
+	enemy.hull=1.0
+	var battle: Dictionary=GameState.combat_state.naval_battle
+	battle.projectiles=[{"remaining":0.0,"hit":true,"damage":10.0,"target_kind":"enemy","target_id":"enemy1"}]
+	navy._step_battle(.1)
+	assert_true(navy.active(),"victory waits while the destroyed hull remains visible")
+	assert_true(bool(enemy.sinking))
+	assert_gt(float(enemy.sink_elapsed),0.0)
+	var snapshot: Dictionary=navy.get_enemy_snapshots()[0]
+	assert_eq(float(snapshot.hull),0.0)
+	assert_gt(float(snapshot.sink_progress),0.0)
+	for step in 7: navy._step_battle(1.0)
+	assert_true(navy.active(),"slow sinking remains visible for most of its duration")
+	navy._step_battle(1.0)
+	assert_false(navy.active())
+	assert_eq(str(GameState.combat_state.naval_report.outcome),"Победа")
+
+func test_damage_thresholds_are_data_driven() -> void:
+	assert_eq(float(navy._rules.fire_damage_fraction),.5)
+	assert_eq(float(navy._rules.critical_damage_fraction),.7)
+	assert_eq(float(navy._rules.sinking_duration_seconds),8.0)
+
+func test_repair_clears_old_sinking_state() -> void:
+	var ship: Dictionary=navy.ship_by_id("war1")
+	ship.hull=0.0; ship.sinking=true; ship.sink_elapsed=8.0
+	assert_true(navy.repair_ship("war1").ok)
+	assert_gt(float(ship.hull),0.0)
+	assert_false(ship.has("sinking"))
+	assert_false(ship.has("sink_elapsed"))
+
 func test_z_starts_battle_without_a_confirmation_dialog() -> void:
 	_sea()
 	var hud = load("res://systems/ui/naval_battle_hud.gd").new()

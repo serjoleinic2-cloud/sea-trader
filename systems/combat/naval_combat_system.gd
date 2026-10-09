@@ -130,6 +130,8 @@ func create_training_encounter() -> Dictionary:
 			if ship_by_id(str(ship.instance_id)).is_empty(): GameState.fleet_state.append(ship)
 			normalize_ship(ship)
 			ship.hull = hull_max(ship)
+			ship.erase("sinking")
+			ship.erase("sink_elapsed")
 			ship.naval_reload = 0.0
 			for gun in ship.guns:
 				if not gun.is_empty(): gun.cooldown = 0.0
@@ -306,7 +308,7 @@ func repair_ship(id: String) -> Dictionary:
 	var missing: float = maxf(0,hull_max(ship)-float(ship.get("hull",0)))
 	var cost: float = ceil(missing*float(_rules.repair_per_hull))
 	if float(GameState.player_state.money)<cost: return _result(false,"Ремонт стоит %d монет." % int(cost))
-	return _transaction(func(): ship.hull=hull_max(ship); GameState.player_state.money-=cost,"Корабль отремонтирован.")
+	return _transaction(func(): ship.hull=hull_max(ship); ship.erase("sinking"); ship.erase("sink_elapsed"); GameState.player_state.money-=cost,"Корабль отремонтирован.")
 
 func begin_battle(enemy_ids: Array = [], enemy_initiated: bool = false) -> Dictionary:
 	if active(): return _result(false,"Бой уже идёт.")
@@ -475,6 +477,7 @@ func _step_battle(delta: float) -> void:
 	var battle: Dictionary = GameState.combat_state.naval_battle
 	battle.elapsed=float(battle.get("elapsed",0.0))+delta
 	_resolve_projectiles(battle, delta)
+	_advance_sinking(battle,delta)
 	var enemies: Array[Dictionary] = []
 	for id in battle.enemy_ids:
 		var enemy: Dictionary = GameState.combat_state.naval_enemies.get(id,{})
@@ -484,6 +487,9 @@ func _step_battle(delta: float) -> void:
 		for id in battle.enemy_ids:
 			var target: Dictionary = GameState.combat_state.naval_enemies.get(id,{})
 			if target.is_empty() or float(target.get("hull",0))>0: destroyed=false
+		if destroyed and _side_is_sinking(battle.enemy_ids,false):
+			battle.notice="Противник уничтожен · корабли уходят под воду"
+			return
 		_finish("Победа" if destroyed else "Бой прерван: противник недоступен",{})
 		return
 	var allies: Array[Dictionary] = []
@@ -516,7 +522,12 @@ func _step_battle(delta: float) -> void:
 						order.erase("bow_heading")
 						order.point=enemy_point+enemy_point.direction_to(position(ship))*_ship_range(ship)*.72
 			_fire_ship(ship,enemies,delta,battle)
-	if allies.is_empty(): _finish("Поражение",{}); return
+	if allies.is_empty():
+		if _side_is_sinking(battle.ship_ids,true):
+			battle.notice="Флот уничтожен · корабли уходят под воду"
+			return
+		_finish("Поражение",{})
+		return
 	for enemy in enemies:
 		if not _enemy_alive(enemy): continue
 		var nearest: Dictionary = allies[0]
@@ -568,6 +579,28 @@ func _ship_range(ship: Dictionary) -> float:
 	for gun in ship.get("guns",[]):
 		if not gun.is_empty(): result=maxf(result,float(_rules.guns.get(str(gun.kind),{}).get("range",550)))
 	return result
+
+func _advance_sinking(battle: Dictionary, delta: float) -> void:
+	for raw_id in battle.get("enemy_ids",[]):
+		var enemy: Dictionary=GameState.combat_state.get("naval_enemies",{}).get(str(raw_id),{})
+		_update_sinking_target(enemy,delta)
+	for raw_id in battle.get("ship_ids",[]):
+		_update_sinking_target(ship_by_id(str(raw_id)),delta)
+
+func _update_sinking_target(target: Dictionary, delta: float) -> void:
+	if target.is_empty() or float(target.get("hull",0))>0: return
+	target["sinking"]=true
+	target["sink_elapsed"]=minf(float(_rules.sinking_duration_seconds),float(target.get("sink_elapsed",0))+delta)
+
+func _side_is_sinking(ids: Array, allies: bool) -> bool:
+	for raw_id in ids:
+		var target: Dictionary=ship_by_id(str(raw_id)) if allies else GameState.combat_state.get("naval_enemies",{}).get(str(raw_id),{})
+		if not target.is_empty() and float(target.get("hull",0))<=0 and float(target.get("sink_elapsed",0))<float(_rules.sinking_duration_seconds): return true
+	return false
+
+func sinking_progress(target: Dictionary) -> float:
+	if not bool(target.get("sinking",false)): return 0.0
+	return clampf(float(target.get("sink_elapsed",0))/maxf(.1,float(_rules.sinking_duration_seconds)),0.0,1.0)
 
 func _fire_ship(ship: Dictionary, enemies: Array[Dictionary], delta: float, battle: Dictionary) -> void:
 	var order: Dictionary = ship.get("naval_order",{})
@@ -639,6 +672,9 @@ func _resolve_projectiles(battle: Dictionary, delta: float) -> void:
 		if target.is_empty() or float(target.get("hull",0))<=0: continue
 		var floor_hull: float = 1.0 if bool(target.get("training",false)) and float(battle.get("elapsed",0))<float(_rules.training_minimum_seconds) else 0.0
 		target.hull = maxf(floor_hull,float(target.hull)-float(shot.damage))
+		if float(target.hull)<=0:
+			target["sinking"]=true
+			target["sink_elapsed"]=0.0
 		var shooter: Dictionary = ship_by_id(str(shot.get("shooter_id","")))
 		if shooter.is_empty(): continue
 		var slot: int = int(shot.get("gun_slot",-1))
@@ -654,8 +690,9 @@ func get_enemy_snapshots() -> Array[Dictionary]:
 		# Once a target enters combat, keep it in both the world and tactical map
 		# even if a stale patrol-retreat timer was saved before battle began.
 		var participating: bool = active_enemy_ids.has(str(enemy.get("id","")))
-		if float(enemy.get("hull",0))<=0 or (not participating and not _enemy_alive(enemy)): continue
-		result.append({"id":str(enemy.id),"name":str(enemy.name),"ship_type_id":str(enemy.ship_type_id),"position":vector(enemy.position),"heading":vector(enemy.get("heading",Vector2.UP)),"length":float(_visuals.get(str(enemy.ship_type_id),{}).get("display_length",5.1))/.04,"faction_id":str(enemy.faction_id),"kind":"naval_enemy","in_transit":active(),"color":Color("ff8464")})
+		var sink: float=sinking_progress(enemy)
+		if (float(enemy.get("hull",0))<=0 and (not participating or sink>=1.0)) or (not participating and not _enemy_alive(enemy)): continue
+		result.append({"id":str(enemy.id),"name":str(enemy.name),"ship_type_id":str(enemy.ship_type_id),"position":vector(enemy.position),"heading":vector(enemy.get("heading",Vector2.UP)),"length":float(_visuals.get(str(enemy.ship_type_id),{}).get("display_length",5.1))/.04,"faction_id":str(enemy.faction_id),"kind":"naval_enemy","in_transit":active(),"color":Color("ff8464"),"hull":float(enemy.get("hull",0)),"hull_max":float(enemy.get("hull_max",1)),"sinking":bool(enemy.get("sinking",false)),"sink_progress":sink})
 	return result
 
 func _result(ok: bool, message: String) -> Dictionary:
