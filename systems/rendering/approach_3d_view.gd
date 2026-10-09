@@ -173,6 +173,12 @@ func _cull_visuals() -> void:
 
 
 func _input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.button_index==MOUSE_BUTTON_RIGHT and not event.pressed:
+		_orbit_dragging=false
+
+func _unhandled_input(event: InputEvent) -> void:
+	# GUI receives the gesture first: dragging the tactical map must not orbit
+	# the sailing camera or consume its right-button press.
 	var inspection: Node = get_tree().get_first_node_in_group("ship_inspection_window")
 	if inspection != null and bool(inspection.get("_is_open")):
 		_orbit_dragging = false

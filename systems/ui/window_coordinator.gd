@@ -701,7 +701,6 @@ func _process(_delta: float) -> void:
 
 func _layout_top_bar(viewport: Vector2) -> void:
 	var full_width: float = viewport.x
-	if bool(GameState.combat_state.get("naval_battle", {}).get("active", false)): viewport.x *= 0.75
 	var menu_min: Vector2 = _toolbar.get_combined_minimum_size()
 	var stock_min: Vector2 = _resource_bar.get_combined_minimum_size()
 	var available: float = maxf(1.0, viewport.x - 24.0)

@@ -17,6 +17,8 @@ var _training_button: Button
 var _training_notice: AcceptDialog
 var _attack_notice: Label
 var _attack_notice_until: float = -1.0
+var _fit_pending: bool = false
+var _game_theme = preload("res://systems/ui/game_ui_theme.gd").new()
 
 func _ready() -> void:
 	layer=145
@@ -39,8 +41,8 @@ func _ready() -> void:
 	_truce=_button(actions,"Перемирие",func(): _show_status(_system.propose_truce()))
 	_button(actions,"Общий сбор",func(): _show_status(_system.rally()))
 	_notice=Label.new(); _notice.set_meta("fixed_font_size",12); _notice.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART; _notice.custom_minimum_size.y=22; _notice.add_theme_font_size_override("font_size",12); column.add_child(_notice)
-	_map=preload("res://systems/ui/naval_tactical_map.gd").new(); _map.custom_minimum_size=Vector2(0,235); _map.size_flags_vertical=Control.SIZE_EXPAND_FILL; _map.size_flags_horizontal=Control.SIZE_EXPAND_FILL; column.add_child(_map)
-	var hint:=Label.new(); hint.set_meta("fixed_font_size",11); hint.text="Свой корабль → цель: атака · точка моря: курс\nОгонь только по вашему приказу"; hint.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART; hint.add_theme_font_size_override("font_size",11); column.add_child(hint)
+	_map=preload("res://systems/ui/naval_tactical_map.gd").new(); _map.custom_minimum_size=Vector2(0,120); _map.size_flags_vertical=Control.SIZE_EXPAND_FILL; _map.size_flags_horizontal=Control.SIZE_EXPAND_FILL; column.add_child(_map)
+	var hint:=Label.new(); hint.set_meta("fixed_font_size",11); hint.text="ЛКМ: свой корабль → враг или точка моря\nЗажатая ПКМ: двигать карту · колёсико: масштаб\nОгонь только по вашему приказу"; hint.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART; hint.add_theme_font_size_override("font_size",11); column.add_child(hint)
 	_surrender=ConfirmationDialog.new(); _surrender.title="Сдаться"; _surrender.dialog_text="Сдача означает поражение. Будет списано 10% монет, осколков и свободных ресурсов домашнего склада."; _surrender.ok_button_text="Сдаться"; _surrender.cancel_button_text="Продолжить бой"; _surrender.confirmed.connect(func(): _show_status(_system.surrender())); add_child(_surrender)
 	_report=AcceptDialog.new(); _report.title="Итог морского боя"; add_child(_report)
 	if OS.is_debug_build():
@@ -51,9 +53,8 @@ func _ready() -> void:
 		if dialog!=null: preload("res://systems/ui/brass_close_button.gd").apply_dialog(dialog)
 
 func _button(parent: Control, text_value: String, callback: Callable) -> Button:
-	var button:=Button.new(); button.set_meta("preserve_art_style",true); button.set_meta("compact_hud",true); button.text=text_value; button.size_flags_horizontal=Control.SIZE_EXPAND_FILL; button.custom_minimum_size.y=42; button.add_theme_font_size_override("font_size",13)
-	var style:=StyleBoxFlat.new(); style.bg_color=Color("d1ad64"); style.border_color=Color("f5d996"); style.set_border_width_all(1); style.set_corner_radius_all(4)
-	button.add_theme_stylebox_override("normal",style); button.add_theme_color_override("font_color",Color("10212d")); button.pressed.connect(callback); parent.add_child(button)
+	var button:=Button.new(); button.set_meta("compact_hud",true); button.text=text_value; button.size_flags_horizontal=Control.SIZE_EXPAND_FILL; button.custom_minimum_size.y=42; button.add_theme_font_size_override("font_size",13)
+	_game_theme.apply_control(button); button.pressed.connect(callback); parent.add_child(button)
 	return button
 
 func initialize(system: Node) -> void:
@@ -91,17 +92,22 @@ func _process(delta: float) -> void:
 		_training_button.visible=not engaged and str(GameState.ship_state.get("docked_port_id",""))==""
 		_training_button.position=Vector2(18, viewport.y - 62)
 	var width: float = clampf(viewport.x*.25, 290.0, 370.0)
-	var height: float = minf(viewport.y-92.0, 420.0)
+	var coordinator: Node = get_tree().get_first_node_in_group("window_coordinator")
+	var top: float = float(coordinator.get("_top_height"))+6.0 if coordinator!=null else 76.0
+	var height: float = maxf(0,viewport.y-top)
 	if engaged and _open_amount==0:
+		_fit_pending=true
 		_map.center=_system.vector(GameState.ship_state.position)
 		var ids: Array = GameState.combat_state.naval_battle.ship_ids
 		_map.selected=str(ids[0]) if not ids.is_empty() else ""
 	_open_amount=move_toward(_open_amount,1.0 if engaged and not _panel_collapsed else 0.0,delta*4)
 	_panel.visible=_open_amount>0
 	_panel.size=Vector2(width,height)
-	var coordinator: Node = get_tree().get_first_node_in_group("window_coordinator")
-	var top: float = float(coordinator.get("_top_height"))+6.0 if coordinator!=null else 76.0
-	_panel.position=Vector2(viewport.x-width*_open_amount,top)
+	var slide: float = _open_amount*_open_amount*(3.0-2.0*_open_amount)
+	_panel.position=Vector2(viewport.x-width*slide,top)
+	if engaged and _fit_pending and _open_amount>=1.0 and _map.size.y>60:
+		_map.fit_battle()
+		_fit_pending=false
 	if engaged:
 		if _open_amount<.05: _map.center=_system.vector(GameState.ship_state.position)
 		var battle: Dictionary = GameState.combat_state.naval_battle

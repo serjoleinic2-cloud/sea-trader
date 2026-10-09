@@ -61,5 +61,7 @@
   "training_minimum_seconds": 120,
   "training_target_seconds": 180,
   "training_minimum_hull": 2000,
-  "training_enemy_damage": 1
+  "training_enemy_damage": 1,
+  "training_ship_count": 3,
+  "training_row_spacing_lengths": 2.2
 }

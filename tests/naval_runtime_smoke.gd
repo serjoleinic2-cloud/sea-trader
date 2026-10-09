@@ -56,7 +56,7 @@ func _ready() -> void:
 	check(fleet._list.get_child_count()>0,"fleet renders naval controls")
 	fleet._is_open=false
 	var length: float = military._length(navy.ship_by_id(id))
-	var water: Vector2 = military._spawn_position(main._ship.global_position,length*2,[])
+	var water: Vector2 = military._spawn_position(main._ship.global_position,length*8,[])
 	check(water.is_finite(),"fixture finds navigable sea")
 	main._ship.global_position=water; GameState.ship_state.position=water; GameState.ship_state.docked_port_id=""
 	var encounter: Dictionary = navy.create_training_encounter()
@@ -70,6 +70,7 @@ func _ready() -> void:
 	var key:=InputEventKey.new(); key.pressed=true; key.physical_keycode=KEY_Z
 	hud._unhandled_key_input(key); await frames()
 	check(navy.active(),"physical Z starts actual battle directly")
+	check(hud._truce.get_theme_stylebox("normal") is StyleBoxTexture,"tactical actions use the approved brass art button")
 	check(not ship.escort_enabled,"battle releases escort")
 	check(str(ship.naval_order.get("kind",""))=="hold","battle starts with ships holding position")
 	var player_hull: float = float(GameState.ship_state.get("hull",100))
@@ -96,8 +97,24 @@ func _ready() -> void:
 		await frames()
 		check(is_equal_approx(hud._panel.size.x,clampf(get_viewport().get_visible_rect().size.x*.25,290,370)),"battle panel stays compact at "+str(viewport_size))
 		var treasury: Control = main.get_node("WindowCoordinator/TopResourceBar")
-		check(treasury.position.x+treasury.size.x*treasury.scale.x<=get_viewport().get_visible_rect().size.x*.75+1,"treasury stays clear of battle panel")
+		var coordinator: Node=main.get_node("WindowCoordinator")
+		var viewport: Vector2=get_viewport().get_visible_rect().size
+		check(treasury.position.x+treasury.size.x*treasury.scale.x<=viewport.x+1,"treasury stays inside the full-width top menu")
+		check(is_equal_approx(coordinator.get_node("TopMenuBackdrop").size.x,viewport.x),"battle does not cut a quarter out of the top menu")
+		check(hud._panel.position.y>=coordinator._top_height,"battle panel begins below all top-menu rows")
+		check(absf(hud._panel.position.y+hud._panel.size.y-viewport.y)<1,"battle panel reaches the bottom at %s: panel %s, viewport %s" % [str(viewport_size),str(hud._panel.get_global_rect()),str(viewport)])
 	get_tree().root.size=Vector2i(1280,720); await frames()
+	var approach: Node=main.get_node("Approach3DView")
+	var drag_origin: Vector2=hud._map.global_position+hud._map.size*.5
+	var drag_start: Vector2=hud._map.center
+	var right:=InputEventMouseButton.new(); right.button_index=MOUSE_BUTTON_RIGHT; right.pressed=true; right.position=drag_origin; right.button_mask=MOUSE_BUTTON_MASK_RIGHT
+	get_viewport().push_input(right,true); await frames(2)
+	var drag:=InputEventMouseMotion.new(); drag.position=drag_origin+Vector2(30,20); drag.relative=Vector2(30,20); drag.button_mask=MOUSE_BUTTON_MASK_RIGHT
+	get_viewport().push_input(drag,true); await frames(2)
+	check(hud._map.center.distance_to(drag_start)>1,"right mouse input reaches the map and pans it")
+	check(not approach._orbit_dragging,"map dragging never captures the sailing camera")
+	right.pressed=false; right.position=drag.position; right.button_mask=0; get_viewport().push_input(right,true)
+	check(not hud._map._dragging,"release ends the map gesture")
 	hud._map.center=water
 	var mouse:=InputEventMouseButton.new(); mouse.pressed=true; mouse.button_index=MOUSE_BUTTON_LEFT; mouse.position=hud._map.point(navy.position(ship))
 	hud._map._gui_input(mouse)

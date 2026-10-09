@@ -108,51 +108,37 @@ func create_training_encounter() -> Dictionary:
 	var race_index: int = race_ids.find(player_race)
 	var enemy_race: String = race_ids[(race_index + 1) % race_ids.size()]
 	var player_position: Vector2 = vector(GameState.ship_state.get("position", Vector2.ZERO))
-	var positions: Array[Vector2] = _training_positions(player_position)
-	if positions.is_empty(): return _result(false,"Здесь берег или причалы мешают стрельбе. Отойдите дальше в открытое море.")
-	var ship: Dictionary = {}
+	var count: int = int(_rules.get("training_ship_count",3))
+	var ships: Array[Dictionary] = []
 	for candidate in warships():
-		if float(candidate.get("hull", 0.0)) > 0.0:
-			ship = candidate
-			break
-	# Repair the existing practice vessel instead of appending another ship with
-	# the same ID every time a previous practice vessel has been destroyed.
-	if ship.is_empty(): ship = ship_by_id("debug_training_warship")
+		if float(candidate.get("hull",0))>0 and ships.size()<count: ships.append(candidate)
+	for index in count:
+		if ships.size()>=count: break
+		var id: String = "debug_training_warship" if index==0 else "debug_training_warship_%d" % (index+1)
+		var candidate: Dictionary = ship_by_id(id)
+		if not candidate.is_empty() and ships.any(func(existing): return is_same(existing,candidate)): continue
+		if candidate.is_empty(): candidate = _new_training_ship(id,player_race,mini(ships.size()+1,3))
+		ships.append(candidate)
+	var largest: float = float(_visuals.get("war_%s_3" % enemy_race,{}).get("display_length",7.3))/.04
+	for ship in ships:
+		largest=maxf(largest,float(_visuals.get(str(ship.ship_type_id),{}).get("display_length",5.1))/.04)
+	var positions: Array[Vector2] = _training_positions(player_position,count,largest)
+	if positions.is_empty(): return _result(false,"Здесь берег или причалы мешают стрельбе. Отойдите дальше в открытое море.")
 	return _transaction(func():
-		if ship.is_empty():
-			var ship_type_id: String = "war_%s_1" % player_race
-			ship = {
-				"instance_id": "debug_training_warship",
-				"ship_type_id": ship_type_id,
-				"name": "Учебный страж",
-				"current_port_id": "",
-				"status": "В сопровождении",
-				"crew": [],
-				"cargo": [],
-				"cargo_capacity": 0,
-				"autopilot": {},
-				"escort_enabled": true,
-				"escort_state": {},
-				"embarked_units": {"coast_guard": {"count": 8, "level": 1, "experience": 0}, "crystal_mortar": {"count": 1, "level": 1, "experience": 0}}
-			}
-			GameState.fleet_state.append(ship)
+		for index in ships.size():
+			var ship: Dictionary = ships[index]
+			if ship_by_id(str(ship.instance_id)).is_empty(): GameState.fleet_state.append(ship)
 			normalize_ship(ship)
-			ship["commander"] = {"name": "Учебный командир", "race_id": player_race, "level": 1, "experience": 0, "skill_points": 0, "skills": {"gunnery": 1, "accuracy": 1, "reload": 0}}
-			if ship.guns.size() > 0: ship.guns[0] = {"kind": "cannon", "level": 1, "experience": 0, "cooldown": 0.0}
-			if ship.guns.size() > 1: ship.guns[1] = {"kind": "rune", "level": 1, "experience": 0, "cooldown": 0.0}
-		normalize_ship(ship)
-		ship.hull = hull_max(ship)
-		ship.naval_reload = 0.0
-		for gun in ship.guns:
-			if not gun.is_empty(): gun.cooldown = 0.0
-		var armed: bool = false
-		for gun in ship.guns:
-			if not gun.is_empty(): armed = true
-		if not armed and not ship.guns.is_empty(): ship.guns[0] = {"kind":"cannon","level":1,"experience":0,"cooldown":0.0}
-		ship["escort_enabled"] = true
-		ship["current_port_id"] = ""
-		ship["autopilot"] = {}
-		ship["escort_state"] = {"initialized": true, "position": positions[0], "heading": Vector2.LEFT, "blocked_seconds": 0.0, "avoidance_heading": Vector2.ZERO}
+			ship.hull = hull_max(ship)
+			ship.naval_reload = 0.0
+			for gun in ship.guns:
+				if not gun.is_empty(): gun.cooldown = 0.0
+			var armed: bool = ship.guns.any(func(gun): return not gun.is_empty())
+			if not armed and not ship.guns.is_empty(): ship.guns[0] = {"kind":"cannon","level":1,"experience":0,"cooldown":0.0}
+			ship["escort_enabled"] = true
+			ship["current_port_id"] = ""
+			ship["autopilot"] = {}
+			ship["escort_state"] = {"initialized": true, "position": positions[index*2], "heading": positions[index*2].direction_to(positions[index*2+1]), "blocked_seconds": 0.0, "avoidance_heading": Vector2.ZERO}
 		# Practice durability accounts for the maximum sustained damage of the entire escort.
 		var damage_per_second: float = 0.0
 		for ally in warships():
@@ -171,16 +157,18 @@ func create_training_encounter() -> Dictionary:
 			damage_per_second += volley_damage/maxf(.1,volley_reload)
 		var training_hull: float = maxf(float(_rules.training_minimum_hull),damage_per_second*float(_rules.training_target_seconds))
 		GameState.combat_state.naval_report = {}
-		var enemy_id: String = "debug_training_patrol"
-		var enemy_definition: Dictionary = GameData.get_ship("war_%s_1" % enemy_race)
-		GameState.combat_state.naval_enemies[enemy_id] = {
+		for index in count:
+			var enemy_id: String = "debug_training_patrol" if index==0 else "debug_training_patrol_%d" % (index+1)
+			var enemy_definition: Dictionary = GameData.get_ship("war_%s_%d" % [enemy_race,mini(index+1,3)])
+			GameState.combat_state.naval_enemies[enemy_id] = {
 			"id": enemy_id,
 			"ship_type_id": str(enemy_definition.get("id", "war_%s_1" % enemy_race)),
-			"name": "Учебный патруль · 2+ минуты",
+			"name": "Учебный патруль №%d" % (index+1),
 			"training": true,
+			"training_group": "debug_training_patrol",
 			"faction_id": enemy_race,
-			"position": positions[1],
-			"heading": Vector2.LEFT,
+			"position": positions[index*2+1],
+			"heading": positions[index*2+1].direction_to(positions[index*2]),
 			"hull": training_hull,
 			"hull_max": training_hull,
 			"level": 1,
@@ -188,19 +176,28 @@ func create_training_encounter() -> Dictionary:
 			"warning": 0.0,
 			"cooldown": 3.0,
 			"retreat_until": 0.0
-		}
-	, "Учебный патруль: от 2000 прочности, минимум 2 минуты проверки. Нажмите Z, затем на красный корабль на карте справа — выбранный боевой корабль атакует." )
+			}
+	, "Учебный бой: %d ваших боевых корабля против %d врагов, минимум 2 минуты. Z — начать; ЛКМ — выбрать корабль и цель; зажатая ПКМ — двигать карту; колёсико — масштаб." % [ships.size(),count])
 
-func _training_positions(origin: Vector2) -> Array[Vector2]:
+func _new_training_ship(id: String, race: String, tier: int) -> Dictionary:
+	return {"instance_id":id,"ship_type_id":"war_%s_%d" % [race,tier],"name":"Учебный страж №%d" % tier,"current_port_id":"","status":"В сопровождении","crew":[],"cargo":[],"cargo_capacity":0,"autopilot":{},"escort_enabled":true,"escort_state":{},"embarked_units":{"coast_guard":{"count":8,"level":1,"experience":0}},"commander":{"name":"Учебный командир","race_id":race,"level":1,"experience":0,"skill_points":0,"skills":{"gunnery":1,"accuracy":1,"reload":0}},"guns":[{"kind":"cannon","level":1,"experience":0,"cooldown":0.0},{"kind":"rune","level":1,"experience":0,"cooldown":0.0}]}
+
+func _training_positions(origin: Vector2, count: int, largest_length: float) -> Array[Vector2]:
 	var radius: float = alert_radius()
+	var spacing: float = largest_length*float(_rules.get("training_row_spacing_lengths",2.2))
 	for turn in 24:
 		var direction: Vector2 = Vector2.from_angle(turn*TAU/24.0)
-		var ally: Vector2 = origin+direction*radius*.4
-		var enemy: Vector2 = origin+direction*radius*.8
-		if _military!=null:
-			if not _military._free(ally,130) or not _military._free(enemy,130): continue
-			if _military._guard.is_navigation_move_blocked(origin,ally) or _military._guard.is_navigation_move_blocked(ally,enemy): continue
-		return [ally,enemy]
+		var result: Array[Vector2] = []
+		for index in count:
+			var row: int = 0 if index==0 else ceili(index/2.0)*(1 if index%2==1 else -1)
+			var offset: Vector2 = direction.orthogonal()*spacing*row
+			var ally: Vector2 = origin-direction*radius*.5+offset
+			var enemy: Vector2 = origin+direction*radius*.5+offset
+			if _military!=null:
+				if not _military._free(ally,largest_length) or not _military._free(enemy,largest_length): break
+				if _military._guard.is_navigation_move_blocked(origin,ally) or _military._guard.is_navigation_move_blocked(ally,enemy): break
+			result.append_array([ally,enemy])
+		if result.size()==count*2: return result
 	return []
 
 func _enemy_alive(enemy: Dictionary) -> bool:
@@ -316,9 +313,21 @@ func begin_battle(enemy_ids: Array = [], enemy_initiated: bool = false) -> Dicti
 	if not ready_for_battle(): return _result(false,"Для боя нужен боевой корабль в сопровождении в море.")
 	if bool(GameState.combat_state.get("active_raid",{}).get("active",false)): return _result(false,"Сначала завершите десантную операцию.")
 	var near: Array[Dictionary] = nearby_enemies()
+	# The debug exercise has exactly its own three targets; unrelated NPCs remain
+	# outside the exercise even if their patrol happens to pass nearby.
+	if enemy_ids.is_empty() and near.any(func(enemy): return str(enemy.get("training_group",""))=="debug_training_patrol"):
+		near=near.filter(func(enemy): return str(enemy.get("training_group",""))=="debug_training_patrol")
 	var ids: Array = []
 	for enemy in near:
 		if enemy_ids.is_empty() or enemy_ids.has(str(enemy.id)): ids.append(str(enemy.id))
+	# A practice wing may be outside the initial five-hull alert circle. Once its
+	# lead vessel is engaged, include its nearby companions in the same battle.
+	var groups: Array = []
+	for id in ids:
+		var group: String = str(GameState.combat_state.naval_enemies[id].get("training_group",""))
+		if group!="" and not groups.has(group): groups.append(group)
+	for enemy in GameState.combat_state.naval_enemies.values():
+		if groups.has(str(enemy.get("training_group",""))) and _enemy_alive(enemy) and vector(enemy.position).distance_to(vector(GameState.ship_state.position))<alert_radius()*2 and not ids.has(str(enemy.id)): ids.append(str(enemy.id))
 	if ids.is_empty(): return _result(false,"Противник вышел из радиуса обнаружения.")
 	var battle: Dictionary = {"active":true,"enemy_initiated":enemy_initiated,"ship_ids":[],"enemy_ids":ids,"previous_escorts":{},"truce_pending":false,"shots":0,"elapsed":0.0,"projectiles":[],"notice":"Выберите свой корабль на карте справа, затем красный корабль врага: приказ атаковать."}
 	for ship in warships():

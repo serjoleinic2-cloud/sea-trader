@@ -43,6 +43,7 @@ func test_legacy_duplicate_training_ship_ids_do_not_cause_instant_defeat() -> vo
 
 func test_destroyed_training_ship_is_reused_on_repeated_practice() -> void:
 	_sea()
+	navy._rules.training_ship_count=1
 	GameState.fleet_state = [{"instance_id":"debug_training_warship","ship_type_id":"war_humans_1","name":"Учебный страж","hull":0.0,"experience":42}]
 	navy.initialize(main,military)
 	for encounter in 3:
@@ -52,6 +53,63 @@ func test_destroyed_training_ship_is_reused_on_repeated_practice() -> void:
 		assert_gt(float(ship.hull),0)
 		assert_eq(int(ship.experience),42,"repair retains earned ship progression")
 		ship.hull=0.0
+
+func test_training_squadron_and_independent_map_orders() -> void:
+	_sea()
+	assert_true(navy.create_training_encounter().ok)
+	assert_eq(navy.warships().size(),3)
+	assert_true(navy.begin_battle().ok)
+	var battle: Dictionary=GameState.combat_state.naval_battle
+	assert_eq(battle.ship_ids.size(),3)
+	assert_eq(battle.enemy_ids.size(),3,"the wings join their training leader beyond the alert circle")
+	var map: Control=preload("res://systems/ui/naval_tactical_map.gd").new()
+	add_child(map); map.system=navy; map.size=Vector2(320,560); map.fit_battle()
+	for index in 3:
+		var ship: Dictionary=navy.ship_by_id(str(battle.ship_ids[index]))
+		var target: Dictionary=GameState.combat_state.naval_enemies[battle.enemy_ids[index]]
+		var click:=InputEventMouseButton.new(); click.button_index=MOUSE_BUTTON_LEFT; click.pressed=true
+		click.position=map.point(navy.position(ship)); map._gui_input(click)
+		assert_eq(map.selected,str(ship.instance_id))
+		click.position=map.point(navy.vector(target.position)); map._gui_input(click)
+		assert_eq(str(ship.naval_order.enemy_id),str(target.id),"every selected ship retains its own target")
+		assert_true(Rect2(Vector2.ZERO,map.size).has_point(map.point(navy.vector(target.position))),"all initial targets fit the map")
+	var moving_ship: Dictionary=navy.ship_by_id(map.selected)
+	var start: Vector2=navy.position(moving_ship)
+	var move_click:=InputEventMouseButton.new(); move_click.button_index=MOUSE_BUTTON_LEFT; move_click.pressed=true
+	move_click.position=map.point(start+Vector2(-100,-150)); map._gui_input(move_click)
+	assert_eq(str(moving_ship.naval_order.kind),"move","a sea click moves only the selected vessel")
+	for index in 2: assert_eq(str(navy.ship_by_id(str(battle.ship_ids[index])).naval_order.enemy_id),str(battle.enemy_ids[index]))
+	for step in 100:
+		military._time+=.1
+		military._step_ship(moving_ship,2,.1)
+	assert_gt(navy.position(moving_ship).distance_to(start),5,"the independently ordered ship actually moves")
+	var before_orders: Array=navy.warships().map(func(ship): return ship.naval_order.duplicate(true))
+	var press:=InputEventMouseButton.new(); press.button_index=MOUSE_BUTTON_RIGHT; press.pressed=true
+	map._gui_input(press)
+	var before_center: Vector2=map.center
+	var motion:=InputEventMouseMotion.new(); motion.relative=Vector2(35,-20); map._gui_input(motion)
+	assert_eq(map.center,before_center-motion.relative/map.zoom)
+	press.pressed=false; map._input(press)
+	assert_false(map._dragging,"release outside stops dragging")
+	var wheel:=InputEventMouseButton.new(); wheel.pressed=true; wheel.button_index=MOUSE_BUTTON_WHEEL_UP; wheel.position=Vector2(70,80)
+	var anchor: Vector2=map.world(wheel.position)
+	var before_zoom: float=map.zoom
+	map._gui_input(wheel)
+	assert_gt(map.zoom,before_zoom)
+	assert_lt(map.world(wheel.position).distance_to(anchor),.01,"zoom keeps the world point under the cursor")
+	wheel.button_index=MOUSE_BUTTON_WHEEL_DOWN; map._gui_input(wheel)
+	assert_lt(absf(map.zoom-before_zoom),.001)
+	assert_eq(navy.warships().map(func(ship): return ship.naval_order),before_orders,"navigation never changes ship orders")
+	map.free()
+	assert_true(SaveSystem.save_game())
+	assert_true(SaveSystem.load_game())
+	assert_eq(GameState.combat_state.naval_battle.ship_ids.size(),3)
+	assert_eq(GameState.combat_state.naval_battle.enemy_ids.size(),3)
+	assert_eq(navy.warships().map(func(ship): return ship.naval_order),before_orders,"individual orders survive reloading the battle")
+	navy.surrender()
+	var fleet_count: int=GameState.fleet_state.size()
+	assert_true(navy.create_training_encounter().ok)
+	assert_eq(GameState.fleet_state.size(),fleet_count,"repeated practice reuses all three ships")
 
 func test_bow_enemy_turns_toward_target_even_inside_firing_distance() -> void:
 	_sea()

@@ -22,10 +22,22 @@ func point(at: Vector2) -> Vector2:
 func world(at: Vector2) -> Vector2:
 	return center+(at-size*.5)/zoom
 
+func fit_battle() -> void:
+	if system==null or size.x<60 or size.y<60: return
+	var bounds := Rect2(system.vector(GameState.ship_state.position),Vector2.ZERO)
+	for vessel in _vessels(): bounds=bounds.expand(vessel.position)
+	center=bounds.get_center()
+	zoom=clampf(minf((size.x-64)/maxf(1,bounds.size.x),(size.y-80)/maxf(1,bounds.size.y)),.03,1.2)
+
+func _input(event: InputEvent) -> void:
+	# A release outside the map must never leave its drag mode latched on.
+	if event is InputEventMouseButton and not event.pressed and event.button_index in [MOUSE_BUTTON_RIGHT,MOUSE_BUTTON_MIDDLE]: _dragging=false
+
 func _gui_input(event: InputEvent) -> void:
 	if system==null: return
 	if event is InputEventMouseButton:
-		if event.button_index in [MOUSE_BUTTON_RIGHT,MOUSE_BUTTON_MIDDLE]: _dragging=event.pressed; accept_event()
+		if event.button_index in [MOUSE_BUTTON_RIGHT,MOUSE_BUTTON_MIDDLE]:
+			_dragging=event.pressed; accept_event(); return
 		if event.pressed and event.button_index in [MOUSE_BUTTON_WHEEL_UP,MOUSE_BUTTON_WHEEL_DOWN]:
 			var anchor: Vector2 = world(event.position)
 			zoom=clampf(zoom*(1.2 if event.button_index==MOUSE_BUTTON_WHEEL_UP else 1/1.2),.03,1.2)
@@ -34,13 +46,16 @@ func _gui_input(event: InputEvent) -> void:
 			var clicked: Vector2 = event.position
 			for id in GameState.combat_state.naval_battle.ship_ids:
 				var ship: Dictionary = system.ship_by_id(str(id))
-				if not ship.is_empty() and point(system.position(ship)).distance_to(clicked)<16:
+				if not ship.is_empty() and float(ship.get("hull",0))>0 and point(system.position(ship)).distance_to(clicked)<16:
 					selected=str(id); GameState.combat_state.naval_battle.notice="Выбран «%s». Нажмите красный корабль, чтобы атаковать." % str(ship.name); accept_event(); return
 			if selected!="":
 				var enemy_id: String = ""
 				for enemy in system.get_enemy_snapshots():
+					if not GameState.combat_state.naval_battle.enemy_ids.has(str(enemy.id)): continue
 					if point(enemy.position).distance_to(clicked)<16: enemy_id=str(enemy.id); break
-				system.issue_order(selected,world(clicked),enemy_id); accept_event()
+				var result: Dictionary=system.issue_order(selected,world(clicked),enemy_id)
+				if not bool(result.get("ok",false)): GameState.combat_state.naval_battle.notice=str(result.get("message","Приказ не принят."))
+				accept_event()
 	if event is InputEventMouseMotion:
 		if _dragging: center-=event.relative/zoom; accept_event()
 		tooltip_text=""
@@ -54,6 +69,7 @@ func _vessels() -> Array:
 		if not system.active() or not GameState.combat_state.naval_battle.ship_ids.has(str(ship.instance_id)): continue
 		result.append({"id":str(ship.instance_id),"name":str(ship.name),"position":system.position(ship),"heading":system.vector(ship.get("escort_state",{}).get("heading",Vector2.UP)),"hull":float(ship.hull),"max":system.hull_max(ship),"color":Color("6be8ec")})
 	for enemy in system.get_enemy_snapshots():
+		if not system.active() or not GameState.combat_state.naval_battle.enemy_ids.has(str(enemy.id)): continue
 		var raw: Dictionary = GameState.combat_state.naval_enemies.get(enemy.id,{})
 		enemy["hull"]=float(raw.get("hull",0)); enemy["max"]=float(raw.get("hull_max",1)); enemy["color"]=Color("ff8464")
 		result.append(enemy)
