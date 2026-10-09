@@ -26,5 +26,16 @@
     "aery/barracks.png",
     "crystari/barracks.png"
   ],
-  "production_resolution": "768x768 RGBA PNG; resized from generated 1254x1254 source with alpha preserved"
+  "production_resolution": "768x768 RGBA PNG; resized from generated 1254x1254 source with alpha preserved",
+  "perspective_refinement_2026_10_09": {
+    "tool": "built-in image_gen",
+    "asset": "crystari/barracks_harbor.png",
+    "source": "C:/Users/Сергей/.codex/generated_images/01a0f5c0-e5b7-7000-8934-629874bf789f/exec-b6ce74b8-0884-407a-a35f-5f411ee6b50d.png",
+    "prompt": "Redraw the same Crystari barracks from a slightly lower elevated three-quarter camera, approximately 25 degrees above the ground. Match shipyard and town ground perspective, with shallower receding edges and less roof surface visible. Preserve all architecture, violet crystals, dark stone, gold trim, steps and banners. Full silhouette on transparent background, no people or text.",
+    "references": [
+      "crystari/barracks.png",
+      "crystari/shipyard.png",
+      "real Godot town screenshot"
+    ]
+  }
 }
