@@ -71,6 +71,25 @@ func _ready() -> void:
 	hud._unhandled_key_input(key); await frames()
 	check(navy.active(),"physical Z starts actual battle directly")
 	check(hud._truce.get_theme_stylebox("normal") is StyleBoxTexture,"tactical actions use the approved brass art button")
+	var approach: Node=main.get_node("Approach3DView")
+	check(hud.tactical_view_open() and approach._battle_camera_requested(),"opening battle enables tactical camera framing")
+	hud._collapse_panel(); hud._process(.3); approach._process(.1)
+	check(navy.active(),"closing the panel keeps combat running")
+	check(not hud.tactical_view_open() and not approach._battle_camera_requested(),"closing the panel releases tactical camera framing")
+	var orbit_before: float=approach._camera_orbit_yaw
+	var right_press:=InputEventMouseButton.new(); right_press.button_index=MOUSE_BUTTON_RIGHT; right_press.pressed=true
+	approach._unhandled_input(right_press)
+	var orbit_motion:=InputEventMouseMotion.new(); orbit_motion.relative=Vector2(30,0)
+	approach._unhandled_input(orbit_motion)
+	check(not is_equal_approx(approach._camera_orbit_yaw,orbit_before),"collapsed battle restores right-mouse camera orbit")
+	var sailing_camera: Camera2D=get_viewport().get_camera_2d()
+	var zoom_before: float=sailing_camera.zoom.x
+	main._zoom_ship_camera(.15)
+	check(sailing_camera.zoom.x>zoom_before,"collapsed battle restores sailing camera zoom")
+	var reopen:=InputEventKey.new(); reopen.pressed=true; reopen.physical_keycode=KEY_Z
+	hud._unhandled_key_input(reopen); hud._process(.3); approach._process(.1)
+	check(hud.tactical_view_open() and approach._battle_camera_requested(),"Z restores panel and tactical camera framing")
+	check(not approach._orbit_dragging,"tactical camera stops manual orbit capture")
 	check(not ship.escort_enabled,"battle releases escort")
 	check(str(ship.naval_order.get("kind",""))=="hold","battle starts with ships holding position")
 	var player_hull: float = float(GameState.ship_state.get("hull",100))
@@ -104,7 +123,6 @@ func _ready() -> void:
 		check(hud._panel.position.y>=coordinator._top_height,"battle panel begins below all top-menu rows")
 		check(absf(hud._panel.position.y+hud._panel.size.y-viewport.y)<1,"battle panel reaches the bottom at %s: panel %s, viewport %s" % [str(viewport_size),str(hud._panel.get_global_rect()),str(viewport)])
 	get_tree().root.size=Vector2i(1280,720); await frames()
-	var approach: Node=main.get_node("Approach3DView")
 	var drag_origin: Vector2=hud._map.global_position+hud._map.size*.5
 	var drag_start: Vector2=hud._map.center
 	var right:=InputEventMouseButton.new(); right.button_index=MOUSE_BUTTON_RIGHT; right.pressed=true; right.position=drag_origin; right.button_mask=MOUSE_BUTTON_MASK_RIGHT

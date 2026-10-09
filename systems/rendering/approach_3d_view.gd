@@ -42,6 +42,7 @@ var _day_clock: float = 0.0
 var _animation_clock: float = 0.0
 var _orbit_dragging: bool = false
 var _manual_close_view: bool = false
+var _battle_camera_was_active: bool = false
 var _camera_orbit_yaw: float = 0.0
 var _camera_orbit_pitch: float = 0.0
 var _touch_points: Dictionary = {}
@@ -134,11 +135,18 @@ func _process(delta: float) -> void:
 	if _manual_close_view:
 		close_factor = 1.0
 	_set_transition(close_factor, delta)
-	if bool(GameState.combat_state.get("naval_battle",{}).get("active",false)):
+	var battle_camera_active: bool=_battle_camera_requested()
+	if battle_camera_active:
 		# Combat framing overrides an earlier close camera gesture so both fleets remain in frame.
+		_orbit_dragging=false
 		_update_battle_camera(ship_position,delta)
 	else:
+		if _battle_camera_was_active:
+			# Keep the 3D sailing layer visible while the battle continues so the
+			# player can immediately zoom and orbit after collapsing the panel.
+			_manual_close_view=true
 		_update_camera(ship_position, _transition_factor, delta)
+	_battle_camera_was_active=battle_camera_active
 	if _water != null:
 		_water.position.x = ship_position.x * MAP_TO_METERS
 		_water.position.z = ship_position.y * MAP_TO_METERS
@@ -147,6 +155,12 @@ func _process(delta: float) -> void:
 	_sync_traffic(_fleet_traffic, "fleet")
 	_cull_visuals()
 	_update_ambience(delta)
+
+
+func _battle_camera_requested() -> bool:
+	if not bool(GameState.combat_state.get("naval_battle",{}).get("active",false)): return false
+	var hud: Node=get_parent().get_node_or_null("NavalBattleHUD")
+	return hud==null or not hud.has_method("tactical_view_open") or bool(hud.tactical_view_open())
 
 
 func _cull_visuals() -> void:

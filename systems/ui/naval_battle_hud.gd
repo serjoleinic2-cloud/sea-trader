@@ -35,7 +35,7 @@ func _ready() -> void:
 	var column:=VBoxContainer.new(); column.add_theme_constant_override("separation",5); margin.add_child(column)
 	var header:=HBoxContainer.new(); column.add_child(header)
 	var title:=Label.new(); title.text="МОРСКОЙ БОЙ"; title.add_theme_color_override("font_color",Color("eac46f")); title.add_theme_font_size_override("font_size",16); title.size_flags_horizontal=Control.SIZE_EXPAND_FILL; header.add_child(title)
-	var close:=Button.new(); preload("res://systems/ui/brass_close_button.gd").apply(close); close.tooltip_text="Свернуть панель · бой продолжается · Z открывает снова"; close.pressed.connect(func(): _panel_collapsed=true); header.add_child(close)
+	var close:=Button.new(); preload("res://systems/ui/brass_close_button.gd").apply(close); close.tooltip_text="Свернуть панель · бой продолжается · свободная камера возвращается"; close.pressed.connect(_collapse_panel); header.add_child(close)
 	var actions:=HFlowContainer.new(); actions.add_theme_constant_override("separation",4); column.add_child(actions)
 	_button(actions,"Сдаться",func(): _surrender.popup_centered(Vector2i(500,200)))
 	_truce=_button(actions,"Перемирие",func(): _show_status(_system.propose_truce()))
@@ -64,6 +64,16 @@ func initialize(system: Node) -> void:
 func _show_status(result: Dictionary) -> void:
 	_notice.text=str(result.get("message",""))
 
+func tactical_view_open() -> bool:
+	return _system!=null and _system.active() and not _panel_collapsed
+
+func _collapse_panel() -> void:
+	_panel_collapsed=true
+
+func _open_panel() -> void:
+	_panel_collapsed=false
+	_fit_pending=true
+
 func _create_training_encounter() -> void:
 	if _system == null: return
 	var result: Dictionary = _system.create_training_encounter()
@@ -73,10 +83,10 @@ func _create_training_encounter() -> void:
 func _start_battle() -> void:
 	if _system==null: return
 	if _system.active():
-		_panel_collapsed=false
+		_open_panel()
 		return
 	if _system.nearby_enemies().is_empty(): return
-	_panel_collapsed=false
+	_open_panel()
 	_show_status(_system.begin_battle())
 
 func _unhandled_key_input(event: InputEvent) -> void:
