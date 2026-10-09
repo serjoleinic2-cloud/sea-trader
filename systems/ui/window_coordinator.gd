@@ -16,6 +16,7 @@ var _accessibility: Node
 var _readouts: Label
 var _resource_bar: HBoxContainer
 var _resource_values: Dictionary = {}
+var _ship_strip: PanelContainer
 var _ship_bar: HBoxContainer
 var _ship_indicators: Dictionary = {}
 var _extra_resources_button: Button
@@ -228,60 +229,56 @@ func _create_resource_chip(title: String, resource_id: String, tooltip: String) 
 	_resource_values[resource_id] = label
 
 func _create_ship_indicators() -> void:
+	_ship_strip = PanelContainer.new()
+	_ship_strip.name = "SailingShipStatusStrip"
+	_ship_strip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_ship_strip.set_meta("preserve_art_style", true)
+	var background := StyleBoxFlat.new()
+	background.bg_color = Color("0b1922eF")
+	background.border_color = Color("574b35")
+	background.border_width_bottom = 1
+	background.content_margin_left = 14
+	background.content_margin_right = 14
+	background.content_margin_top = 2
+	background.content_margin_bottom = 2
+	_ship_strip.add_theme_stylebox_override("panel", background)
+	add_child(_ship_strip)
 	_ship_bar = HBoxContainer.new()
 	_ship_bar.name = "SailingShipIndicators"
-	_ship_bar.add_theme_constant_override("separation", 5)
+	_ship_bar.add_theme_constant_override("separation", 10)
+	_ship_bar.alignment = BoxContainer.ALIGNMENT_CENTER
+	_ship_bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_ship_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(_ship_bar)
-	for item in [
-		{"id":"hull", "icon":"⬟", "label":"КОРПУС", "tip":"Прочность корпуса корабля"},
-		{"id":"fuel", "icon":"◈", "label":"ТОПЛИВО", "tip":"Топливо в баке корабля"},
-		{"id":"cargo", "icon":"▤", "label":"ТРЮМ", "tip":"Занято в грузовом трюме"},
-		{"id":"speed", "icon":"➤", "label":"ХОД", "tip":"Текущая скорость корабля"},
-	]:
-		var chip := PanelContainer.new()
-		chip.name = "ShipReadout_" + str(item.id)
-		chip.custom_minimum_size = Vector2(108, 40)
-		chip.tooltip_text = str(item.tip)
-		chip.set_meta("preserve_art_style", true)
-		var frame := StyleBoxTexture.new()
-		frame.texture = load(HUD_ART + "button_frame.png")
-		for side in ["left", "right"]:
-			frame.set("texture_margin_" + side, 17.0)
-			frame.set("content_margin_" + side, 5.0)
-		for side in ["top", "bottom"]:
-			frame.set("texture_margin_" + side, 9.0)
-			frame.set("content_margin_" + side, 3.0)
-		chip.add_theme_stylebox_override("panel", frame)
-		var column := VBoxContainer.new()
-		column.add_theme_constant_override("separation", 0)
-		chip.add_child(column)
-		var header := HBoxContainer.new()
-		column.add_child(header)
-		var icon := Label.new()
-		icon.text = str(item.icon)
-		icon.add_theme_font_size_override("font_size", 12)
-		icon.add_theme_color_override("font_color", Color("e8c36b"))
-		header.add_child(icon)
-		var title := Label.new()
-		title.text = str(item.label)
-		title.add_theme_font_size_override("font_size", 9)
-		title.add_theme_color_override("font_color", Color("d8d0bc"))
-		title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		header.add_child(title)
-		var value := Label.new()
-		value.add_theme_font_size_override("font_size", 10)
-		value.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-		header.add_child(value)
+	_ship_strip.add_child(_ship_bar)
+	var items: Array[Dictionary] = [
+		{"id":"hull", "label":"Корпус", "tip":"Прочность корпуса корабля"},
+		{"id":"fuel", "label":"Топливо", "tip":"Топливо в баке корабля"},
+		{"id":"cargo", "label":"Трюм", "tip":"Занято в грузовом трюме"},
+		{"id":"speed", "label":"Скорость", "tip":"Текущая скорость корабля"},
+	]
+	for index in items.size():
+		var item: Dictionary = items[index]
+		var segment := HBoxContainer.new()
+		segment.add_theme_constant_override("separation", 6)
+		segment.tooltip_text = str(item.tip)
+		var label := Label.new()
+		label.text = str(item.label)
+		label.add_theme_font_size_override("font_size", 11)
+		label.add_theme_color_override("font_color", Color("f1f3f3"))
+		segment.add_child(label)
 		var bar := ProgressBar.new()
-		bar.custom_minimum_size.y = 5
-		bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		bar.custom_minimum_size = Vector2(72, 7)
 		bar.show_percentage = false
 		bar.add_theme_stylebox_override("background", _meter_style(Color("132c36")))
 		bar.add_theme_stylebox_override("fill", _meter_style(Color("56c9d2")))
-		column.add_child(bar)
-		_ship_bar.add_child(chip)
-		_ship_indicators[str(item.id)] = {"value":value,"bar":bar,"chip":chip}
+		segment.add_child(bar)
+		_ship_bar.add_child(segment)
+		_ship_indicators[str(item.id)] = {"label":label,"bar":bar,"segment":segment}
+		if index < items.size() - 1:
+			var separator := ColorRect.new()
+			separator.color = Color("81909a66")
+			separator.custom_minimum_size = Vector2(1, 16)
+			_ship_bar.add_child(separator)
 
 func _meter_style(color: Color) -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
@@ -300,18 +297,18 @@ func _refresh_ship_indicators() -> void:
 		cargo += int(item.get("quantity", 0))
 	var cargo_max: float = maxf(1.0, float(ship.get("cargo_capacity", 0)))
 	var speed: float = Vector2(ship.get("velocity", Vector2.ZERO)).length()
-	_set_ship_indicator("hull", "%d%%" % roundi(hull / hull_max * 100.0), hull, hull_max, Color("e77668") if hull / hull_max < .3 else Color("56c9d2"))
-	_set_ship_indicator("fuel", "%d%%" % roundi(fuel / fuel_max * 100.0), fuel, fuel_max, Color("e6ae54"))
-	_set_ship_indicator("cargo", "%d/%d" % [cargo, int(cargo_max)], cargo, cargo_max, Color("8dc8de"))
-	_set_ship_indicator("speed", "%d уз" % roundi(speed), speed, maxf(1.0, float(GameData.get_ship(str(ship.get("ship_id", "ship_sloop"))).get("base_speed", 100))), Color("e8c36b"))
+	_set_ship_indicator("hull", "Корпус %d/%d" % [roundi(hull), roundi(hull_max)], hull, hull_max, Color("e77668") if hull / hull_max < .3 else Color("56c9d2"))
+	_set_ship_indicator("fuel", "Топливо %d%%" % roundi(fuel / fuel_max * 100.0), fuel, fuel_max, Color("e6ae54"))
+	_set_ship_indicator("cargo", "Трюм %d/%d" % [cargo, int(cargo_max)], cargo, cargo_max, Color("8dc8de"))
+	_set_ship_indicator("speed", "Скорость %d уз" % roundi(speed), speed, maxf(1.0, float(GameData.get_ship(str(ship.get("ship_id", "ship_sloop"))).get("base_speed", 100))), Color("e8c36b"))
 
 func _set_ship_indicator(id: String, text: String, value: float, capacity: float, color: Color) -> void:
 	var item: Dictionary = _ship_indicators[id]
-	item.value.text = text
+	item.label.text = text
 	item.bar.max_value = maxf(1.0, capacity)
 	item.bar.value = clampf(value, 0.0, item.bar.max_value)
-	if item.chip.get_meta("fill_color", Color.TRANSPARENT) != color:
-		item.chip.set_meta("fill_color", color)
+	if item.segment.get_meta("fill_color", Color.TRANSPARENT) != color:
+		item.segment.set_meta("fill_color", color)
 		item.bar.add_theme_stylebox_override("fill", _meter_style(color))
 
 func _refresh_resource_bar() -> void:
@@ -693,17 +690,11 @@ func _process(_delta: float) -> void:
 		port_panel.position = Vector2((viewport.x - port_panel.size.x) * 0.5, _top_height + 4.0)
 
 func _layout_top_bar(viewport: Vector2) -> void:
+	var full_width: float = viewport.x
 	if bool(GameState.combat_state.get("naval_battle", {}).get("active", false)): viewport.x *= 0.75
 	var menu_min: Vector2 = _toolbar.get_combined_minimum_size()
 	var stock_min: Vector2 = _resource_bar.get_combined_minimum_size()
 	var available: float = maxf(1.0, viewport.x - 24.0)
-	var compact_ship_chip_width: float = clampf((available - 15.0) / 4.0, 70.0, 108.0)
-	for chip in _ship_bar.get_children():
-		chip.custom_minimum_size.x = compact_ship_chip_width
-		for title in chip.get_child(0).get_child(0).get_children():
-			if title is Label:
-				title.add_theme_font_size_override("font_size", 7 if compact_ship_chip_width < 90.0 else 9)
-	var ship_min: Vector2 = _ship_bar.get_combined_minimum_size()
 	_toolbar.size = Vector2(menu_min.x, maxf(48, menu_min.y))
 	_resource_bar.size = Vector2(stock_min.x, maxf(42, stock_min.y))
 	var menu_scale: float = minf(1.0, available / maxf(1.0, menu_min.x))
@@ -712,7 +703,7 @@ func _layout_top_bar(viewport: Vector2) -> void:
 	_resource_bar.scale = Vector2.ONE * stock_scale
 	_toolbar.position = Vector2(12, 8)
 	var sailing: bool = str(GameState.ship_state.get("docked_port_id", "")) == ""
-	_ship_bar.visible = sailing
+	_ship_strip.visible = sailing
 	if not sailing:
 		if menu_min.x + stock_min.x + 24.0 <= available:
 			_resource_bar.position = Vector2(viewport.x - stock_min.x - 12, 11)
@@ -721,28 +712,19 @@ func _layout_top_bar(viewport: Vector2) -> void:
 			var second_row_y: float = 12.0 + _toolbar.size.y * menu_scale
 			_resource_bar.position = Vector2(viewport.x - stock_min.x * stock_scale - 12, second_row_y)
 			_top_height = second_row_y + _resource_bar.size.y * stock_scale + 8.0
-	elif ship_min.x + stock_min.x + 36.0 <= available:
-		var row_y: float = 12.0 + _toolbar.size.y * menu_scale
-		_ship_bar.size = Vector2(ship_min.x, maxf(40, ship_min.y))
-		_ship_bar.scale = Vector2.ONE
-		_ship_bar.position = Vector2(12, row_y)
-		_resource_bar.position = Vector2(viewport.x - stock_min.x - 12, row_y)
-		_top_height = row_y + maxf(_ship_bar.size.y, _resource_bar.size.y) + 8.0
-	elif ship_min.x + 36.0 <= available:
+	elif menu_min.x + stock_min.x + 24.0 <= available:
+		_resource_bar.position = Vector2(viewport.x - stock_min.x - 12, 11)
+		var strip_y: float = maxf(8.0 + _toolbar.size.y * menu_scale, 11.0 + _resource_bar.size.y * stock_scale) + 2.0
+		_ship_strip.position = Vector2(0, strip_y)
+		_ship_strip.size = Vector2(full_width, 36)
+		_top_height = strip_y + 40.0
+	else:
 		var row_y: float = 12.0 + _toolbar.size.y * menu_scale
 		_resource_bar.position = Vector2(viewport.x - stock_min.x * stock_scale - 12, row_y)
-		_ship_bar.size = Vector2(ship_min.x, maxf(40, ship_min.y))
-		_ship_bar.scale = Vector2.ONE * minf(1.0, available / maxf(1.0, ship_min.x))
-		_ship_bar.position = Vector2(12, row_y + maxf(_resource_bar.size.y * stock_scale, 42.0) + 3.0)
-		_top_height = _ship_bar.position.y + _ship_bar.size.y * _ship_bar.scale.y + 8.0
-	else:
-		var second_row_y: float = 12.0 + _toolbar.size.y * menu_scale
-		_resource_bar.position = Vector2(viewport.x - stock_min.x * stock_scale - 12, second_row_y)
-		var third_row_y: float = second_row_y + _resource_bar.size.y * stock_scale + 3.0
-		_ship_bar.size = Vector2(ship_min.x, maxf(40, ship_min.y))
-		_ship_bar.scale = Vector2.ONE * minf(1.0, available / maxf(1.0, ship_min.x))
-		_ship_bar.position = Vector2(12, third_row_y)
-		_top_height = third_row_y + _ship_bar.size.y * _ship_bar.scale.y + 8.0
+		var strip_y: float = row_y + _resource_bar.size.y * stock_scale + 2.0
+		_ship_strip.position = Vector2(0, strip_y)
+		_ship_strip.size = Vector2(full_width, 36)
+		_top_height = strip_y + 40.0
 	get_node("TopMenuBackdrop").size = Vector2(viewport.x, _top_height)
 
 func _refresh_more_availability(docked: bool) -> void:
