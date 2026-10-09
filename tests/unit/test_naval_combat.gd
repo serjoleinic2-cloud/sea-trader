@@ -268,6 +268,59 @@ func test_ship_gun_commander_progression_and_arsenal() -> void:
 	assert_true(navy.upgrade_ship("war1").ok)
 	assert_eq(GameState.fleet_state[0].level,2)
 
+func test_weapon_classes_follow_ship_project_and_level_progression() -> void:
+	var ship: Dictionary=GameState.fleet_state[0]
+	assert_eq(navy.ship_gun_class_cap(ship),1)
+	ship.level=10
+	assert_eq(navy.ship_gun_class_cap(ship),2)
+	ship.level=20
+	assert_eq(navy.ship_gun_class_cap(ship),3)
+	assert_true(navy.gun_install_status(ship,0,"long_cannon").ok,"an upgraded cutter can carry class-two bow artillery")
+	assert_false(navy.gun_install_status(ship,0,"heavy_cannon").ok,"a broadside-only battery cannot be mounted on the bow")
+	var battleship: Dictionary={"ship_type_id":"war_humans_5","level":25,"guns":[]}
+	navy.normalize_ship(battleship)
+	assert_eq(navy.ship_gun_class_cap(battleship),5)
+	assert_eq(navy.gun_slot_layout(battleship),["port","port","port","starboard","starboard","starboard","bow","stern"])
+	assert_true(navy.gun_install_status(battleship,6,"leviathan_rune").ok)
+	assert_false(navy.gun_install_status(battleship,7,"leviathan_rune").ok,"the Leviathan rune has no stern firing mount")
+
+func test_weapon_store_capacity_expansion_and_half_price_sale() -> void:
+	assert_eq(navy.arsenal_capacity(),10)
+	var initial_money: float=GameState.player_state.money
+	assert_true(navy.buy_gun("war1","cannon").ok)
+	assert_eq(GameState.combat_state.naval_arsenal.size(),1)
+	assert_eq(GameState.player_state.money,initial_money-180)
+	for index in 9: GameState.combat_state.naval_arsenal.append({"kind":"cannon","level":1,"experience":0})
+	assert_false(navy.buy_gun("war1","rune").ok,"the initial ten-place store is a real limit")
+	var expansion_cost: int=navy.arsenal_expansion_cost()
+	assert_true(navy.expand_arsenal("war1").ok)
+	assert_eq(navy.arsenal_capacity(),15)
+	assert_eq(GameState.player_state.money,initial_money-180-expansion_cost)
+	assert_true(navy.buy_gun("war1","rune").ok)
+	var before_sale: float=GameState.player_state.money
+	assert_true(navy.sell_arsenal_gun("war1",0).ok)
+	assert_eq(GameState.player_state.money,before_sale+90,"a used gun sells for half of its base price")
+
+func test_full_weapon_store_blocks_removal_without_losing_the_installed_gun() -> void:
+	assert_true(navy.install_gun("war1",0,"cannon").ok)
+	GameState.combat_state.naval_arsenal=[]
+	for index in navy.arsenal_capacity(): GameState.combat_state.naval_arsenal.append({"kind":"cannon","level":1,"experience":0})
+	assert_false(navy.remove_gun("war1",0).ok)
+	assert_false(GameState.fleet_state[0].guns[0].is_empty())
+
+func test_armament_window_shows_ship_hardpoints_preview_shop_and_store() -> void:
+	var window: Control=preload("res://systems/ui/naval_armament_window.gd").new()
+	add_child(window)
+	window.initialize(navy)
+	window.open_ship("war1")
+	assert_true(window.visible)
+	assert_true(window.find_children("*","SubViewportContainer",true,false).any(func(node): return node.has_meta("armament_ship_preview")))
+	var slot_buttons: Array=window.find_children("*","Button",true,false).filter(func(node): return node.has_meta("armament_slot"))
+	assert_eq(slot_buttons.size(),2)
+	assert_eq(window._shop_list.get_child_count(),17,"capacity note plus sixteen weapon choices")
+	assert_true(str(window._title.text).contains("Страж"))
+	window.free()
+
 func test_actual_damage_victory_and_xp() -> void:
 	assert_true(navy.hire_commander("war1").ok)
 	assert_true(navy.install_gun("war1",0,"cannon").ok)

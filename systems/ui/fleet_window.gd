@@ -12,6 +12,7 @@ var _selected_ship_id: String = ""
 var _notice: String = ""
 var _origin_emblem: TextureRect
 var _crew_atlas: Texture2D
+var _armament_window: Control
 const CREW_ATLAS := "res://assets/characters/crew/crew_portrait_atlas.png"
 const CharacterArtCatalog = preload("res://systems/characters/character_art_catalog.gd")
 
@@ -70,6 +71,9 @@ func _ready() -> void:
 	close_button.custom_minimum_size.y = 40
 	close_button.pressed.connect(_close)
 	box.add_child(close_button)
+	_armament_window=preload("res://systems/ui/naval_armament_window.gd").new()
+	_armament_window.closed.connect(_return_from_armament)
+	add_child(_armament_window)
 	_panel.hide()
 
 func initialize(fleet_system: Node) -> void:
@@ -95,6 +99,17 @@ func _toggle() -> void:
 
 func _close() -> void:
 	_is_open = false
+
+func _open_armament(ship_id: String) -> void:
+	var navy: Node=get_tree().get_first_node_in_group("naval_combat_system")
+	if navy==null: _notice="Система вооружения недоступна."; return
+	_is_open=false
+	_armament_window.initialize(navy)
+	_armament_window.open_ship(ship_id)
+
+func _return_from_armament() -> void:
+	_is_open=true
+	_refresh()
 
 func _refresh() -> void:
 	if _fleet_system == null:
@@ -570,33 +585,21 @@ func _add_naval_ship_card(ship: Dictionary) -> void:
 		for skill in ["gunnery", "accuracy", "reload"]:
 			var label: String = {"gunnery":"Урон", "accuracy":"Точность", "reload":"Заряжание"}[skill]
 			_naval_button(skills, "%s %d +" % [label, int(commander.skills.get(skill, 0))], available and int(commander.skill_points)>0, func(): return navy.train_skill(id, skill))
-	var guns: Dictionary = navy._rules.guns
-	for index in ship.guns.size():
-		var gun: Dictionary = ship.guns[index]
-		var gun_row := HBoxContainer.new()
-		box.add_child(gun_row)
-		var label := Label.new()
-		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		label.text = "Слот %d · пуст" % (index+1) if gun.is_empty() else "Слот %d · %s · ур. %d · XP %d · предел %d" % [index+1, str(guns[gun.kind].name), int(gun.level), int(gun.experience), navy.gun_level_cap(ship, gun)]
-		label.add_theme_font_size_override("font_size", 14)
-		gun_row.add_child(label)
-		if gun.is_empty():
-			var choice := OptionButton.new()
-			for kind in guns:
-				choice.add_item("%s · %d монет" % [str(guns[kind].name), int(guns[kind].cost)])
-				choice.set_item_metadata(choice.item_count-1, str(kind))
-			gun_row.add_child(choice)
-			_naval_button(gun_row, "Установить", available, func(): return navy.install_gun(id, index, str(choice.get_item_metadata(choice.selected))))
-			var inventory: Array = GameState.combat_state.get("naval_arsenal", [])
-			if not inventory.is_empty():
-				var storage := OptionButton.new()
-				for item in inventory: storage.add_item("%s · ур. %d" % [str(guns.get(str(item.kind), {}).get("name", item.kind)), int(item.level)])
-				box.add_child(storage)
-				_naval_button(box, "Из арсенала в слот %d" % (index+1), available, func(): return navy.install_gun(id, index, "", storage.selected))
-		else:
-			_naval_button(gun_row, "Улучшить", available, func(): return navy.upgrade_gun(id, index))
-			_naval_button(gun_row, "Снять", available, func(): return navy.remove_gun(id, index))
+	var installed: int=0
+	for gun in ship.guns:
+		if not gun.is_empty(): installed+=1
+	var arsenal_count: int=GameState.combat_state.get("naval_arsenal",[]).size()
+	var armament_summary:=Label.new()
+	armament_summary.text="Вооружение: %d / %d · допуск класса %d · склад %d / %d" % [installed,ship.guns.size(),navy.ship_gun_class_cap(ship),arsenal_count,navy.arsenal_capacity()]
+	armament_summary.add_theme_font_size_override("font_size",14)
+	box.add_child(armament_summary)
+	var armament_button:=Button.new()
+	armament_button.text="Открыть вооружение и склад"
+	armament_button.custom_minimum_size.y=40
+	armament_button.disabled=not available
+	armament_button.tooltip_text=str(status.message)
+	armament_button.pressed.connect(_open_armament.bind(id))
+	box.add_child(armament_button)
 	if not available:
 		var hint := Label.new()
 		hint.text = str(status.message)

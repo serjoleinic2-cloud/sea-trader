@@ -17,7 +17,9 @@ func _ready() -> void:
 
 func initialize(main: Node, military: Node) -> void:
 	_main = main; _military = military
-	GameState.combat_state.merge({"naval_battle":{},"naval_enemies":{},"naval_arsenal":[],"naval_report":{},"naval_time":0.0,"next_pirate_at":0.0,"pirate_sequence":0},false)
+	GameState.combat_state.merge({"naval_battle":{},"naval_enemies":{},"naval_arsenal":[],"naval_arsenal_capacity":int(_rules.get("arsenal_base_capacity",10)),"naval_gun_sequence":0,"naval_report":{},"naval_time":0.0,"next_pirate_at":0.0,"pirate_sequence":0},false)
+	GameState.combat_state["naval_arsenal_capacity"]=maxi(int(_rules.get("arsenal_base_capacity",10)),int(GameState.combat_state.get("naval_arsenal_capacity",10)))
+	for gun in GameState.combat_state.naval_arsenal: _normalize_gun(gun)
 	_clock = float(GameState.combat_state.naval_time)
 	if float(GameState.combat_state.get("next_pirate_at",0.0))<=_clock:
 		GameState.combat_state["next_pirate_at"]=_clock+_next_pirate_delay()
@@ -89,6 +91,98 @@ func normalize_ship(ship: Dictionary) -> void:
 	var definition: Dictionary = GameData.get_ship(str(ship.get("ship_type_id", "")))
 	ship.merge({"level":1,"experience":0,"hull":float(definition.get("hull_max",280)),"commander":{},"guns":[],"naval_order":{},"naval_reload":-1.0,"escort_enabled":false,"escort_state":{},"cargo":[],"autopilot":{}},false)
 	while ship.guns.size() < int(definition.get("gun_slots",2)): ship.guns.append({})
+	for gun in ship.guns:
+		if not gun.is_empty(): _normalize_gun(gun)
+
+func gun_slot_layout(ship: Dictionary) -> Array[String]:
+	var count: int=int(GameData.get_ship(str(ship.get("ship_type_id",""))).get("gun_slots",ship.get("guns",[]).size()))
+	var layouts: Dictionary={
+		2:["bow","bow"],
+		3:["port","starboard","bow"],
+		4:["port","starboard","bow","stern"],
+		6:["port","port","starboard","starboard","bow","stern"],
+		8:["port","port","port","starboard","starboard","starboard","bow","stern"]
+	}
+	var raw: Array=layouts.get(count,[])
+	var result: Array[String]=[]
+	for mount in raw: result.append(str(mount))
+	while result.size()<count: result.append("port" if result.size()%2==0 else "starboard")
+	return result
+
+func gun_slot_mount(ship: Dictionary, slot: int) -> String:
+	var layout: Array[String]=gun_slot_layout(ship)
+	return layout[slot] if slot>=0 and slot<layout.size() else ""
+
+func gun_mount_name(mount: String) -> String:
+	return {"bow":"Нос","stern":"Корма","port":"Левый борт","starboard":"Правый борт"}.get(mount,mount)
+
+func ship_gun_class_cap(ship: Dictionary) -> int:
+	var project_tier: int=int(GameData.get_ship(str(ship.get("ship_type_id",""))).get("tier",1))
+	var level: int=maxi(1,int(ship.get("level",1)))
+	var level_bonus: int=0 if level<10 else (1 if level<20 else 2)
+	return mini(5,project_tier+level_bonus)
+
+func arsenal_capacity() -> int:
+	return maxi(int(_rules.get("arsenal_base_capacity",10)),int(GameState.combat_state.get("naval_arsenal_capacity",10)))
+
+func arsenal_expansion_cost() -> int:
+	var base: int=int(_rules.get("arsenal_base_capacity",10))
+	var step: int=maxi(1,int(_rules.get("arsenal_expansion_size",5)))
+	var upgrades: int=maxi(0,(arsenal_capacity()-base)/step)
+	return int(_rules.get("arsenal_expansion_base_cost",650))*(upgrades+1)
+
+func expand_arsenal(id: String) -> Dictionary:
+	var status: Dictionary=_management_status(ship_by_id(id))
+	if not status.ok: return status
+	var cost: int=arsenal_expansion_cost()
+	if float(GameState.player_state.money)<cost: return _result(false,"Расширение склада стоит %d монет." % cost)
+	var amount: int=int(_rules.get("arsenal_expansion_size",5))
+	return _transaction(func(): GameState.player_state.money-=cost; GameState.combat_state.naval_arsenal_capacity=arsenal_capacity()+amount,"Склад орудий расширен на %d мест." % amount)
+
+func _normalize_gun(gun: Dictionary) -> void:
+	gun.merge({"level":1,"experience":0,"cooldown":0.0},false)
+	if str(gun.get("instance_id",""))=="":
+		GameState.combat_state["naval_gun_sequence"]=int(GameState.combat_state.get("naval_gun_sequence",0))+1
+		gun["instance_id"]="gun_%d" % int(GameState.combat_state.naval_gun_sequence)
+
+func _new_gun(kind: String) -> Dictionary:
+	var gun: Dictionary={"kind":kind,"level":1,"experience":0,"cooldown":0.0}
+	_normalize_gun(gun)
+	return gun
+
+func gun_install_status(ship: Dictionary, slot: int, kind: String) -> Dictionary:
+	if ship.is_empty(): return _result(false,"Боевой корабль не найден.")
+	var definition: Dictionary=_rules.get("guns",{}).get(kind,{})
+	if definition.is_empty(): return _result(false,"Неизвестное орудие.")
+	var mount: String=gun_slot_mount(ship,slot)
+	if mount=="": return _result(false,"Неизвестная точка установки.")
+	var required_class: int=int(definition.get("weight_class",1))
+	if required_class>ship_gun_class_cap(ship): return _result(false,"Требуется класс вооружения %d; корпус сейчас допускает класс %d." % [required_class,ship_gun_class_cap(ship)])
+	var required_level: int=int(definition.get("min_ship_level",1))
+	if int(ship.get("level",1))<required_level: return _result(false,"Орудие откроется на %d уровне этого корабля." % required_level)
+	if not definition.get("mounts",[]).has(mount): return _result(false,"Орудие нельзя установить в позицию «%s»." % gun_mount_name(mount))
+	return _result(true,"Подходит.")
+
+func buy_gun(id: String, kind: String) -> Dictionary:
+	var ship: Dictionary=ship_by_id(id)
+	var status: Dictionary=_management_status(ship)
+	if not status.ok: return status
+	if GameState.combat_state.naval_arsenal.size()>=arsenal_capacity(): return _result(false,"Склад орудий заполнен: %d/%d." % [GameState.combat_state.naval_arsenal.size(),arsenal_capacity()])
+	var definition: Dictionary=_rules.get("guns",{}).get(kind,{})
+	if definition.is_empty(): return _result(false,"Неизвестное орудие.")
+	var cost: int=int(definition.get("cost",0))
+	if float(GameState.player_state.money)<cost: return _result(false,"Не хватает монет: %d." % cost)
+	return _transaction(func(): GameState.player_state.money-=cost; GameState.combat_state.naval_arsenal.append(_new_gun(kind)),"%s куплено и помещено на склад." % str(definition.get("name",kind)))
+
+func sell_arsenal_gun(id: String, arsenal_index: int) -> Dictionary:
+	var status: Dictionary=_management_status(ship_by_id(id))
+	if not status.ok: return status
+	var inventory: Array=GameState.combat_state.get("naval_arsenal",[])
+	if arsenal_index<0 or arsenal_index>=inventory.size(): return _result(false,"Орудие отсутствует на складе.")
+	var gun: Dictionary=inventory[arsenal_index]
+	var definition: Dictionary=_rules.get("guns",{}).get(str(gun.get("kind","")),{})
+	var refund: int=int(floor(float(definition.get("cost",0))*float(_rules.get("gun_sell_fraction",.5))))
+	return _transaction(func(): inventory.pop_at(arsenal_index); GameState.player_state.money+=refund,"Орудие продано за %d монет — половину закупочной цены." % refund)
 
 func ship_by_id(id: String) -> Dictionary:
 	for ship in warships():
@@ -185,19 +279,25 @@ func install_gun(id: String, slot: int, kind: String, arsenal_index: int = -1) -
 	var inventory: Array = GameState.combat_state.naval_arsenal
 	if arsenal_index>=0:
 		if arsenal_index>=inventory.size(): return _result(false,"Орудие отсутствует в арсенале.")
+		var stored_kind: String=str(inventory[arsenal_index].get("kind",""))
+		var stored_status: Dictionary=gun_install_status(ship,slot,stored_kind)
+		if not stored_status.ok: return stored_status
 		return _transaction(func(): ship.guns[slot] = inventory.pop_at(arsenal_index),"Орудие установлено из арсенала с сохранением опыта.")
 	if not _rules.guns.has(kind): return _result(false,"Неизвестное орудие.")
+	var install_status: Dictionary=gun_install_status(ship,slot,kind)
+	if not install_status.ok: return install_status
 	var cost: float = float(_rules.guns[kind].cost)
 	if float(GameState.player_state.money)<cost: return _result(false,"Не хватает монет: %d." % int(cost))
 	return _transaction(func():
 		GameState.player_state.money -= cost
-		ship.guns[slot] = {"kind":kind,"level":1,"experience":0,"cooldown":0.0},"Орудие куплено и установлено.")
+		ship.guns[slot] = _new_gun(kind),"Орудие куплено и установлено.")
 
 func remove_gun(id: String, slot: int) -> Dictionary:
 	var ship: Dictionary = ship_by_id(id)
 	var status: Dictionary = _management_status(ship)
 	if not status.ok: return status
 	if slot<0 or slot>=ship.get("guns",[]).size() or ship.guns[slot].is_empty(): return _result(false,"Слот пуст.")
+	if GameState.combat_state.naval_arsenal.size()>=arsenal_capacity(): return _result(false,"Склад орудий заполнен. Расширьте его или продайте лишнее орудие.")
 	return _transaction(func(): GameState.combat_state.naval_arsenal.append(ship.guns[slot].duplicate(true)); ship.guns[slot]={},"Орудие возвращено в арсенал; опыт сохранён.")
 
 func gun_level_cap(ship: Dictionary, gun: Dictionary) -> int:
@@ -586,22 +686,33 @@ func _step_battle(delta: float) -> void:
 				if not enemy.is_empty() and _enemy_alive(enemy):
 					var enemy_point: Vector2 = vector(enemy.position)
 					var dist: float = position(ship).distance_to(enemy_point)
-					var broadside: bool = str(GameData.get_ship(str(ship.ship_type_id)).get("gun_mounting","broadside"))=="broadside"
-					if broadside and dist<=_ship_range(ship)*.82:
+					var preferred_mount: String=_preferred_firing_mount(ship)
+					if preferred_mount=="broadside" and dist<=_ship_range(ship)*.82:
 						var heading: Vector2=vector(ship.get("escort_state",{}).get("heading",Vector2.UP))
 						var toward_target: Vector2=position(ship).direction_to(enemy_point)
-						var side_heading: Vector2=toward_target.orthogonal()
-						if heading.normalized().dot(side_heading)<heading.normalized().dot(-side_heading): side_heading=-side_heading
+						# Explicit screen-space port heading: the target remains on the ship's left.
+						var side_heading: Vector2=Vector2(-toward_target.y,toward_target.x)
+						var side_counts: Dictionary=_side_mount_counts(ship)
+						if int(side_counts.starboard)>int(side_counts.port): side_heading=-side_heading
+						elif int(side_counts.starboard)==int(side_counts.port) and heading.normalized().dot(side_heading)<heading.normalized().dot(-side_heading): side_heading=-side_heading
 						order["broadside_heading"]=side_heading
 						order.erase("bow_heading")
+						order.erase("stern_heading")
 						order.point=position(ship)
-					elif not broadside and dist<=_ship_range(ship)*.82:
+					elif preferred_mount=="stern" and dist<=_ship_range(ship)*.82:
 						order.erase("broadside_heading")
+						order.erase("bow_heading")
+						order["stern_heading"]=-position(ship).direction_to(enemy_point)
+						order.point=position(ship)
+					elif dist<=_ship_range(ship)*.82:
+						order.erase("broadside_heading")
+						order.erase("stern_heading")
 						order["bow_heading"]=position(ship).direction_to(enemy_point)
 						order.point=position(ship)
 					else:
 						order.erase("broadside_heading")
 						order.erase("bow_heading")
+						order.erase("stern_heading")
 						order.point=enemy_point+enemy_point.direction_to(position(ship))*_ship_range(ship)*.72
 			_fire_ship(ship,enemies,delta,battle)
 	if allies.is_empty():
@@ -664,6 +775,34 @@ func _ship_range(ship: Dictionary) -> float:
 		if not gun.is_empty(): result=maxf(result,float(_rules.guns.get(str(gun.kind),{}).get("range",550)))
 	return result
 
+func _side_mount_counts(ship: Dictionary) -> Dictionary:
+	var result: Dictionary={"port":0,"starboard":0}
+	for index in ship.get("guns",[]).size():
+		if ship.guns[index].is_empty(): continue
+		var mount: String=gun_slot_mount(ship,index)
+		if result.has(mount): result[mount]=int(result[mount])+1
+	return result
+
+func _preferred_firing_mount(ship: Dictionary) -> String:
+	var counts: Dictionary={"bow":0,"stern":0,"port":0,"starboard":0}
+	for index in ship.get("guns",[]).size():
+		if ship.guns[index].is_empty(): continue
+		var mount: String=gun_slot_mount(ship,index)
+		counts[mount]=int(counts.get(mount,0))+1
+	var broadside_count: int=int(counts.port)+int(counts.starboard)
+	if broadside_count>=maxi(int(counts.bow),int(counts.stern)) and broadside_count>0: return "broadside"
+	if int(counts.stern)>int(counts.bow): return "stern"
+	return "bow"
+
+func _gun_has_firing_arc(mount: String, heading: Vector2, target_direction: Vector2) -> bool:
+	var alignment: float=heading.dot(target_direction)
+	match mount:
+		"bow": return alignment>=.5
+		"stern": return alignment<=-.5
+		"port": return absf(alignment)<=.65 and heading.cross(target_direction)<0.0
+		"starboard": return absf(alignment)<=.65 and heading.cross(target_direction)>0.0
+	return false
+
 func _advance_sinking(battle: Dictionary, delta: float) -> void:
 	for raw_id in battle.get("enemy_ids",[]):
 		var enemy: Dictionary=GameState.combat_state.get("naval_enemies",{}).get(str(raw_id),{})
@@ -697,7 +836,6 @@ func _fire_ship(ship: Dictionary, enemies: Array[Dictionary], delta: float, batt
 		if str(enemy.id)==target_id: target=enemy; break
 	if target.is_empty() or not _enemy_alive(target): return
 	var skills: Dictionary = ship.get("commander",{}).get("skills",{})
-	var mounting: String=str(GameData.get_ship(str(ship.get("ship_type_id",""))).get("gun_mounting","broadside"))
 	var heading: Vector2=vector(ship.get("escort_state",{}).get("heading",Vector2.UP)).normalized()
 	var target_direction: Vector2=origin.direction_to(vector(target.position))
 	var remaining: float = float(ship.get("naval_reload",-1.0))
@@ -711,31 +849,36 @@ func _fire_ship(ship: Dictionary, enemies: Array[Dictionary], delta: float, batt
 	if float(ship.naval_reload)>0.0: return
 	var fired: int=0
 	var volley_reload: float=0.0
-	for gun in ship.get("guns",[]):
+	var fired_mounts: Array[String]=[]
+	for gun_index in ship.get("guns",[]).size():
+		var gun: Dictionary=ship.guns[gun_index]
 		if gun.is_empty(): continue
 		var definition: Dictionary = _rules.guns.get(str(gun.kind),{})
 		if definition.is_empty() or origin.distance_to(vector(target.position))>float(definition.range) or not _enemy_alive(target): continue
-		var alignment: float=heading.dot(target_direction)
-		if mounting=="bow" and alignment<0.5: continue
-		if mounting!="bow" and absf(alignment)>0.58: continue
+		var mount: String=gun_slot_mount(ship,gun_index)
+		if not _gun_has_firing_arc(mount,heading,target_direction): continue
 		if _military!=null and _military._guard.is_navigation_move_blocked(origin,vector(target.position)): continue
 		var bonus: float = float(_rules.skill_bonus)
 		volley_reload=maxf(volley_reload,float(definition.reload)/(1+bonus*int(skills.get("reload",0))))
 		fired+=1
+		if not fired_mounts.has(mount): fired_mounts.append(mount)
 		battle.shots=int(battle.shots)+1
 		var roll: float = float(posmod(hash(str(GameState.world_state.seed)+str(battle.shots)+str(ship.instance_id)),1000))/1000.0
 		var hit: bool = roll<minf(float(_rules.maximum_accuracy),float(definition.accuracy)+bonus*int(skills.get("accuracy",0)))
 		var damage: float = float(definition.damage)*(1+float(_rules.gun_damage_growth_per_level)*(int(gun.level)-1))*(1+bonus*int(skills.get("gunnery",0)))
 		var armor: float = float(GameData.get_ship(str(target.ship_type_id)).get("armor",0))
 		var length: float = float(_visuals.get(str(target.ship_type_id),{}).get("display_length",5.1))/.04
-		var impact: Vector2 = _queue_projectile(battle, origin, vector(target.position), hit, str(gun.kind), "enemy", str(target.id), maxf(1,damage-armor), int(battle.shots), length, str(ship.instance_id), ship.guns.find(gun))
+		var effect: String=str(definition.get("effect",gun.kind))
+		var impact: Vector2 = _queue_projectile(battle, origin, vector(target.position), hit, effect, "enemy", str(target.id), maxf(1,damage-armor), int(battle.shots), length, str(ship.instance_id), gun_index)
 		EventBus.naval_shot_fired.emit(origin,impact,hit)
-		EventBus.naval_shot_visual.emit(origin,impact,hit,str(gun.get("kind","cannon")),vector(ship.get("escort_state",{}).get("heading",Vector2.UP)),str(ship.get("instance_id","")))
+		EventBus.naval_shot_visual.emit(origin,impact,hit,effect,vector(ship.get("escort_state",{}).get("heading",Vector2.UP)),str(ship.get("instance_id","")))
 	if fired>0:
 		ship.naval_reload=volley_reload
 		for loaded_gun in ship.get("guns",[]):
 			if not loaded_gun.is_empty(): loaded_gun.cooldown=volley_reload
-		battle.notice="%s: %s · перезарядка %d с" % [str(ship.name),"носовой залп на ходу" if mounting=="bow" else "бортовой залп",ceili(volley_reload)]
+		var mount_names: Array[String]=[]
+		for mount in fired_mounts: mount_names.append(gun_mount_name(mount))
+		battle.notice="%s: залп · %s · перезарядка %d с" % [str(ship.name),", ".join(mount_names),ceili(volley_reload)]
 
 func _queue_projectile(battle: Dictionary, origin: Vector2, target: Vector2, hit: bool, kind: String, target_kind: String, target_id: String, damage: float, sequence: int, length: float, shooter_id: String = "", gun_slot: int = -1) -> Vector2:
 	var artillery = preload("res://systems/combat/naval_artillery.gd")

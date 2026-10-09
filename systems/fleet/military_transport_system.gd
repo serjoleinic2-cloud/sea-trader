@@ -284,6 +284,7 @@ func _step_ship(ship: Dictionary, index: int, delta: float) -> void:
 	var facing_heading: Vector2=Vector2.ZERO
 	if attack_order.has("broadside_heading"): facing_heading=_to_vector2(attack_order.broadside_heading,Vector2.ZERO)
 	elif attack_order.has("bow_heading"): facing_heading=_to_vector2(attack_order.bow_heading,Vector2.ZERO)
+	elif attack_order.has("stern_heading"): facing_heading=_to_vector2(attack_order.stern_heading,Vector2.ZERO)
 	if tactical and str(attack_order.get("kind",""))=="attack" and facing_heading.length_squared()>.1 and position.distance_to(target)<length*.26:
 		var current_broadside_heading: Vector2=_to_vector2(state.get("heading",Vector2.UP),Vector2.UP).normalized()
 		var desired_heading: Vector2=facing_heading.normalized()
@@ -295,7 +296,7 @@ func _step_ship(ship: Dictionary, index: int, delta: float) -> void:
 		state["position"]=position
 		state["blocked_seconds"]=0.0
 		ship["escort_state"]=state
-		ship["status"]="Бортом к противнику" if attack_order.has("broadside_heading") else "Носом к противнику"
+		ship["status"]="Бортом к противнику" if attack_order.has("broadside_heading") else ("Кормой к противнику" if attack_order.has("stern_heading") else "Носом к противнику")
 		return
 	if position.distance_to(target)<length*.26:
 		ship["status"]="В строю" if docked=="" else "На рейде порта"
