@@ -927,6 +927,8 @@ func _rebuild_foreign_port_page(port_id: String) -> void:
 	actions.add_child(trade)
 	var challenge := Button.new()
 	var port_state: Dictionary = GameState.port_state.get(port_id, {})
+	var support: Dictionary = _port_naval_support(port_id, int(port_state.get("level", 1)))
+	var defense: int = _port_defense_power(port_id)
 	var captured: bool = bool(port_state.get("captured_by_player", false))
 	var tribute: bool = bool(port_state.get("tribute_active", false))
 	var own_race: bool = str(port_state.get("owner_race_id", faction_id)) == str(GameState.player_state.get("origin_race_id", ""))
@@ -943,7 +945,11 @@ func _rebuild_foreign_port_page(port_id: String) -> void:
 	var hint := Label.new()
 	hint.text = "Порт теперь под твоим флагом. Торговля продолжается." if captured else ("Порт платит дань: %d золота в день. Остров может объявить восстание." % int(port_state.get("tribute_daily_amount", 0)) if tribute else ("Это порт твоей расы." if own_race else "Торговля доступна любому кораблю. Победа установит дань; при отступлении потеряешь больше солдат и орудий."))
 	if not captured and not tribute and not own_race:
-		hint.text += "\nОценка обороны: %d." % (48 + int(GameState.port_state.get(port_id, {}).get("level", 1)) * 34)
+		hint.text += "\nОценка обороны: %d." % defense
+		if bool(support.get("active", false)):
+			hint.text += " Морское превосходство: −%d%% к обороне." % roundi(float(support.reduction)*100.0)
+		elif int(support.get("ships", 0)) > 0:
+			hint.text += " Морской контроль есть, но для этого уровня нужны %d корабля." % int(support.required_ships)
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	hint.add_theme_font_size_override("font_size", 18)
 	_building_list.add_child(hint)
@@ -955,10 +961,22 @@ func _challenge_port(port_id: String, faction_id: String) -> void:
 		return
 	var faction: Dictionary = GameData.get_faction(faction_id)
 	var port: Dictionary = GameState.port_state.get(port_id, {})
-	var power: int = 48 + int(port.get("level", 1)) * 34
+	var base_power: int = 48 + int(port.get("level", 1)) * 34
+	var support: Dictionary = _port_naval_support(port_id, int(port.get("level", 1)))
+	var power: int = maxi(1, roundi(float(base_power)*(1.0-float(support.get("reduction", 0.0)))))
 	var result: Dictionary = combat[0].start_port_raid(port_id, str(faction.get("name", "Порт")), power)
 	_notice = str(result.get("message", ""))
 	_rebuild_foreign_port_page(port_id)
+
+func _port_naval_support(port_id: String, port_level: int) -> Dictionary:
+	var naval: Node = get_tree().get_first_node_in_group("naval_combat_system")
+	return naval.port_raid_support(port_id, port_level) if naval != null and naval.has_method("port_raid_support") else {"active": false, "reduction": 0.0, "required_ships": 1, "ships": 0}
+
+func _port_defense_power(port_id: String) -> int:
+	var port: Dictionary = GameState.port_state.get(port_id, {})
+	var base_power: int = 48 + int(port.get("level", 1))*34
+	var support: Dictionary = _port_naval_support(port_id, int(port.get("level", 1)))
+	return maxi(1, roundi(float(base_power)*(1.0-float(support.get("reduction", 0.0)))))
 
 func _select_building(building_id: String) -> void:
 	_selected_market_resource_id = ""

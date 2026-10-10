@@ -126,6 +126,10 @@ func _process(delta: float) -> void:
 	if not report.is_empty() and float(report.get("time",-1))!=_report_time:
 		_report_time=float(report.time)
 		var text_value: String = str(report.outcome)
+		if int(report.get("reward_money", 0)) > 0:
+			text_value += "\nПодняты трофеи: +%d монет." % int(report.reward_money)
+		if str(report.get("naval_superiority_port_id", "")) != "":
+			text_value += "\nПатруль у порта разбит: морское превосходство действует 15 минут."
 		var loss: Dictionary = report.get("losses",{})
 		if not loss.is_empty():
 			if int(loss.get("money",0))>0: text_value+="\nСписано из казны: %d монет." % int(loss.money)

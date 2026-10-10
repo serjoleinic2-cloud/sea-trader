@@ -17,7 +17,7 @@ func _ready() -> void:
 
 func initialize(main: Node, military: Node) -> void:
 	_main = main; _military = military
-	GameState.combat_state.merge({"naval_battle":{},"naval_enemies":{},"naval_arsenal":[],"naval_arsenal_capacity":int(_rules.get("arsenal_base_capacity",10)),"naval_gun_sequence":0,"naval_report":{},"naval_time":0.0,"next_pirate_at":0.0,"pirate_sequence":0},false)
+	GameState.combat_state.merge({"naval_battle":{},"naval_enemies":{},"naval_arsenal":[],"naval_arsenal_capacity":int(_rules.get("arsenal_base_capacity",10)),"naval_gun_sequence":0,"naval_report":{},"naval_port_control":{},"naval_time":0.0,"next_pirate_at":0.0,"pirate_sequence":0},false)
 	GameState.combat_state["naval_arsenal_capacity"]=maxi(int(_rules.get("arsenal_base_capacity",10)),int(GameState.combat_state.get("naval_arsenal_capacity",10)))
 	for gun in GameState.combat_state.naval_arsenal: _normalize_gun(gun)
 	_clock = float(GameState.combat_state.naval_time)
@@ -257,9 +257,21 @@ func hire_commander(id: String) -> Dictionary:
 	normalize_ship(ship)
 	if not ship.commander.is_empty(): return _result(false,"Командир уже назначен.")
 	if float(GameState.player_state.money)<float(_rules.commander_cost): return _result(false,"Не хватает монет: %d." % int(_rules.commander_cost))
+	var race_id: String = str(GameState.player_state.get("origin_race_id","humans"))
+	var portrait_variant: int = posmod(hash(str(ship.get("instance_id",id))+race_id),3)
 	return _transaction(func():
 		GameState.player_state.money -= float(_rules.commander_cost)
-		ship.commander = {"name":"Командир «%s»" % str(ship.name),"race_id":str(GameState.player_state.get("origin_race_id","humans")),"level":1,"experience":0,"skill_points":1,"skills":{"gunnery":0,"accuracy":0,"reload":0}}, "Военный командир назначен. Доступно очко навыка.")
+		ship.commander = {"name":"Командир «%s»" % str(ship.name),"race_id":race_id,"portrait_variant":portrait_variant,"level":1,"experience":0,"skill_points":1,"skills":{"gunnery":0,"accuracy":0,"reload":0}}, "Военный командир назначен. Доступно очко навыка.")
+
+func port_raid_support(port_id: String, port_level: int) -> Dictionary:
+	var control: Dictionary = GameState.combat_state.get("naval_port_control",{}).get(port_id,{})
+	if control.is_empty() or float(control.get("expires_at",0.0))<=_clock:
+		return {"active":false,"reduction":0.0,"required_ships":1,"ships":0}
+	var required_ships: int = 1 if port_level<=2 else (2 if port_level<=4 else 3)
+	var ships: int = int(control.get("ships",0))
+	if ships<required_ships:
+		return {"active":false,"reduction":0.0,"required_ships":required_ships,"ships":ships}
+	return {"active":true,"reduction":0.2,"required_ships":required_ships,"ships":ships,"seconds_left":ceili(float(control.expires_at)-_clock)}
 
 func train_skill(id: String, skill: String) -> Dictionary:
 	var ship: Dictionary = ship_by_id(id)
@@ -410,13 +422,22 @@ func rally() -> Dictionary:
 	if not active(): return _result(false,"Нет активного боя.")
 	return _transaction(func():
 		var battle: Dictionary = GameState.combat_state.naval_battle
+		var formation_index: int = 0
+		var leader: Vector2 = vector(GameState.ship_state.position)
+		var forward: Vector2 = Vector2.from_angle(float(GameState.ship_state.get("heading",-PI*.5)))
+		var left: Vector2 = Vector2(forward.y,-forward.x)
 		for ship in warships():
 			if float(ship.get("hull",0))<=0: continue
 			var id: String = str(ship.instance_id)
 			if not battle.ship_ids.has(id):
 				battle.ship_ids.append(id); battle.previous_escorts[id]=bool(ship.get("escort_enabled",false))
-			ship.escort_enabled=false; ship.naval_order={"kind":"rally","point":vector(GameState.ship_state.position)}
+			var spacing: float = maxf(float(_visuals.get(str(ship.get("ship_type_id","")),{}).get("display_length",4.3))/.04, float(_visuals.get(str(GameState.ship_state.get("ship_id","ship_sloop")),{}).get("display_length",3.48))/.04)
+			var row: int = int(formation_index/2)
+			var column: int = formation_index%2
+			var point: Vector2 = leader-forward*spacing*(2.2+row*2.2)+left*spacing*(1.1+column*2.0)
+			ship.escort_enabled=false; ship.naval_order={"kind":"rally","point":point}
 			if _military!=null: _military.clear_orders(id),"Общий сбор: корабли следуют к флагману.")
+			formation_index += 1
 
 func propose_truce() -> Dictionary:
 	if not active(): return _result(false,"Бой уже завершён.")
@@ -488,9 +509,22 @@ func _apply_losses(losses: Dictionary) -> void:
 func _finish(outcome: String, losses: Dictionary) -> Dictionary:
 	if not active(): return _result(false,"Бой уже завершён.")
 	var old_ports: Dictionary = GameState.port_state.duplicate(true)
+	var reward_money: int = 0
 	var result: Dictionary = _transaction(func():
 		var battle: Dictionary = GameState.combat_state.naval_battle
 		_apply_losses(losses)
+		var cleared_port_id: String = ""
+		if outcome=="Победа":
+			for enemy_id in battle.enemy_ids:
+				var defeated_enemy: Dictionary = GameState.combat_state.naval_enemies.get(str(enemy_id),{})
+				var tier: int = clampi(int(GameData.get_ship(str(defeated_enemy.get("ship_type_id",""))).get("tier",1)),1,5)
+				reward_money += tier*(85 if str(defeated_enemy.get("kind",""))=="pirate" else 55)
+				var group: String = str(defeated_enemy.get("encounter_group",""))
+				if cleared_port_id=="" and str(defeated_enemy.get("kind",""))=="faction_patrol" and group.begins_with("patrol_"):
+					cleared_port_id=group.trim_prefix("patrol_")
+			if reward_money>0: GameState.player_state.money += reward_money
+			if cleared_port_id!="":
+				GameState.combat_state.naval_port_control[cleared_port_id]={"expires_at":_clock+900.0,"ships":battle.ship_ids.size()}
 		for id in battle.ship_ids:
 			var ship: Dictionary = ship_by_id(str(id))
 			if ship.is_empty(): continue
@@ -500,7 +534,7 @@ func _finish(outcome: String, losses: Dictionary) -> Dictionary:
 			if _military!=null: _military.clear_orders(str(id))
 		for id in battle.enemy_ids:
 			if GameState.combat_state.naval_enemies.has(id): GameState.combat_state.naval_enemies[id].retreat_until=_clock+float(_rules.patrol_respawn_seconds)
-		GameState.combat_state.naval_report={"outcome":outcome,"losses":losses,"time":_clock}
+		GameState.combat_state.naval_report={"outcome":outcome,"losses":losses,"reward_money":reward_money,"naval_superiority_port_id":cleared_port_id,"time":_clock}
 		GameState.combat_state.naval_battle={},outcome)
 	if not result.ok: GameState.port_state=old_ports
 	return result

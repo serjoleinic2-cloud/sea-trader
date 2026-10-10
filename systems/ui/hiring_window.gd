@@ -36,6 +36,7 @@ var _view: String = "candidates"
 var _is_open: bool = false
 var _portrait: TextureRect
 var _ship_selector: OptionButton
+var _naval_commander_portrait: TextureRect
 var _portrait_atlas: Texture2D
 var _mode_buttons: Dictionary = {}
 var _view_buttons: Dictionary = {}
@@ -144,6 +145,12 @@ func _ready() -> void:
 	_ship_selector.custom_minimum_size.y = 36
 	_ship_selector.item_selected.connect(_on_ship_selected)
 	profile_column.add_child(_ship_selector)
+	_naval_commander_portrait = TextureRect.new()
+	_naval_commander_portrait.custom_minimum_size = Vector2(116, 144)
+	_naval_commander_portrait.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_naval_commander_portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_naval_commander_portrait.hide()
+	profile_column.add_child(_naval_commander_portrait)
 	_ship_action_button = Button.new()
 	_ship_action_button.text = "КОМАНДИР ВЫБРАННОГО ВОЕННОГО КОРАБЛЯ"
 	_ship_action_button.custom_minimum_size.y = 36
@@ -452,6 +459,7 @@ func _refresh_commander_controls(ship: Dictionary) -> void:
 	for child in _commander_skills.get_children():
 		child.queue_free()
 	if _mode != "military" or ship.is_empty():
+		_naval_commander_portrait.hide()
 		_ship_action_button.text = "КОМАНДИР ВЫБРАННОГО ВОЕННОГО КОРАБЛЯ"
 		_ship_action_button.disabled = true
 		return
@@ -462,13 +470,17 @@ func _refresh_commander_controls(ship: Dictionary) -> void:
 			vessel = raw_ship
 			break
 	if vessel.is_empty():
+		_naval_commander_portrait.hide()
 		_ship_action_button.text = "КОМАНДИР: ВЫБЕРИТЕ ВОЕННЫЙ КОРАБЛЬ"
 		_ship_action_button.disabled = true
 		return
 	var commander: Dictionary = vessel.get("commander", {})
 	if commander.is_empty():
+		_naval_commander_portrait.hide()
 		_ship_action_button.text = "НАНЯТЬ КОМАНДИРА ЭТОГО КОРАБЛЯ · %d МОНЕТ" % int(_naval_system._rules.commander_cost) if _naval_system != null else "НАНЯТЬ КОМАНДИРА КОРАБЛЯ"
 		return
+	_naval_commander_portrait.texture = _naval_commander_portrait_for(str(commander.get("race_id", GameState.player_state.get("origin_race_id", "humans"))), int(commander.get("portrait_variant", 0)))
+	_naval_commander_portrait.show()
 	_ship_action_button.text = "КОМАНДИР: %s · УР. %d · НАВЫКИ %d" % [str(commander.get("name", "")), int(commander.get("level", 1)), int(commander.get("skill_points", 0))]
 	_ship_action_button.disabled = true
 	for skill in ["gunnery", "accuracy", "reload"]:
@@ -480,6 +492,11 @@ func _refresh_commander_controls(ship: Dictionary) -> void:
 		button.disabled = not _ship_is_available(ship) or int(commander.get("skill_points", 0)) <= 0
 		button.pressed.connect(_train_ship_commander.bind(ship_id, skill))
 		_commander_skills.add_child(button)
+
+func _naval_commander_portrait_for(race_id: String, variant: int) -> Texture2D:
+	var safe_race: String = race_id if race_id in ["humans", "nerids", "surr", "meridians", "aery", "crystari"] else "humans"
+	var path: String = "res://assets/characters/commanders/%s/portrait_%02d.png" % [safe_race, posmod(variant, 3)+1]
+	return load(path) as Texture2D if ResourceLoader.exists(path) else null
 
 func _build_employee_training(employee: Dictionary) -> void:
 	for child in _employee_actions.get_children():
