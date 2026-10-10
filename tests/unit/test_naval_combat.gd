@@ -321,6 +321,65 @@ func test_armament_window_shows_ship_hardpoints_preview_shop_and_store() -> void
 	assert_true(str(window._title.text).contains("Страж"))
 	window.free()
 
+func test_armament_filters_and_button_purchase_install_upgrade_flow() -> void:
+	var window: Control=preload("res://systems/ui/naval_armament_window.gd").new()
+	add_child(window)
+	window.initialize(navy)
+	window.open_ship("war1")
+	window._compatible_filter.button_pressed=true
+	var choices: Array=window._shop_list.find_children("*","Button",true,false).filter(func(button): return button.has_meta("armament_buy"))
+	assert_eq(choices.size(),2,"a new bow cutter offers only its two compatible starter guns")
+	var buy: Button=choices.filter(func(button): return str(button.get_meta("armament_buy"))=="cannon")[0]
+	assert_true(buy.get_theme_stylebox("normal") is StyleBoxTexture,"purchases use the approved brass art")
+	var money: float=GameState.player_state.money
+	buy.pressed.emit()
+	assert_eq(GameState.player_state.money,money-180)
+	assert_eq(GameState.combat_state.naval_arsenal.size(),1)
+	var install: Button=window._storage_list.find_children("*","Button",true,false).filter(func(button): return button.has_meta("armament_install"))[0]
+	assert_false(install.disabled)
+	install.pressed.emit()
+	assert_eq(str(GameState.fleet_state[0].guns[0].kind),"cannon")
+	assert_true(GameState.combat_state.naval_arsenal.is_empty())
+	assert_true(window._selected_actions.get_child(0).disabled,"a gun cannot be upgraded without a skilled commander")
+	assert_true(window._selected_progress.visible)
+	assert_true(navy.hire_commander("war1").ok)
+	assert_true(navy.train_skill("war1","gunnery").ok)
+	GameState.fleet_state[0].guns[0].experience=50
+	window._refresh()
+	assert_false(window._selected_actions.get_child(0).disabled)
+	window._selected_actions.get_child(0).pressed.emit()
+	assert_eq(int(GameState.fleet_state[0].guns[0].level),2)
+	assert_true(str(window._selected_details.text).contains("ур. 2"))
+	window._selected_actions.get_child(1).pressed.emit()
+	assert_eq(int(GameState.combat_state.naval_arsenal[0].level),2,"removal preserves the purchased upgrade")
+	assert_false(window._selected_progress.visible)
+	window._class_filter.select(5)
+	window._class_filter.item_selected.emit(5)
+	assert_eq(window._shop_list.find_children("*","Button",true,false).size(),0,"class-five filtering never presents incompatible guns as installable")
+	window._close()
+	assert_eq(window._preview_viewport.render_target_update_mode,SubViewport.UPDATE_DISABLED,"closing the window stops rendering the preview")
+	window.free()
+
+func test_upgraded_weapon_display_stats_match_the_fired_projectile() -> void:
+	assert_true(navy.install_gun("war1",0,"cannon").ok)
+	var ship: Dictionary=GameState.fleet_state[0]
+	ship.guns[0].level=2
+	ship.commander={"level":4,"skills":{"gunnery":2,"accuracy":1,"reload":3}}
+	ship.escort_state={"position":Vector2.ZERO,"heading":Vector2.RIGHT,"initialized":true}
+	var stats: Dictionary=navy.gun_combat_stats(ship,ship.guns[0])
+	assert_gt(float(stats.damage),18.0)
+	assert_lt(float(stats.reload),12.0)
+	_sea()
+	assert_true(navy.begin_battle(["enemy1"]).ok)
+	assert_true(navy.issue_order("war1",Vector2(350,0),"enemy1").ok)
+	var battle: Dictionary=GameState.combat_state.naval_battle
+	var enemies: Array[Dictionary]=[GameState.combat_state.naval_enemies.enemy1]
+	navy._fire_ship(ship,enemies,.1,battle)
+	assert_eq(battle.projectiles.size(),1)
+	var armor: float=float(GameData.get_ship("war_surr_1").get("armor",0))
+	assert_eq(float(battle.projectiles[0].damage),maxf(1,float(stats.damage)-armor),"the equipment screen and impact use the same commander and gun bonuses")
+	assert_eq(float(ship.naval_reload),float(stats.reload))
+
 func test_actual_damage_victory_and_xp() -> void:
 	assert_true(navy.hire_commander("war1").ok)
 	assert_true(navy.install_gun("war1",0,"cannon").ok)

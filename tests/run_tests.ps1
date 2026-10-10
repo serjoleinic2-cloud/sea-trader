@@ -7,14 +7,20 @@ $ErrorActionPreference = 'Stop'
 $engine = (Resolve-Path -LiteralPath $GodotBin).Path
 $projectRoot = Split-Path -Parent $PSScriptRoot
 $runId = 'SeaTraderTests-' + [Guid]::NewGuid().ToString('N')
-$testRoot = Join-Path ([IO.Path]::GetTempPath()) $runId
+$testRoot = Join-Path (Join-Path $projectRoot 'work\verification-temp') $runId
 $testProject = Join-Path $testRoot 'project'
 New-Item -ItemType Directory -Path $testProject -Force | Out-Null
 
-# Copy the current source, including local fixes, without Git or editor caches.
-foreach ($item in Get-ChildItem -LiteralPath $projectRoot -Force) {
-    if ($item.Name -in @('.git', '.godot', 'override.cfg') -or $item.Extension -in @('.apk', '.idsig')) { continue }
-    Copy-Item -LiteralPath $item.FullName -Destination $testProject -Recurse -Force
+# Copy tracked and new source files, including local edits, without ignored artist models.
+$sourceFiles = & git -C $projectRoot -c core.quotepath=false ls-files --cached --others --exclude-standard
+if ($LASTEXITCODE -ne 0) { throw 'Cannot enumerate project source files.' }
+foreach ($relative in $sourceFiles) {
+    if ($relative -match '^(work|\.godot)/' -or $relative -eq 'override.cfg' -or [IO.Path]::GetExtension($relative) -in @('.apk', '.idsig', '.blend', '.blend1', '.blend2')) { continue }
+    $source = Join-Path $projectRoot $relative
+    if (-not (Test-Path -LiteralPath $source -PathType Leaf)) { continue }
+    $destination = Join-Path $testProject $relative
+    New-Item -ItemType Directory -Path (Split-Path -Parent $destination) -Force | Out-Null
+    Copy-Item -LiteralPath $source -Destination $destination -Force
 }
 $override = "[application]`nconfig/use_custom_user_dir=true`nconfig/custom_user_dir_name=`"$runId`"`n"
 [IO.File]::WriteAllText((Join-Path $testProject 'override.cfg'), $override, [Text.UTF8Encoding]::new($false))
@@ -47,7 +53,7 @@ function Invoke-TestEngine([string]$name, [string[]]$engineArgs, [string]$comple
     if ($unexpectedErrors) {
         throw "$name reported unexpected errors; inspect $testRoot\$name.log"
     }
-    $log -split "`n" | Where-Object { $_ -match '^TOTAL|^SMOKE checks=' } | Write-Output
+    $log -split "`n" | Where-Object { $_ -match '^TOTAL|^SMOKE checks=|^NAVAL SMOKE checks=' } | Write-Output
 }
 
 try {

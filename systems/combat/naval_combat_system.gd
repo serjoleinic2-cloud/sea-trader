@@ -306,17 +306,40 @@ func gun_level_cap(ship: Dictionary, gun: Dictionary) -> int:
 	var skill: String = str(_rules.guns.get(str(gun.get("kind","")),{}).get("skill","gunnery"))
 	return mini(int(_rules.max_level), int(commander.get("level",1))+int(commander.get("skills",{}).get(skill,0)))
 
-func upgrade_gun(id: String, slot: int) -> Dictionary:
+func gun_combat_stats(ship: Dictionary, gun: Dictionary) -> Dictionary:
+	var definition: Dictionary = _rules.guns.get(str(gun.get("kind","")),{})
+	if definition.is_empty(): return {}
+	var skills: Dictionary = ship.get("commander",{}).get("skills",{})
+	var bonus: float = float(_rules.skill_bonus)
+	return {
+		"damage":float(definition.damage)*(1+float(_rules.gun_damage_growth_per_level)*(int(gun.get("level",1))-1))*(1+bonus*int(skills.get("gunnery",0))),
+		"range":float(definition.range),
+		"reload":float(definition.reload)/(1+bonus*int(skills.get("reload",0))),
+		"accuracy":minf(float(_rules.maximum_accuracy),float(definition.accuracy)+bonus*int(skills.get("accuracy",0)))
+	}
+
+func gun_upgrade_status(id: String, slot: int) -> Dictionary:
 	var ship: Dictionary = ship_by_id(id)
 	var status: Dictionary = _management_status(ship)
 	if not status.ok: return status
 	if slot<0 or slot>=ship.get("guns",[]).size() or ship.guns[slot].is_empty(): return _result(false,"Слот пуст.")
 	var gun: Dictionary = ship.guns[slot]
 	var level: int = int(gun.level)
+	if level>=int(_rules.max_level): return _result(false,"Орудие достигло максимального уровня.")
 	if level>=gun_level_cap(ship,gun): return _result(false,"Улучшите командира и профильный навык орудия.")
 	var xp: int = int(_rules.gun_level_xp)*level
 	var cost: float = float(_rules.gun_level_cost)*level
 	if int(gun.experience)<xp or float(GameState.player_state.money)<cost: return _result(false,"Требуется опыт %d/%d и %d монет." % [int(gun.experience),xp,int(cost)])
+	return _result(true,"Повысить уровень орудия за %d монет." % int(cost))
+
+func upgrade_gun(id: String, slot: int) -> Dictionary:
+	var ship: Dictionary = ship_by_id(id)
+	var status: Dictionary = gun_upgrade_status(id,slot)
+	if not status.ok: return status
+	var gun: Dictionary = ship.guns[slot]
+	var level: int = int(gun.level)
+	var xp: int = int(_rules.gun_level_xp)*level
+	var cost: float = float(_rules.gun_level_cost)*level
 	return _transaction(func(): gun.level+=1; gun.experience-=xp; GameState.player_state.money-=cost,"Орудие улучшено.")
 
 func upgrade_ship(id: String) -> Dictionary:
@@ -835,7 +858,6 @@ func _fire_ship(ship: Dictionary, enemies: Array[Dictionary], delta: float, batt
 	for enemy in enemies:
 		if str(enemy.id)==target_id: target=enemy; break
 	if target.is_empty() or not _enemy_alive(target): return
-	var skills: Dictionary = ship.get("commander",{}).get("skills",{})
 	var heading: Vector2=vector(ship.get("escort_state",{}).get("heading",Vector2.UP)).normalized()
 	var target_direction: Vector2=origin.direction_to(vector(target.position))
 	var remaining: float = float(ship.get("naval_reload",-1.0))
@@ -858,14 +880,14 @@ func _fire_ship(ship: Dictionary, enemies: Array[Dictionary], delta: float, batt
 		var mount: String=gun_slot_mount(ship,gun_index)
 		if not _gun_has_firing_arc(mount,heading,target_direction): continue
 		if _military!=null and _military._guard.is_navigation_move_blocked(origin,vector(target.position)): continue
-		var bonus: float = float(_rules.skill_bonus)
-		volley_reload=maxf(volley_reload,float(definition.reload)/(1+bonus*int(skills.get("reload",0))))
+		var stats: Dictionary=gun_combat_stats(ship,gun)
+		volley_reload=maxf(volley_reload,float(stats.reload))
 		fired+=1
 		if not fired_mounts.has(mount): fired_mounts.append(mount)
 		battle.shots=int(battle.shots)+1
 		var roll: float = float(posmod(hash(str(GameState.world_state.seed)+str(battle.shots)+str(ship.instance_id)),1000))/1000.0
-		var hit: bool = roll<minf(float(_rules.maximum_accuracy),float(definition.accuracy)+bonus*int(skills.get("accuracy",0)))
-		var damage: float = float(definition.damage)*(1+float(_rules.gun_damage_growth_per_level)*(int(gun.level)-1))*(1+bonus*int(skills.get("gunnery",0)))
+		var hit: bool = roll<float(stats.accuracy)
+		var damage: float = float(stats.damage)
 		var armor: float = float(GameData.get_ship(str(target.ship_type_id)).get("armor",0))
 		var length: float = float(_visuals.get(str(target.ship_type_id),{}).get("display_length",5.1))/.04
 		var effect: String=str(definition.get("effect",gun.kind))
