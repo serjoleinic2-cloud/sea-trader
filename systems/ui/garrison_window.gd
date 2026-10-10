@@ -385,7 +385,7 @@ func _refresh() -> void:
 		tower_requirement = "Стоимость башни: 450 монет, 10 дерева, 6 деталей. Сейчас: %d монет, %d дерева, %d деталей." % [int(GameState.player_state.get("money", 0)), int(tower_inventory.get("resource_timber", 0)), int(tower_inventory.get("resource_parts", 0))]
 	if can_build_more and _system.can_build_tower("island"):
 		tower_requirement = "Башня готова к строительству: 450 монет, 10 дерева, 6 деталей."
-	_tower_buttons["island"].text = "ПОСТРОИТЬ БАШНУ"
+	_tower_buttons["island"].text = "ПОСТРОИТЬ БАШНЮ"
 	_tower_buttons["island"].tooltip_text = tower_requirement
 	_tower_label.text = _format_towers(_system.get_tower_bonuses()) + ("\n" + tower_requirement if tower_requirement != "" else "")
 	_refresh_crystal_controls()
