@@ -39,10 +39,13 @@ func _load_kb_config() -> void:
 func _physics_process(delta: float) -> void:
 	if _ship_control == null:
 		return
+	var handbrake_pressed: bool = Input.is_key_pressed(KEY_SPACE)
+	_ship_control.set_handbrake(handbrake_pressed)
 	var inspection: Node = get_tree().get_first_node_in_group("ship_inspection_window")
 	if inspection != null and bool(inspection.get("_is_open")):
 		_kb_throttle = 0
 		_kb_steering = 0
+		_ship_control.set_handbrake(false)
 		_ship_control.send_control(0,0)
 		return
 
@@ -75,9 +78,9 @@ func _process_keyboard(delta: float) -> void:
 	var target_throttle: float = 0.0
 	var target_steering: float = 0.0
 
-	if Input.is_key_pressed(KEY_W):
+	if not Input.is_key_pressed(KEY_SPACE) and Input.is_key_pressed(KEY_W):
 		target_throttle =  1.0
-	elif Input.is_key_pressed(KEY_S):
+	elif not Input.is_key_pressed(KEY_SPACE) and Input.is_key_pressed(KEY_S):
 		target_throttle = -1.0
 
 	if Input.is_key_pressed(KEY_A):

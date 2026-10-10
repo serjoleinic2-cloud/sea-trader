@@ -21,6 +21,7 @@ var _heading: float = 0.0        # radians, 0 = right, PI/2 = down
 var _speed: float = 0.0          # current scalar speed (pixels/sec)
 var _throttle: float = 0.0       # -1..1 from ShipControl
 var _steering: float = 0.0       # -1..1 from ShipControl
+var _handbrake: bool = false
 var _yaw_velocity: float = 0.0
 var _visual_roll: float = 0.0    # current visual roll in degrees
 
@@ -53,6 +54,7 @@ func setup(ship_data: Dictionary, initialize_state: bool = true) -> void:
 	_speed = 0.0
 	_throttle = 0.0
 	_steering = 0.0
+	_handbrake = false
 	_visual_roll = 0.0
 	_yaw_velocity = 0.0
 	if not initialize_state:
@@ -81,6 +83,10 @@ func apply_control(throttle: float, steering_input: float) -> void:
 	_steering = clampf(steering_input, -1.0, 1.0)
 
 
+func apply_handbrake(enabled: bool) -> void:
+	_handbrake = enabled
+
+
 func physics_tick(delta: float) -> void:
 	"""Main physics update. Call every _physics_process tick."""
 	if bool(GameState.voyage_state.get("active_autopilot", false)):
@@ -94,6 +100,7 @@ func physics_tick(delta: float) -> void:
 		_speed = 0.0
 		_throttle = 0.0
 		_steering = 0.0
+		_handbrake = false
 		GameState.ship_state["velocity"] = Vector2.ZERO
 		GameState.ship_state["reverse_gear"] = false
 		return
@@ -146,6 +153,12 @@ func restore_from_state() -> void:
 func _update_speed(delta: float) -> void:
 	var max_spd: float = get_max_speed()
 	var reverse_ratio: float = clampf(float(_ship_data.get("reverse_speed_ratio", 0.25)), 0.1, 0.5)
+	if _handbrake:
+		var handbrake_force: float = maxf(float(_ship_data.get("brake_force", 120.0)) * 4.0, 360.0)
+		_speed = move_toward(_speed, 0.0, handbrake_force * delta)
+		if absf(_speed) < 0.5:
+			_speed = 0.0
+		return
 
 	if _throttle > 0.0:
 		var accel: float = float(_ship_data.get("acceleration", 80.0)) * _throttle * _get_engine_ratio()

@@ -87,6 +87,18 @@ func test_reverse_command_brakes_through_zero_without_releasing_key() -> void:
 		_physics.physics_tick(0.05)
 	assert_lt(_physics.get_speed(), 0.0, "held reverse brakes to zero and continues astern automatically")
 
+func test_handbrake_stops_forward_and_reverse_motion_at_zero() -> void:
+	_physics._speed = 100.0
+	_physics.apply_control(-1.0, 0.0)
+	_physics.apply_handbrake(true)
+	for _i in range(30):
+		_physics.physics_tick(0.05)
+	assert_eq(_physics.get_speed(), 0.0, "handbrake reaches a complete stop without engaging reverse")
+	assert_false(bool(GameState.ship_state.get("reverse_gear", false)))
+	_physics.apply_handbrake(false)
+	_physics.physics_tick(0.05)
+	assert_lt(_physics.get_speed(), 0.0, "reverse remains available after releasing the handbrake")
+
 func test_reverse_steering_inverts_bow_rotation() -> void:
 	_physics._heading = 0.0
 	_physics._speed = 12.0

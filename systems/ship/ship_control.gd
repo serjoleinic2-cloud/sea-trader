@@ -24,3 +24,9 @@ func send_control(throttle: float, steering: float) -> void:
 		push_error("ShipControl: physics not set up")
 		return
 	_physics.apply_control(throttle, steering)
+
+
+func set_handbrake(enabled: bool) -> void:
+	if _physics == null:
+		return
+	_physics.apply_handbrake(enabled)
