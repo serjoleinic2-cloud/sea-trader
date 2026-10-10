@@ -18,6 +18,7 @@ func _ready() -> void:
 func initialize(main: Node, military: Node) -> void:
 	_main = main; _military = military
 	GameState.combat_state.merge({"naval_battle":{},"naval_enemies":{},"naval_arsenal":[],"naval_arsenal_capacity":int(_rules.get("arsenal_base_capacity",10)),"naval_gun_sequence":0,"naval_report":{},"naval_port_control":{},"naval_time":0.0,"next_pirate_at":0.0,"pirate_sequence":0},false)
+	GameState.combat_state.merge({"naval_guard_revolt_seen":{}}, false)
 	GameState.combat_state["naval_arsenal_capacity"]=maxi(int(_rules.get("arsenal_base_capacity",10)),int(GameState.combat_state.get("naval_arsenal_capacity",10)))
 	for gun in GameState.combat_state.naval_arsenal: _normalize_gun(gun)
 	_clock = float(GameState.combat_state.naval_time)
@@ -525,6 +526,10 @@ func _finish(outcome: String, losses: Dictionary) -> Dictionary:
 			if reward_money>0: GameState.player_state.money += reward_money
 			if cleared_port_id!="":
 				GameState.combat_state.naval_port_control[cleared_port_id]={"expires_at":_clock+900.0,"ships":battle.ship_ids.size()}
+				if protected_port_guard_tier(cleared_port_id) > 0:
+					var guard_port_state: Dictionary = GameState.port_state.get(cleared_port_id, {})
+					guard_port_state["guard_fleet_defeated"] = true
+					GameState.port_state[cleared_port_id] = guard_port_state
 		for id in battle.ship_ids:
 			var ship: Dictionary = ship_by_id(str(id))
 			if ship.is_empty(): continue
@@ -555,7 +560,7 @@ func _process(delta: float) -> void:
 	GameState.combat_state.naval_time=_clock
 	if not active(): _step_world_patrols(step)
 	if _patrol_clock>=1:
-		_patrol_clock=0; _ensure_patrols(); _ensure_pirates(); _detect_hostile()
+		_patrol_clock=0; _sync_guard_revolts(); _ensure_patrols(); _ensure_pirates(); _detect_hostile()
 	if active(): _step_battle(step)
 	if _save_clock>=15:
 		_save_clock=0; SaveSystem.save_game()
@@ -571,6 +576,10 @@ func _ensure_patrols() -> void:
 		if center.distance_to(player)>alert_radius()*8: continue
 		var group_id: String = "patrol_"+str(key)
 		var enemies: Dictionary = GameState.combat_state.naval_enemies
+		var saved_port: Dictionary = GameState.port_state.get(str(key), {})
+		var guard_tier: int = protected_port_guard_tier(str(key))
+		if guard_tier > 0 and bool(saved_port.get("guard_fleet_defeated", false)):
+			continue
 		var race: String = resolver.resolve(port,int(GameState.world_state.seed))
 		var player_race: String=str(GameState.player_state.get("origin_race_id","humans"))
 		if race==player_race:
@@ -579,21 +588,92 @@ func _ensure_patrols() -> void:
 			race=str(factions[(maxi(0,at)+1)%factions.size()].id) if not factions.is_empty() else "surr"
 		var minimum: int=int(_rules.get("patrol_group_min",1))
 		var maximum: int=maxi(minimum,int(_rules.get("patrol_group_max",3)))
-		var count: int=minimum+posmod(hash(group_id+str(GameState.world_state.seed)),maximum-minimum+1)
+		var count: int=mini(maximum, guard_tier + 1) if guard_tier > 0 else minimum+posmod(hash(group_id+str(GameState.world_state.seed)),maximum-minimum+1)
 		var cycle: int=floori(_clock/maxf(1.0,float(_rules.patrol_respawn_seconds)))
 		var attack_roll: float=float(posmod(hash(group_id+":hostile:"+str(cycle)),10000))/10000.0
-		var hostile: bool=attack_roll<float(_rules.get("patrol_attack_chance",.12))
+		var hostile: bool=guard_tier > 0 or attack_roll<float(_rules.get("patrol_attack_chance",.12))
+		var group_phase: float=float(posmod(hash(group_id+":formation"),628))/100.0
 		for index in count:
 			var id: String=group_id if index==0 else "%s_%d" % [group_id,index+1]
 			if enemies.has(id):
 				if float(enemies[id].get("retreat_until",0))>_clock or active() and GameState.combat_state.naval_battle.enemy_ids.has(id): continue
-				if float(enemies[id].get("hull",0))>0: continue
-			var tier: int=1+posmod(hash(id+str(GameState.world_state.seed)),3)
+				if float(enemies[id].get("hull",0))>0:
+					var existing_length: float=float(_visuals.get(str(enemies[id].get("ship_type_id","")),{}).get("display_length",5.1))/.04
+					if not enemies[id].has("formation_version"):
+						var old_angle: float=group_phase+TAU*float(index)/float(count)
+						var old_anchor: Vector2=center+Vector2.from_angle(old_angle)*maxf(float(_rules.get("patrol_roam_radius",140.0)),existing_length*1.4)
+						var old_point: Vector2=_military._spawn_position(old_anchor,existing_length,_enemy_spawn_obstacles(id)) if _military!=null else old_anchor
+						if old_point.is_finite(): enemies[id].position=old_point; enemies[id].patrol_center=old_point
+						enemies[id]["roam_radius"]=maxf(64.0,existing_length*.35)
+						enemies[id]["formation_version"]=1
+					continue
+			var tier: int=guard_tier if guard_tier > 0 else 1+posmod(hash(id+str(GameState.world_state.seed)),3)
 			var definition: Dictionary=GameData.get_ship("war_%s_%d" % [race,tier])
 			var length: float=float(_visuals.get(definition.id,{}).get("display_length",5.1))/.04
-			var point: Vector2=_military._spawn_position(center,length,_military._obstacles(id)) if _military!=null else center+Vector2.RIGHT*length*(index+1)
+			var angle: float=group_phase+TAU*float(index)/float(count)
+			var anchor: Vector2=center+Vector2.from_angle(angle)*maxf(float(_rules.get("patrol_roam_radius",140.0)),length*1.4)
+			var point: Vector2=_military._spawn_position(anchor,length,_enemy_spawn_obstacles(id)) if _military!=null else anchor
 			if not point.is_finite(): continue
-			enemies[id]={"id":id,"ship_type_id":definition.id,"name":"Патруль · "+str(definition.name),"faction_id":race,"kind":"faction_patrol","encounter_group":group_id,"position":point,"patrol_center":point,"roam_phase":float(posmod(hash(id+":phase"),628))/100.0,"heading":Vector2.UP,"turn_velocity":0.0,"speed":0.0,"hull":float(definition.hull_max),"hull_max":float(definition.hull_max),"level":1,"hostile":hostile,"warning":0.0,"cooldown":0.0,"retreat_until":0.0}
+			enemies[id]={"id":id,"ship_type_id":definition.id,"name":"Патруль · "+str(definition.name),"faction_id":race,"kind":"faction_patrol","encounter_group":group_id,"position":point,"patrol_center":point,"roam_phase":float(posmod(hash(id+":phase"),628))/100.0,"roam_radius":maxf(64.0,length*.35),"formation_version":1,"heading":Vector2.UP,"turn_velocity":0.0,"speed":0.0,"hull":float(definition.hull_max),"hull_max":float(definition.hull_max),"level":1,"hostile":hostile,"warning":0.0,"cooldown":0.0,"retreat_until":0.0}
+
+func protected_port_guard_tier(port_id: String) -> int:
+	if port_id == "" or _main == null:
+		return 0
+	var ports: Dictionary = _main.get("_navigation_world").get("ports", {})
+	if not ports.has(port_id) or port_id == str(GameState.world_state.get("home_port_id", "")):
+		return 0
+	var port: Dictionary = ports[port_id]
+	var saved: Dictionary = GameState.port_state.get(port_id, {})
+	if bool(saved.get("captured_by_player", false)):
+		return 0
+	var seed_value: int = int(GameState.world_state.get("seed", 0))
+	if posmod(hash("%s:%d:naval-guard" % [port_id, seed_value]), 4) != 0:
+		return 0
+	var home_id: String = str(GameState.world_state.get("home_port_id", ""))
+	var home_position: Vector2 = Vector2(ports.get(home_id, {}).get("position", GameState.ship_state.get("position", Vector2.ZERO)))
+	var distance: float = home_position.distance_to(vector(port.get("position", Vector2.ZERO)))
+	if distance < 2500.0:
+		return 0
+	# The project has no separate player-level progression. Guard strength grows
+	# with exploration distance, so nearby ports stay approachable and distant
+	# protected harbors become progressively harder to take.
+	return clampi(1 + floori(maxf(distance - 2500.0, 0.0) / 8000.0), 1, 3)
+
+func port_entry_status(port_id: String) -> Dictionary:
+	var tier: int = protected_port_guard_tier(port_id)
+	var state: Dictionary = GameState.port_state.get(port_id, {})
+	var protected: bool = tier > 0
+	var blocked: bool = protected and not bool(state.get("guard_fleet_defeated", false))
+	return {"protected": protected, "blocked": blocked, "tier": tier, "message": "Порт закрыт: победите охранный флот %d-го ранга, затем можно входить и торговать." % tier if blocked else ""}
+
+func _sync_guard_revolts() -> void:
+	var seen: Dictionary = GameState.combat_state.get("naval_guard_revolt_seen", {})
+	var enemies: Dictionary = GameState.combat_state.get("naval_enemies", {})
+	for port_id in GameState.port_state:
+		var state: Dictionary = GameState.port_state[port_id]
+		if not bool(state.get("rebellion_active", false)) or bool(state.get("tribute_active", false)) or bool(state.get("captured_by_player", false)):
+			continue
+		if protected_port_guard_tier(str(port_id)) <= 0:
+			continue
+		var declared_at: int = int(state.get("revolt_declared_at", 0))
+		if declared_at <= int(seen.get(str(port_id), 0)):
+			continue
+		state["guard_fleet_defeated"] = false
+		GameState.port_state[str(port_id)] = state
+		seen[str(port_id)] = declared_at
+		var group_id: String = "patrol_" + str(port_id)
+		for enemy_id in enemies.keys():
+			if str(enemies[enemy_id].get("encounter_group", "")) == group_id:
+				enemies.erase(enemy_id)
+	GameState.combat_state["naval_guard_revolt_seen"] = seen
+
+func _enemy_spawn_obstacles(id: String) -> Array:
+	var obstacles: Array = _military._obstacles(id) if _military!=null else []
+	for other in GameState.combat_state.get("naval_enemies",{}).values():
+		if str(other.get("id",""))==id or not _enemy_alive(other): continue
+		var length: float=float(_visuals.get(str(other.get("ship_type_id","")),{}).get("display_length",5.1))/.04
+		obstacles.append({"id":str(other.get("id","")),"position":vector(other.get("position",Vector2.ZERO)),"length":length})
+	return obstacles
 
 func _next_pirate_delay() -> float:
 	var minimum: float=float(_rules.get("pirate_spawn_min_seconds",300))
@@ -623,10 +703,11 @@ func _ensure_pirates() -> void:
 		var tier: int=1+posmod(hash(id),3)
 		var definition: Dictionary=GameData.get_ship("war_humans_%d" % tier)
 		var length: float=float(_visuals.get(definition.id,{}).get("display_length",5.1))/.04
-		var desired: Vector2=player+direction.rotated((index-(count-1)*.5)*.18)*alert_radius()*1.55
-		var point: Vector2=_military._spawn_position(desired,length,_military._obstacles(id)) if _military!=null else desired
+		var lateral: Vector2=direction.orthogonal()*(float(index)-(float(count)-1.0)*.5)*length*2.2
+		var desired: Vector2=player+direction*alert_radius()*1.55+lateral
+		var point: Vector2=_military._spawn_position(desired,length,_enemy_spawn_obstacles(id)) if _military!=null else desired
 		if not point.is_finite(): continue
-		GameState.combat_state.naval_enemies[id]={"id":id,"ship_type_id":definition.id,"name":"Пираты · Чёрный корсар","faction_id":"pirates","kind":"pirate","encounter_group":group_id,"position":point,"patrol_center":point,"roam_phase":0.0,"heading":point.direction_to(player),"turn_velocity":0.0,"speed":0.0,"hull":float(definition.hull_max),"hull_max":float(definition.hull_max),"level":tier,"hostile":true,"warning":0.0,"cooldown":0.0,"retreat_until":0.0}
+		GameState.combat_state.naval_enemies[id]={"id":id,"ship_type_id":definition.id,"name":"Пираты · Чёрный корсар","faction_id":"pirates","kind":"pirate","encounter_group":group_id,"formation_offset":lateral,"position":point,"patrol_center":point,"roam_phase":0.0,"heading":point.direction_to(player+lateral),"turn_velocity":0.0,"speed":0.0,"hull":float(definition.hull_max),"hull_max":float(definition.hull_max),"level":tier,"hostile":true,"warning":0.0,"cooldown":0.0,"retreat_until":0.0}
 	GameState.combat_state["next_pirate_at"]=_clock+_next_pirate_delay()
 
 func _step_world_patrols(delta: float) -> void:
@@ -638,22 +719,31 @@ func _step_world_patrols(delta: float) -> void:
 		var pirate: bool=str(enemy.get("kind",""))=="pirate"
 		var target: Vector2
 		if pirate and not docked:
-			target=player
+			if not enemy.has("formation_offset"):
+				var pirate_ids: Array[String]=[]
+				for candidate in GameState.combat_state.naval_enemies.values():
+					if str(candidate.get("encounter_group",""))==str(enemy.get("encounter_group","")) and _enemy_alive(candidate): pirate_ids.append(str(candidate.get("id","")))
+				pirate_ids.sort()
+				var pirate_index: int=pirate_ids.find(str(enemy.get("id","")))
+				var pirate_heading: Vector2=current.direction_to(player)
+				var pirate_length: float=float(_visuals.get(str(enemy.get("ship_type_id","")),{}).get("display_length",5.1))/.04
+				enemy["formation_offset"]=pirate_heading.orthogonal()*(float(pirate_index)-(float(pirate_ids.size())-1.0)*.5)*pirate_length*2.2
+			target=player+vector(enemy.get("formation_offset",Vector2.ZERO))
 		else:
 			var center: Vector2=vector(enemy.get("patrol_center",current))
 			var phase: float=float(enemy.get("roam_phase",0.0))+_clock*.08
-			target=center+Vector2.from_angle(phase)*float(_rules.get("patrol_roam_radius",140))
+			target=center+Vector2.from_angle(phase)*float(enemy.get("roam_radius",_rules.get("patrol_roam_radius",140)))
 		var direction: Vector2=current.direction_to(target)
 		if direction.length_squared()<.01: continue
 		var heading: Vector2=vector(enemy.get("heading",direction)).normalized()
 		var turn_rate: float=.42 if pirate else .28
 		var turn: float=clampf(heading.angle_to(direction),-turn_rate*delta,turn_rate*delta)
 		var steer: Vector2=heading.rotated(turn).normalized()
+		var length: float=float(_visuals.get(str(enemy.get("ship_type_id","")),{}).get("display_length",5.1))/.04
 		var cruise: float=float(_rules.get("patrol_cruise_speed",26))*(1.45 if pirate else 1.0)
-		if pirate and current.distance_to(player)<alert_radius()*.72: cruise=0.0
+		if pirate and current.distance_to(target)<length*.55: cruise=0.0
 		var speed: float=move_toward(float(enemy.get("speed",0.0)),cruise,18.0*delta)
 		var next: Vector2=current+steer*speed*delta
-		var length: float=float(_visuals.get(str(enemy.get("ship_type_id","")),{}).get("display_length",5.1))/.04
 		if _world_patrol_segment_clear(str(enemy.id),current,next,length):
 			enemy.position=next
 			enemy.heading=steer

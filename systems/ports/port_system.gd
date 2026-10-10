@@ -266,6 +266,10 @@ func dock(port_id: String) -> bool:
 	if bool(GameState.combat_state.get("naval_battle", {}).get("active", false)): return false
 	if port_id == "" or get_dock_candidate() != port_id:
 		return false
+	var entry_status: Dictionary = port_entry_status(port_id)
+	if bool(entry_status.get("blocked", false)):
+		GameState.world_state["autopilot_notice"] = str(entry_status.get("message", "Порт закрыт охранным флотом."))
+		return false
 	if str(GameState.ship_state.get("docked_port_id", "")) == port_id:
 		if _ensure_home_starter_shipyard_kit():
 			SaveSystem.save_game()
@@ -329,6 +333,12 @@ func dock(port_id: String) -> bool:
 	if saved and newly_visible:
 		EventBus.port_discovered.emit(port_id)
 	return saved
+
+func port_entry_status(port_id: String) -> Dictionary:
+	var naval: Node = get_tree().get_first_node_in_group("naval_combat_system")
+	if naval != null and naval.has_method("port_entry_status"):
+		return naval.call("port_entry_status", port_id)
+	return {"protected": false, "blocked": false, "tier": 0, "message": ""}
 
 func _consume_active_crew_voyage() -> void:
 	var raw_crew: Variant = GameState.ship_state.get("crew", [])

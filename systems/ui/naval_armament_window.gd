@@ -2,6 +2,14 @@ extends Control
 
 ## Dedicated warship armament screen: hardpoints, live ship preview, store and arsenal.
 
+const GUN_ART_ATLAS_PATH := "res://assets/ui/naval_guns/naval_gun_atlas.png"
+const GUN_ART_CELLS := {
+	"cannon": 0, "rune": 1, "heavy_cannon": 2, "long_cannon": 3,
+	"mortar": 4, "heavy_rune": 5, "swivel_cannon": 6, "deck_mortar": 7,
+	"focused_rune": 8, "piercing_cannon": 9, "bombard": 10, "siege_mortar": 11,
+	"storm_rune": 12, "dread_cannon": 13, "void_mortar": 14, "leviathan_rune": 15
+}
+
 signal closed
 
 var _system: Node
@@ -25,8 +33,11 @@ var _class_filter: OptionButton
 var _compatible_filter: CheckButton
 var _selected_progress: ProgressBar
 var _preview_container: SubViewportContainer
+var _gun_art_atlas: Texture2D
 
 func _ready() -> void:
+	if ResourceLoader.exists(GUN_ART_ATLAS_PATH):
+		_gun_art_atlas = load(GUN_ART_ATLAS_PATH) as Texture2D
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	theme=preload("res://systems/ui/game_ui_theme.gd").new().get_theme()
 	visibility_changed.connect(_sync_preview_visibility)
@@ -299,7 +310,7 @@ func _refresh_shop(ship: Dictionary) -> void:
 		var compatibility: Dictionary=_system.gun_install_status(ship,_selected_slot,kind)
 		if _compatible_filter.button_pressed and not bool(compatibility.ok): continue
 		shown+=1
-		var row:=_gun_row(_shop_list,definition)
+		var row:=_gun_row(_shop_list,definition,kind)
 		var copy:=row.get_meta("copy") as VBoxContainer
 		var stats:=Label.new(); stats.text="Класс %d · корабль ур. %d · %d мм\nУрон %.0f · дальность %.0f · перезарядка %.0f с\n%s" % [int(definition.get("weight_class",1)),int(definition.get("min_ship_level",1)),int(definition.get("caliber_mm",0)),float(definition.damage),float(definition.range),float(definition.reload),str(definition.get("description",""))]; stats.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART; stats.add_theme_font_size_override("font_size",11); copy.add_child(stats)
 		var eligibility:=Label.new()
@@ -325,7 +336,7 @@ func _refresh_storage(ship: Dictionary) -> void:
 	for index in inventory.size():
 		var gun: Dictionary=inventory[index]
 		var definition: Dictionary=_system._rules.guns.get(str(gun.get("kind","")),{})
-		var row:=_gun_row(_storage_list,definition)
+		var row:=_gun_row(_storage_list,definition,str(gun.get("kind","")))
 		var copy:=row.get_meta("copy") as VBoxContainer
 		var progress:=Label.new(); progress.text="Уровень %d · опыт %d" % [int(gun.get("level",1)),int(gun.get("experience",0))]; progress.add_theme_font_size_override("font_size",12); copy.add_child(progress)
 		var mount_status: Dictionary=_system.gun_install_status(ship,_selected_slot,str(gun.get("kind","")))
@@ -337,7 +348,7 @@ func _refresh_storage(ship: Dictionary) -> void:
 		var refund: int=int(floor(float(definition.get("cost",0))*float(_system._rules.get("gun_sell_fraction",.5))))
 		_button(copy,"Продать · %d монет" % refund,func(): return _system.sell_arsenal_gun(_ship_id,index))
 
-func _gun_row(parent: VBoxContainer, definition: Dictionary) -> HBoxContainer:
+func _gun_row(parent: VBoxContainer, definition: Dictionary, weapon_id: String) -> HBoxContainer:
 	var panel:=PanelContainer.new()
 	var style:=StyleBoxFlat.new()
 	style.bg_color=Color(0.055,0.085,0.105,1)
@@ -350,8 +361,17 @@ func _gun_row(parent: VBoxContainer, definition: Dictionary) -> HBoxContainer:
 	row.add_theme_constant_override("separation",8)
 	panel.add_child(row)
 	var icon:=TextureRect.new()
-	var path: String=str(definition.get("icon",""))
-	if path!="" and ResourceLoader.exists(path): icon.texture=load(path) as Texture2D
+	if _gun_art_atlas != null and GUN_ART_CELLS.has(weapon_id):
+		var cell: int = int(GUN_ART_CELLS[weapon_id])
+		var cell_width: float = float(_gun_art_atlas.get_width()) / 4.0
+		var cell_height: float = float(_gun_art_atlas.get_height()) / 4.0
+		var art := AtlasTexture.new()
+		art.atlas = _gun_art_atlas
+		art.region = Rect2(Vector2(float(cell % 4) * cell_width, floori(float(cell) / 4.0) * cell_height), Vector2(cell_width, cell_height))
+		icon.texture = art
+	else:
+		var path: String=str(definition.get("icon",""))
+		if path!="" and ResourceLoader.exists(path): icon.texture=load(path) as Texture2D
 	icon.custom_minimum_size=Vector2(86,58)
 	icon.expand_mode=TextureRect.EXPAND_IGNORE_SIZE
 	icon.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED

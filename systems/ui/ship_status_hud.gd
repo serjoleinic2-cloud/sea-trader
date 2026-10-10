@@ -119,7 +119,13 @@ func _process(_delta: float) -> void:
 	if docked != "":
 		_course.text += " · E: выйти из порта"
 	elif _port_system != null and _port_system.get_dock_candidate() != "":
-		_course.text += " · E: швартовка"
+		var candidate: String = str(_port_system.get_dock_candidate())
+		var entry_status: Dictionary = _port_system.port_entry_status(candidate) if _port_system.has_method("port_entry_status") else {}
+		if bool(entry_status.get("blocked", false)):
+			_course.text += " · ОХРАНА: победите флот [Z]"
+			_course.tooltip_text = str(entry_status.get("message", "Порт охраняется военным флотом."))
+		else:
+			_course.text += " · E: швартовка"
 	if bool(GameState.voyage_state.get("active_autopilot", false)) and _port_system != null:
 		var target: String = str(GameState.voyage_state.get("autopilot_destination_id", ""))
 		_course.text += "\nАвтопилот → " + _port_system.get_port_name(target)

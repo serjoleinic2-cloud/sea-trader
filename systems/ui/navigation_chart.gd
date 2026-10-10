@@ -165,15 +165,21 @@ func _draw_known_ports() -> void:
 		if not Rect2(Vector2.ZERO, size).grow(24.0).has_point(point):
 			continue
 		if port_id == home_id:
-			draw_circle(point, 10.0, Color("#65d27d"))
+			draw_circle(point, 10.0, Color("#f0c45b"))
 			draw_arc(point, 17.0, 0.0, TAU, 32, Color("#ffec9a"), 2.0)
 			_draw_label(point + Vector2(17.0, -10.0), "★ " + _port_system.get_port_name(port_id), Color("#ffe58a"))
 		else:
 			var state: Dictionary = GameState.port_state.get(port_id, {})
-			var allied: bool = bool(state.get("captured_by_player", false)) or bool(state.get("tribute_active", false))
-			var marker_color := Color("#65d27d") if allied else Color("#8fc9a1")
-			draw_circle(point, 7.0 if allied else 6.0, marker_color)
-			_draw_label(point + Vector2(11.0, 5.0), _port_system.get_port_name(port_id), Color("#a9f0ad") if allied else Color("#d5e5e6"))
+			var captured: bool = bool(state.get("captured_by_player", false))
+			var tribute: bool = bool(state.get("tribute_active", false))
+			var entry_status: Dictionary = _port_system.port_entry_status(port_id) if _port_system.has_method("port_entry_status") else {}
+			var guarded: bool = bool(entry_status.get("blocked", false))
+			var marker_color: Color = Color("#e79b4c") if guarded else (Color("#65d27d") if tribute else (Color("#56c9dc") if captured else Color("#8fc9a1")))
+			draw_circle(point, 7.0 if captured or tribute or guarded else 6.0, marker_color)
+			if guarded:
+				draw_arc(point, 11.0, 0.0, TAU, 24, Color("#ffd39a"), 1.5)
+			var name_color: Color = Color("#b9f3a8") if tribute else (Color("#a6f0fa") if captured else Color("#d5e5e6"))
+			_draw_label(point + Vector2(11.0, 5.0), _port_system.get_port_name(port_id), name_color)
 
 
 func _draw_route() -> void:
@@ -261,6 +267,7 @@ func _draw_label(position: Vector2, text: String, color: Color) -> void:
 
 func _draw_chart_labels(chart_rect: Rect2) -> void:
 	draw_string(ThemeDB.fallback_font, Vector2(18.0, 25.0), "МОРСКАЯ КАРТА  ·  масштаб %.2f" % _map_zoom, HORIZONTAL_ALIGNMENT_LEFT, -1, 17, Color("#d6dfbe"))
+	_draw_port_legend()
 	draw_string(ThemeDB.fallback_font, Vector2(chart_rect.end.x - 30.0, 34.0), "N", HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color("#f0d779"))
 	var bar_world: float = 500.0
 	var bar_width: float = bar_world * _map_zoom
@@ -270,6 +277,25 @@ func _draw_chart_labels(chart_rect: Rect2) -> void:
 		draw_line(bar_start + Vector2(0.0, -5.0), bar_start + Vector2(0.0, 5.0), Color("#e1d7a5"), 2.0)
 		draw_line(bar_start + Vector2(bar_width, -5.0), bar_start + Vector2(bar_width, 5.0), Color("#e1d7a5"), 2.0)
 		draw_string(ThemeDB.fallback_font, bar_start + Vector2(bar_width + 8.0, 5.0), "500 м", HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color("#e1d7a5"))
+
+
+func _draw_port_legend() -> void:
+	var labels: Array[Dictionary] = [
+		{"color": Color("#f0c45b"), "text": "Своя база"},
+		{"color": Color("#56c9dc"), "text": "Под вашим флагом"},
+		{"color": Color("#65d27d"), "text": "Платит дань"},
+		{"color": Color("#e79b4c"), "text": "Охрана флота"},
+		{"color": Color("#8fc9a1"), "text": "Чужой порт"}
+	]
+	var row_height: float = 16.0
+	var origin := Vector2(18.0, 47.0)
+	var box := Rect2(origin - Vector2(7.0, 5.0), Vector2(150.0, row_height * labels.size() + 10.0))
+	draw_rect(box, Color(0.015, 0.035, 0.045, 0.82), true)
+	draw_rect(box, Color(0.45, 0.58, 0.52, 0.58), false, 1.0)
+	for index in labels.size():
+		var y: float = origin.y + float(index) * row_height
+		draw_circle(Vector2(origin.x + 5.0, y - 3.0), 3.5, labels[index].color)
+		draw_string(ThemeDB.fallback_font, Vector2(origin.x + 15.0, y), str(labels[index].text), HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color("#d9e3d7"))
 
 
 func _to_chart(world_point: Vector2) -> Vector2:

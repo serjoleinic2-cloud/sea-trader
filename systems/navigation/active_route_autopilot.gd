@@ -170,7 +170,9 @@ func _physics_process(delta: float) -> void:
 		GameState.ship_state["position"] = destination
 		GameState.ship_state["fuel"] = maxf(0.0, fuel - distance * rate)
 		if not _port_system.dock(_destination_port_id):
-			_stop("Швартовка не подтверждена. Груз остался в трюме.")
+			var entry_status: Dictionary = _port_system.port_entry_status(_destination_port_id) if _port_system.has_method("port_entry_status") else {}
+			var message: String = str(entry_status.get("message", "Швартовка не подтверждена. Груз остался в трюме."))
+			_stop(message if bool(entry_status.get("blocked", false)) else "Швартовка не подтверждена. Груз остался в трюме.")
 			return
 		var operation_message: String = _resolve_cargo_operation()
 		_stop("Корабль прибыл в %s. %s" % [_port_system.get_port_name(_destination_port_id), operation_message])
