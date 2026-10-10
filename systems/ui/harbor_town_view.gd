@@ -277,7 +277,10 @@ func _activate(index: int) -> void:
 	if building == "captain_house":
 		_open_special_window("HiringWindow")
 		return
-	var actions: Dictionary = {"dock":"service","warehouse":"resources","workshop":"service","market":"market","shipyard":"shipyard","timber_yard":"resources","fishing_wharf":"resources","mage_guild":"mage_guild"}
+	if building == "mage_guild":
+		_open_special_window("MageGuildWindow")
+		return
+	var actions: Dictionary = {"dock":"service","warehouse":"resources","workshop":"service","market":"market","shipyard":"shipyard","timber_yard":"resources","fishing_wharf":"resources"}
 	_open_section(str(actions.get(building,"construction")))
 
 func _open_special_window(node_name: String) -> void:
