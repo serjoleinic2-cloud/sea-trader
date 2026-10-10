@@ -195,6 +195,7 @@ func position(ship: Dictionary) -> Vector2:
 
 func vector(value: Variant) -> Vector2:
 	if value is Vector2: return value
+	if value is Vector2i: return Vector2(value)
 	if value is Dictionary: return Vector2(float(value.get("x",0)),float(value.get("y",0)))
 	if value is Array and value.size() >= 2: return Vector2(float(value[0]),float(value[1]))
 	if value is String:
@@ -223,8 +224,11 @@ func nearby_enemies() -> Array[Dictionary]:
 	if not ready_for_battle() or active(): return result
 	var player: Vector2 = vector(GameState.ship_state.get("position", Vector2.ZERO))
 	for enemy in GameState.combat_state.get("naval_enemies",{}).values():
-		if _enemy_alive(enemy) and vector(enemy.position).distance_to(player)<=alert_radius(): result.append(enemy)
+		if not _patrol_anchor_pending(enemy) and _enemy_alive(enemy) and vector(enemy.position).distance_to(player)<=alert_radius(): result.append(enemy)
 	return result
+
+func _patrol_anchor_pending(enemy: Dictionary) -> bool:
+	return str(enemy.get("id", "")).begins_with("patrol_") and int(enemy.get("formation_version", 0)) < 2
 
 func _enemy_alive(enemy: Dictionary) -> bool:
 	return float(enemy.get("hull",0))>0 and float(enemy.get("retreat_until",0))<=_clock
@@ -568,6 +572,7 @@ func _process(delta: float) -> void:
 
 func _ensure_patrols() -> void:
 	var ports: Dictionary = _main.get("_navigation_world").get("ports",{})
+	_repair_patrol_anchors(ports)
 	var player: Vector2 = vector(GameState.ship_state.position)
 	var resolver = preload("res://systems/world/port_faction_resolver.gd").new()
 	for key in ports:
@@ -603,14 +608,6 @@ func _ensure_patrols() -> void:
 			if enemies.has(id):
 				if float(enemies[id].get("retreat_until",0))>_clock or active() and GameState.combat_state.naval_battle.enemy_ids.has(id): continue
 				if float(enemies[id].get("hull",0))>0:
-					var existing_length: float=float(_visuals.get(str(enemies[id].get("ship_type_id","")),{}).get("display_length",5.1))/.04
-					if not enemies[id].has("formation_version"):
-						var old_angle: float=group_phase+TAU*float(index)/float(count)
-						var old_anchor: Vector2=center+Vector2.from_angle(old_angle)*maxf(float(_rules.get("patrol_roam_radius",140.0)),existing_length*1.4)
-						var old_point: Vector2=_military._spawn_position(old_anchor,existing_length,_enemy_spawn_obstacles(id)) if _military!=null else old_anchor
-						if old_point.is_finite(): enemies[id].position=old_point; enemies[id].patrol_center=old_point
-						enemies[id]["roam_radius"]=maxf(64.0,existing_length*.35)
-						enemies[id]["formation_version"]=1
 					continue
 			var tier: int=guard_tier if guard_tier > 0 else 1+posmod(hash(id+str(GameState.world_state.seed)),3)
 			var definition: Dictionary=GameData.get_ship("war_%s_%d" % [race,tier])
@@ -619,7 +616,36 @@ func _ensure_patrols() -> void:
 			var anchor: Vector2=center+Vector2.from_angle(angle)*maxf(float(_rules.get("patrol_roam_radius",140.0)),length*1.4)
 			var point: Vector2=_military._spawn_position(anchor,length,_enemy_spawn_obstacles(id)) if _military!=null else anchor
 			if not point.is_finite(): continue
-			enemies[id]={"id":id,"ship_type_id":definition.id,"name":"Патруль · "+str(definition.name),"faction_id":race,"kind":"faction_patrol","encounter_group":group_id,"guard_tier":guard_tier,"position":point,"patrol_center":point,"roam_phase":float(posmod(hash(id+":phase"),628))/100.0,"roam_radius":maxf(64.0,length*.35),"formation_version":1,"heading":Vector2.UP,"turn_velocity":0.0,"speed":0.0,"hull":float(definition.hull_max),"hull_max":float(definition.hull_max),"level":1,"hostile":hostile,"warning":0.0,"cooldown":0.0,"retreat_until":0.0}
+			enemies[id]={"id":id,"ship_type_id":definition.id,"name":"Патруль · "+str(definition.name),"faction_id":race,"kind":"faction_patrol","encounter_group":group_id,"guard_tier":guard_tier,"position":point,"patrol_center":point,"roam_phase":float(posmod(hash(id+":phase"),628))/100.0,"roam_radius":maxf(64.0,length*.35),"formation_version":2,"heading":Vector2.UP,"turn_velocity":0.0,"speed":0.0,"hull":float(definition.hull_max),"hull_max":float(definition.hull_max),"level":1,"hostile":hostile,"warning":0.0,"cooldown":0.0,"retreat_until":0.0}
+
+func _repair_patrol_anchors(ports: Dictionary) -> void:
+	# Older saves placed patrols at the origin because Vector2i port coordinates
+	# were read as zero. Repair loaded ports even outside the spawning radius.
+	var battle_ids: Array = GameState.combat_state.get("naval_battle", {}).get("enemy_ids", []) if active() else []
+	for enemy in GameState.combat_state.get("naval_enemies", {}).values():
+		var id: String = str(enemy.get("id", ""))
+		if not _patrol_anchor_pending(enemy) or float(enemy.get("hull", 0)) <= 0 or battle_ids.has(id):
+			continue
+		var group_id: String = str(enemy.get("encounter_group", id))
+		var port: Dictionary = ports.get(group_id.trim_prefix("patrol_"), {})
+		if port.is_empty():
+			continue
+		var center: Vector2 = vector(port.get("position", Vector2.ZERO))
+		var length: float = float(_visuals.get(str(enemy.get("ship_type_id", "")), {}).get("display_length", 5.1)) / .04
+		var phase: float = float(posmod(hash(group_id + ":formation"), 628)) / 100.0
+		var slot: int = maxi(0, id.trim_prefix(group_id + "_").to_int() - 1) if id != group_id else 0
+		var anchor: Vector2 = center + Vector2.from_angle(phase + slot * TAU / 3.0) * maxf(float(_rules.get("patrol_roam_radius", 140.0)), length * 1.4)
+		var point: Vector2 = _military._spawn_position(anchor, length, _enemy_spawn_obstacles(id)) if _military != null else anchor
+		if not point.is_finite():
+			continue
+		enemy["position"] = point
+		enemy["patrol_center"] = point
+		enemy["encounter_group"] = group_id
+		enemy["kind"] = "faction_patrol"
+		enemy["roam_phase"] = float(posmod(hash(id + ":phase"), 628)) / 100.0
+		enemy["roam_radius"] = maxf(64.0, length * .35)
+		enemy["speed"] = 0.0
+		enemy["formation_version"] = 2
 
 func protected_port_guard_tier(port_id: String) -> int:
 	if port_id == "" or _main == null:
@@ -681,7 +707,7 @@ func _sync_guard_revolts() -> void:
 func _enemy_spawn_obstacles(id: String) -> Array:
 	var obstacles: Array = _military._obstacles(id) if _military!=null else []
 	for other in GameState.combat_state.get("naval_enemies",{}).values():
-		if str(other.get("id",""))==id or not _enemy_alive(other): continue
+		if str(other.get("id",""))==id or _patrol_anchor_pending(other) or not _enemy_alive(other): continue
 		var length: float=float(_visuals.get(str(other.get("ship_type_id","")),{}).get("display_length",5.1))/.04
 		obstacles.append({"id":str(other.get("id","")),"position":vector(other.get("position",Vector2.ZERO)),"length":length})
 	return obstacles
@@ -725,7 +751,7 @@ func _step_world_patrols(delta: float) -> void:
 	var player: Vector2=vector(GameState.ship_state.get("position",Vector2.ZERO))
 	var docked: bool=str(GameState.ship_state.get("docked_port_id",""))!=""
 	for enemy in GameState.combat_state.get("naval_enemies",{}).values():
-		if not _enemy_alive(enemy): continue
+		if _patrol_anchor_pending(enemy) or not _enemy_alive(enemy): continue
 		var current: Vector2=vector(enemy.get("position",Vector2.ZERO))
 		var pirate: bool=str(enemy.get("kind",""))=="pirate"
 		var target: Vector2
@@ -771,7 +797,7 @@ func _world_patrol_segment_clear(id: String, from: Vector2, to: Vector2, length:
 	if _military!=null and _military._blocked(from,to,length): return false
 	var obstacles: Array[Dictionary]=[{"id":"player","position":vector(GameState.ship_state.get("position",Vector2.ZERO)),"length":float(_visuals.get(str(GameState.ship_state.get("ship_id","ship_sloop")),{}).get("display_length",3.48))/.04}]
 	for other in GameState.combat_state.get("naval_enemies",{}).values():
-		if str(other.get("id",""))!=id and _enemy_alive(other):
+		if str(other.get("id",""))!=id and not _patrol_anchor_pending(other) and _enemy_alive(other):
 			obstacles.append({"id":str(other.get("id","")),"position":vector(other.get("position",Vector2.ZERO)),"length":float(_visuals.get(str(other.get("ship_type_id","")),{}).get("display_length",5.1))/.04})
 	for other in obstacles:
 		var center: Vector2=vector(other.position)
@@ -1073,6 +1099,7 @@ func get_enemy_snapshots() -> Array[Dictionary]:
 		# Once a target enters combat, keep it in both the world and tactical map
 		# even if a stale patrol-retreat timer was saved before battle began.
 		var participating: bool = active_enemy_ids.has(str(enemy.get("id","")))
+		if not participating and _patrol_anchor_pending(enemy): continue
 		var sink: float=sinking_progress(enemy)
 		if (float(enemy.get("hull",0))<=0 and (not participating or sink>=1.0)) or (not participating and not _enemy_alive(enemy)): continue
 		var pirate: bool=str(enemy.get("kind",""))=="pirate"

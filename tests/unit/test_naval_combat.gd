@@ -191,6 +191,58 @@ func test_hostile_can_attack_only_ready_escort() -> void:
 	for index in 20: navy._detect_hostile()
 	assert_false(navy.active())
 
+func test_integer_port_coordinates_keep_patrols_at_their_port() -> void:
+	var port_position := Vector2i(1800, 900)
+	assert_eq(navy.vector(port_position), Vector2(port_position))
+	main._navigation_world.ports["foreign"] = {"id":"foreign", "position":port_position}
+	GameState.combat_state.naval_enemies = {}
+	GameState.ship_state.position = Vector2(port_position)
+	_sea()
+	navy._ensure_patrols()
+	assert_gt(GameState.combat_state.naval_enemies.size(), 0)
+	for enemy in GameState.combat_state.naval_enemies.values():
+		assert_lt(navy.vector(enemy.position).distance_to(Vector2(port_position)), 1200.0, "patrols spawn near the actual integer-coordinate port")
+		assert_eq(int(enemy.formation_version), 2)
+	GameState.combat_state.naval_enemies = {}
+	main._navigation_world.ports["foreign"].position = Vector2i(12000, 9000)
+	GameState.ship_state.position = Vector2.ZERO
+	navy._ensure_patrols()
+	assert_eq(GameState.combat_state.naval_enemies.size(), 0, "far ports do not spawn fleets around the origin")
+
+func test_old_patrol_cluster_is_relocated_without_resetting_battles_or_losses() -> void:
+	var port_position := Vector2i(12000, 9000)
+	main._navigation_world.ports["foreign"] = {"id":"foreign", "position":port_position}
+	GameState.combat_state.naval_enemies = {
+		"patrol_foreign":{"id":"patrol_foreign", "ship_type_id":"war_surr_1", "position":Vector2.ZERO, "hull":73.0, "retreat_until":200.0, "formation_version":1},
+		"patrol_foreign_2":{"id":"patrol_foreign_2", "encounter_group":"patrol_foreign", "ship_type_id":"war_surr_1", "position":Vector2(300, 0), "hull":280.0, "formation_version":1},
+		"pirates_1_1":{"id":"pirates_1_1", "kind":"pirate", "ship_type_id":"war_humans_1", "position":Vector2(500, 0), "hull":280.0}
+	}
+	GameState.combat_state.naval_battle = {"active":true, "enemy_ids":["patrol_foreign_2"]}
+	navy._repair_patrol_anchors(main._navigation_world.ports)
+	var repaired: Dictionary = GameState.combat_state.naval_enemies.patrol_foreign
+	assert_lt(navy.vector(repaired.position).distance_to(Vector2(port_position)), 1200.0)
+	assert_eq(repaired.patrol_center, repaired.position)
+	assert_eq(repaired.hull, 73.0, "migration preserves damage")
+	assert_eq(repaired.retreat_until, 200.0, "migration preserves the truce cooldown")
+	assert_eq(repaired.encounter_group, "patrol_foreign")
+	assert_eq(GameState.combat_state.naval_enemies.patrol_foreign_2.position, Vector2(300, 0), "active battle participants are not teleported")
+	assert_eq(GameState.combat_state.naval_enemies.pirates_1_1.position, Vector2(500, 0))
+	GameState.combat_state.naval_battle = {}
+	navy._repair_patrol_anchors(main._navigation_world.ports)
+	assert_lt(navy.vector(GameState.combat_state.naval_enemies.patrol_foreign_2.position).distance_to(Vector2(port_position)), 1200.0, "deferred repair runs after the battle")
+
+func test_unloaded_legacy_patrol_cannot_appear_or_attack_at_the_wrong_location() -> void:
+	_sea()
+	GameState.combat_state.naval_enemies = {
+		"patrol_unloaded":{"id":"patrol_unloaded", "name":"Старый патруль", "faction_id":"surr", "ship_type_id":"war_surr_1", "position":Vector2(100, 0), "hull":280.0, "hull_max":280.0, "formation_version":1}
+	}
+	assert_eq(navy.nearby_enemies().size(), 0)
+	assert_eq(navy.get_enemy_snapshots().size(), 0)
+	navy._step_world_patrols(1.0)
+	assert_eq(GameState.combat_state.naval_enemies.patrol_unloaded.position, Vector2(100, 0))
+	GameState.combat_state.naval_battle = {"active":true, "enemy_ids":["patrol_unloaded"]}
+	assert_eq(navy.get_enemy_snapshots().size(), 1, "a current battle remains visible until deferred migration")
+
 func test_foreign_patrols_spawn_in_groups_of_one_to_three() -> void:
 	main._navigation_world.ports["foreign"]={"id":"foreign","position":Vector2(500,0),"faction_id":"humans"}
 	_sea(); navy._ensure_patrols()
