@@ -74,7 +74,14 @@ func initialize(main: Node) -> void:
 		plot.pressed.connect(_activate.bind(index))
 		plot.tooltip_text = "Построить: " + NAMES[index]
 		container.add_child(plot)
-		_sites.append({"container":container,"sprite":sprite,"annex":annex,"tower":tower,"scaffold":scaffold,"plot":plot})
+		var progress := ProgressBar.new()
+		progress.max_value = 100.0
+		progress.show_percentage = true
+		progress.custom_minimum_size = Vector2(100,18)
+		progress.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		progress.z_index = 10
+		container.add_child(progress)
+		_sites.append({"container":container,"sprite":sprite,"annex":annex,"tower":tower,"scaffold":scaffold,"plot":plot,"progress":progress})
 	# Foreground buildings and their upgrades share the same drawing/click order.
 	for building_id in ["warehouse", "workshop"]:
 		_art.move_child(_sites[BUILDINGS.find(building_id)].container, -1)
@@ -174,6 +181,8 @@ func _layout() -> void:
 		site.tower.size = size * .67
 		site.scaffold.size = size
 		site.plot.position = Vector2(size.x*.5-18,size.y*.78)
+		site.progress.position = Vector2(size.x*.25,size.y*.86)
+		site.progress.size = Vector2(size.x*.5,18.0*factor)
 	_footer.reset_size()
 	_footer.scale = Vector2.ONE * minf(1.0,(screen.x-20)/maxf(1,_footer.size.x))
 	_footer.position = Vector2((screen.x-_footer.size.x*_footer.scale.x)*.5,screen.y-51)
@@ -252,6 +261,16 @@ func _refresh_buildings() -> void:
 		for project in projects:
 			if str(project.get("building_id", "")) == building_id and int(project.get("started_at_unix", 0)) > 0: underway = true
 		site.scaffold.visible = underway
+		site.progress.visible = underway
+		if underway:
+			var project_system: Node = _main.get_node_or_null("BuildingProjectSystem")
+			for project in projects:
+				if str(project.get("building_id", "")) != building_id or int(project.get("started_at_unix", 0)) <= 0:
+					continue
+				var duration: float = maxf(1.0, float(project.get("duration_sec", 1)))
+				var remaining: int = int(project_system.get_project_time_left(project)) if project_system != null else int(duration)
+				site.progress.value = clampf((1.0 - float(remaining) / duration) * 100.0, 0.0, 100.0)
+				break
 		site.plot.visible = not built and _construction
 		site.sprite.tooltip_text = "%s · уровень %d\n%s" % [NAMES[index],level,"Улучшить" if _construction else "Открыть"]
 		if _home and site.sprite.visible:
