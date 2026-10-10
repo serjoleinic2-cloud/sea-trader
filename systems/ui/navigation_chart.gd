@@ -12,6 +12,7 @@ var _fleet_traffic: Node
 var _world_data: Dictionary = {}
 var _map_zoom: float = 0.12
 var _map_center: Vector2 = Vector2.ZERO
+var _map_rotation_angle: float = 0.0
 var _follow_active_ship: bool = true
 var _dragging: bool = false
 var _redraw_clock: float = 0.0
@@ -23,6 +24,10 @@ func initialize(port_system: Node) -> void:
 	if _world_renderer != null and _world_renderer.has_method("get_world_map_data"):
 		_world_data = _world_renderer.get_world_map_data()
 	_map_center = Vector2(GameState.ship_state.get("position", Vector2.ZERO))
+	var velocity: Vector2 = Vector2(GameState.ship_state.get("velocity", Vector2.ZERO))
+	var heading: float = float(GameState.ship_state.get("heading", -PI * 0.5))
+	var course: Vector2 = velocity.normalized() if velocity.length_squared() > 4.0 else Vector2(cos(heading), sin(heading))
+	_map_rotation_angle = Vector2.UP.angle() - course.angle()
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	clip_contents = true
 	queue_redraw()
@@ -36,6 +41,9 @@ func center_on_ship() -> void:
 
 func _process(delta: float) -> void:
 	_redraw_clock += delta
+	var velocity: Vector2 = Vector2(GameState.ship_state.get("velocity", Vector2.ZERO))
+	if velocity.length_squared() > 4.0:
+		_map_rotation_angle = Vector2.UP.angle() - velocity.angle()
 	if _redraw_clock >= 0.25:
 		_redraw_clock = 0.0
 		if _follow_active_ship:
@@ -313,16 +321,7 @@ func _draw_compass(chart_rect: Rect2) -> void:
 
 
 func _map_rotation() -> float:
-	var direction := _course_direction()
-	return Vector2.UP.angle() - direction.angle()
-
-
-func _course_direction() -> Vector2:
-	var velocity: Vector2 = Vector2(GameState.ship_state.get("velocity", Vector2.ZERO))
-	if velocity.length_squared() > 4.0:
-		return velocity.normalized()
-	var heading: float = float(GameState.ship_state.get("heading", -PI * 0.5))
-	return Vector2(cos(heading), sin(heading)).normalized()
+	return _map_rotation_angle
 
 
 func _to_chart(world_point: Vector2) -> Vector2:
