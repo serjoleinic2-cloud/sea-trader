@@ -580,6 +580,8 @@ func _ensure_patrols() -> void:
 		var guard_tier: int = protected_port_guard_tier(str(key))
 		if guard_tier > 0 and bool(saved_port.get("guard_fleet_defeated", false)):
 			continue
+		if guard_tier > 0 and _captain_command_rank() < port_guard_required_rank(str(key)):
+			continue
 		var race: String = resolver.resolve(port,int(GameState.world_state.seed))
 		var player_race: String=str(GameState.player_state.get("origin_race_id","humans"))
 		if race==player_race:
@@ -595,6 +597,8 @@ func _ensure_patrols() -> void:
 		var group_phase: float=float(posmod(hash(group_id+":formation"),628))/100.0
 		for index in count:
 			var id: String=group_id if index==0 else "%s_%d" % [group_id,index+1]
+			if enemies.has(id) and guard_tier > 0 and not (active() and GameState.combat_state.naval_battle.enemy_ids.has(id)) and int(enemies[id].get("guard_tier", 0)) != guard_tier:
+				enemies.erase(id)
 			if enemies.has(id):
 				if float(enemies[id].get("retreat_until",0))>_clock or active() and GameState.combat_state.naval_battle.enemy_ids.has(id): continue
 				if float(enemies[id].get("hull",0))>0:
@@ -614,7 +618,7 @@ func _ensure_patrols() -> void:
 			var anchor: Vector2=center+Vector2.from_angle(angle)*maxf(float(_rules.get("patrol_roam_radius",140.0)),length*1.4)
 			var point: Vector2=_military._spawn_position(anchor,length,_enemy_spawn_obstacles(id)) if _military!=null else anchor
 			if not point.is_finite(): continue
-			enemies[id]={"id":id,"ship_type_id":definition.id,"name":"Патруль · "+str(definition.name),"faction_id":race,"kind":"faction_patrol","encounter_group":group_id,"position":point,"patrol_center":point,"roam_phase":float(posmod(hash(id+":phase"),628))/100.0,"roam_radius":maxf(64.0,length*.35),"formation_version":1,"heading":Vector2.UP,"turn_velocity":0.0,"speed":0.0,"hull":float(definition.hull_max),"hull_max":float(definition.hull_max),"level":1,"hostile":hostile,"warning":0.0,"cooldown":0.0,"retreat_until":0.0}
+			enemies[id]={"id":id,"ship_type_id":definition.id,"name":"Патруль · "+str(definition.name),"faction_id":race,"kind":"faction_patrol","encounter_group":group_id,"guard_tier":guard_tier,"position":point,"patrol_center":point,"roam_phase":float(posmod(hash(id+":phase"),628))/100.0,"roam_radius":maxf(64.0,length*.35),"formation_version":1,"heading":Vector2.UP,"turn_velocity":0.0,"speed":0.0,"hull":float(definition.hull_max),"hull_max":float(definition.hull_max),"level":1,"hostile":hostile,"warning":0.0,"cooldown":0.0,"retreat_until":0.0}
 
 func protected_port_guard_tier(port_id: String) -> int:
 	if port_id == "" or _main == null:
@@ -622,29 +626,35 @@ func protected_port_guard_tier(port_id: String) -> int:
 	var ports: Dictionary = _main.get("_navigation_world").get("ports", {})
 	if not ports.has(port_id) or port_id == str(GameState.world_state.get("home_port_id", "")):
 		return 0
-	var port: Dictionary = ports[port_id]
 	var saved: Dictionary = GameState.port_state.get(port_id, {})
 	if bool(saved.get("captured_by_player", false)):
 		return 0
 	var seed_value: int = int(GameState.world_state.get("seed", 0))
 	if posmod(hash("%s:%d:naval-guard" % [port_id, seed_value]), 4) != 0:
 		return 0
-	var home_id: String = str(GameState.world_state.get("home_port_id", ""))
-	var home_position: Vector2 = Vector2(ports.get(home_id, {}).get("position", GameState.ship_state.get("position", Vector2.ZERO)))
-	var distance: float = home_position.distance_to(vector(port.get("position", Vector2.ZERO)))
-	if distance < 2500.0:
-		return 0
-	# The project has no separate player-level progression. Guard strength grows
-	# with exploration distance, so nearby ports stay approachable and distant
-	# protected harbors become progressively harder to take.
-	return clampi(1 + floori(maxf(distance - 2500.0, 0.0) / 8000.0), 1, 3)
+	return 1 + posmod(hash("%s:%d:naval-guard-tier" % [port_id, seed_value]), 3)
+
+func port_guard_required_rank(port_id: String) -> int:
+	var tier: int = protected_port_guard_tier(port_id)
+	return 0 if tier <= 0 else 11 + (tier - 1) * 10
+
+func _captain_command_rank() -> int:
+	var systems: Array[Node] = get_tree().get_nodes_in_group("career_system")
+	return int(systems[0].get_command_rank()) if not systems.is_empty() else 1
 
 func port_entry_status(port_id: String) -> Dictionary:
 	var tier: int = protected_port_guard_tier(port_id)
 	var state: Dictionary = GameState.port_state.get(port_id, {})
 	var protected: bool = tier > 0
 	var blocked: bool = protected and not bool(state.get("guard_fleet_defeated", false))
-	return {"protected": protected, "blocked": blocked, "tier": tier, "message": "Порт закрыт: победите охранный флот %d-го ранга, затем можно входить и торговать." % tier if blocked else ""}
+	var required_rank: int = port_guard_required_rank(port_id)
+	var current_rank: int = _captain_command_rank()
+	var message: String = ""
+	if blocked and current_rank < required_rank:
+		message = "Порт закрыт до %d-го ранга капитана." % required_rank
+	elif blocked:
+		message = "Победите охранный флот %d-го ранга, затем можно входить и торговать." % tier
+	return {"protected": protected, "blocked": blocked, "tier": tier, "rank_required": required_rank, "rank_current": current_rank, "message": message}
 
 func _sync_guard_revolts() -> void:
 	var seen: Dictionary = GameState.combat_state.get("naval_guard_revolt_seen", {})

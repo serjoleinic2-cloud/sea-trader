@@ -122,7 +122,7 @@ func _process(_delta: float) -> void:
 		var candidate: String = str(_port_system.get_dock_candidate())
 		var entry_status: Dictionary = _port_system.port_entry_status(candidate) if _port_system.has_method("port_entry_status") else {}
 		if bool(entry_status.get("blocked", false)):
-			_course.text += " · ОХРАНА: победите флот [Z]"
+			_course.text += " · " + ("НУЖЕН РАНГ %d" % int(entry_status.get("rank_required", 1)) if int(entry_status.get("rank_current", 1)) < int(entry_status.get("rank_required", 1)) else "ОХРАНА: ПОБЕДИТЕ ФЛОТ [Z]")
 			_course.tooltip_text = str(entry_status.get("message", "Порт охраняется военным флотом."))
 		else:
 			_course.text += " · E: швартовка"
