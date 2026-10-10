@@ -506,7 +506,7 @@ func _build_employee_training(employee: Dictionary) -> void:
 	var employee_id := str(employee.get("employee_instance_id", ""))
 	var catalog: Dictionary = _system.get_skill_catalog()
 	var learned: Array = employee.get("skills", [])
-	var living := _system.is_living_employee(employee)
+	var living: bool = bool(_system.is_living_employee(employee))
 	var scroll_inventory: Dictionary = _system.get_training_scroll_inventory()
 	for entry in learned:
 		var skill_id := str(entry.get("id", ""))
@@ -522,7 +522,7 @@ func _build_employee_training(employee: Dictionary) -> void:
 		bar.value = progress
 		bar.custom_minimum_size.y = 12
 		_employee_actions.add_child(bar)
-		var scroll_type := _system.get_training_scroll_type_for_skill(skill_id)
+		var scroll_type: String = str(_system.get_training_scroll_type_for_skill(skill_id))
 		var scroll_definition: Dictionary = _system.get_training_scroll_catalog().get(scroll_type, {})
 		var scroll_count := int(scroll_inventory.get(scroll_type, 0))
 		if scroll_count > 0 and progress < 100:
