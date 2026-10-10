@@ -150,12 +150,12 @@ func _process(_delta: float) -> void:
 	_backdrop_haze.visible = _open
 	var viewport_size: Vector2 = get_viewport().get_visible_rect().size
 	var coordinator: Node = get_tree().root.find_child("WindowCoordinator", true, false)
-	var safe_top: float = maxf(72.0, float(coordinator.get("_top_height")) + 4.0) if coordinator != null else 72.0
+	var safe_top: float = maxf(72.0, float(coordinator.get("_top_height"))) if coordinator != null else 72.0
 	var available := Vector2(maxf(120.0, viewport_size.x - 32.0), maxf(120.0, viewport_size.y - safe_top - 16.0))
 	var art_size: Vector2 = _captain_portrait.texture.get_size() if _captain_portrait.texture != null else Vector2(16.0, 9.0)
 	var fit_scale: float = minf(available.x / maxf(1.0, art_size.x), available.y / maxf(1.0, art_size.y))
 	_panel.size = art_size * fit_scale
-	_panel.position = Vector2((viewport_size.x - _panel.size.x) * 0.5, safe_top + (available.y - _panel.size.y) * 0.5)
+	_panel.position = Vector2((viewport_size.x - _panel.size.x) * 0.5, safe_top)
 	_layout_cabin()
 	_update_race_identity()
 	if not _open:
