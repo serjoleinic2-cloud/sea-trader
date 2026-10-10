@@ -204,7 +204,7 @@ func _open_defense() -> void:
 	_open = false
 	var coordinators: Array[Node] = get_tree().get_nodes_in_group("window_coordinator")
 	if not coordinators.is_empty() and coordinators[0].has_method("_open_garrison"):
-		coordinators[0].call("_open_garrison")
+		coordinators[0].call("_open_garrison", true)
 
 func _create_crystal(crystal_id: String) -> void:
 	if _system == null:

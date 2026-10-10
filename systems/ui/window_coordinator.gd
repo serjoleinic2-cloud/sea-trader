@@ -570,12 +570,14 @@ func _hide_duplicate_close(node: Node) -> void:
 func _close_window(window: Node, flag: String) -> void:
 	window.set(flag, false)
 
-func _open_garrison() -> void:
+func _open_garrison(defense_tab: bool = false) -> void:
 	if str(GameState.ship_state.get("docked_port_id", "")) != str(GameState.world_state.get("home_port_id", "")):
 		return
 	var windows: Array[Node] = get_tree().get_nodes_in_group("garrison_window")
 	if not windows.is_empty() and windows[0].has_method("open"):
 		windows[0].call("open")
+		if defense_tab and windows[0].has_method("_open_defense"):
+			windows[0].call("_open_defense")
 
 func _open_tool(node_name: String, method: String) -> void:
 	var window: Node = _main.get_node_or_null(node_name)
