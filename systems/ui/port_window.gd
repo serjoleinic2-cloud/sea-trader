@@ -1284,31 +1284,37 @@ func _open_section(section_id: String) -> void:
 	if section_id == "hiring":
 		var windows: Array[Node] = get_tree().get_nodes_in_group("hiring_window")
 		if not windows.is_empty():
+			_collapse_port_overlay()
 			windows[0].open()
 		return
 	if section_id == "service":
 		var service_windows: Array[Node] = get_tree().get_nodes_in_group("port_service_window")
 		if not service_windows.is_empty():
+			_collapse_port_overlay()
 			service_windows[0].open()
 		return
 	if section_id == "contracts":
 		var contract_windows: Array[Node] = get_tree().get_nodes_in_group("work_hire_window")
 		if not contract_windows.is_empty():
+			_collapse_port_overlay()
 			contract_windows[0].open()
 		return
 	if section_id == "transport_contracts":
 		var transport_windows: Array[Node] = get_tree().get_nodes_in_group("transport_contract_window")
 		if not transport_windows.is_empty():
+			_collapse_port_overlay()
 			transport_windows[0].open()
 		return
 	if section_id == "logistics":
 		var logistics_windows: Array[Node] = get_tree().get_nodes_in_group("logistics_window")
 		if not logistics_windows.is_empty():
+			_collapse_port_overlay()
 			logistics_windows[0].open()
 		return
 	if section_id == "garrison":
 		var garrison_windows: Array[Node] = get_tree().get_nodes_in_group("garrison_window")
 		if not garrison_windows.is_empty():
+			_collapse_port_overlay()
 			garrison_windows[0].open()
 		return
 	_current_section = section_id
@@ -1348,6 +1354,13 @@ func _open_section(section_id: String) -> void:
 		_market_category = _get_initial_market_category(port_id)
 		_selected_market_resource_id = ""
 		_rebuild_market_list(port_id)
+
+func _collapse_port_overlay() -> void:
+	var coordinators: Array[Node] = get_tree().get_nodes_in_group("window_coordinator")
+	if coordinators.is_empty():
+		return
+	coordinators[0].set("_port_expanded", false)
+	coordinators[0].set("_details", "")
 
 func open_cargo_clearance() -> void:
 	var selected: String = ""

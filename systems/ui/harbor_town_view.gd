@@ -284,15 +284,20 @@ func _activate(index: int) -> void:
 	_open_section(str(actions.get(building,"construction")))
 
 func _open_special_window(node_name: String) -> void:
+	var window: Node = _main.get_node_or_null(node_name)
+	if window == null or not window.has_method("open"):
+		push_warning("Harbor building target is unavailable: %s" % node_name)
+		return
 	var coordinator: Node = _main.get_node("WindowCoordinator")
 	coordinator._close_all_workspaces()
-	var window: Node = _main.get_node_or_null(node_name)
-	if window != null and window.has_method("open"):
-		window.call("open")
+	coordinator.set("_port_expanded", false)
+	coordinator.set("_details", "")
+	window.call("open")
 
 func _open_section(section: String) -> void:
 	var coordinator: Node = _main.get_node("WindowCoordinator")
 	coordinator._close_all_workspaces()
+	coordinator.set("_details", "")
 	coordinator.set("_port_expanded", true)
 	_main.get_node("PortWindow")._open_section(section)
 
