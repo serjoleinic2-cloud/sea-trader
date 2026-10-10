@@ -9,6 +9,7 @@ var _level: Label
 var _shards: Label
 var _status: Label
 var _notice: Label
+var _upgrade_button: Button
 var _defense_button: Button
 var _cards: Dictionary = {}
 var _card_layout: BoxContainer
@@ -70,6 +71,12 @@ func _ready() -> void:
 	_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_status.add_theme_font_size_override("font_size", 18)
 	layout.add_child(_status)
+	_upgrade_button = Button.new()
+	_upgrade_button.custom_minimum_size.y = 48
+	_upgrade_button.add_theme_font_size_override("font_size", 17)
+	_upgrade_button.tooltip_text = "Открыть проект постройки или улучшения гильдии."
+	_upgrade_button.pressed.connect(_open_upgrade)
+	layout.add_child(_upgrade_button)
 	_defense_button = Button.new()
 	_defense_button.text = "ОТКРЫТЬ ОБОРОНУ И БАШНИ"
 	_defense_button.custom_minimum_size.y = 48
@@ -197,6 +204,22 @@ func _refresh() -> void:
 		else:
 			card.button.text = "СОЗДАТЬ КРИСТАЛЛ"
 	_defense_button.disabled = guild_level <= 0 or not _system.is_at_home()
+	_upgrade_button.text = "ПОСТРОИТЬ ГИЛЬДИЮ" if guild_level <= 0 else "УЛУЧШИТЬ ГИЛЬДИЮ · %d → %d" % [guild_level, guild_level + 1]
+	_upgrade_button.disabled = not _system.is_at_home() or guild_level >= 30
+
+func _open_upgrade() -> void:
+	if _system == null or not _system.is_at_home():
+		return
+	var projects: Array[Node] = get_tree().get_nodes_in_group("building_project_window")
+	if projects.is_empty() or not projects[0].has_method("open_for_building"):
+		return
+	var coordinators: Array[Node] = get_tree().get_nodes_in_group("window_coordinator")
+	if not coordinators.is_empty():
+		coordinators[0]._close_all_workspaces()
+		coordinators[0].set("_port_expanded", false)
+		coordinators[0].set("_details", "")
+	_open = false
+	projects[0].call("open_for_building", "mage_guild")
 
 func _open_defense() -> void:
 	if _system == null or not _system.is_at_home():
