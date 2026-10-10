@@ -404,8 +404,13 @@ func _step_ship(ship: Dictionary, index: int, delta: float) -> void:
 
 func get_vessel_snapshots() -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
+	var battle_ship_ids: Array = GameState.combat_state.get("naval_battle", {}).get("ship_ids", [])
 	for ship in vessels():
 		if not ship.get("autopilot",{}).is_empty(): continue
+		# Idle warships belong in the fleet/port UI. Their last escort position is
+		# only a saved formation snapshot and must not appear as a frozen ship at sea.
+		if not bool(ship.get("escort_enabled", false)) and not battle_ship_ids.has(str(ship.get("instance_id", ""))):
+			continue
 		var state: Dictionary = ship.get("escort_state",{})
 		if not bool(state.get("initialized",false)):continue
 		var position: Vector2 = _to_vector2(state.get("position", Vector2.ZERO), Vector2.ZERO)
