@@ -437,8 +437,9 @@ func rally() -> Dictionary:
 			var column: int = formation_index%2
 			var point: Vector2 = leader-forward*spacing*(2.2+row*2.2)+left*spacing*(1.1+column*2.0)
 			ship.escort_enabled=false; ship.naval_order={"kind":"rally","point":point}
-			if _military!=null: _military.clear_orders(id),"Общий сбор: корабли следуют к флагману.")
+			if _military!=null: _military.clear_orders(id)
 			formation_index += 1
+		,"Общий сбор: корабли следуют к флагману.")
 
 func propose_truce() -> Dictionary:
 	if not active(): return _result(false,"Бой уже завершён.")
