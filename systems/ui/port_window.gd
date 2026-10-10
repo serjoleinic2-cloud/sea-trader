@@ -1304,7 +1304,7 @@ func _open_section(section_id: String) -> void:
 		action_grid.add_theme_constant_override("h_separation", 8)
 		action_grid.add_theme_constant_override("v_separation", 8)
 		_building_list.add_child(action_grid)
-		for action in [["Заказы на перевозку", "transport_contracts"], ["Найм персонала", "hiring"], ["Ремонт и заправка", "service"], ["Работа в найм", "contracts"], ["Рейсы и торговые линии", "logistics"]]:
+		for action in [["Заказы на перевозку", "transport_contracts"], ["Персонал", "hiring"], ["Ремонт и заправка", "service"], ["Работа в найм", "contracts"], ["Рейсы и торговые линии", "logistics"]]:
 			var button: Button = Button.new()
 			button.text = action[0]
 			button.custom_minimum_size.y = 42

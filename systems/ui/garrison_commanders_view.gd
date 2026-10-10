@@ -303,7 +303,7 @@ func refresh(combat: Node) -> void:
 	_hero_name.text=str(candidate.get("name","Командир")); _hero_title.text=str(candidate.get("title",""))
 	_profile_heading.text=("ВАШ КОМАНДИР · %s" if _reserve_mode else "КАНДИДАТ · %s") % ("КОМАНДИР" if slot==0 else "ЗАМЕСТИТЕЛЬ")
 	_status.text=("РЕЗЕРВ · СЛОТ %d" if _reserve_mode else "КАНДИДАТ ВАШЕЙ РАСЫ · СЛОТ %d") % (slot+1)
-	_description.text="Выберите командира в резерве. Назначение бесплатно." if _reserve_mode else "Назначьте командира: бонусы усилят всю армию."
+	_description.text="Выберите командира в резерве. Назначение бесплатно." if _reserve_mode else "Главный командир и заместитель усиливают всю армию. Командир боевого корабля назначается отдельно и влияет только на это судно."
 	for key in _stats:
 		var value: float = float(candidate.get(str(key)+"_bonus",candidate.get(key,0)))
 		_stats[key].label.text="%+.1f%%" % value

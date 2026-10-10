@@ -181,9 +181,12 @@ func _add_active_ship_card() -> void:
 	box.add_child(details)
 
 func _open_active_crew() -> void:
-	var window: Node = get_parent().get_node_or_null("CrewWindow")
-	if window != null:
-		window.set("_is_open", true)
+	_open_personnel("active_ship", "trade")
+
+func _open_personnel(ship_id: String, personnel_mode: String) -> void:
+	var windows: Array[Node] = get_tree().get_nodes_in_group("hiring_window")
+	if not windows.is_empty() and windows[0].has_method("open_for_ship"):
+		windows[0].call("open_for_ship", ship_id, personnel_mode)
 
 func _add_auxiliary_ship_card(ship: Dictionary) -> void:
 	var box: VBoxContainer = _create_card()
@@ -276,6 +279,12 @@ func _add_transport_controls(box: VBoxContainer, ship: Dictionary) -> void:
 	label.set_meta("compact_description",true)
 	label.add_theme_font_size_override("font_size",14)
 	box.add_child(label)
+	var personnel_button := Button.new()
+	personnel_button.text = "ЭКИПАЖ И КОМАНДИР ТРАНСПОРТА"
+	personnel_button.custom_minimum_size.y = 40
+	personnel_button.tooltip_text = "Персонал этого военного транспортного корабля. Солдаты и орудия размещаются ниже."
+	personnel_button.pressed.connect(_open_personnel.bind(id, "military"))
+	box.add_child(personnel_button)
 	var available: bool = system._at_home(ship) and not system._locked(id)
 	var escort_status: Dictionary = system.get_escort_change_status(id)
 	var escort := Button.new()
@@ -392,7 +401,12 @@ func _add_selected_ship_actions() -> void:
 		stop_button.custom_minimum_size.y = 38
 		stop_button.pressed.connect(_stop_autopilot.bind(_selected_ship_id))
 		box.add_child(stop_button)
-	_add_auxiliary_crew_slots(box, ship)
+	var personnel_button := Button.new()
+	personnel_button.text = "ЭКИПАЖ И КОМАНДИР · УПРАВЛЕНИЕ ПЕРСОНАЛОМ"
+	personnel_button.custom_minimum_size.y = 42
+	personnel_button.tooltip_text = "Открыть единый раздел персонала для этого торгового корабля."
+	personnel_button.pressed.connect(_open_personnel.bind(_selected_ship_id, "trade"))
+	box.add_child(personnel_button)
 
 func _add_auxiliary_crew_slots(box: VBoxContainer, ship: Dictionary) -> void:
 	var crew_title: Label = Label.new()
@@ -566,25 +580,13 @@ func _add_naval_ship_card(ship: Dictionary) -> void:
 	_naval_button(row, "Улучшить корпус", available, func(): return navy.upgrade_ship(id))
 	_naval_button(row, "Ремонт", available, func(): return navy.repair_ship(id))
 	var commander: Dictionary = ship.commander
-	if commander.is_empty():
-		_naval_button(box, "Нанять военного командира · %d монет" % int(navy._rules.commander_cost), available, func(): return navy.hire_commander(id))
-	else:
-		var portrait := TextureRect.new()
-		var portrait_path: String = "res://assets/characters/crew/%s_officer.webp" % str(commander.race_id)
-		portrait.texture = load(portrait_path) as Texture2D
-		portrait.custom_minimum_size = Vector2(100, 100)
-		portrait.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		(box.get_meta("portrait_column") as Control).add_child(portrait)
-		var officer := Label.new()
-		officer.text = "%s · уровень %d · очков навыков %d" % [str(commander.name), int(commander.level), int(commander.skill_points)]
-		officer.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		box.add_child(officer)
-		var skills := HBoxContainer.new()
-		box.add_child(skills)
-		for skill in ["gunnery", "accuracy", "reload"]:
-			var label: String = {"gunnery":"Урон", "accuracy":"Точность", "reload":"Заряжание"}[skill]
-			_naval_button(skills, "%s %d +" % [label, int(commander.skills.get(skill, 0))], available and int(commander.skill_points)>0, func(): return navy.train_skill(id, skill))
+	var personnel_button := Button.new()
+	personnel_button.text = "КОМАНДИР И ЭКИПАЖ · %s" % (str(commander.get("name", "назначить командира")) if not commander.is_empty() else "НАНЯТЬ И НАЗНАЧИТЬ")
+	personnel_button.custom_minimum_size.y = 42
+	personnel_button.disabled = not available
+	personnel_button.tooltip_text = "Командир и экипаж этого боевого корабля; командир влияет только на это судно."
+	personnel_button.pressed.connect(_open_personnel.bind(id, "military"))
+	box.add_child(personnel_button)
 	var installed: int=0
 	for gun in ship.guns:
 		if not gun.is_empty(): installed+=1

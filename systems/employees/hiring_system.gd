@@ -98,6 +98,8 @@ func get_active_ship_option() -> Dictionary:
 	return {
 		"id": "active_ship",
 		"name": str(definition.get("name", "Текущий корабль")),
+		"ship_type_id": ship_id,
+		"warship": bool(definition.get("warship", false)) or ship_id == "ship_combat_cutter",
 		"crew_count": crew.size(),
 		"min_crew": maxi(0, int(limits.get("min_crew", 1)) - 1), # The player occupies the command position.
 		"max_crew": int(limits.get("max_crew", 1)),
@@ -115,6 +117,8 @@ func get_ship_options() -> Array:
 		result.append({
 			"id": str(ship.get("instance_id", "")),
 			"name": str(ship.get("name", definition.get("name", "Корабль"))),
+			"ship_type_id": str(ship.get("ship_type_id", "")),
+			"warship": bool(definition.get("warship", false)) or str(ship.get("ship_type_id", "")) == "ship_combat_cutter",
 			"crew_count": crew_count,
 			"min_crew": int(definition.get("min_crew", 1)),
 			"max_crew": int(definition.get("max_crew", 1)),
@@ -202,26 +206,44 @@ func hire(candidate_id: String, voyages: int, target_ship_id: String = "active_s
 	return {"ok": true, "message": message + " Сотрудник назначен на «%s»." % str(ship.get("name", "корабль"))}
 
 func dismiss(employee_id: String) -> Dictionary:
-	var raw_crew: Variant = GameState.ship_state.get("crew", [])
-	var crew_ids: Array = raw_crew if raw_crew is Array else []
-	if not crew_ids.has(employee_id):
-		return {"ok": false, "message": "Сотрудник не назначен на этот корабль."}
-	var retained_employees: Array = []
-	var found: bool = false
+	var employee: Dictionary = {}
 	for raw_employee in GameState.employee_state:
-		var employee: Dictionary = raw_employee
-		if str(employee.get("employee_instance_id", "")) == employee_id:
-			found = true
-			continue
-		retained_employees.append(employee)
-	if not found:
+		if str(raw_employee.get("employee_instance_id", "")) == employee_id:
+			employee = raw_employee
+			break
+	if employee.is_empty():
 		return {"ok": false, "message": "Сотрудник не найден."}
-	crew_ids.erase(employee_id)
+	var active_crew: Array = GameState.ship_state.get("crew", [])
+	var assigned: bool = active_crew.has(employee_id)
+	for vessel in GameState.fleet_state:
+		var vessel_crew: Array = vessel.get("crew", [])
+		if vessel_crew.has(employee_id):
+			assigned = true
+	if not assigned:
+		return {"ok": false, "message": "Сотрудник уже освобождён от экипажа."}
+	var old_employees: Array = GameState.employee_state.duplicate(true)
+	var old_fleet: Array = GameState.fleet_state.duplicate(true)
+	var old_active_crew: Array = GameState.ship_state.get("crew", []).duplicate(true)
+	for index in range(GameState.fleet_state.size()):
+		var vessel: Dictionary = GameState.fleet_state[index]
+		var crew: Array = vessel.get("crew", []).duplicate()
+		crew.erase(employee_id)
+		vessel["crew"] = crew
+		GameState.fleet_state[index] = vessel
+	active_crew.erase(employee_id)
+	GameState.ship_state["crew"] = active_crew
+	var retained_employees: Array = []
+	for raw_employee in GameState.employee_state:
+		if str(raw_employee.get("employee_instance_id", "")) != employee_id:
+			retained_employees.append(raw_employee)
 	GameState.employee_state = retained_employees
-	GameState.ship_state["crew"] = crew_ids
+	if not SaveSystem.save_game():
+		GameState.employee_state = old_employees
+		GameState.fleet_state = old_fleet
+		GameState.ship_state["crew"] = old_active_crew
+		return {"ok": false, "message": "Не удалось сохранить увольнение."}
 	EventBus.employee_fired.emit(employee_id)
-	SaveSystem.save_game()
-	return {"ok": true, "message": "Сотрудник уволен, место освобождено."}
+	return {"ok": true, "message": "%s уволен, место в экипаже освобождено." % str(employee.get("name", "Сотрудник"))}
 
 func choose_skill(employee_id: String, skill_id: String) -> Dictionary:
 	if not _skills.has(skill_id):

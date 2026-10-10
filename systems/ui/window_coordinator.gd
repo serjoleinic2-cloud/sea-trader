@@ -98,6 +98,7 @@ func initialize(main: Node) -> void:
 	_toolbar.add_child(fleet_hub)
 	_add_toolbar_button({"label": "КАПИТАН", "node_name": "CaptainCabinet", "icon": "captain"})
 	_add_toolbar_button({"label": "ЗАДАНИЯ", "node_name": "TransportContractWindow", "icon": "tasks"})
+	_add_toolbar_button({"label": "ПЕРСОНАЛ", "node_name": "HiringWindow", "method": "open"})
 	var navigation: Array = []
 	for window in main.get_children():
 		if window.has_meta("navigation"):
