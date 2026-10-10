@@ -13,6 +13,7 @@ var _world_data: Dictionary = {}
 var _map_zoom: float = 0.12
 var _map_center: Vector2 = Vector2.ZERO
 var _map_rotation_angle: float = 0.0
+var _course_up_mode: bool = false
 var _follow_active_ship: bool = true
 var _dragging: bool = false
 var _redraw_clock: float = 0.0
@@ -65,7 +66,14 @@ func _gui_input(event: InputEvent) -> void:
 			accept_event()
 			queue_redraw()
 		elif button.button_index == MOUSE_BUTTON_LEFT:
-			_dragging = button.pressed
+			if button.pressed:
+				if _compass_hit_rect().has_point(button.position):
+					_course_up_mode = not _course_up_mode
+					queue_redraw()
+				else:
+					_dragging = true
+			else:
+				_dragging = false
 			accept_event()
 	elif event is InputEventMouseMotion and _dragging:
 		var motion: InputEventMouseMotion = event
@@ -318,10 +326,17 @@ func _draw_compass(chart_rect: Rect2) -> void:
 		draw_line(compass_center + spoke * 6.0, compass_center + spoke * 19.0, Color("#b99a55"), 1.2, true)
 		var label_position: Vector2 = compass_center + spoke * 23.0 - Vector2(9.0, 6.0)
 		draw_string(ThemeDB.fallback_font, label_position, str(direction.label), HORIZONTAL_ALIGNMENT_CENTER, 18.0, 11, direction.color)
+	var mode_label: String = "КУРС ВВЕРХ" if _course_up_mode else "СЕВЕР ВВЕРХ"
+	draw_string(ThemeDB.fallback_font, compass_center + Vector2(-48.0, 44.0), mode_label, HORIZONTAL_ALIGNMENT_CENTER, 96.0, 9, Color("#e5d6aa"))
+	draw_string(ThemeDB.fallback_font, compass_center + Vector2(-48.0, 56.0), "КЛИК: ПОВОРОТ", HORIZONTAL_ALIGNMENT_CENTER, 96.0, 8, Color("#adbaa9"))
+
+
+func _compass_hit_rect() -> Rect2:
+	return Rect2(Vector2(size.x - 76.0, 38.0), Vector2(68.0, 68.0))
 
 
 func _map_rotation() -> float:
-	return _map_rotation_angle
+	return _map_rotation_angle if _course_up_mode else 0.0
 
 
 func _to_chart(world_point: Vector2) -> Vector2:
