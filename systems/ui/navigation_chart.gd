@@ -61,7 +61,7 @@ func _gui_input(event: InputEvent) -> void:
 			accept_event()
 	elif event is InputEventMouseMotion and _dragging:
 		var motion: InputEventMouseMotion = event
-		_map_center += Vector2(-motion.relative.x / _map_zoom, motion.relative.y / _map_zoom)
+		_map_center -= motion.relative.rotated(-_map_rotation()) / _map_zoom
 		_follow_active_ship = false
 		accept_event()
 		queue_redraw()
@@ -85,21 +85,18 @@ func _draw_grid(chart_rect: Rect2) -> void:
 	var grid_color := Color(0.48, 0.67, 0.63, 0.14)
 	var world_width: float = chart_rect.size.x / _map_zoom
 	var world_height: float = chart_rect.size.y / _map_zoom
-	var left: float = _map_center.x - world_width * 0.5
-	var top: float = _map_center.y + world_height * 0.5
+	var radius: float = Vector2(world_width, world_height).length() * 0.5
 	var spacing: float = 500.0
-	var first_x: int = floori(left / spacing)
-	var last_x: int = ceili((left + world_width) / spacing)
-	var first_y: int = floori((top - world_height) / spacing)
-	var last_y: int = ceili(top / spacing)
+	var first_x: int = floori((_map_center.x - radius) / spacing)
+	var last_x: int = ceili((_map_center.x + radius) / spacing)
+	var first_y: int = floori((_map_center.y - radius) / spacing)
+	var last_y: int = ceili((_map_center.y + radius) / spacing)
 	for grid_x in range(first_x, last_x + 1):
 		var world_x: float = float(grid_x) * spacing
-		var screen_x: float = chart_rect.get_center().x + (world_x - _map_center.x) * _map_zoom
-		draw_line(Vector2(screen_x, 0.0), Vector2(screen_x, size.y), grid_color, 1.0)
+		draw_line(_to_chart(Vector2(world_x, _map_center.y - radius)), _to_chart(Vector2(world_x, _map_center.y + radius)), grid_color, 1.0)
 	for grid_y in range(first_y, last_y + 1):
 		var world_y: float = float(grid_y) * spacing
-		var screen_y: float = chart_rect.get_center().y - (world_y - _map_center.y) * _map_zoom
-		draw_line(Vector2(0.0, screen_y), Vector2(size.x, screen_y), grid_color, 1.0)
+		draw_line(_to_chart(Vector2(_map_center.x - radius, world_y)), _to_chart(Vector2(_map_center.x + radius, world_y)), grid_color, 1.0)
 	draw_rect(chart_rect, Color("#79938a"), false, 2.0)
 
 
@@ -129,7 +126,7 @@ func _draw_islands(chart_rect: Rect2) -> void:
 			var angle: float = TAU * float(point_index) / 48.0
 			var irregularity: float = 1.0 + sin(angle * 3.0 + seed_value) * 0.07 + sin(angle * 5.0 - seed_value * 1.7) * 0.035
 			var point_radius: float = radius_px * irregularity
-			coastline.append(center + Vector2(cos(angle) * point_radius, -sin(angle) * point_radius))
+			coastline.append(center + Vector2(cos(angle), sin(angle)).rotated(_map_rotation()) * point_radius)
 		draw_colored_polygon(coastline, Color("#536d58"))
 		draw_polyline(coastline, Color("#b3ae78"), 2.0, true)
 		if not shared_coast.is_empty():
@@ -198,7 +195,7 @@ func _draw_route() -> void:
 func _draw_active_ship() -> void:
 	var position: Vector2 = _to_chart(Vector2(GameState.ship_state.get("position", Vector2.ZERO)))
 	var heading: float = float(GameState.ship_state.get("heading", -PI * 0.5))
-	var forward := Vector2(cos(heading), -sin(heading)).normalized()
+	var forward := Vector2(cos(heading), sin(heading)).rotated(_map_rotation()).normalized()
 	var side := Vector2(-forward.y, forward.x)
 	var points := PackedVector2Array([
 		position + forward * 17.0,
@@ -240,7 +237,7 @@ func _draw_fleet_ships() -> void:
 			visual_position += Vector2(float(column) * 12.0, float(row) * 12.0)
 			label_offset = Vector2(18.0 + float(column) * 90.0, 20.0 + float(row) * 22.0)
 		var heading: Vector2 = Vector2(vessel.get("heading", Vector2.UP))
-		var forward := Vector2(heading.x, -heading.y).normalized()
+		var forward := heading.rotated(_map_rotation()).normalized()
 		if forward.length_squared() < 0.001:
 			forward = Vector2.UP
 		var side := Vector2(-forward.y, forward.x)
@@ -268,7 +265,7 @@ func _draw_label(position: Vector2, text: String, color: Color) -> void:
 func _draw_chart_labels(chart_rect: Rect2) -> void:
 	draw_string(ThemeDB.fallback_font, Vector2(18.0, 25.0), "МОРСКАЯ КАРТА  ·  масштаб %.2f" % _map_zoom, HORIZONTAL_ALIGNMENT_LEFT, -1, 17, Color("#d6dfbe"))
 	_draw_port_legend()
-	draw_string(ThemeDB.fallback_font, Vector2(chart_rect.end.x - 30.0, 34.0), "N", HORIZONTAL_ALIGNMENT_LEFT, -1, 18, Color("#f0d779"))
+	_draw_compass(chart_rect)
 	var bar_world: float = 500.0
 	var bar_width: float = bar_world * _map_zoom
 	if bar_width > 24.0 and bar_width < size.x * 0.35:
@@ -298,6 +295,36 @@ func _draw_port_legend() -> void:
 		draw_string(ThemeDB.fallback_font, Vector2(origin.x + 15.0, y), str(labels[index].text), HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color("#d9e3d7"))
 
 
+func _draw_compass(chart_rect: Rect2) -> void:
+	var compass_center := Vector2(chart_rect.end.x - 42.0, 72.0)
+	draw_circle(compass_center, 31.0, Color(0.015, 0.035, 0.045, 0.82))
+	draw_arc(compass_center, 31.0, 0.0, TAU, 40, Color("#b99a55"), 1.5, true)
+	var directions: Array[Dictionary] = [
+		{"label": "С", "vector": Vector2.UP, "color": Color("#f0d779")},
+		{"label": "В", "vector": Vector2.RIGHT, "color": Color("#c7d4cd")},
+		{"label": "Ю", "vector": Vector2.DOWN, "color": Color("#c7d4cd")},
+		{"label": "З", "vector": Vector2.LEFT, "color": Color("#c7d4cd")}
+	]
+	for direction in directions:
+		var spoke: Vector2 = Vector2(direction.vector).rotated(_map_rotation())
+		draw_line(compass_center + spoke * 6.0, compass_center + spoke * 19.0, Color("#b99a55"), 1.2, true)
+		var label_position: Vector2 = compass_center + spoke * 23.0 - Vector2(9.0, 6.0)
+		draw_string(ThemeDB.fallback_font, label_position, str(direction.label), HORIZONTAL_ALIGNMENT_CENTER, 18.0, 11, direction.color)
+
+
+func _map_rotation() -> float:
+	var direction := _course_direction()
+	return Vector2.UP.angle() - direction.angle()
+
+
+func _course_direction() -> Vector2:
+	var velocity: Vector2 = Vector2(GameState.ship_state.get("velocity", Vector2.ZERO))
+	if velocity.length_squared() > 4.0:
+		return velocity.normalized()
+	var heading: float = float(GameState.ship_state.get("heading", -PI * 0.5))
+	return Vector2(cos(heading), sin(heading)).normalized()
+
+
 func _to_chart(world_point: Vector2) -> Vector2:
 	var middle: Vector2 = size * 0.5
-	return middle + Vector2(world_point.x - _map_center.x, -world_point.y + _map_center.y) * _map_zoom
+	return middle + (world_point - _map_center) * _map_zoom
