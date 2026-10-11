@@ -31,10 +31,9 @@ func _ready() -> void:
 	get_viewport().size_changed.connect(_layout)
 
 func enqueue_experience(amount: int, total: int) -> void:
-	if amount <= 0:
-		return
-	_toast_queue.append({"amount": amount, "total": total})
-	_show_next_toast()
+	# Career progress is continuous; avoid a disruptive toast for every small gain.
+	# Rank ceremonies still announce meaningful milestones.
+	return
 
 func enqueue_rank(rank: int, stage_name: String, experience: int, coins: int, milestone: bool) -> void:
 	var incoming := {"rank": rank, "stage_name": stage_name, "experience": experience, "coins": coins, "milestone": milestone, "rank_count": 1}
