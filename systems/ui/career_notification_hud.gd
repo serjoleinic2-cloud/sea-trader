@@ -19,7 +19,9 @@ var _ceremony_stage: Label
 var _ceremony_rank: Label
 var _ceremony_reward: Label
 var _rank_queue: Array[Dictionary] = []
+var _active_rank_event: Dictionary = {}
 var _was_paused := false
+var _closing_ceremony := false
 
 func _ready() -> void:
 	layer = 150
@@ -35,7 +37,16 @@ func enqueue_experience(amount: int, total: int) -> void:
 	_show_next_toast()
 
 func enqueue_rank(rank: int, stage_name: String, experience: int, coins: int, milestone: bool) -> void:
-	_rank_queue.append({"rank": rank, "stage_name": stage_name, "experience": experience, "coins": coins, "milestone": milestone})
+	var incoming := {"rank": rank, "stage_name": stage_name, "experience": experience, "coins": coins, "milestone": milestone, "rank_count": 1}
+	if _ceremony != null and _ceremony.visible:
+		_active_rank_event = _merge_rank_events(_active_rank_event, incoming)
+		_render_active_rank()
+		return
+	if not _rank_queue.is_empty():
+		var last_index := _rank_queue.size() - 1
+		_rank_queue[last_index] = _merge_rank_events(_rank_queue[last_index], incoming)
+	else:
+		_rank_queue.append(incoming)
 	_show_next_rank()
 
 func _process(delta: float) -> void:
@@ -149,6 +160,7 @@ func _build_ceremony() -> void:
 	_ceremony_reward = _label(22, Color("fff3d7"), stack)
 	_ceremony_reward.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	var continue_button := Button.new()
+	continue_button.name = "ContinueRankCelebration"
 	continue_button.text = "ПРОДОЛЖИТЬ"
 	continue_button.custom_minimum_size = Vector2(230, 54)
 	continue_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
@@ -203,17 +215,8 @@ func _show_next_rank() -> void:
 		return
 	if not _toast_queue.is_empty():
 		_toast.hide()
-	var event: Dictionary = _rank_queue.pop_front()
-	var rank := int(event.get("rank", 1))
-	_ceremony_stage.text = str(event.get("stage_name", "Матрос")).to_upper()
-	_ceremony_rank.text = "ЗВАНИЕ  ·  РАНГ %d" % rank
-	var reward := "НАГРАДА  ·  +%d МОНЕТ" % int(event.get("coins", 0))
-	if int(event.get("experience", 0)) > 0:
-		reward += "\nОпыт карьеры +%d" % int(event.get("experience", 0))
-	if bool(event.get("milestone", false)):
-		reward += "  ·  ЮБИЛЕЙНЫЙ РУБЕЖ"
-	_ceremony_reward.text = reward
-	_set_medal(_ceremony_medal, rank)
+	_active_rank_event = _rank_queue.pop_front()
+	_render_active_rank()
 	_was_paused = get_tree().paused
 	get_tree().paused = true
 	_ceremony.show()
@@ -226,12 +229,41 @@ func _show_next_rank() -> void:
 	_layout()
 
 func _close_ceremony() -> void:
-	if not _ceremony.visible:
+	if not _ceremony.visible or _closing_ceremony:
 		return
+	_closing_ceremony = true
 	_ceremony.hide()
 	get_tree().paused = _was_paused
 	_show_next_rank()
 	_show_next_toast()
+	_closing_ceremony = false
+
+func _merge_rank_events(previous: Dictionary, incoming: Dictionary) -> Dictionary:
+	var merged := previous.duplicate(true)
+	var incoming_rank := int(incoming.get("rank", 1))
+	if incoming_rank >= int(merged.get("rank", 0)):
+		merged["rank"] = incoming_rank
+		merged["stage_name"] = str(incoming.get("stage_name", "Матрос"))
+	merged["coins"] = int(merged.get("coins", 0)) + int(incoming.get("coins", 0))
+	merged["experience"] = int(merged.get("experience", 0)) + int(incoming.get("experience", 0))
+	merged["milestone"] = bool(merged.get("milestone", false)) or bool(incoming.get("milestone", false))
+	merged["rank_count"] = int(merged.get("rank_count", 1)) + int(incoming.get("rank_count", 1))
+	return merged
+
+func _render_active_rank() -> void:
+	var rank := int(_active_rank_event.get("rank", 1))
+	var rank_count := int(_active_rank_event.get("rank_count", 1))
+	_ceremony_stage.text = str(_active_rank_event.get("stage_name", "Матрос")).to_upper()
+	_ceremony_rank.text = "ЗВАНИЕ  ·  РАНГ %d" % rank
+	if rank_count > 1:
+		_ceremony_rank.text = "ПОВЫШЕНИЕ НА %d РАНГА  ·  ИТОГОВЫЙ РАНГ %d" % [rank_count, rank]
+	var reward := "НАГРАДА  ·  +%d МОНЕТ" % int(_active_rank_event.get("coins", 0))
+	if int(_active_rank_event.get("experience", 0)) > 0:
+		reward += "\nОпыт карьеры +%d" % int(_active_rank_event.get("experience", 0))
+	if bool(_active_rank_event.get("milestone", false)):
+		reward += "  ·  ЮБИЛЕЙНЫЙ РУБЕЖ"
+	_ceremony_reward.text = reward
+	_set_medal(_ceremony_medal, rank)
 
 func _set_medal(target: TextureRect, rank: int) -> void:
 	var atlas := load(MEDAL_ART) as Texture2D
