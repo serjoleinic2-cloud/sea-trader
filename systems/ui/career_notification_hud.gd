@@ -1,6 +1,6 @@
 extends CanvasLayer
 
-## Rank promotions use a dismissible full-screen ceremony. Experience stays a short toast.
+## Rank promotions use a dismissible full-screen ceremony; small experience gains stay silent.
 
 const MEDAL_ART := "res://assets/ui/ranks/career_medals.png"
 const CELEBRATION_ART := "res://assets/ui/ranks/rank_celebration_backdrop.png"
@@ -16,6 +16,7 @@ var _toast_tween: Tween
 var _ceremony: Control
 var _ceremony_medal: TextureRect
 var _ceremony_stage: Label
+var _ceremony_eyebrow: Label
 var _ceremony_rank: Label
 var _ceremony_reward: Label
 var _rank_queue: Array[Dictionary] = []
@@ -30,13 +31,13 @@ func _ready() -> void:
 	_build_ceremony()
 	get_viewport().size_changed.connect(_layout)
 
-func enqueue_experience(amount: int, total: int) -> void:
+func enqueue_experience(_amount: int, _total: int) -> void:
 	# Career progress is continuous; avoid a disruptive toast for every small gain.
 	# Rank ceremonies still announce meaningful milestones.
 	return
 
-func enqueue_rank(rank: int, stage_name: String, experience: int, coins: int, milestone: bool) -> void:
-	var incoming := {"rank": rank, "stage_name": stage_name, "experience": experience, "coins": coins, "milestone": milestone, "rank_count": 1}
+func enqueue_rank(rank: int, stage_name: String, experience: int, coins: int, milestone: bool, is_preview: bool = false) -> void:
+	var incoming := {"rank": rank, "stage_name": stage_name, "experience": experience, "coins": coins, "milestone": milestone, "rank_count": 1, "preview": is_preview}
 	if _ceremony != null and _ceremony.visible:
 		_active_rank_event = _merge_rank_events(_active_rank_event, incoming)
 		_render_active_rank()
@@ -141,9 +142,8 @@ func _build_ceremony() -> void:
 	stack.add_theme_constant_override("separation", 10)
 	stack.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_ceremony.add_child(stack)
-	var eyebrow := _label(19, Color("ffdda1"), stack)
-	eyebrow.text = "ТОРЖЕСТВЕННОЕ ПОВЫШЕНИЕ"
-	eyebrow.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_ceremony_eyebrow = _label(19, Color("ffdda1"), stack)
+	_ceremony_eyebrow.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_ceremony_stage = _label(42, Color("fff0cd"), stack)
 	_ceremony_stage.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_ceremony_stage.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -247,9 +247,12 @@ func _merge_rank_events(previous: Dictionary, incoming: Dictionary) -> Dictionar
 	merged["experience"] = int(merged.get("experience", 0)) + int(incoming.get("experience", 0))
 	merged["milestone"] = bool(merged.get("milestone", false)) or bool(incoming.get("milestone", false))
 	merged["rank_count"] = int(merged.get("rank_count", 1)) + int(incoming.get("rank_count", 1))
+	merged["preview"] = bool(previous.get("preview", false)) and bool(incoming.get("preview", false))
 	return merged
 
 func _render_active_rank() -> void:
+	var is_preview: bool = bool(_active_rank_event.get("preview", false))
+	_ceremony_eyebrow.text = "ВАША ПОЛУЧЕННАЯ НАГРАДА" if is_preview else "ТОРЖЕСТВЕННОЕ ПОВЫШЕНИЕ"
 	var rank := int(_active_rank_event.get("rank", 1))
 	var rank_count := int(_active_rank_event.get("rank_count", 1))
 	_ceremony_stage.text = str(_active_rank_event.get("stage_name", "Матрос")).to_upper()
@@ -257,6 +260,8 @@ func _render_active_rank() -> void:
 	if rank_count > 1:
 		_ceremony_rank.text = "ПОВЫШЕНИЕ НА %d РАНГА  ·  ИТОГОВЫЙ РАНГ %d" % [rank_count, rank]
 	var reward := "НАГРАДА  ·  +%d МОНЕТ" % int(_active_rank_event.get("coins", 0))
+	if is_preview:
+		reward = "МЕДАЛЬ И %d МОНЕТ УЖЕ ПОЛУЧЕНЫ" % int(_active_rank_event.get("coins", 0))
 	if int(_active_rank_event.get("experience", 0)) > 0:
 		reward += "\nОпыт карьеры +%d" % int(_active_rank_event.get("experience", 0))
 	if bool(_active_rank_event.get("milestone", false)):

@@ -13,6 +13,7 @@ var _brass_frame: Panel
 var _backdrop_haze: TextureRect
 var _close_button: Button
 var _rewards_button: Button
+var _replay_reward_button: Button
 var _rewards_overlay: PanelContainer
 var _rewards_summary: Label
 var _rewards_rows: VBoxContainer
@@ -51,17 +52,10 @@ func _ready() -> void:
 	add_child(_panel)
 	_captain_portrait = TextureRect.new()
 	_captain_portrait.name = "FullWindowCaptainCabinArt"
-	_captain_portrait.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	# Bleed the art beneath the brass overlay so its inset ornament never leaves
-	# a visible strip of the harbor between the image and the frame.
-	_captain_portrait.offset_left = -16.0
-	_captain_portrait.offset_top = -16.0
-	_captain_portrait.offset_right = 16.0
-	_captain_portrait.offset_bottom = 16.0
+	_captain_portrait.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
 	_captain_portrait.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	# Fill right through to the inner edge of the frame on every screen ratio;
-	# the source art fades to navy on that side, so slight aspect crops stay clean.
-	_captain_portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	# Size the entire image ourselves and crop only its bottom/left, never its top.
+	_captain_portrait.stretch_mode = TextureRect.STRETCH_SCALE
 	_captain_portrait.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_panel.add_child(_captain_portrait)
 	_brass_frame = Panel.new()
@@ -175,13 +169,8 @@ func _process(_delta: float) -> void:
 	var viewport_size: Vector2 = get_viewport().get_visible_rect().size
 	var coordinator: Node = get_tree().root.find_child("WindowCoordinator", true, false)
 	var safe_top: float = maxf(72.0, float(coordinator.get("_top_height"))) if coordinator != null else 72.0
-	var available := Vector2(maxf(120.0, viewport_size.x - 32.0), maxf(120.0, viewport_size.y - safe_top - 16.0))
-	var art_size: Vector2 = _captain_portrait.texture.get_size() if _captain_portrait.texture != null else Vector2(16.0, 9.0)
-	var fit_scale: float = minf(available.x / maxf(1.0, art_size.x), available.y / maxf(1.0, art_size.y))
-	_panel.size = art_size * fit_scale
-	_panel.position = Vector2((viewport_size.x - _panel.size.x) * 0.5, safe_top)
-	_layout_cabin()
 	_update_race_identity()
+	layout_for_viewport(viewport_size, safe_top)
 	if not _open:
 		return
 	var stats: Dictionary = GameState.player_state.get("stats", {})
@@ -207,9 +196,20 @@ func _process(_delta: float) -> void:
 	_label.text = "\n".join(lines)
 
 
+func layout_for_viewport(viewport_size: Vector2, safe_top: float) -> void:
+	_panel.scale = Vector2.ONE
+	_panel.size = Vector2(maxf(120.0, viewport_size.x - 32.0), maxf(120.0, viewport_size.y - safe_top - 16.0))
+	_panel.position = Vector2(16.0, safe_top)
+	_layout_cabin()
+
 func _layout_cabin() -> void:
 	if _left_panel == null:
 		return
+	if _captain_portrait.texture != null:
+		var art_size: Vector2 = _captain_portrait.texture.get_size()
+		var cover_scale: float = maxf(_panel.size.x / maxf(1.0, art_size.x), _panel.size.y / maxf(1.0, art_size.y))
+		_captain_portrait.size = art_size * cover_scale
+		_captain_portrait.position = Vector2(_panel.size.x - _captain_portrait.size.x, 0.0)
 	_left_panel.position = Vector2(18.0, 28.0)
 	_left_panel.size = Vector2(clampf(_panel.size.x * 0.39, 260.0, 420.0), maxf(1.0, _panel.size.y - 44.0))
 	if _rewards_overlay != null:
@@ -221,7 +221,7 @@ func _build_rewards_overlay() -> void:
 	_rewards_overlay.name = "CaptainRewardsOverlay"
 	_rewards_overlay.set_meta("preserve_art_style", true)
 	var surface := StyleBoxFlat.new()
-	surface.bg_color = Color("f20a1721")
+	surface.bg_color = Color("0a1721")
 	surface.border_color = Color("c89b4e")
 	surface.set_border_width_all(2)
 	surface.set_corner_radius_all(10)
@@ -263,6 +263,19 @@ func _build_rewards_overlay() -> void:
 	_rewards_rows.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_rewards_rows.add_theme_constant_override("separation", 3)
 	scroll.add_child(_rewards_rows)
+	_replay_reward_button = Button.new()
+	_replay_reward_button.name = "ReplayRankCeremonyButton"
+	_replay_reward_button.text = "ПОСМОТРЕТЬ ЦЕРЕМОНИЮ"
+	_replay_reward_button.tooltip_text = "Показать полученный ранг и медаль ещё раз. Ранг и монеты не начисляются повторно."
+	_replay_reward_button.custom_minimum_size = Vector2(220, 38)
+	_replay_reward_button.size_flags_horizontal = Control.SIZE_SHRINK_END
+	_replay_reward_button.add_theme_font_size_override("font_size", 14)
+	_replay_reward_button.pressed.connect(func() -> void:
+		var systems: Array[Node] = get_tree().get_nodes_in_group("career_system")
+		if not systems.is_empty():
+			systems[0].replay_rank_ceremony()
+	)
+	column.add_child(_replay_reward_button)
 	_rewards_overlay.hide()
 
 func _refresh_rewards() -> void:
@@ -272,6 +285,7 @@ func _refresh_rewards() -> void:
 	if systems.is_empty():
 		return
 	var career_system: Node = systems[0]
+	_replay_reward_button.disabled = career_system.get_reward_history().is_empty()
 	var progress: Dictionary = career_system.get_command_progress()
 	var current_rank: int = int(progress.get("rank", 1))
 	var next_activity: int = int(progress.get("next_activity", 0))

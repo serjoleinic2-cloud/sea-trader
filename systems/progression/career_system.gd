@@ -132,6 +132,16 @@ func get_rank_stage(rank: int) -> Dictionary:
 func get_reward_history() -> Array:
 	return _career_state().get("rank_rewards", []).duplicate(true)
 
+func replay_rank_ceremony() -> bool:
+	if _notification_hud == null:
+		return false
+	var history: Array = get_reward_history()
+	if history.is_empty():
+		return false
+	var record: Dictionary = history.back()
+	_notification_hud.enqueue_rank(int(record.get("rank", 1)), str(record.get("stage_name", "Матрос")), 0, int(record.get("coins", 0)), bool(record.get("milestone", false)), true)
+	return true
+
 func _process(delta: float) -> void:
 	if _career_reward_test_pending and _check_career_reward_test():
 		return

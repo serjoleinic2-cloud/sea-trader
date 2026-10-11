@@ -627,7 +627,9 @@ func _process(_delta: float) -> void:
 		panel.visible = opened
 		if opened:
 			has_modal = true
-			if str(entry["window"].name) == "NavigationHUD":
+			if str(entry["window"].name) == "CaptainCabinet":
+				entry["window"].layout_for_viewport(viewport, _top_height)
+			elif str(entry["window"].name) == "NavigationHUD":
 				panel.position = Vector2(0, _top_height + 4)
 				panel.size = Vector2(viewport.x, maxf(120.0, viewport.y - panel.position.y - 12.0))
 			else:
@@ -713,30 +715,25 @@ func _layout_top_bar(viewport: Vector2) -> void:
 	var stock_scale: float = minf(1.0, available / maxf(1.0, stock_min.x))
 	_toolbar.scale = Vector2.ONE * menu_scale
 	_resource_bar.scale = Vector2.ONE * stock_scale
-	_toolbar.position = Vector2(12, 8)
+	_toolbar.pivot_offset = Vector2.ZERO
+	_resource_bar.pivot_offset = Vector2.ZERO
+	var menu_height: float = _toolbar.size.y * menu_scale
+	var stock_height: float = _resource_bar.size.y * stock_scale
+	var single_row: bool = menu_min.x * menu_scale + stock_min.x * stock_scale + 16.0 <= available
+	var first_row_height: float = maxf(menu_height, stock_height) if single_row else menu_height
+	_toolbar.position = Vector2(12.0, 8.0 + (first_row_height - menu_height) * 0.5)
+	_resource_bar.position = Vector2(viewport.x - _resource_bar.size.x * stock_scale - 12.0,
+		8.0 + (first_row_height - stock_height) * 0.5 if single_row else 12.0 + menu_height)
+	var content_bottom: float = maxf(_toolbar.position.y + menu_height, _resource_bar.position.y + stock_height)
 	var sailing: bool = str(GameState.ship_state.get("docked_port_id", "")) == ""
 	_ship_strip.visible = sailing
-	if not sailing:
-		if menu_min.x + stock_min.x + 24.0 <= available:
-			_resource_bar.position = Vector2(viewport.x - stock_min.x - 12, 11)
-			_top_height = maxf(_toolbar.size.y, _resource_bar.size.y) + 16.0
-		else:
-			var second_row_y: float = 12.0 + _toolbar.size.y * menu_scale
-			_resource_bar.position = Vector2(viewport.x - stock_min.x * stock_scale - 12, second_row_y)
-			_top_height = second_row_y + _resource_bar.size.y * stock_scale + 8.0
-	elif menu_min.x + stock_min.x + 24.0 <= available:
-		_resource_bar.position = Vector2(viewport.x - stock_min.x - 12, 11)
-		var strip_y: float = maxf(8.0 + _toolbar.size.y * menu_scale, 11.0 + _resource_bar.size.y * stock_scale) + 2.0
+	if sailing:
+		var strip_y: float = content_bottom + 2.0
 		_ship_strip.position = Vector2(0, strip_y)
 		_ship_strip.size = Vector2(full_width, 36)
 		_top_height = strip_y + 40.0
 	else:
-		var row_y: float = 12.0 + _toolbar.size.y * menu_scale
-		_resource_bar.position = Vector2(viewport.x - stock_min.x * stock_scale - 12, row_y)
-		var strip_y: float = row_y + _resource_bar.size.y * stock_scale + 2.0
-		_ship_strip.position = Vector2(0, strip_y)
-		_ship_strip.size = Vector2(full_width, 36)
-		_top_height = strip_y + 40.0
+		_top_height = content_bottom + 8.0
 	get_node("TopMenuBackdrop").size = Vector2(viewport.x, _top_height)
 
 func _refresh_more_availability(docked: bool) -> void:
