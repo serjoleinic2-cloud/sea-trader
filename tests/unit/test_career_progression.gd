@@ -2,6 +2,14 @@ extends "res://tests/test_base.gd"
 
 var career = preload("res://systems/progression/career_system.gd").new()
 
+class RewardTestProbe:
+	extends "res://systems/progression/career_system.gd"
+	var award_calls := 0
+	func _award_rank(rank: int, _activity_gain: int, _announce: bool) -> bool:
+		award_calls += 1
+		GameState.progression_state["career"]["highest_rank"] = rank
+		return true
+
 func before_each() -> void:
 	GameState.reset_to_defaults()
 	career._ready()
@@ -40,3 +48,28 @@ func test_legacy_rank_is_preserved_and_rewards_scale() -> void:
 	assert_eq(career.get_rank_reward(2).get("coins", 0), 45, "early rank reward")
 	assert_eq(career.get_rank_reward(10).get("coins", 0), 375, "ten-rank milestone adds a bonus")
 	assert_eq(career.get_rank_reward(50).get("coins", 0), 775, "later rank rewards increase")
+
+func test_distance_reward_is_consumed_before_resuming() -> void:
+	var probe := RewardTestProbe.new()
+	probe._config = career._config
+	probe._career_reward_test_pending = true
+	probe._career_reward_test_start_distance = 0.0
+	probe._career_reward_test_distance = 2.0
+	GameState.player_state.stats["total_distance"] = 1.0
+	assert_false(probe._check_career_reward_test(), "sailing below the threshold must not award a rank")
+	assert_eq(probe.award_calls, 0, "no reward before two metres")
+	GameState.player_state.stats["total_distance"] = 2.0
+	assert_true(probe._check_career_reward_test(), "the first completed test grants one rank")
+	assert_false(probe._career_reward_test_pending, "the test is disabled before gameplay resumes")
+	for tick in range(10):
+		GameState.player_state.stats["total_distance"] += 2.0
+		assert_false(probe._check_career_reward_test(), "later frames cannot grant another test rank")
+	assert_eq(probe.award_calls, 1, "only one award after repeatedly closing and continuing")
+	assert_eq(probe.get_command_rank(), 2, "the test never walks up the entire rank ladder")
+	probe.free()
+
+func test_invalid_rank_cannot_award_money() -> void:
+	var initial_money: float = GameState.player_state.get("money", 0.0)
+	assert_false(career._award_rank(51, 0, false), "rank above the career ladder is rejected")
+	assert_false(career._award_rank(1, 0, false), "the starting rank has no promotion award")
+	assert_eq(float(GameState.player_state.get("money", 0.0)), initial_money, "invalid ranks cannot mint coins")

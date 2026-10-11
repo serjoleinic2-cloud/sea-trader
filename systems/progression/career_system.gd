@@ -3,6 +3,7 @@ extends Node
 ## Calculates player command licence from the complete trading activity record.
 
 const CAREER_REWARD_TEST_FLAG := "res://work/career_reward_test.json"
+const MAX_COMMAND_RANK := 50
 
 var _config: Dictionary = {}
 var _notification_hud: CanvasLayer
@@ -163,16 +164,21 @@ func _arm_career_reward_test() -> void:
 	print("CAREER REWARD TEST armed: sail %.1f m to receive one rank reward." % _career_reward_test_distance)
 
 func _check_career_reward_test() -> bool:
+	if not _career_reward_test_pending:
+		return false
 	var current_distance := float(GameState.player_state.get("stats", {}).get("total_distance", 0.0))
 	if current_distance - _career_reward_test_start_distance < _career_reward_test_distance:
 		return false
+	# Consume the trigger before the ceremony pauses the game. Closing it must
+	# never leave a completed distance test armed for the next process frame.
+	_career_reward_test_pending = false
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(CAREER_REWARD_TEST_FLAG))
 	var next_rank := get_command_rank() + 1
 	var activity := get_activity_score()
 	var gained_activity := maxi(0, activity - _last_observed_activity)
 	if _award_rank(next_rank, gained_activity, true):
 		_last_observed_activity = activity
 		_last_observed_rank = next_rank
-		DirAccess.remove_absolute(ProjectSettings.globalize_path(CAREER_REWARD_TEST_FLAG))
 		print("CAREER REWARD TEST passed: rank %d reward granted after %.1f m." % [next_rank, current_distance - _career_reward_test_start_distance])
 		return true
 	return false
@@ -211,6 +217,8 @@ func _career_state() -> Dictionary:
 	return state if state is Dictionary else {}
 
 func _award_rank(rank: int, activity_gain: int, announce: bool) -> bool:
+	if rank < 2 or rank > MAX_COMMAND_RANK:
+		return false
 	var state: Dictionary = _career_state()
 	var rewards: Array = state.get("rank_rewards", []).duplicate(true)
 	var already_awarded: bool = false
