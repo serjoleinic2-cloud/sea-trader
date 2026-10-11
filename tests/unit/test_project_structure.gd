@@ -55,6 +55,26 @@ func test_starter_sloop_model_and_catalog_routing() -> void:
 	root.free()
 	view.free()
 
+func test_optional_nerid_workbench_sloop_preserves_other_races() -> void:
+	var view = load("res://systems/rendering/approach_3d_view.gd").new()
+	view._asset_catalog = GameData.read("res://data/world/world_asset_catalog.json")
+	var root := Node3D.new()
+	var starter: Node3D = view._attach_catalog_scene(root, "ships", "ship_sloop", 3.48, "nerids")
+	assert_not_null(starter, "The Nerid starter must also work in a clean checkout")
+	if starter != null:
+		if FileAccess.file_exists("res://work/ships/nerids/starter_sloop/nerids_starter_sloop.glb"):
+			assert_eq(starter.get_meta("world_asset_id"), "nerids_ship_sloop_local_workbench")
+			assert_true(is_equal_approx(starter.scale.x, 3.48 / 6.4))
+			assert_gt(starter.get_child(0).get_child_count(), 0)
+		else:
+			assert_ne(starter.get_meta("world_asset_id"), "nerids_ship_sloop_local_workbench")
+	var human_starter: Node3D = view._attach_catalog_scene(root, "ships", "ship_sloop", 3.48, "humans")
+	assert_not_null(human_starter)
+	if human_starter != null:
+		assert_ne(human_starter.get_meta("world_asset_id"), "nerids_ship_sloop_local_workbench")
+	root.free()
+	view.free()
+
 func before_each() -> void:
 	GameState.reset_to_defaults()
 	SaveSystem.delete_save()

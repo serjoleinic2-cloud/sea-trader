@@ -32,6 +32,7 @@ var _fog_tiles: Dictionary = {}
 var _fog_center: Vector2i = Vector2i(2147483647, 2147483647)
 var _fog_explored_count: int = -1
 var _asset_catalog: Dictionary = {}
+var _local_ship_scene_cache: Dictionary = {}
 var _transition_factor: float = 0.0
 var _chunk_size: float = 4096.0
 var _camera_initialized: bool = false
@@ -137,7 +138,8 @@ func _process(delta: float) -> void:
 	_set_transition(close_factor, delta)
 	var battle_camera_active: bool=_battle_camera_requested()
 	if battle_camera_active:
-		# Combat framing overrides an earlier close camera gesture so both fleets remain in frame.
+		# Combat framing takes priority over a previous close camera gesture;
+		# otherwise the enemy can remain behind the player's ship/outside the view.
 		_orbit_dragging=false
 		_update_battle_camera(ship_position,delta)
 	else:
@@ -671,10 +673,23 @@ func _attach_catalog_scene(parent: Node3D, category: String, identity: String, t
 		return preload("res://systems/rendering/naval_ship_factory.gd").new().attach(parent, identity, target_size_m)
 	var categories: Dictionary = _asset_catalog.get("categories", {})
 	var entries: Array = categories.get(category, [])
+	var local_workbench_scene := ""
 	if category == "ships" and faction_id != "":
 		var racial: Dictionary = GameData.read("res://data/world/faction_ship_visuals.json").get("factions", {}).get(faction_id, {}).get(identity, {})
 		if not racial.is_empty():
 			entries = [racial]
+		# Local-only workbench override. Load GLB directly so Godot need not import
+		# files in the Git-ignored work/ tree; without it, the race catalog stays active.
+		if faction_id == "nerids" and identity == "ship_sloop":
+			local_workbench_scene = "res://work/ships/nerids/starter_sloop/nerids_starter_sloop.glb"
+			if FileAccess.file_exists(local_workbench_scene):
+				entries = [{
+					"id": "nerids_ship_sloop_local_workbench",
+					"scene": local_workbench_scene,
+					"reference_size_m": 6.4,
+					"identities": [identity],
+					"rotation_y_degrees": 0.0
+				}]
 	if entries.is_empty() or identity == "":
 		return preload("res://systems/rendering/naval_ship_factory.gd").new().attach(parent,identity,target_size_m,true,faction_id) if category == "ships" and identity != "" else null
 	var available: Array[Dictionary] = []
@@ -686,15 +701,22 @@ func _attach_catalog_scene(parent: Node3D, category: String, identity: String, t
 		if not identities.is_empty() and not identities.has(identity):
 			continue
 		var scene_path: String = str(entry.get("scene", ""))
-		if scene_path != "" and ResourceLoader.exists(scene_path):
+		if (local_workbench_scene != "" and scene_path == local_workbench_scene and FileAccess.file_exists(scene_path)) or (scene_path != "" and ResourceLoader.exists(scene_path)):
 			available.append(entry)
 	if available.is_empty():
 		return preload("res://systems/rendering/naval_ship_factory.gd").new().attach(parent,identity,target_size_m,true,faction_id) if category == "ships" else null
 	var chosen: Dictionary = available[posmod(abs(hash("%d:%s" % [int(GameState.world_state.get("seed", 0)), identity])), available.size())]
-	var packed_scene: PackedScene = load(str(chosen.get("scene", ""))) as PackedScene
-	if packed_scene == null:
-		return null
-	var instance: Node = packed_scene.instantiate()
+	var chosen_scene := str(chosen.get("scene", ""))
+	var instance: Node
+	if chosen_scene == local_workbench_scene and local_workbench_scene != "":
+		instance = _load_local_ship_scene(local_workbench_scene)
+		if instance == null:
+			return preload("res://systems/rendering/naval_ship_factory.gd").new().attach(parent, identity, target_size_m, false, faction_id)
+	else:
+		var packed_scene: PackedScene = load(chosen_scene) as PackedScene
+		if packed_scene == null:
+			return null
+		instance = packed_scene.instantiate()
 	var wrapper := Node3D.new()
 	wrapper.name = "Asset_" + identity.replace("/", "_").replace(":", "_")
 	wrapper.set_meta("world_asset_id", str(chosen.get("id", "")))
@@ -709,6 +731,29 @@ func _attach_catalog_scene(parent: Node3D, category: String, identity: String, t
 	if placement_offset.size() >= 3:
 		wrapper.position = Vector3(float(placement_offset[0]), float(placement_offset[1]), float(placement_offset[2]))
 	return wrapper
+
+
+func _load_local_ship_scene(path: String) -> Node:
+	var modified: int = FileAccess.get_modified_time(path)
+	var cached: Dictionary = _local_ship_scene_cache.get(path, {})
+	if cached.is_empty() or int(cached.get("modified", -1)) != modified:
+		var document := GLTFDocument.new()
+		var state := GLTFState.new()
+		var packed: PackedScene
+		var load_error: Error = document.append_from_file(path, state)
+		if load_error == OK:
+			var generated: Node = document.generate_scene(state)
+			if generated != null:
+				packed = PackedScene.new()
+				if packed.pack(generated) != OK:
+					packed = null
+				generated.free()
+		if packed == null:
+			push_warning("Local ship GLB could not create a scene; using a procedural hull: %s" % path)
+		cached = {"modified": modified, "scene": packed}
+		_local_ship_scene_cache[path] = cached
+	var packed_scene: PackedScene = cached.get("scene") as PackedScene
+	return packed_scene.instantiate() if packed_scene != null else null
 
 
 func _find_port_for_island(island_id: String) -> Dictionary:
