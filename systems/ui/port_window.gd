@@ -28,6 +28,7 @@ var _cargo_tabs: HBoxContainer
 var _cargo_action: String = "load"
 var _quantity_label: Label
 var _quantity_slider: HSlider
+var _quantity_preview_label: Label
 var _modernization_switches: HBoxContainer
 var _save_button: Button
 var _bottom_menu: PanelContainer
@@ -216,8 +217,16 @@ func _ready() -> void:
 	_quantity_slider.max_value = 1.0
 	_quantity_slider.step = 1.0
 	_quantity_slider.custom_minimum_size.y = 30
+	_quantity_slider.tooltip_text = "Передвиньте, чтобы выбрать число единиц товара для операции."
 	_quantity_slider.value_changed.connect(_on_quantity_changed)
 	column.add_child(_quantity_slider)
+	_quantity_preview_label = Label.new()
+	_quantity_preview_label.name = "QuantityActionPreview"
+	_quantity_preview_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_quantity_preview_label.add_theme_font_size_override("font_size", 13)
+	_quantity_preview_label.add_theme_color_override("font_color", Color("#d7d1bc"))
+	_quantity_preview_label.custom_minimum_size.y = 32
+	column.add_child(_quantity_preview_label)
 	_load_button.pressed.connect(_load_one_unit)
 	column.add_child(_load_button)
 	EventBus.building_activated.connect(_on_building_activated)
@@ -1073,10 +1082,39 @@ func _update_quantity_selector(port_id: String, is_home: bool) -> void:
 		_selected_quantity = maximum
 	_quantity_slider.max_value = float(maximum)
 	_quantity_slider.value = float(_selected_quantity)
-	_quantity_label.text = "Количество операции: %d" % _selected_quantity
+	_quantity_label.text = "КОЛИЧЕСТВО: %d ЕД. · «%s»" % [_selected_quantity, _get_resource_name(resource_id).to_upper()]
+	_quantity_preview_label.text = _get_quantity_action_preview(port_id, is_home, resource_id, maximum)
+
+func _get_quantity_action_preview(port_id: String, is_home: bool, resource_id: String, maximum: int) -> String:
+	var good_name: String = _get_resource_name(resource_id)
+	if _current_section == "resources":
+		if is_home:
+			var action: String = "погрузить с базы в корабль" if _cargo_action == "load" else "выгрузить с корабля на базу"
+			return "Будет выбрано: %d ед. · %s · максимум %d ед." % [_selected_quantity, action, maximum]
+		return "Будет выбрано: %d ед. «%s» из трюма." % [_selected_quantity, good_name]
+	if _current_section != "market":
+		return "Выбрано: %d ед. «%s»." % [_selected_quantity, good_name]
+	if is_home:
+		if _market_category == "orders":
+			return "Выберите товар, чтобы создать или изменить заявку."
+		var total_asking_price: float = _selected_asking_price * float(_selected_quantity)
+		return "Заявка торговцам: %d ед. · %.0f монет за ед. · %.0f монет всего. Продажа произойдёт, когда торговец примет заявку." % [_selected_quantity, _selected_asking_price, total_asking_price]
+	if _market_view == "port":
+		var quote: Dictionary = _transfers._market.quote_purchase(port_id, resource_id, _selected_quantity)
+		var total_cost: float = float(quote.get("cost", _get_purchase_price(resource_id) * float(_selected_quantity)))
+		var available: int = int(_get_port_market_stock(port_id).get(resource_id, 0))
+		return "Покупка в трюм: %d ед. · всего %.0f монет · доступно %d ед." % [_selected_quantity, total_cost, available]
+	var sale: Dictionary = _transfers._market.quote_sale(port_id, resource_id, _selected_quantity)
+	var total_revenue: float = float(sale.get("revenue", 0.0))
+	return "Продажа из трюма: %d ед. · вы получите %.0f монет." % [_selected_quantity, total_revenue]
 
 func _on_quantity_changed(value: float) -> void:
 	_selected_quantity = maxi(1, int(round(value)))
+	var port_id: String = str(GameState.ship_state.get("docked_port_id", ""))
+	if port_id != "" and _quantity_preview_label != null and is_instance_valid(_quantity_preview_label):
+		var is_home: bool = port_id == str(GameState.world_state.get("home_port_id", ""))
+		_quantity_label.text = "КОЛИЧЕСТВО: %d ЕД. · «%s»" % [_selected_quantity, _get_resource_name(_get_selected_resource_id()).to_upper()]
+		_quantity_preview_label.text = _get_quantity_action_preview(port_id, is_home, _get_selected_resource_id(), int(_quantity_slider.max_value))
 
 func _on_asking_price_changed(value: float) -> void:
 	_selected_asking_price = float(round(value))
@@ -1431,6 +1469,8 @@ func _refresh_market_page(port_name: String, ship: Dictionary, port: Dictionary)
 			_get_inventory_text(port),
 			_get_base_demand_text(port)
 		]
+		if not _notice.is_empty():
+			_details.text += "\n\nРЕЗУЛЬТАТ ОПЕРАЦИИ\n" + _notice
 		return
 	var resource_id: String = _get_selected_resource_id()
 	var buying: bool = _market_view == "port"
