@@ -2,11 +2,16 @@ extends Node
 
 ## Calculates player command licence from the complete trading activity record.
 
+const CAREER_REWARD_TEST_FLAG := "res://work/career_reward_test.json"
+
 var _config: Dictionary = {}
 var _notification_hud: CanvasLayer
 var _activity_check_elapsed: float = 0.0
 var _last_observed_activity: int = 0
 var _last_observed_rank: int = 1
+var _career_reward_test_pending := false
+var _career_reward_test_start_distance := 0.0
+var _career_reward_test_distance := 2.0
 
 func _ready() -> void:
 	add_to_group("career_system")
@@ -14,6 +19,7 @@ func _ready() -> void:
 	_initialize_career_awards()
 	_last_observed_activity = get_activity_score()
 	_last_observed_rank = get_command_rank()
+	_arm_career_reward_test()
 	if _notification_hud == null:
 		_notification_hud = load("res://systems/ui/career_notification_hud.gd").new()
 		_notification_hud.name = "CareerNotificationHUD"
@@ -126,6 +132,8 @@ func get_reward_history() -> Array:
 	return _career_state().get("rank_rewards", []).duplicate(true)
 
 func _process(delta: float) -> void:
+	if _career_reward_test_pending and _check_career_reward_test():
+		return
 	_activity_check_elapsed += delta
 	if _activity_check_elapsed < 0.35:
 		return
@@ -143,6 +151,31 @@ func _process(delta: float) -> void:
 		_notification_hud.enqueue_experience(activity_gain, activity)
 	_last_observed_rank = maxi(_last_observed_rank, rank)
 	_persist_career_state()
+
+func _arm_career_reward_test() -> void:
+	if not FileAccess.file_exists(CAREER_REWARD_TEST_FLAG):
+		return
+	var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(CAREER_REWARD_TEST_FLAG))
+	if parsed is Dictionary:
+		_career_reward_test_distance = maxf(0.1, float(parsed.get("distance", 2.0)))
+	_career_reward_test_start_distance = float(GameState.player_state.get("stats", {}).get("total_distance", 0.0))
+	_career_reward_test_pending = true
+	print("CAREER REWARD TEST armed: sail %.1f m to receive one rank reward." % _career_reward_test_distance)
+
+func _check_career_reward_test() -> bool:
+	var current_distance := float(GameState.player_state.get("stats", {}).get("total_distance", 0.0))
+	if current_distance - _career_reward_test_start_distance < _career_reward_test_distance:
+		return false
+	var next_rank := get_command_rank() + 1
+	var activity := get_activity_score()
+	var gained_activity := maxi(0, activity - _last_observed_activity)
+	if _award_rank(next_rank, gained_activity, true):
+		_last_observed_activity = activity
+		_last_observed_rank = next_rank
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(CAREER_REWARD_TEST_FLAG))
+		print("CAREER REWARD TEST passed: rank %d reward granted after %.1f m." % [next_rank, current_distance - _career_reward_test_start_distance])
+		return true
+	return false
 
 func _initialize_career_awards() -> void:
 	var state: Dictionary = GameState.progression_state.get("career", {})
@@ -177,7 +210,7 @@ func _career_state() -> Dictionary:
 	var state: Variant = GameState.progression_state.get("career", {})
 	return state if state is Dictionary else {}
 
-func _award_rank(rank: int, activity_gain: int, announce: bool) -> void:
+func _award_rank(rank: int, activity_gain: int, announce: bool) -> bool:
 	var state: Dictionary = _career_state()
 	var rewards: Array = state.get("rank_rewards", []).duplicate(true)
 	var already_awarded: bool = false
@@ -186,7 +219,7 @@ func _award_rank(rank: int, activity_gain: int, announce: bool) -> void:
 			already_awarded = true
 			break
 	if already_awarded:
-		return
+		return false
 	var before_money: float = float(GameState.player_state.get("money", 0.0))
 	var before_state: Dictionary = state.duplicate(true)
 	var reward: Dictionary = get_rank_reward(rank)
@@ -205,9 +238,10 @@ func _award_rank(rank: int, activity_gain: int, announce: bool) -> void:
 		GameState.player_state["money"] = before_money
 		GameState.progression_state["career"] = before_state
 		push_warning("Не удалось сохранить награду за ранг %d." % rank)
-		return
+		return false
 	if announce and _notification_hud != null:
 		_notification_hud.enqueue_rank(rank, str(stage.get("name", "Матрос")), activity_gain, coins, bool(reward.get("milestone", false)))
+	return true
 
 func _persist_career_state() -> void:
 	var state: Dictionary = _career_state()
