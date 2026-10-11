@@ -115,7 +115,7 @@ func _build_ceremony() -> void:
 	close.offset_bottom = 66.0
 	close.pressed.connect(_close_ceremony)
 	_ceremony.add_child(close)
-	var close_style: Node = load("res://systems/ui/brass_close_button.gd").new()
+	var close_style := load("res://systems/ui/brass_close_button.gd") as GDScript
 	close_style.apply(close)
 	var stack := VBoxContainer.new()
 	stack.name = "CeremonyContent"
