@@ -6,15 +6,7 @@ const SHIPS: String = "res://data/ships/ship_catalog.json"
 const PREMIUM_SHIPS: String = "res://data/ships/premium_ship_pool.json"
 const GOODS: String = "res://data/resources/goods_catalog.json"
 const FACTIONS: String = "res://data/world/faction_catalog.json"
-const FACTION_ART: Dictionary = {
-	"sea_trader": {"emblem": "res://assets/ui/emblems/sea_trader.svg"},
-	"nerids": {"emblem": "res://assets/ui/emblems/nerids.svg"},
-	"surr": {"emblem": "res://assets/ui/emblems/surr.svg"},
-	"meridians": {"emblem": "res://assets/ui/emblems/meridian.svg"},
-	"aery": {"emblem": "res://assets/ui/emblems/aery.svg"},
-	"crystari": {"emblem": "res://assets/ui/emblems/crystari.svg"},
-	"humans": {"emblem": "res://assets/ui/emblems/humans.png"}
-}
+const NEUTRAL_EMBLEM := "res://assets/ui/emblems/sea_trader.svg"
 var _cache: Dictionary = {}
 var _ship_index: Dictionary = {}
 
@@ -87,8 +79,9 @@ func get_faction(faction_id: String) -> Dictionary:
 	return {}
 
 func get_faction_emblem(faction_id: String) -> Texture2D:
-	var art: Dictionary = FACTION_ART.get(faction_id, FACTION_ART["sea_trader"])
-	var path: String = str(art.get("emblem", ""))
+	# The catalog owns faction heraldry; the brand logo is only a neutral fallback.
+	var faction: Dictionary = get_faction(faction_id)
+	var path: String = str(faction.get("emblem", NEUTRAL_EMBLEM))
 	if not ResourceLoader.exists(path):
 		return null
 	return load(path) as Texture2D
@@ -136,7 +129,7 @@ func validate() -> Array[String]:
 			errors.append("faction_catalog.factions: empty or duplicate ID '" + faction_id + "'")
 		else:
 			faction_ids[faction_id] = true
-			if not FACTION_ART.has(faction_id):
+			if not ResourceLoader.exists(str(faction.get("emblem", ""))):
 				errors.append("faction_catalog." + faction_id + ": missing fixed emblem asset")
 		for field in ["name", "portrait", "captain_portrait", "emblem", "trade_identity", "combat_identity", "origin_description", "origin_focus", "origin_strength", "origin_weakness"]:
 			if not faction.has(field):

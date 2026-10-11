@@ -27,6 +27,7 @@ func test_faction_catalog_has_six_captains_and_emblems() -> void:
 		for field in ["origin_description", "origin_focus", "origin_strength", "origin_weakness"]:
 			assert_true(str(faction.get(field, "")).length() > 0, "Race dossier must include " + field)
 		assert_not_null(GameData.get_faction_emblem(str(faction.get("id", ""))))
+		assert_eq(GameData.get_faction_emblem(str(faction.get("id", ""))), load(str(faction.get("emblem", ""))), "Emblem loader uses the catalog, never a second asset list")
 		assert_not_null(GameData.get_faction_portrait(str(faction.get("id", ""))))
 		assert_false(ids.has(str(faction.get("id", ""))), "Faction IDs must be unique")
 		ids[str(faction.get("id", ""))] = true
@@ -35,6 +36,14 @@ func test_reset_clears_money() -> void:
 	GameState.player_state["money"] = 999.0
 	GameState.reset_to_defaults()
 	assert_eq(GameState.player_state.get("money", -1.0), 0.0, "Reset should clear money")
+
+func test_approved_rank_banner_heraldry() -> void:
+	var marks := {"nerids": "trident_tide", "surr": "phoenix", "meridians": "sun", "aery": "compass_crescent", "crystari": "cosmic_spiral", "humans": "antler_tree"}
+	for faction_id in marks:
+		var faction: Dictionary = GameData.get_faction(faction_id)
+		assert_eq(str(faction.get("heraldry_mark", "")), marks[faction_id], "Use the mark from the approved ceremony flag")
+		assert_true(str(faction.get("banner_color", "")).begins_with("#"), "Every flag has its fixed cloth colour")
+	assert_eq(GameData.get_faction("humans").get("emblem", ""), "res://assets/ui/emblems/humans.svg", "Humans no longer use the old tower PNG")
 
 func test_reset_restores_level() -> void:
 	GameState.player_state["level"] = 99

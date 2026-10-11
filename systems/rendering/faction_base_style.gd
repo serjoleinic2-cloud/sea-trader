@@ -329,7 +329,8 @@ func make_flag(faction_id: String, height: float = 4.5) -> Node3D:
 	material.set_shader_parameter("emblem", GameData.get_faction_emblem(faction_id))
 	var faction: Dictionary = GameData.get_faction(faction_id)
 	var palette: Array = ["#080a0e"] if faction_id=="pirates" else faction.get("palette", ["#132b43"])
-	material.set_shader_parameter("cloth_color", Color(str(palette[0])))
+	var cloth_color: String = str(palette[0]) if faction_id == "pirates" else str(faction.get("banner_color", palette[0]))
+	material.set_shader_parameter("cloth_color", Color(cloth_color))
 	cloth.material_override = material
 	flag.add_child(cloth)
 	return flag

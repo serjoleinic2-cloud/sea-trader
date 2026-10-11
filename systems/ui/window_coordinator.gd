@@ -491,12 +491,11 @@ func _wrap_panel(window: Node, panel: PanelContainer, flag: String) -> void:
 	column.add_child(banner)
 	var header := HBoxContainer.new()
 	column.add_child(header)
-	var emblem := TextureRect.new()
-	emblem.texture = GameData.get_faction_emblem(str(GameState.player_state.get("origin_race_id", "humans")))
-	emblem.custom_minimum_size = Vector2(36, 42)
-	emblem.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	emblem.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	var emblem := preload("res://systems/ui/faction_pennant.gd").new()
+	emblem.name = "FactionHeaderPennant"
+	emblem.set_faction(str(GameState.player_state.get("origin_race_id", "humans")))
 	header.add_child(emblem)
+	emblem.custom_minimum_size = Vector2(44, 66)
 	var title := Label.new()
 	var navigation: Dictionary = window.get_meta("navigation", {})
 	title.text = str(navigation.get("label", str(window.name)))

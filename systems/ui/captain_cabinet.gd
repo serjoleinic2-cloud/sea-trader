@@ -6,7 +6,7 @@ var _port_system: Node
 var _panel: Panel
 var _left_panel: PanelContainer
 var _label: Label
-var _race_emblem: TextureRect
+var _race_emblem: Control
 var _race_label: Label
 var _captain_portrait: TextureRect
 var _brass_frame: Panel
@@ -92,10 +92,8 @@ func _ready() -> void:
 	var identity := HBoxContainer.new()
 	identity.add_theme_constant_override("separation", 12)
 	information.add_child(identity)
-	_race_emblem = TextureRect.new()
-	_race_emblem.custom_minimum_size = Vector2(58, 58)
-	_race_emblem.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	_race_emblem.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_race_emblem = preload("res://systems/ui/faction_pennant.gd").new()
+	_race_emblem.name = "CaptainFactionPennant"
 	identity.add_child(_race_emblem)
 	var identity_text := VBoxContainer.new()
 	identity_text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -357,11 +355,11 @@ func _update_race_identity() -> void:
 	_displayed_race_id = race_id
 	var faction: Dictionary = GameData.get_faction(race_id)
 	if faction.is_empty():
-		_race_emblem.texture = GameData.get_faction_emblem("sea_trader")
+		_race_emblem.set_faction("sea_trader")
 		_captain_portrait.texture = GameData.get_captain_cabin_art("humans")
 		_race_label.text = "Морская компания"
 		return
-	_race_emblem.texture = GameData.get_faction_emblem(race_id)
+	_race_emblem.set_faction(race_id)
 	_captain_portrait.texture = GameData.get_captain_cabin_art(race_id)
 	_race_label.text = str(faction.get("name", race_id))
 

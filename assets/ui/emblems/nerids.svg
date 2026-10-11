@@ -1,6 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
-  <path d="M64 6 113 26v38c0 27-18 45-49 58C33 109 15 91 15 64V26z" fill="#071b28" stroke="#caa45a" stroke-width="4"/>
-  <path d="M64 24v70M64 29c-2 14-10 22-23 25 8 4 15 10 23 19 8-9 15-15 23-19-13-3-21-11-23-25z" fill="none" stroke="#41d1d7" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M40 48c-1 13 5 21 16 23M88 48c1 13-5 21-16 23" fill="none" stroke="#b5f0e8" stroke-width="4" stroke-linecap="round"/>
-  <path d="m64 89-10 14h20z" fill="#e2c27a"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+<defs><linearGradient id="gold" x2="1" y2=".8"><stop stop-color="#b47b37"/><stop offset=".35" stop-color="#ffe0a0"/><stop offset=".62" stop-color="#d1a15b"/><stop offset="1" stop-color="#f4cf88"/></linearGradient></defs>
+<g fill="url(#gold)"><path d="M128 8 146 52 132 43 132 186 123 234 118 230 123 43 109 52Z"/><path d="M91 51C92 77 75 93 83 105 90 115 109 108 123 128L126 146C112 129 97 129 85 120 65 106 73 84 91 51Z"/><path d="M166 52C159 77 161 88 154 101 148 110 137 112 129 128L127 147C138 129 157 127 166 116 181 99 168 81 166 52Z"/><path d="M37 170C63 148 84 159 106 173 128 188 142 182 156 171 178 152 200 163 217 173L212 183C192 167 176 174 160 184 139 198 120 195 101 183 78 167 61 165 37 181Z"/><path d="M24 193C48 178 67 181 86 194 112 212 128 216 150 203 171 190 190 186 218 201L210 210C184 195 169 204 151 215 125 229 104 222 81 207 62 194 45 190 24 204Z"/></g>
 </svg>

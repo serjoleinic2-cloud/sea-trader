@@ -69,6 +69,7 @@ func _ready() -> void:
 			GameState.player_state["origin_race_id"] = race_id
 			await _frames()
 			var art: TextureRect = cabinet._captain_portrait
+			_check(cabinet._race_emblem.faction_id == race_id and cabinet._race_emblem._emblem == GameData.get_faction_emblem(race_id), "captain pennant shows the canonical own-race crest")
 			_check(is_zero_approx(art.position.y), "portrait top is never cropped: %s %s" % [race_id, screen])
 			_check(is_equal_approx(art.position.x + art.size.x, panel.size.x), "portrait stays on right frame")
 			_check(is_equal_approx(art.size.x / art.size.y, art.texture.get_size().x / art.texture.get_size().y), "portrait retains its proportions")

@@ -140,7 +140,7 @@ func _process(delta: float) -> void:
 		_race = str(GameState.player_state.get("origin_race_id", "humans")) if _home else load("res://systems/world/port_faction_resolver.gd").new().resolve(port, int(GameState.world_state.get("seed", 0)))
 		if GameData.get_faction(_race).is_empty(): _race = "humans"
 		_background.texture = load("res://assets/ui/ports/buildable_landscape.png" if _home else "res://assets/ui/ports/%s/panorama.png" % _race)
-		_emblem.texture = load(str(GameData.get_faction(_race).get("emblem", "res://assets/ui/emblems/humans.png")))
+		_emblem.texture = GameData.get_faction_emblem(_race)
 		_title.text = str(_main.get_node("PortSystem").get_port_name(port_id))
 		_signature = ""
 		_construction = false

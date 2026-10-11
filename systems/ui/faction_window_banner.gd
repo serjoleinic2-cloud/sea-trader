@@ -7,7 +7,7 @@ var _emblem: Texture2D
 func set_faction(faction_id: String) -> void:
 	var faction: Dictionary = GameData.get_faction(faction_id)
 	var palette: Array = faction.get("palette", ["#132b43", "#2bbcc1", "#c49a58"])
-	_cloth = Color(str(palette[1])).darkened(0.48)
+	_cloth = Color(str(faction.get("banner_color", palette[0])))
 	_stitch = Color(str(palette[2]))
 	_emblem = GameData.get_faction_emblem(faction_id)
 	queue_redraw()
