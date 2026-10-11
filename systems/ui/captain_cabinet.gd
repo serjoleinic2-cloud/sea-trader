@@ -12,6 +12,11 @@ var _captain_portrait: TextureRect
 var _brass_frame: Panel
 var _backdrop_haze: TextureRect
 var _close_button: Button
+var _rewards_button: Button
+var _rewards_overlay: PanelContainer
+var _rewards_summary: Label
+var _rewards_rows: VBoxContainer
+var _show_rewards: bool = false
 var _displayed_race_id: String = ""
 var _open := false
 
@@ -113,6 +118,22 @@ func _ready() -> void:
 	_race_label.add_theme_color_override("font_color", Color("#64d4d2"))
 	_race_label.add_theme_font_size_override("font_size", 14)
 	identity_text.add_child(_race_label)
+	_rewards_button = Button.new()
+	_rewards_button.name = "CaptainRewardsButton"
+	_rewards_button.text = "НАГРАДЫ"
+	_rewards_button.custom_minimum_size = Vector2(120, 36)
+	_rewards_button.tooltip_text = "Ранги, медали и полученные награды"
+	_rewards_button.add_theme_font_size_override("font_size", 14)
+	_rewards_button.add_theme_color_override("font_color", Color("f0d18d"))
+	for state_name in ["normal", "pressed", "hover", "disabled", "focus"]:
+		_rewards_button.add_theme_stylebox_override(state_name, _brass_style(14.0, 10.0))
+	_rewards_button.pressed.connect(func() -> void:
+		_show_rewards = not _show_rewards
+		_rewards_overlay.visible = _show_rewards
+		if _show_rewards:
+			_refresh_rewards()
+	)
+	identity_text.add_child(_rewards_button)
 	_label = Label.new()
 	_label.add_theme_font_size_override("font_size", 14)
 	_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -138,6 +159,7 @@ func _ready() -> void:
 	_close_button.offset_bottom = 58.0
 	_close_button.pressed.connect(func() -> void: _open = false)
 	_panel.add_child(_close_button)
+	_build_rewards_overlay()
 	_panel.hide()
 
 func initialize(port_system: Node) -> void:
@@ -148,6 +170,8 @@ func _process(_delta: float) -> void:
 		return
 	_panel.visible = _open
 	_backdrop_haze.visible = _open
+	if _rewards_overlay != null:
+		_rewards_overlay.visible = _open and _show_rewards
 	var viewport_size: Vector2 = get_viewport().get_visible_rect().size
 	var coordinator: Node = get_tree().root.find_child("WindowCoordinator", true, false)
 	var safe_top: float = maxf(72.0, float(coordinator.get("_top_height"))) if coordinator != null else 72.0
@@ -188,6 +212,119 @@ func _layout_cabin() -> void:
 		return
 	_left_panel.position = Vector2(18.0, 28.0)
 	_left_panel.size = Vector2(clampf(_panel.size.x * 0.39, 260.0, 420.0), maxf(1.0, _panel.size.y - 44.0))
+	if _rewards_overlay != null:
+		_rewards_overlay.position = Vector2(_panel.size.x * 0.16, _panel.size.y * 0.07)
+		_rewards_overlay.size = Vector2(_panel.size.x * 0.68, _panel.size.y * 0.86)
+
+func _build_rewards_overlay() -> void:
+	_rewards_overlay = PanelContainer.new()
+	_rewards_overlay.name = "CaptainRewardsOverlay"
+	_rewards_overlay.set_meta("preserve_art_style", true)
+	var surface := StyleBoxFlat.new()
+	surface.bg_color = Color("f20a1721")
+	surface.border_color = Color("c89b4e")
+	surface.set_border_width_all(2)
+	surface.set_corner_radius_all(10)
+	surface.content_margin_left = 18
+	surface.content_margin_right = 18
+	surface.content_margin_top = 15
+	surface.content_margin_bottom = 14
+	_rewards_overlay.add_theme_stylebox_override("panel", surface)
+	_panel.add_child(_rewards_overlay)
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 8)
+	_rewards_overlay.add_child(column)
+	var heading := HBoxContainer.new()
+	column.add_child(heading)
+	var title := Label.new()
+	title.text = "НАГРАДЫ ЗА РАНГИ"
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	title.add_theme_font_size_override("font_size", 20)
+	title.add_theme_color_override("font_color", Color("f0d18d"))
+	heading.add_child(title)
+	var close_rewards := Button.new()
+	close_rewards.name = "CloseRewardsButton"
+	preload("res://systems/ui/brass_close_button.gd").apply(close_rewards)
+	close_rewards.pressed.connect(func() -> void: _show_rewards = false; _rewards_overlay.hide())
+	heading.add_child(close_rewards)
+	_rewards_summary = Label.new()
+	_rewards_summary.add_theme_font_size_override("font_size", 13)
+	_rewards_summary.add_theme_color_override("font_color", Color("d7e2e5"))
+	_rewards_summary.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	column.add_child(_rewards_summary)
+	column.add_child(HSeparator.new())
+	var scroll := ScrollContainer.new()
+	scroll.name = "RankRewardsScroll"
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	column.add_child(scroll)
+	_rewards_rows = VBoxContainer.new()
+	_rewards_rows.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_rewards_rows.add_theme_constant_override("separation", 3)
+	scroll.add_child(_rewards_rows)
+	_rewards_overlay.hide()
+
+func _refresh_rewards() -> void:
+	if _rewards_rows == null:
+		return
+	var systems: Array[Node] = get_tree().get_nodes_in_group("career_system")
+	if systems.is_empty():
+		return
+	var career_system: Node = systems[0]
+	var progress: Dictionary = career_system.get_command_progress()
+	var current_rank: int = int(progress.get("rank", 1))
+	var next_activity: int = int(progress.get("next_activity", 0))
+	var career_state: Dictionary = GameState.progression_state.get("career", {})
+	_rewards_summary.text = "%s · ранг %d из 50\nПолучено за карьеру: %d монет · следующий ранг: %s" % [str(progress.get("stage_name", "Матрос")), current_rank, int(career_state.get("total_reward_coins", 0)), "максимум достигнут" if next_activity == 0 else "%d очков активности" % next_activity]
+	for child in _rewards_rows.get_children():
+		child.queue_free()
+	var claimed: Dictionary = {}
+	for record in career_system.get_reward_history():
+		claimed[int(record.get("rank", 0))] = record
+	for rank in range(1, 51):
+		var stage: Dictionary = career_system.get_rank_stage(rank)
+		var reward: Dictionary = career_system.get_rank_reward(rank)
+		var row := HBoxContainer.new()
+		row.custom_minimum_size = Vector2(0, 35)
+		row.add_theme_constant_override("separation", 8)
+		_rewards_rows.add_child(row)
+		var medal := TextureRect.new()
+		medal.custom_minimum_size = Vector2(30, 30)
+		medal.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		medal.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		medal.texture = _rank_medal_texture(rank)
+		row.add_child(medal)
+		var rank_title := Label.new()
+		rank_title.text = "Ранг %02d · %s" % [rank, str(stage.get("name", "Матрос"))]
+		rank_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		rank_title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		rank_title.add_theme_font_size_override("font_size", 13)
+		rank_title.add_theme_color_override("font_color", Color("f0d18d") if rank <= current_rank else Color("a8b3b9"))
+		row.add_child(rank_title)
+		var details := Label.new()
+		if claimed.has(rank):
+			details.text = "+%d монет · получено" % int(claimed[rank].get("coins", 0))
+		elif rank <= current_rank:
+			details.text = "Звание открыто"
+		elif int(reward.get("coins", 0)) <= 0:
+			details.text = "Начальное звание"
+		else:
+			details.text = "+%d монет%s" % [int(reward.get("coins", 0)), " · рубеж" if bool(reward.get("milestone", false)) else ""]
+		details.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		details.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		details.add_theme_font_size_override("font_size", 12)
+		details.add_theme_color_override("font_color", Color("65d7c9") if claimed.has(rank) else Color("c2c9ca"))
+		row.add_child(details)
+		_rewards_rows.add_child(HSeparator.new())
+
+func _rank_medal_texture(rank: int) -> AtlasTexture:
+	var texture := AtlasTexture.new()
+	texture.atlas = load("res://assets/ui/ranks/career_medals.png")
+	var stage_index: int = clampi(int((rank - 1) / 10), 0, 4)
+	var tile_width: float = float(texture.atlas.get_width()) / 5.0
+	texture.region = Rect2(tile_width * stage_index, 0.0, tile_width, float(texture.atlas.get_height()))
+	return texture
 
 func _brass_style(edge_x: float, edge_y: float) -> StyleBoxTexture:
 	var frame := StyleBoxTexture.new()

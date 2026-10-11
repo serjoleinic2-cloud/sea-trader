@@ -1,5 +1,12 @@
 {
-  "version": 1,
+  "version": 2,
+  "rank_rewards": {
+    "base_coins": 25,
+    "coins_per_rank": 10,
+    "milestone_every": 10,
+    "milestone_bonus_coins": 250,
+    "first_rewarded_rank": 2
+  },
   "stages": [
     {
       "id": "sailor",
@@ -7,39 +14,39 @@
       "first_rank": 1,
       "last_rank": 10,
       "activity_at_first_rank": 0,
-      "activity_per_rank": 15
+      "activity_per_rank": 25
     },
     {
       "id": "bosun",
       "name": "Боцман",
       "first_rank": 11,
       "last_rank": 20,
-      "activity_at_first_rank": 150,
-      "activity_per_rank": 30
+      "activity_at_first_rank": 250,
+      "activity_per_rank": 50
     },
     {
       "id": "navigator",
       "name": "Штурман",
       "first_rank": 21,
       "last_rank": 30,
-      "activity_at_first_rank": 450,
-      "activity_per_rank": 55
+      "activity_at_first_rank": 750,
+      "activity_per_rank": 90
     },
     {
       "id": "chief_officer",
       "name": "Старший помощник",
       "first_rank": 31,
       "last_rank": 40,
-      "activity_at_first_rank": 1000,
-      "activity_per_rank": 90
+      "activity_at_first_rank": 1650,
+      "activity_per_rank": 140
     },
     {
       "id": "captain",
       "name": "Капитан",
       "first_rank": 41,
       "last_rank": 50,
-      "activity_at_first_rank": 1900,
-      "activity_per_rank": 140
+      "activity_at_first_rank": 3050,
+      "activity_per_rank": 220
     }
   ],
   "activity_weights": {

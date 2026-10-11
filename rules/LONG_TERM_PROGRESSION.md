@@ -12,6 +12,15 @@ Exact prices, rewards, requirements and boost values remain TBD and must be bala
 
 ## Captain and Crew Progression
 
+The offline captain career has 50 ranks across Sailor, Boatswain, Navigator,
+Chief Officer and Captain. Activity requirements increase at each stage so
+early onboarding stays quick while late ranks remain long-term goals. Rank
+rewards are permanent in-game coin grants that grow with rank, with a larger
+bonus every ten ranks; promotions must also retain the existing ship and
+building unlocks. Keep the reward ledger in the local save and never grant the
+same rank twice. Five illustrated medals represent the career stages; the UI
+shows rank number separately. Career announcements stay brief and non-blocking.
+
 Every ship has its own career path: Sailor -> Boatswain -> Officer -> Captain III -> Captain II -> Captain I -> Master Captain.
 Reaching Master Captain unlocks the next ship tier. The player begins the next ship as
 Sailor again, but keeps personal skills earned on earlier ships.
