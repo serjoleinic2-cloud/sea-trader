@@ -7,10 +7,22 @@ const NAMES: Array[String] = ["Причал", "Склад", "Мастерска�
 const BUILDING_ART_OVERRIDES: Dictionary = {
 	"crystari": {"barracks": "res://assets/ui/ports/crystari/barracks_harbor.png"},
 }
-const HOME_PANORAMA_ZOOM: float = 1.15
-## Normalized anchors on the single panoramic home-port canvas. Background,
-## building sprites, and upgrade details all scale from this same coordinate space.
-const SITES: Array[Vector2] = [Vector2(.69,.79), Vector2(.30,.62), Vector2(.41,.61), Vector2(.52,.59), Vector2(.63,.61), Vector2(.74,.62), Vector2(.23,.75), Vector2(.37,.47), Vector2(.51,.47), Vector2(.65,.49)]
+const HOME_PANORAMA_ZOOM: float = 1.4
+## Building anchors are pixel centers on buildable_landscape.png (1838x856).
+## Eight town buildings use a clear 3 / 3 / 2 terrace arrangement; dock and
+## fishing wharf are anchored separately at the shoreline.
+const SITE_ANCHORS_PX: Array[Vector2] = [
+	Vector2(1245, 675), # dock / harbor pier
+	Vector2(560, 505), # warehouse — middle left
+	Vector2(740, 550), # workshop — lower left
+	Vector2(920, 502), # market — middle center
+	Vector2(1100, 550), # shipyard — lower right
+	Vector2(1280, 520), # timber yard — middle right
+	Vector2(420, 650), # fishing wharf / shore
+	Vector2(720, 418), # mage guild — upper left
+	Vector2(920, 414), # captain house — upper center
+	Vector2(1110, 425), # barracks — upper right
+]
 var _main: Node
 var _root: Control
 var _art: Control
@@ -162,8 +174,8 @@ func _layout() -> void:
 	var top: float = float(coordinator.get("_top_height")) + 5
 	var available := Vector2(screen.x, maxf(200, screen.y - top))
 	# The panoramic island is the single source of truth for background and
-	# building hotspots. Cover the viewport without distorting the art, pin the
-	# bottom edge, and let the viewport crop whichever edge the aspect ratio needs.
+	# building hotspots. Preserve aspect ratio, zoom into the town, pin the
+	# bottom edge, and let the viewport crop the outer scenery.
 	var design_size: Vector2 = _background.texture.get_size() if _background.texture != null else Vector2(1838, 856)
 	var width_factor: float = available.x / design_size.x
 	var height_factor: float = available.y / design_size.y
@@ -179,7 +191,7 @@ func _layout() -> void:
 		# factor keeps each sprite proportional to the panorama across resolutions.
 		var size := Vector2(190,178) * factor
 		site.container.size = size
-		site.container.position = SITES[index] * _art.size - Vector2(size.x*.5,size.y*.86)
+		site.container.position = SITE_ANCHORS_PX[index] * factor - Vector2(size.x*.5,size.y*.86)
 		site.annex.position = Vector2(size.x*.53,size.y*.38)
 		site.annex.size = size * .58
 		site.tower.position = Vector2(-size.x*.12,-size.y*.12)

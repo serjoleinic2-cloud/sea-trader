@@ -7,8 +7,10 @@ are copied into this project; runtime needs no external service.
 `buildable_landscape.png` is the single wide home-port panorama, including the
 open terraces where buildings are placed. The live town screen uses this image
 as its complete background; it does not extend it with cropped side strips.
-Building sprites and upgrade details use normalized anchors on the same canvas,
-so they remain aligned when the whole panorama is scaled proportionally. Each
+Building sprites and upgrade details use fixed source-image pixel anchors on
+the same canvas, so they remain aligned when the whole panorama is scaled
+proportionally. The eight town buildings are arranged in three rows (3 / 3 / 2);
+the dock and fishing wharf have separate shoreline anchors. Each
 faction folder holds:
 
 - `panorama.png`: the complete developed city, used for foreign-port visits.
