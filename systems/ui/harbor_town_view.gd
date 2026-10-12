@@ -14,7 +14,8 @@ const BUILDING_ART_OVERRIDES: Dictionary = {
 const SITES: Array[Vector2] = [Vector2(.81,.79), Vector2(.40,.57), Vector2(.6327,.5448), Vector2(.20,.37), Vector2(.865,.575), Vector2(.41,.37), Vector2(.18,.745), Vector2(.61,.3425), Vector2(.18,.52), Vector2(.8344,.3425)]
 var _main: Node
 var _root: Control
-var _side_fill: TextureRect
+var _side_fill_left: TextureRect
+var _side_fill_right: TextureRect
 var _art: Control
 var _background: TextureRect
 var _title: Label
@@ -46,15 +47,7 @@ func initialize(main: Node) -> void:
 	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_root.add_child(shade)
-	_side_fill = TextureRect.new()
-	_side_fill.name = "PanoramaSideFill"
-	_side_fill.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_side_fill.texture = load("res://assets/ui/ports/buildable_landscape_sidefill.png")
-	_side_fill.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	_side_fill.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-	_side_fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_side_fill.modulate = Color(0.82, 0.9, 0.92, 1.0)
-	_root.add_child(_side_fill)
+	_create_side_fill()
 	_art = Control.new()
 	_root.add_child(_art)
 	_background = TextureRect.new()
@@ -150,7 +143,8 @@ func _process(delta: float) -> void:
 		_race = str(GameState.player_state.get("origin_race_id", "humans")) if _home else load("res://systems/world/port_faction_resolver.gd").new().resolve(port, int(GameState.world_state.get("seed", 0)))
 		if GameData.get_faction(_race).is_empty(): _race = "humans"
 		_background.texture = load("res://assets/ui/ports/buildable_landscape.png" if _home else "res://assets/ui/ports/%s/panorama.png" % _race)
-		_side_fill.visible = _home
+		_side_fill_left.visible = _home
+		_side_fill_right.visible = _home
 		_emblem.texture = GameData.get_faction_emblem(_race)
 		_title.text = str(_main.get_node("PortSystem").get_port_name(port_id))
 		_signature = ""
@@ -178,6 +172,12 @@ func _layout() -> void:
 	var factor: float = minf(available.x / 1672.0, available.y / 941.0)
 	_art.size = Vector2(1672,941) * factor
 	_art.position = Vector2((screen.x-_art.size.x)*.5, screen.y-_art.size.y)
+	_side_fill_left.position = Vector2(0, _art.position.y)
+	_side_fill_left.size = Vector2(maxf(0.0, _art.position.x), _art.size.y)
+	_side_fill_left.visible = _home and _side_fill_left.size.x > 1.0
+	_side_fill_right.position = Vector2(_art.position.x + _art.size.x, _art.position.y)
+	_side_fill_right.size = Vector2(maxf(0.0, screen.x - _side_fill_right.position.x), _art.size.y)
+	_side_fill_right.visible = _home and _side_fill_right.size.x > 1.0
 	_title.position = Vector2(78,top+12)
 	_emblem.position = Vector2(20,top+8)
 	_emblem.size = Vector2(48,48)
@@ -201,6 +201,32 @@ func _layout() -> void:
 	_hint.size.x = screen.x
 	_last_layout_viewport = screen
 	_last_layout_top = top
+
+func _create_side_fill() -> void:
+	var panorama := load("res://assets/ui/ports/buildable_landscape_sidefill.png") as Texture2D
+	if panorama == null:
+		return
+	var source_size: Vector2 = panorama.get_size()
+	var strip_width: float = minf(150.0, source_size.x * 0.1)
+	var left_atlas := AtlasTexture.new()
+	left_atlas.atlas = panorama
+	left_atlas.region = Rect2(0, 0, strip_width, source_size.y)
+	var right_atlas := AtlasTexture.new()
+	right_atlas.atlas = panorama
+	right_atlas.region = Rect2(source_size.x - strip_width, 0, strip_width, source_size.y)
+	_side_fill_left = _make_side_texture("PanoramaSideFillLeft", left_atlas)
+	_side_fill_right = _make_side_texture("PanoramaSideFillRight", right_atlas)
+
+func _make_side_texture(node_name: String, texture: Texture2D) -> TextureRect:
+	var side := TextureRect.new()
+	side.name = node_name
+	side.texture = texture
+	side.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	side.stretch_mode = TextureRect.STRETCH_SCALE
+	side.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	side.modulate = Color(0.82, 0.9, 0.92, 1.0)
+	_root.add_child(side)
+	return side
 
 func _refresh_sprites() -> void:
 	# Foreign-port panoramas have no clickable building overlays.
