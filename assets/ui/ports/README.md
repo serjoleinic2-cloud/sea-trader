@@ -4,7 +4,12 @@ Built with the built-in image_gen tool. Exact prompts and original generated
 file paths are retained in `generation_manifest.json`. All production images
 are copied into this project; runtime needs no external service.
 
-`buildable_landscape.png` is the empty town terrain. Each faction folder holds:
+`buildable_landscape.png` is the single wide home-port panorama, including the
+open terraces where buildings are placed. The live town screen uses this image
+as its complete background; it does not extend it with cropped side strips.
+Building sprites and upgrade details use normalized anchors on the same canvas,
+so they remain aligned when the whole panorama is scaled proportionally. Each
+faction folder holds:
 
 - `panorama.png`: the complete developed city, used for foreign-port visits.
 - `buildings_atlas.png`: source 4x3 transparent sprite sheet.

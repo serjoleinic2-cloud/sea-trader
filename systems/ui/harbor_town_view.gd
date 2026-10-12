@@ -7,15 +7,11 @@ const NAMES: Array[String] = ["Причал", "Склад", "Мастерска�
 const BUILDING_ART_OVERRIDES: Dictionary = {
 	"crystari": {"barracks": "res://assets/ui/ports/crystari/barracks_harbor.png"},
 }
-## Authored hotspots on the docked home-port illustration. Keep these separate
-## from the 3D showcase manifest: this is the live construction screen.
-# Captain's House aligns with the fishing wharf, raised 264 authored pixels.
-# Barracks aligns vertically with the Mage Guild, shifted right 358 authored pixels.
-const SITES: Array[Vector2] = [Vector2(.81,.79), Vector2(.40,.57), Vector2(.6327,.5448), Vector2(.20,.37), Vector2(.865,.575), Vector2(.41,.37), Vector2(.18,.745), Vector2(.61,.3425), Vector2(.18,.52), Vector2(.8344,.3425)]
+## Normalized anchors on the single panoramic home-port canvas. Background,
+## building sprites, and upgrade details all scale from this same coordinate space.
+const SITES: Array[Vector2] = [Vector2(.69,.79), Vector2(.31,.62), Vector2(.40,.61), Vector2(.50,.59), Vector2(.60,.61), Vector2(.70,.62), Vector2(.23,.75), Vector2(.39,.47), Vector2(.49,.47), Vector2(.59,.49)]
 var _main: Node
 var _root: Control
-var _side_fill_left: TextureRect
-var _side_fill_right: TextureRect
 var _art: Control
 var _background: TextureRect
 var _title: Label
@@ -47,7 +43,6 @@ func initialize(main: Node) -> void:
 	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_root.add_child(shade)
-	_create_side_fill()
 	_art = Control.new()
 	_root.add_child(_art)
 	_background = TextureRect.new()
@@ -143,8 +138,6 @@ func _process(delta: float) -> void:
 		_race = str(GameState.player_state.get("origin_race_id", "humans")) if _home else load("res://systems/world/port_faction_resolver.gd").new().resolve(port, int(GameState.world_state.get("seed", 0)))
 		if GameData.get_faction(_race).is_empty(): _race = "humans"
 		_background.texture = load("res://assets/ui/ports/buildable_landscape.png" if _home else "res://assets/ui/ports/%s/panorama.png" % _race)
-		_side_fill_left.visible = _home
-		_side_fill_right.visible = _home
 		_emblem.texture = GameData.get_faction_emblem(_race)
 		_title.text = str(_main.get_node("PortSystem").get_port_name(port_id))
 		_signature = ""
@@ -167,17 +160,15 @@ func _layout() -> void:
 	var coordinator: Node = _main.get_node("WindowCoordinator")
 	var top: float = float(coordinator.get("_top_height")) + 5
 	var available := Vector2(screen.x, maxf(200, screen.y - top))
-	# Scale the island proportionally, pin it to the bottom edge and let the
-	# panoramic side-fill show beyond the original artwork on wide screens.
-	var factor: float = minf(available.x / 1672.0, available.y / 941.0)
-	_art.size = Vector2(1672,941) * factor
+	# The panoramic island is the single source of truth for background and
+	# building hotspots. Cover the viewport without distorting the art, pin the
+	# bottom edge, and let the viewport crop whichever edge the aspect ratio needs.
+	var design_size: Vector2 = _background.texture.get_size() if _background.texture != null else Vector2(1838, 856)
+	var width_factor: float = available.x / design_size.x
+	var height_factor: float = available.y / design_size.y
+	var factor: float = maxf(width_factor, height_factor) if _home else minf(width_factor, height_factor)
+	_art.size = design_size * factor
 	_art.position = Vector2((screen.x-_art.size.x)*.5, screen.y-_art.size.y)
-	_side_fill_left.position = Vector2(0, _art.position.y)
-	_side_fill_left.size = Vector2(maxf(0.0, _art.position.x), _art.size.y)
-	_side_fill_left.visible = _home and _side_fill_left.size.x > 1.0
-	_side_fill_right.position = Vector2(_art.position.x + _art.size.x, _art.position.y)
-	_side_fill_right.size = Vector2(maxf(0.0, screen.x - _side_fill_right.position.x), _art.size.y)
-	_side_fill_right.visible = _home and _side_fill_right.size.x > 1.0
 	_title.position = Vector2(78,top+12)
 	_emblem.position = Vector2(20,top+8)
 	_emblem.size = Vector2(48,48)
@@ -201,32 +192,6 @@ func _layout() -> void:
 	_hint.size.x = screen.x
 	_last_layout_viewport = screen
 	_last_layout_top = top
-
-func _create_side_fill() -> void:
-	var panorama := load("res://assets/ui/ports/buildable_landscape_sidefill.png") as Texture2D
-	if panorama == null:
-		return
-	var source_size: Vector2 = panorama.get_size()
-	var strip_width: float = minf(150.0, source_size.x * 0.1)
-	var left_atlas := AtlasTexture.new()
-	left_atlas.atlas = panorama
-	left_atlas.region = Rect2(0, 0, strip_width, source_size.y)
-	var right_atlas := AtlasTexture.new()
-	right_atlas.atlas = panorama
-	right_atlas.region = Rect2(source_size.x - strip_width, 0, strip_width, source_size.y)
-	_side_fill_left = _make_side_texture("PanoramaSideFillLeft", left_atlas)
-	_side_fill_right = _make_side_texture("PanoramaSideFillRight", right_atlas)
-
-func _make_side_texture(node_name: String, texture: Texture2D) -> TextureRect:
-	var side := TextureRect.new()
-	side.name = node_name
-	side.texture = texture
-	side.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	side.stretch_mode = TextureRect.STRETCH_SCALE
-	side.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	side.modulate = Color(0.82, 0.9, 0.92, 1.0)
-	_root.add_child(side)
-	return side
 
 func _refresh_sprites() -> void:
 	# Foreign-port panoramas have no clickable building overlays.
