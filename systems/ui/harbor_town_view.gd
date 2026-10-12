@@ -162,9 +162,10 @@ func _layout() -> void:
 	var coordinator: Node = _main.get_node("WindowCoordinator")
 	var top: float = float(coordinator.get("_top_height")) + 5
 	var available := Vector2(screen.x, maxf(200, screen.y - top - 68))
-	# Cover the viewport instead of letterboxing the port illustration with wide
-	# empty side bands. Keep the authored hotspots in the same scaled coordinate space.
-	var factor: float = maxf(available.x / 1672.0, available.y / 941.0)
+	# Keep the whole authored island visible beneath the top HUD. Cover-scaling
+	# cropped the upper/lower part of the art on wide fullscreen viewports,
+	# taking building hotspots with it.
+	var factor: float = minf(available.x / 1672.0, available.y / 941.0)
 	_art.size = Vector2(1672,941) * factor
 	_art.position = Vector2((screen.x-_art.size.x)*.5, top+(available.y-_art.size.y)*.5)
 	_title.position = Vector2(78,top+12)
