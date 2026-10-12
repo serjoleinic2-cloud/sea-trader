@@ -1,0 +1,401 @@
+extends VBoxContainer
+
+## A single market transaction workspace. Economic calculations and mutations
+## remain in the existing market, merchant and supply-order services.
+var owner_window: Node
+var mode := "sell"
+var category := "all"
+var selected_resource := ""
+var _port_id := ""
+var _home := false
+var _title: Label
+var _modes: HBoxContainer
+var _categories: HFlowContainer
+var _search: LineEdit
+var _products: GridContainer
+var _product_name: Label
+var _stock: Label
+var _quantity: SpinBox
+var _quantity_caption: Label
+var _slider: HSlider
+var _price: SpinBox
+var _price_caption: Label
+var _total: Label
+var _reason: Label
+var _notice: Label
+var _primary: Button
+var _presets: HBoxContainer
+var _unit_price := 0.0
+var _available := 0
+var _tick := 0.0
+var _signature := ""
+
+func _ready() -> void:
+	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_theme_constant_override("separation", 8)
+	var header := HBoxContainer.new()
+	add_child(header)
+	_title = _label("РЫНОК", 18)
+	_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	header.add_child(_title)
+	var close := Button.new()
+	close.name = "MarketCloseButton"
+	preload("res://systems/ui/brass_close_button.gd").apply(close)
+	close.pressed.connect(owner_window._collapse_port_overlay)
+	get_parent().add_child(close)
+	close.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+	close.offset_left = -52
+	close.offset_top = 12
+	close.offset_right = -12
+	close.offset_bottom = 52
+	visibility_changed.connect(func():
+		if is_instance_valid(close):
+			close.visible = visible
+	)
+	_modes = HBoxContainer.new()
+	add_child(_modes)
+	for choice in [["buy", "КУПИТЬ"], ["sell", "ПРОДАТЬ"], ["orders", "ЗАЯВКИ И ДОСТАВКИ"]]:
+		_modes.add_child(_button(str(choice[1]), _set_mode.bind(str(choice[0]))))
+	_categories = HFlowContainer.new()
+	add_child(_categories)
+	for choice in [["all", "Все товары"], ["raw_material", "Сырьё"], ["industrial_goods", "Промтовары"], ["liquid_cargo", "Жидкости"]]:
+		_categories.add_child(_button(str(choice[1]), _set_category.bind(str(choice[0]))))
+	_search = LineEdit.new()
+	_search.placeholder_text = "Найти товар…"
+	_search.custom_minimum_size.y = 30
+	_search.set_meta("compact_description", true)
+	_search.set_meta("ui_base_font_size", 12)
+	_search.text_changed.connect(func(_text: String): _refresh_products())
+	add_child(_search)
+	var body := HBoxContainer.new()
+	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	body.add_theme_constant_override("separation", 12)
+	add_child(body)
+	var scroll := ScrollContainer.new()
+	scroll.name = "MarketProducts"
+	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.size_flags_stretch_ratio = 1.15
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	body.add_child(scroll)
+	_products = GridContainer.new()
+	_products.columns = 2
+	_products.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_products.add_theme_constant_override("h_separation", 6)
+	_products.add_theme_constant_override("v_separation", 6)
+	scroll.add_child(_products)
+	var panel := PanelContainer.new()
+	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	panel.size_flags_stretch_ratio = 1.0
+	panel.custom_minimum_size.x = 240
+	body.add_child(panel)
+	var action := VBoxContainer.new()
+	action.add_theme_constant_override("separation", 7)
+	panel.add_child(action)
+	_product_name = _label("Выберите товар", 17)
+	action.add_child(_product_name)
+	_stock = _label("", 12)
+	action.add_child(_stock)
+	_quantity_caption = _label("Количество, ед.", 12)
+	action.add_child(_quantity_caption)
+	_quantity = SpinBox.new()
+	_quantity.name = "MarketQuantity"
+	_quantity.min_value = 1
+	_quantity.step = 1
+	_quantity.value = 1
+	_quantity.set_meta("compact_description", true)
+	_quantity.set_meta("ui_base_font_size", 12)
+	_quantity.get_line_edit().set_meta("compact_description", true)
+	_quantity.get_line_edit().set_meta("ui_base_font_size", 12)
+	_quantity.value_changed.connect(_set_quantity)
+	action.add_child(_quantity)
+	_slider = HSlider.new()
+	_slider.min_value = 1
+	_slider.step = 1
+	_slider.value_changed.connect(_set_quantity)
+	action.add_child(_slider)
+	_presets = HBoxContainer.new()
+	action.add_child(_presets)
+	for choice in [["1", 1.0], ["10", 10.0], ["½", -0.5], ["МАКС", -1.0]]:
+		_presets.add_child(_button(str(choice[0]), _preset.bind(float(choice[1]))))
+	_price_caption = _label("Цена продажи за единицу", 12)
+	action.add_child(_price_caption)
+	_price = SpinBox.new()
+	_price.step = 1
+	_price.set_meta("compact_description", true)
+	_price.set_meta("ui_base_font_size", 12)
+	_price.get_line_edit().set_meta("compact_description", true)
+	_price.get_line_edit().set_meta("ui_base_font_size", 12)
+	_price.value_changed.connect(func(_value: float): _refresh_details())
+	action.add_child(_price)
+	_total = _label("", 18)
+	action.add_child(_total)
+	_primary = _button("Выберите товар", _transact)
+	_primary.name = "MarketPrimaryAction"
+	action.add_child(_primary)
+	_reason = _label("", 12)
+	_reason.name = "MarketAvailability"
+	action.add_child(_reason)
+	_notice = _label("", 12)
+	_notice.modulate = Color("b9e5c8")
+	action.add_child(_notice)
+	var spacer := Control.new()
+	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	action.add_child(spacer)
+
+func _label(text_value: String, font_size: int) -> Label:
+	var label := Label.new()
+	label.text = text_value
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	label.add_theme_font_size_override("font_size", font_size)
+	label.set_meta("compact_description", true)
+	label.set_meta("ui_base_font_size", font_size)
+	return label
+
+func _button(text_value: String, callback: Callable) -> Button:
+	var button := Button.new()
+	button.text = text_value
+	button.custom_minimum_size.y = 32
+	button.add_theme_font_size_override("font_size", 12)
+	button.set_meta("compact_description", true)
+	button.set_meta("ui_base_font_size", 12)
+	button.set_meta("ui_base_min_height", 30)
+	button.pressed.connect(callback)
+	return button
+
+func _supply() -> Node:
+	return owner_window.get_parent().get_node_or_null("SupplyOrderSystem")
+
+func open_for_port(port_id: String) -> void:
+	if port_id != _port_id:
+		_port_id = port_id
+		_home = port_id == str(GameState.world_state.get("home_port_id", ""))
+		mode = "sell" if _home else "buy"
+		selected_resource = ""
+		category = "all"
+		_notice.text = ""
+	_title.text = "РЫНОК · " + owner_window._port_system.get_port_name(port_id)
+	_refresh_products()
+
+func _set_mode(value: String) -> void:
+	mode = value
+	selected_resource = ""
+	_notice.text = ""
+	_refresh_products()
+
+func _set_category(value: String) -> void:
+	category = value
+	selected_resource = ""
+	_refresh_products()
+
+func _choose(resource: String) -> void:
+	selected_resource = resource
+	owner_window._selected_market_resource_id = resource
+	_quantity.set_value_no_signal(1)
+	var base_price: float = maxf(1.0, float(owner_window._goods_prices.get(resource, 1)))
+	_price.min_value = maxf(1, round(base_price * 0.50))
+	_price.max_value = maxf(_price.min_value + 1, round(base_price * 1.70))
+	_price.set_value_no_signal(round(base_price))
+	_refresh_details()
+	for child in _products.get_children():
+		if child is Button:
+			child.button_pressed = str(child.get_meta("resource_id", "")) == resource
+
+func _refresh_products() -> void:
+	_products.columns = 1 if mode == "orders" else 2
+	for child in _products.get_children():
+		_products.remove_child(child)
+		child.queue_free()
+	for index in _modes.get_child_count():
+		_modes.get_child(index).toggle_mode = true
+		_modes.get_child(index).button_pressed = mode == ["buy", "sell", "orders"][index]
+		_modes.get_child(index).visible = index != 2 or _home
+	for index in _categories.get_child_count():
+		_categories.get_child(index).toggle_mode = true
+		_categories.get_child(index).button_pressed = category == ["all", "raw_material", "industrial_goods", "liquid_cargo"][index]
+	_categories.visible = mode != "orders"
+	_search.visible = mode != "orders"
+	if mode == "orders":
+		_orders()
+		_refresh_details()
+		return
+	var first := ""
+	var found := false
+	for resource in owner_window._goods:
+		if category != "all" and str(owner_window._goods_categories.get(resource, "")) != category:
+			continue
+		var name_value: String = owner_window._get_resource_name(str(resource))
+		if not _search.text.strip_edges().is_empty() and not name_value.to_lower().contains(_search.text.to_lower()):
+			continue
+		var available: int = _resource_stock(str(resource))
+		if mode == "sell" and available <= 0:
+			continue
+		var price_text: String = ""
+		if not _home:
+			price_text = " · %.0f мон./ед." % (owner_window._get_purchase_price(str(resource)) if mode == "buy" else owner_window._get_sale_price(str(resource)))
+		var button: Button = _button("%s\n%d ед.%s" % [name_value, available, price_text], _choose.bind(str(resource)))
+		button.name = "Good_" + str(resource)
+		button.toggle_mode = true
+		button.button_pressed = selected_resource == str(resource)
+		button.set_meta("resource_id", str(resource))
+		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		button.custom_minimum_size.y = 58
+		var path: String = "res://assets/ui/styles/approved_hud/%s.png" % str(resource)
+		if ResourceLoader.exists(path):
+			button.icon = load(path)
+			button.expand_icon = true
+			button.add_theme_constant_override("icon_max_width", 28)
+		_products.add_child(button)
+		if first == "":
+			first = str(resource)
+		found = found or selected_resource == str(resource)
+	if not found:
+		_choose(first)
+	if first == "":
+		_products.add_child(_label("Нет свободных товаров для продажи." if mode == "sell" else "Нет товаров по выбранному фильтру.", 13))
+	_refresh_details()
+	_signature = _state_signature()
+
+func _resource_stock(resource: String) -> int:
+	if _home:
+		if mode == "buy":
+			var supply: Node = _supply()
+			if supply == null:
+				return 0
+			var quote: Dictionary = supply.get_quote(resource)
+			return int(GameState.port_state.get(str(quote.get("source_port_id", "")), {}).get("market_stock", {}).get(resource, 0)) if bool(quote.get("ok", false)) else 0
+		var merchant: Node = owner_window._get_merchant_system()
+		var reserved: int = int(merchant.get_reserved_quantity(resource)) if merchant != null else 0
+		return maxi(0, int(GameState.port_state.get(_port_id, {}).get("inventory", {}).get(resource, 0)) - reserved)
+	if mode == "buy":
+		return int(owner_window._get_port_market_stock(_port_id).get(resource, 0))
+	return int(owner_window._get_sellable_cargo_quantity(resource))
+
+func _refresh_details() -> void:
+	var selected: bool = selected_resource != "" and mode != "orders"
+	for control in [_quantity, _quantity_caption, _presets]:
+		control.visible = selected
+	_slider.hide()
+	_price.visible = selected and _home and mode == "sell"
+	_price_caption.visible = _price.visible
+	_product_name.text = owner_window._get_resource_name(selected_resource) if selected else ("Заявки и доставки" if mode == "orders" else "Выберите товар")
+	_primary.disabled = true
+	_primary.visible = mode != "orders"
+	_total.text = ""
+	_reason.text = ""
+	_stock.text = ""
+	if not selected:
+		_primary.text = "Выберите товар"
+		return
+	_available = _resource_stock(selected_resource)
+	_quantity.max_value = maxi(1, _available)
+	_quantity.set_value_no_signal(clampf(_quantity.value, 1, _quantity.max_value))
+	_slider.max_value = _quantity.max_value
+	_slider.set_value_no_signal(_quantity.value)
+	var quantity: int = int(_quantity.value)
+	var money: float = float(GameState.player_state.get("money", 0))
+	var ready: bool = _available >= quantity
+	_unit_price = 0
+	var total: float = 0
+	var explanation := ""
+	if _home and mode == "buy":
+		var supply: Node = _supply()
+		var quote: Dictionary = supply.get_quote(selected_resource, quantity) if supply != null else {"ok": false, "message": "Поставка недоступна."}
+		_unit_price = float(quote.get("delivery_price", 0))
+		total = _unit_price * quantity
+		ready = ready and bool(quote.get("ok", false))
+		explanation = "Поставщик: %s\nПрибытие: %d сек. Доставка включена." % [str(quote.get("source_name", "—")), int(quote.get("delivery_seconds", 0))] if bool(quote.get("ok", false)) else str(quote.get("message", "Нет поставщика."))
+		if supply != null and supply.get_active_orders().size() >= supply.get_delivery_capacity():
+			ready = false
+			explanation = "Все места доставки заняты. Дождитесь груза или улучшите рынок."
+	elif _home:
+		_unit_price = _price.value
+		total = _unit_price * quantity
+		ready = ready and owner_window._get_merchant_system() != null
+		explanation = "Товар резервируется в заявке. Монеты поступят, когда его купит прибывший торговец."
+	else:
+		var quote: Dictionary = owner_window._transfers._market.quote_purchase(_port_id, selected_resource, quantity) if mode == "buy" else owner_window._transfers._market.quote_sale(_port_id, selected_resource, quantity)
+		_unit_price = float(quote.get("unit_price", 0))
+		total = _unit_price * quantity if mode == "buy" else float(quote.get("revenue", 0))
+		ready = ready and bool(quote.get("ok", false))
+		explanation = str(quote.get("message", "")) if not bool(quote.get("ok", false)) else ("Покупка поступит в трюм корабля." if mode == "buy" else "Монеты поступят в казну сразу.")
+		if mode == "buy" and quantity > int(GameState.ship_state.get("cargo_capacity", 0)) - owner_window._get_cargo_units():
+			ready = false
+			explanation = "В трюме не хватает места для этого количества."
+	if mode == "buy" and money < total:
+		ready = false
+		explanation = "Не хватает %.0f монет. Уменьшите количество." % (total - money)
+	if _available <= 0:
+		ready = false
+		if not (_home and mode == "buy"):
+			explanation = "Свободного товара нет."
+	_stock.text = "Доступно %d ед. · цена %.0f/ед.\nКазна %.0f · трюм %d / %d" % [_available, _unit_price, money, owner_window._get_cargo_units(), int(GameState.ship_state.get("cargo_capacity", 0))]
+	_total.text = "%s: %.0f монет" % ["Ожидаемая выручка" if _home and mode == "sell" else ("Получите" if mode == "sell" else "К оплате"), total]
+	_primary.text = ("ЗАКАЗАТЬ НА БАЗУ" if _home else "КУПИТЬ") if mode == "buy" else ("ВЫСТАВИТЬ ЗАЯВКУ" if _home else "ПРОДАТЬ")
+	_primary.disabled = not ready
+	_reason.text = explanation
+
+func _set_quantity(value: float) -> void:
+	_quantity.set_value_no_signal(value)
+	_slider.set_value_no_signal(value)
+	_refresh_details()
+
+func _preset(value: float) -> void:
+	var maximum: int = _available
+	if mode == "buy":
+		maximum = mini(maximum, int(float(GameState.player_state.get("money", 0)) / maxf(1, _unit_price)))
+		if not _home:
+			maximum = mini(maximum, int(GameState.ship_state.get("cargo_capacity", 0)) - owner_window._get_cargo_units())
+	_set_quantity(maxf(1, floor(maximum * absf(value))) if value < 0 else minf(value, _quantity.max_value))
+
+func _transact() -> void:
+	_refresh_details()
+	if _primary.disabled:
+		return
+	var quantity: int = int(_quantity.value)
+	var result: Dictionary
+	if _home:
+		result = _supply().place_order(selected_resource, quantity) if mode == "buy" else owner_window._get_merchant_system().create_sell_order(selected_resource, quantity, _price.value)
+	else:
+		result = owner_window._transfers.execute(mode, selected_resource, quantity)
+	_notice.text = str(result.get("message", ""))
+	owner_window._notice = _notice.text
+	_refresh_products()
+
+func _orders() -> void:
+	var count := 0
+	var merchant: Node = owner_window._get_merchant_system()
+	if merchant != null:
+		for order in merchant.get_sell_orders():
+			count += 1
+			var label: Label = _label("%s × %d · %.0f/ед.\n%s" % [owner_window._get_resource_name(str(order.resource_id)), int(order.get("quantity_available", 0)), float(order.get("asking_price", 0)), str(order.get("last_feedback", "Ждёт торговца"))], 12)
+			_products.add_child(label)
+			_products.add_child(_button("Снять заявку и освободить товар", _cancel_order.bind(str(order.id))))
+	var supply: Node = _supply()
+	if supply != null:
+		for order in supply.get_active_orders():
+			count += 1
+			var remaining: int = maxi(0, int(order.get("arrives_at", 0)) - int(Time.get_unix_time_from_system()))
+			_products.add_child(_label("В пути: %s × %d · %d сек." % [owner_window._get_resource_name(str(order.resource_id)), int(order.quantity), remaining], 13))
+	if count == 0:
+		_products.add_child(_label("Заявок и доставок пока нет.", 13))
+
+func _cancel_order(id: String) -> void:
+	var result: Dictionary = owner_window._get_merchant_system().cancel_sell_order(id)
+	_notice.text = str(result.message)
+	_refresh_products()
+
+func _state_signature() -> String:
+	return str(hash([GameState.port_state.get(_port_id, {}).get("inventory", {}), GameState.port_state.get(_port_id, {}).get("market_stock", {}), GameState.ship_state.get("cargo", []), GameState.player_state.get("money", 0), GameState.economy_state.get("supply_orders", []), GameState.economy_state.get("merchant", {}).get("sell_orders", [])]))
+
+func _process(delta: float) -> void:
+	if not is_visible_in_tree():
+		return
+	_tick += delta
+	if _tick < 0.5:
+		return
+	_tick = 0
+	if mode == "orders" or _signature != _state_signature():
+		_refresh_products()
+	else:
+		_refresh_details()

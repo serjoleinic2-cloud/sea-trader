@@ -13,65 +13,27 @@ var _notice: String = ""
 var _origin_emblem: TextureRect
 var _crew_atlas: Texture2D
 var _armament_window: Control
+var _garage: Control
 const CREW_ATLAS := "res://assets/characters/crew/crew_portrait_atlas.png"
 const CharacterArtCatalog = preload("res://systems/characters/character_art_catalog.gd")
 
 func _ready() -> void:
 	layer = 31
 	_button = Button.new()
-	_button.text = "ФЛОТ [F]"
-	_button.custom_minimum_size = Vector2(180, 40)
-	_button.add_theme_font_size_override("font_size", 17)
+	_button.text = "ФЛОТ И ВЕРФЬ [F]"
 	_button.pressed.connect(_toggle)
 	add_child(_button)
 	_panel = PanelContainer.new()
-	_panel.size = Vector2(780, 760)
-	var style: StyleBoxFlat = StyleBoxFlat.new()
-	style.bg_color = Color(0.04, 0.06, 0.08, 1.0)
-	style.border_color = Color(0.55, 0.7, 0.3, 1.0)
-	style.set_border_width_all(2)
-	_panel.add_theme_stylebox_override("panel", style)
+	_panel.size = Vector2(1100, 660)
 	add_child(_panel)
-	var margin: MarginContainer = MarginContainer.new()
+	var margin := MarginContainer.new()
 	for side in ["left", "top", "right", "bottom"]:
-		margin.add_theme_constant_override("margin_" + side, 16)
+		margin.add_theme_constant_override("margin_" + side, 12)
 	_panel.add_child(margin)
-	var box: VBoxContainer = VBoxContainer.new()
-	box.add_theme_constant_override("separation", 10)
-	margin.add_child(box)
-	var title_row := HBoxContainer.new()
-	title_row.add_theme_constant_override("separation", 12)
-	box.add_child(title_row)
-	_origin_emblem = TextureRect.new()
-	_origin_emblem.custom_minimum_size = Vector2(46, 46)
-	_origin_emblem.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	_origin_emblem.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	_origin_emblem.texture = _get_origin_emblem()
-	title_row.add_child(_origin_emblem)
-	var title: Label = Label.new()
-	title.text = "УПРАВЛЕНИЕ ФЛОТОМ"
-	title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 24)
-	title_row.add_child(title)
-	_summary = Label.new()
-	_summary.add_theme_font_size_override("font_size", 18)
-	_summary.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	box.add_child(_summary)
-	var scroll: ScrollContainer = ScrollContainer.new()
-	scroll.custom_minimum_size.y = 550
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	box.add_child(scroll)
-	_list = VBoxContainer.new()
-	_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_list.add_theme_constant_override("separation", 8)
-	scroll.add_child(_list)
-	var close_button: Button = Button.new()
-	close_button.text = "Закрыть"
-	preload("res://systems/ui/brass_close_button.gd").apply(close_button)
-	close_button.custom_minimum_size.y = 40
-	close_button.pressed.connect(_close)
-	box.add_child(close_button)
-	_armament_window=preload("res://systems/ui/naval_armament_window.gd").new()
+	_garage = preload("res://systems/ui/fleet_garage_view.gd").new()
+	_garage.owner_window = self
+	margin.add_child(_garage)
+	_armament_window = preload("res://systems/ui/naval_armament_window.gd").new()
 	_armament_window.closed.connect(_return_from_armament)
 	add_child(_armament_window)
 	_panel.hide()
@@ -112,25 +74,11 @@ func _return_from_armament() -> void:
 	_refresh()
 
 func _refresh() -> void:
-	if _fleet_system == null:
-		return
-	for child in _list.get_children():
-		child.queue_free()
-	var docked_port_id: String = str(GameState.ship_state.get("docked_port_id", ""))
-	var home_port_id: String = str(GameState.world_state.get("home_port_id", ""))
-	var place_text: String = "В море"
-	if docked_port_id != "":
-		place_text = "в порту " + _fleet_system._port_system.get_port_name(docked_port_id)
-	var progress: Dictionary = _fleet_system.get_command_progress()
-	_summary.text = "Ваше судно: %s. Дополнительных кораблей: %d.\nДопуск: %s, ранг %d.\n%s" % [place_text, GameState.fleet_state.size(), str(progress.get("stage_name", "Матрос")), int(progress.get("rank", 1)), _notice]
-	_add_active_ship_card()
-	for raw_ship in _fleet_system.get_auxiliary_ships():
-		var ship: Dictionary = raw_ship
-		_add_auxiliary_ship_card(ship)
-	_add_build_section(home_port_id, docked_port_id)
-	if _selected_ship_id != "":
-		_add_selected_ship_actions()
-	_compact_buttons(_panel)
+	if _fleet_system != null and _garage != null:
+		_garage.refresh()
+
+func open_shipyard() -> void:
+	_garage.open_construction()
 
 func _compact_buttons(node: Node) -> void:
 	for child in node.get_children():
@@ -149,6 +97,10 @@ func _create_card() -> VBoxContainer:
 	_list.add_child(panel)
 	var box: VBoxContainer = VBoxContainer.new()
 	box.add_theme_constant_override("separation", 6)
+	if _garage != null:
+		panel.add_child(box)
+		box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		return box
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation",18)
 	panel.add_child(row)
@@ -178,6 +130,7 @@ func _add_active_ship_card() -> void:
 	details.text = "Экипаж: навыки и замена сотрудников"
 	details.custom_minimum_size.y = 44
 	details.pressed.connect(_open_active_crew)
+	details.set_meta("fleet_primary_action", "Экипаж")
 	box.add_child(details)
 
 func _open_active_crew() -> void:
@@ -189,12 +142,12 @@ func _open_personnel(ship_id: String, personnel_mode: String) -> void:
 		windows[0].call("open_for_ship", ship_id, personnel_mode)
 
 func _add_auxiliary_ship_card(ship: Dictionary) -> void:
-	var box: VBoxContainer = _create_card()
-	_add_ship_portrait(box, str(ship.get("ship_type_id", "ship_sloop")))
-	var ship_id: String = str(ship.get("instance_id", ""))
 	if bool(GameData.get_ship(str(ship.get("ship_type_id", ""))).get("warship", false)):
 		_add_naval_ship_card(ship)
 		return
+	var box: VBoxContainer = _create_card()
+	_add_ship_portrait(box, str(ship.get("ship_type_id", "ship_sloop")))
+	var ship_id: String = str(ship.get("instance_id", ""))
 	if str(ship.get("ship_type_id","")) == "ship_combat_cutter" and ship.get("autopilot",{}).is_empty():
 		_add_transport_controls(box,ship)
 		return
@@ -212,6 +165,7 @@ func _add_auxiliary_ship_card(ship: Dictionary) -> void:
 	take_button.disabled = not bool(take_status.get("ok", false))
 	take_button.tooltip_text = str(take_status.get("message", ""))
 	take_button.pressed.connect(_take_control.bind(ship_id))
+	take_button.set_meta("fleet_primary_action", "Сесть за штурвал")
 	box.add_child(take_button)
 	if not bool(take_status.get("ok", false)):
 		var take_hint: Label = Label.new()
@@ -252,6 +206,8 @@ func _add_auxiliary_ship_card(ship: Dictionary) -> void:
 	box.add_child(select_button)
 
 func _add_ship_portrait(box: VBoxContainer, ship_type_id: String) -> void:
+	if _garage != null:
+		return
 	var definition: Dictionary = GameData.get_ship(ship_type_id)
 	var path := str(definition.get("ui_icon", ""))
 	if not ResourceLoader.exists(path):
@@ -284,6 +240,7 @@ func _add_transport_controls(box: VBoxContainer, ship: Dictionary) -> void:
 	personnel_button.custom_minimum_size.y = 40
 	personnel_button.tooltip_text = "Персонал этого военного транспортного корабля. Солдаты и орудия размещаются ниже."
 	personnel_button.pressed.connect(_open_personnel.bind(id, "military"))
+	personnel_button.set_meta("fleet_primary_action", "Экипаж транспорта")
 	box.add_child(personnel_button)
 	var available: bool = system._at_home(ship) and not system._locked(id)
 	var escort_status: Dictionary = system.get_escort_change_status(id)
@@ -291,6 +248,7 @@ func _add_transport_controls(box: VBoxContainer, ship: Dictionary) -> void:
 	escort.text = "Оставить транспорт в порту" if bool(ship.get("escort_enabled",false)) else "Включить в сопровождение"
 	escort.disabled = not bool(escort_status.ok)
 	escort.tooltip_text = str(escort_status.message)
+	escort.set_meta("fleet_primary_action", "Оставить в порту" if bool(ship.get("escort_enabled", false)) else "В сопровождение")
 	escort.pressed.connect(func():
 		var result: Dictionary = system.set_escort(id,not bool(ship.get("escort_enabled",false)))
 		_notice = str(result.message)
@@ -406,6 +364,7 @@ func _add_selected_ship_actions() -> void:
 	personnel_button.custom_minimum_size.y = 42
 	personnel_button.tooltip_text = "Открыть единый раздел персонала для этого торгового корабля."
 	personnel_button.pressed.connect(_open_personnel.bind(_selected_ship_id, "trade"))
+	personnel_button.set_meta("fleet_primary_action", "Экипаж")
 	box.add_child(personnel_button)
 
 func _add_auxiliary_crew_slots(box: VBoxContainer, ship: Dictionary) -> void:
@@ -534,6 +493,9 @@ func _retry_trade(ship_id: String) -> void:
 func _unhandled_key_input(event: InputEvent) -> void:
 	if not event is InputEventKey or not event.pressed or event.echo:
 		return
+	var focus: Control = get_viewport().gui_get_focus_owner()
+	if focus is LineEdit or focus is TextEdit:
+		return
 	if event.keycode == KEY_F or event.physical_keycode == KEY_F:
 		_toggle()
 		get_viewport().set_input_as_handled()
@@ -573,12 +535,13 @@ func _add_naval_ship_card(ship: Dictionary) -> void:
 	var escort_status: Dictionary = military.get_escort_change_status(id)
 	var escort: Button = _naval_button(box, "Оставить в порту" if bool(ship.escort_enabled) else "В сопровождение · готовность к бою", bool(escort_status.ok), func(): return military.set_escort(id, not bool(ship.escort_enabled)))
 	escort.tooltip_text = str(escort_status.message)
+	escort.set_meta("fleet_primary_action", "Оставить в порту" if bool(ship.escort_enabled) else "В сопровождение")
 	var status: Dictionary = navy.management_status(id)
 	var available: bool = bool(status.ok)
 	var row := HBoxContainer.new()
 	box.add_child(row)
-	_naval_button(row, "Улучшить корпус", available, func(): return navy.upgrade_ship(id))
-	_naval_button(row, "Ремонт", available, func(): return navy.repair_ship(id))
+	_naval_button(row, "Улучшить корпус", available, func(): return navy.upgrade_ship(id)).set_meta("fleet_primary_action", "Улучшить корпус")
+	_naval_button(row, "Ремонт", available, func(): return navy.repair_ship(id)).set_meta("fleet_primary_action", "Ремонт")
 	var commander: Dictionary = ship.commander
 	var personnel_button := Button.new()
 	personnel_button.text = "КОМАНДИР И ЭКИПАЖ · %s" % (str(commander.get("name", "назначить командира")) if not commander.is_empty() else "НАНЯТЬ И НАЗНАЧИТЬ")
@@ -586,6 +549,7 @@ func _add_naval_ship_card(ship: Dictionary) -> void:
 	personnel_button.disabled = not available
 	personnel_button.tooltip_text = "Командир и экипаж этого боевого корабля; командир влияет только на это судно."
 	personnel_button.pressed.connect(_open_personnel.bind(id, "military"))
+	personnel_button.set_meta("fleet_primary_action", "Командир и экипаж")
 	box.add_child(personnel_button)
 	var installed: int=0
 	for gun in ship.guns:
@@ -601,6 +565,7 @@ func _add_naval_ship_card(ship: Dictionary) -> void:
 	armament_button.disabled=not available
 	armament_button.tooltip_text=str(status.message)
 	armament_button.pressed.connect(_open_armament.bind(id))
+	armament_button.set_meta("fleet_primary_action", "Орудия и склад")
 	box.add_child(armament_button)
 	if not available:
 		var hint := Label.new()

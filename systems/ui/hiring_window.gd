@@ -77,6 +77,8 @@ func _ready() -> void:
 	explanation.text = "«Капитан» в меню — это вы. Нанятый капитан и боцман служат на одном корабле. Командир и заместитель в казармах усиливают всю армию."
 	explanation.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	explanation.add_theme_font_size_override("font_size", 13)
+	explanation.set_meta("compact_description", true)
+	explanation.set_meta("ui_base_font_size", 12)
 	explanation.add_theme_color_override("font_color", Color("c8d6d4"))
 	shell.add_child(explanation)
 	var view_row := HBoxContainer.new()
@@ -125,22 +127,34 @@ func _ready() -> void:
 	profile_title.text = "РОЛЬ И НАЗНАЧЕНИЕ"
 	profile_title.add_theme_font_size_override("font_size", 16)
 	profile_column.add_child(profile_title)
+	var profile_scroll := ScrollContainer.new()
+	profile_scroll.name = "PersonnelProfileDetails"
+	profile_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	profile_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	profile_column.add_child(profile_scroll)
+	var profile_content := VBoxContainer.new()
+	profile_content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	profile_content.add_theme_constant_override("separation", 7)
+	profile_scroll.add_child(profile_content)
 	var profile_row := HBoxContainer.new()
 	profile_row.add_theme_constant_override("separation", 12)
-	profile_column.add_child(profile_row)
+	profile_content.add_child(profile_row)
 	_portrait = TextureRect.new()
-	_portrait.custom_minimum_size = Vector2(185, 240)
+	_portrait.custom_minimum_size = Vector2(128, 170)
+	_portrait.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	_portrait.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	_portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	profile_row.add_child(_portrait)
 	_details = Label.new()
 	_details.add_theme_font_size_override("font_size", 14)
+	_details.set_meta("compact_description", true)
+	_details.set_meta("ui_base_font_size", 12)
 	_details.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_details.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	profile_row.add_child(_details)
 	_employee_actions = VBoxContainer.new()
 	_employee_actions.add_theme_constant_override("separation", 5)
-	profile_column.add_child(_employee_actions)
+	profile_content.add_child(_employee_actions)
 	_ship_selector = OptionButton.new()
 	_ship_selector.custom_minimum_size.y = 36
 	_ship_selector.item_selected.connect(_on_ship_selected)
@@ -150,7 +164,7 @@ func _ready() -> void:
 	_naval_commander_portrait.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	_naval_commander_portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	_naval_commander_portrait.hide()
-	profile_column.add_child(_naval_commander_portrait)
+	profile_content.add_child(_naval_commander_portrait)
 	_ship_action_button = Button.new()
 	_ship_action_button.text = "КОМАНДИР ВЫБРАННОГО ВОЕННОГО КОРАБЛЯ"
 	_ship_action_button.custom_minimum_size.y = 36
@@ -359,6 +373,10 @@ func _add_person_row(person: Dictionary, candidate_mode: bool) -> void:
 	row.add_child(portrait)
 	var button := Button.new()
 	button.custom_minimum_size.y = 70
+	button.set_meta("selection_card", true)
+	button.set_meta("compact_description", true)
+	button.set_meta("ui_base_font_size", 12)
+	button.set_meta("ui_base_min_height", 56)
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	button.add_theme_font_size_override("font_size", 13)
 	button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -448,7 +466,7 @@ func _refresh_details() -> void:
 	if _notice != "":
 		lines.append(_notice)
 	_portrait.texture = _get_person_portrait(candidate)
-	_details.text = "\n\n".join(lines)
+	_details.text = "\n".join(lines)
 	var ship_available := _ship_is_available(ship)
 	_hire_button.text = "НАНЯТЬ И НАЗНАЧИТЬ НА «%s» · %.0f" % [str(ship.get("name", "КОРАБЛЬ")).to_upper(), salary]
 	_hire_button.disabled = ship.is_empty() or not ship_available or assigned >= int(ship.get("max_crew", 0)) or int(candidate.get("rank", 1)) > _system.get_hiring_rank_limit() or float(GameState.player_state.get("money", 0.0)) < salary

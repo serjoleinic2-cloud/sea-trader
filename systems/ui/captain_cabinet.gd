@@ -195,9 +195,7 @@ func _process(_delta: float) -> void:
 
 
 func layout_for_viewport(viewport_size: Vector2, safe_top: float) -> void:
-	_panel.scale = Vector2.ONE
-	_panel.size = Vector2(maxf(120.0, viewport_size.x - 32.0), maxf(120.0, viewport_size.y - safe_top - 16.0))
-	_panel.position = Vector2(16.0, safe_top)
+	preload("res://systems/ui/workspace_layout.gd").fill_screen(_panel, viewport_size, safe_top)
 	_layout_cabin()
 
 func _layout_cabin() -> void:
@@ -211,8 +209,8 @@ func _layout_cabin() -> void:
 	_left_panel.position = Vector2(18.0, 28.0)
 	_left_panel.size = Vector2(clampf(_panel.size.x * 0.39, 260.0, 420.0), maxf(1.0, _panel.size.y - 44.0))
 	if _rewards_overlay != null:
-		_rewards_overlay.position = Vector2(_panel.size.x * 0.16, _panel.size.y * 0.07)
-		_rewards_overlay.size = Vector2(_panel.size.x * 0.68, _panel.size.y * 0.86)
+		_rewards_overlay.position = Vector2.ZERO
+		_rewards_overlay.size = _panel.size
 
 func _build_rewards_overlay() -> void:
 	_rewards_overlay = PanelContainer.new()

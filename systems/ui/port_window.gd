@@ -61,6 +61,7 @@ var _port_scroll: Control
 var _port_banner: Control
 var _merchant_race: String = ""
 var _encounter_signature: String = ""
+var _market_workspace: Control
 
 func install_art_layout() -> void:
 	var content: Control = _sheet.get_child(0)
@@ -107,6 +108,10 @@ func install_art_layout() -> void:
 	column.add_child(content)
 	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	content.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_market_workspace = preload("res://systems/ui/market_workspace_view.gd").new()
+	_market_workspace.owner_window = self
+	canvas.add_child(_market_workspace)
+	_market_workspace.hide()
 	_update_merchant_art()
 
 func _update_merchant_art() -> void:
@@ -114,6 +119,14 @@ func _update_merchant_art() -> void:
 	var market: bool = _current_section == "market"
 	_merchant_art.visible = market
 	_merchant_shade.visible = market
+	_port_scroll.visible = not market
+	_market_workspace.visible = market
+	if market:
+		_market_workspace.anchor_right = 0.78 if get_viewport().get_visible_rect().size.x >= 1000 else 1.0
+		_market_workspace.offset_left = 16
+		_market_workspace.offset_top = 12
+		_market_workspace.offset_right = -16
+		_market_workspace.offset_bottom = -12
 	# Fit the whole standing figure vertically; extend the quiet left side with shade.
 	_merchant_art.anchor_left = 1.0
 	_merchant_art.offset_left = -_merchant_art.get_parent().size.y * (16.0/9.0)
@@ -385,7 +398,7 @@ func _process(_delta: float) -> void:
 			_rebuild_building_list(docked_port)
 	elif not is_home:
 		_last_home_port_id = ""
-	_bottom_menu.visible = true
+	_bottom_menu.visible = _current_section != "market"
 	_building_list.visible = (is_home and (_current_section == "construction" or _current_section == "resources" or _current_section == "market" or _current_section == "shipyard")) or (not is_home and (_current_section == "market" or _current_section == "encounter")) or _current_section == "management"
 	_cargo_tabs.visible = is_home and _current_section == "resources"
 	_plan_button.visible = false
@@ -665,12 +678,15 @@ func _open_building_card(building_id: String) -> void:
 		windows[0].open_for_building(building_id)
 
 func _open_ship_card(ship_type_id: String) -> void:
-	var windows: Array[Node] = get_tree().get_nodes_in_group("shipyard_window")
-	if not windows.is_empty():
-		windows[0].open_for_ship(ship_type_id)
+	var fleet: Node = get_parent().get_node_or_null("FleetWindow")
+	if fleet != null:
+		_collapse_port_overlay()
+		fleet.open_shipyard()
+		fleet._garage.category = "all"
+		fleet._garage._select(ship_type_id)
 
 func _open_fleet_management() -> void:
-	var scene: Node = get_tree().current_scene
+	var scene: Node = get_parent()
 	var coordinator: Node = scene.get_node_or_null("WindowCoordinator")
 	if coordinator != null:
 		coordinator.set("_port_expanded", false)
@@ -750,6 +766,9 @@ func _transfer_cargo_item(action: String, resource_id: String) -> void:
 		_rebuild_resource_list(str(GameState.ship_state.get("docked_port_id", "")))
 
 func _rebuild_market_list(port_id: String) -> void:
+	if _market_workspace != null:
+		_market_workspace.open_for_port(port_id)
+		return
 	for child in _building_list.get_children():
 		child.queue_free()
 	_add_market_category_tabs(port_id)
@@ -1319,6 +1338,12 @@ func _add_navigation_button(row: HBoxContainer, label_text: String, section_id: 
 func _open_section(section_id: String) -> void:
 	_notice = ""
 	var port_id: String = str(GameState.ship_state.get("docked_port_id", ""))
+	if section_id == "shipyard":
+		var fleet: Node = get_parent().get_node_or_null("FleetWindow")
+		if fleet != null:
+			_collapse_port_overlay()
+			fleet.open_shipyard()
+		return
 	if section_id == "hiring":
 		var windows: Array[Node] = get_tree().get_nodes_in_group("hiring_window")
 		if not windows.is_empty():

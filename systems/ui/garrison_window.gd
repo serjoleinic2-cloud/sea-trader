@@ -138,6 +138,7 @@ func _process(_delta: float) -> void:
 	if not _is_open or _system == null:
 		return
 	var viewport: Vector2 = get_viewport().get_visible_rect().size
+	_art_screen.offset_top = preload("res://systems/ui/workspace_layout.gd").safe_top(get_tree())
 	_panel.size = Vector2(minf(1120.0, viewport.x - 24.0), minf(840.0, viewport.y - 24.0))
 	_panel.position = (viewport - _panel.size) * 0.5
 	_art_screen.visible = _art_mode

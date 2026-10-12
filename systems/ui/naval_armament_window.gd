@@ -193,8 +193,9 @@ func _process(delta: float) -> void:
 	if not visible: return
 	var viewport_size: Vector2=get_viewport_rect().size
 	_preview_container.custom_minimum_size.y=clampf(viewport_size.y*.33-40,130,260)
-	_panel.size=Vector2(minf(1220,viewport_size.x-24),minf(700,viewport_size.y-24))
-	_panel.position=(viewport_size-_panel.size)*.5
+	var layout=preload("res://systems/ui/workspace_layout.gd")
+	layout.compact_branch(_panel)
+	layout.fill_screen(_panel,viewport_size,layout.safe_top(get_tree()))
 	if _preview_model!=null: _preview_model.rotate_y(delta*.18)
 
 func _refresh_preview() -> void:

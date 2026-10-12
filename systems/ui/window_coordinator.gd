@@ -25,6 +25,9 @@ var _extra_resources_list: VBoxContainer
 var _extra_resource_values: Dictionary = {}
 var _goods_names: Dictionary = {}
 var _port_button: Button
+var _market_button: Button
+var _active_workspace: Node
+var _returning_to_workspace := false
 var _port_expanded: bool = false
 var _details: String = ""
 var _last_docked: String = ""
@@ -50,7 +53,7 @@ func initialize(main: Node) -> void:
 		var flag: String = str(window.get_meta("workspace_flag"))
 		_entries.append({"window": window, "flag": flag, "was_open": false, "panel": panel})
 		window.layer = 140 if str(window.name) == "GarrisonWindow" else 60
-		if panel is PanelContainer:
+		if panel is PanelContainer and str(window.name) != "FleetWindow":
 			_wrap_panel(window, panel as PanelContainer, flag)
 	_toolbar = HBoxContainer.new()
 	_toolbar.add_theme_constant_override("separation", 6)
@@ -87,6 +90,12 @@ func initialize(main: Node) -> void:
 	_style_primary_button(_port_button, "port")
 	_port_button.pressed.connect(func(): _port_expanded = not _port_expanded; _details = ""; _close_all_workspaces())
 	_toolbar.add_child(_port_button)
+	_market_button = Button.new()
+	_market_button.name = "Menu_Market"
+	_market_button.text = "РЫНОК"
+	_style_primary_button(_market_button, "")
+	_market_button.pressed.connect(_open_market)
+	_toolbar.add_child(_market_button)
 	_merchant_button = Button.new()
 	_merchant_button.text = "ТОРГОВЕЦ"
 	_merchant_button.pressed.connect(func(): _details = "" if _details == "MerchantOfferHUD" else "MerchantOfferHUD"; _main.get_node("MerchantOfferHUD")._is_open = _details == "MerchantOfferHUD"; _port_expanded = false; _close_all_workspaces())
@@ -455,17 +464,20 @@ func _open_more_tool(node_name: String, method: String) -> void:
 	_open_tool(node_name, method)
 
 func _open_fleet_hub() -> void:
-	var docked_id := str(GameState.ship_state.get("docked_port_id", ""))
-	var home_id := str(GameState.world_state.get("home_port_id", ""))
-	if docked_id == home_id and home_id != "":
-		var port: Node = _main.get_node_or_null("PortWindow")
-		if port != null:
-			_close_all_workspaces()
-			_details = ""
-			_port_expanded = true
-			port.call("_open_section", "shipyard")
-		return
+	_port_expanded = false
+	_details = ""
 	_open_tool("FleetWindow", "_toggle")
+
+func _open_market() -> void:
+	if str(GameState.ship_state.get("docked_port_id", "")) == "":
+		return
+	var port: Node = _main.get_node("PortWindow")
+	var already_open: bool = _port_expanded and str(port.get("_current_section")) == "market"
+	_close_all_workspaces()
+	_details = ""
+	_port_expanded = not already_open
+	if not already_open:
+		port.call("_open_section", "market")
 
 func _hide_duplicate_floating_controls() -> void:
 	var fleet: Node = _main.get_node_or_null("FleetWindow")
@@ -491,18 +503,30 @@ func _wrap_panel(window: Node, panel: PanelContainer, flag: String) -> void:
 	column.add_child(banner)
 	var header := HBoxContainer.new()
 	column.add_child(header)
+	var back := Button.new()
+	back.name = "WorkspaceBackButton"
+	back.text = "← Назад"
+	back.custom_minimum_size.y = 32
+	back.set_meta("compact_description", true)
+	back.set_meta("ui_base_font_size", 12)
+	back.set_meta("ui_base_min_height", 32)
+	back.pressed.connect(_return_to_workspace.bind(window, flag))
+	back.hide()
+	header.add_child(back)
 	var emblem := preload("res://systems/ui/faction_pennant.gd").new()
 	emblem.name = "FactionHeaderPennant"
 	emblem.set_faction(str(GameState.player_state.get("origin_race_id", "humans")))
 	header.add_child(emblem)
-	emblem.custom_minimum_size = Vector2(44, 66)
+	emblem.custom_minimum_size = Vector2(30, 44)
 	var title := Label.new()
 	var navigation: Dictionary = window.get_meta("navigation", {})
 	title.text = str(navigation.get("label", str(window.name)))
 	if title.text == str(window.name):
-		title.text = {"ShipyardWindow": "Верфь", "BuildingProjectWindow": "Строительство", "GarrisonWindow": "Гарнизон", "MageGuildWindow": "Гильдия магов", "PortServiceWindow": "Обслуживание корабля"}.get(str(window.name), "Sea Trader")
+		title.text = {"ShipyardWindow": "Верфь", "BuildingProjectWindow": "Строительство", "GarrisonWindow": "Гарнизон", "MageGuildWindow": "Гильдия магов", "PortServiceWindow": "Обслуживание корабля", "HiringWindow": "Персонал", "CrewWindow": "Экипаж и обучение", "SupplyOrderWindow": "Доставки", "MerchantOfferHUD": "Прибывший торговец", "TransportContractWindow": "Задания", "WorkHireWindow": "Работа", "TradeLineWindow": "Торговые линии"}.get(str(window.name), "Sea Trader")
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	title.add_theme_font_size_override("font_size", 24)
+	title.add_theme_font_size_override("font_size", 18)
+	title.set_meta("compact_description", true)
+	title.set_meta("ui_base_font_size", 18)
 	header.add_child(title)
 	var close: Button = Button.new()
 	close.name = "CloseButton"
@@ -547,12 +571,13 @@ func _apply_menu_style(node: Node) -> void:
 		preload("res://systems/ui/brass_close_button.gd").apply_dialog(node)
 	if node is Control:
 		_game_theme.apply_control(node)
+		preload("res://systems/ui/workspace_layout.gd").compact_control(node)
 	for child in node.get_children():
 		_apply_menu_style(child)
 
 
 func _enable_vertical_scrolling(node: Node) -> void:
-	if node is ScrollContainer:
+	if node is ScrollContainer and not node.has_meta("horizontal_catalog"):
 		var scroll: ScrollContainer = node
 		scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 		scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
@@ -568,6 +593,16 @@ func _hide_duplicate_close(node: Node) -> void:
 
 func _close_window(window: Node, flag: String) -> void:
 	window.set(flag, false)
+
+func _return_to_workspace(window: Node, flag: String) -> void:
+	var previous: Node = window.get_meta("return_workspace") if window.has_meta("return_workspace") else null
+	if not is_instance_valid(previous):
+		return
+	window.set(flag, false)
+	_returning_to_workspace = true
+	previous.set(str(previous.get_meta("workspace_flag")), true)
+	if previous.has_method("_refresh"):
+		previous.call("_refresh")
 
 func _open_garrison(defense_tab: bool = false) -> void:
 	if str(GameState.ship_state.get("docked_port_id", "")) != str(GameState.world_state.get("home_port_id", "")):
@@ -587,8 +622,10 @@ func _open_tool(node_name: String, method: String) -> void:
 			if bool(window.get(str(entry["flag"]))):
 				_close_window(window, str(entry["flag"]))
 			elif method != "":
+				window.set_meta("direct_workspace", true)
 				window.call(method)
 			else:
+				window.set_meta("direct_workspace", true)
 				window.set(str(entry["flag"]), true)
 			return
 
@@ -611,6 +648,14 @@ func _process(_delta: float) -> void:
 		if opened and not bool(entry["was_open"]):
 			selected = window
 	if selected != null:
+		if _returning_to_workspace:
+			_returning_to_workspace = false
+		elif bool(selected.get_meta("direct_workspace", false)):
+			selected.remove_meta("return_workspace")
+		elif is_instance_valid(_active_workspace) and _active_workspace != selected:
+			selected.set_meta("return_workspace", _active_workspace)
+		selected.remove_meta("direct_workspace")
+		_active_workspace = selected
 		for entry in _entries:
 			if entry["window"] != selected:
 				_close_window(entry["window"], str(entry["flag"]))
@@ -623,22 +668,19 @@ func _process(_delta: float) -> void:
 		var opened: bool = bool(entry["window"].get(str(entry["flag"])))
 		entry["was_open"] = opened
 		var panel: Control = entry["panel"]
+		var back: Button = panel.find_child("WorkspaceBackButton", true, false) as Button
+		if back != null:
+			var previous: Node = entry["window"].get_meta("return_workspace") if entry["window"].has_meta("return_workspace") else null
+			back.visible = is_instance_valid(previous)
+			if back.visible:
+				back.text = "← Флот и верфь" if str(previous.name) == "FleetWindow" else "← Назад"
 		panel.visible = opened
 		if opened:
 			has_modal = true
 			if str(entry["window"].name) == "CaptainCabinet":
 				entry["window"].layout_for_viewport(viewport, _top_height)
-			elif str(entry["window"].name) == "NavigationHUD":
-				panel.position = Vector2(0, _top_height + 4)
-				panel.size = Vector2(viewport.x, maxf(120.0, viewport.y - panel.position.y - 12.0))
 			else:
-				var natural_size := panel.get_combined_minimum_size()
-				var available := Vector2(maxf(120.0, viewport.x - 40.0), maxf(120.0, viewport.y - _top_height - 20.0))
-				var target_size := Vector2(maxf(natural_size.x, minf(1440.0, available.x)), maxf(natural_size.y, available.y))
-				var shrink := minf(1.0, minf(available.x / maxf(1.0, target_size.x), available.y / maxf(1.0, target_size.y)))
-				panel.scale = Vector2.ONE * shrink
-				panel.size = target_size
-				panel.position = Vector2((viewport.x - target_size.x * shrink) * 0.5, _top_height + 4.0)
+				preload("res://systems/ui/workspace_layout.gd").fill_screen(panel, viewport, _top_height)
 	var docked_port_id: String = str(GameState.ship_state.get("docked_port_id", ""))
 	var home_port_id: String = str(GameState.world_state.get("home_port_id", ""))
 	var docked: bool = docked_port_id != ""
@@ -647,6 +689,10 @@ func _process(_delta: float) -> void:
 		_port_expanded = false
 		_details = ""
 	_port_button.disabled = not docked
+	_market_button.disabled = not docked
+	_market_button.tooltip_text = "Рынок текущего порта" if docked else "Рынок доступен после швартовки в порту."
+	if not has_modal:
+		_active_workspace = null
 	var ship: Dictionary = GameState.ship_state
 	var cargo: int = 0
 	for item in ship.get("cargo", []):
@@ -672,7 +718,6 @@ func _process(_delta: float) -> void:
 		if hud != null:
 			hud.visible = not has_modal and _details == node_name and node_name != "ShipStatusHUD"
 	_merchant_button.visible = bool(_main.get_node("MerchantOfferHUD").get("_button").visible)
-	_main.get_node("MerchantOfferHUD").get("_panel").position = Vector2(maxf(12, viewport.x - 435), _top_height + 4)
 	_main.get_node("PortWindow").visible = not has_modal and docked and _port_expanded
 	if has_modal:
 		_extra_resources_panel.hide()
@@ -699,9 +744,9 @@ func _process(_delta: float) -> void:
 	if docked and not has_modal:
 		var port_panel: PanelContainer = _main.get_node("PortWindow").get("_sheet")
 		var bottom_menu: Control = _main.get_node("PortWindow").get("_bottom_menu")
-		var bottom_space: float = bottom_menu.size.y+28.0
-		port_panel.size = Vector2(minf(1480.0, viewport.x - 40.0), maxf(200.0, viewport.y - _top_height - bottom_space))
-		port_panel.position = Vector2((viewport.x - port_panel.size.x) * 0.5, _top_height + 4.0)
+		preload("res://systems/ui/workspace_layout.gd").fill_screen(port_panel, viewport, _top_height)
+		var port_scroll: Control = _main.get_node("PortWindow").get("_port_scroll")
+		port_scroll.offset_bottom = -bottom_menu.size.y - 20.0 if bottom_menu.visible else 0.0
 
 func _layout_top_bar(viewport: Vector2) -> void:
 	var full_width: float = viewport.x

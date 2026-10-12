@@ -173,7 +173,7 @@ func configure(window: Node) -> void:
 	owner_window=window
 
 func _process(_delta: float) -> void:
-	var viewport: Vector2 = get_viewport_rect().size
+	var viewport: Vector2 = size
 	var factor: float = minf(viewport.x/DESIGN.x,viewport.y/DESIGN.y)
 	canvas.scale=Vector2.ONE*factor; canvas.position=(viewport-DESIGN*factor)*.5
 

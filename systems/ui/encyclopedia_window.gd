@@ -95,5 +95,5 @@ func _process(_delta: float) -> void:
 	if not _is_open or _panel == null:
 		return
 	var viewport := get_viewport_rect().size
-	_panel.size = Vector2(minf(1120.0, viewport.x - 32.0), minf(760.0, viewport.y - 112.0))
-	_panel.position = (viewport - _panel.size) * 0.5
+	var layout = preload("res://systems/ui/workspace_layout.gd")
+	layout.fill_screen(_panel, viewport, layout.safe_top(get_tree()))

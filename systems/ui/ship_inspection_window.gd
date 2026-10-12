@@ -164,8 +164,9 @@ func _collect_bounds(node: Node, result: Array[AABB]) -> void:
 func _process(_delta: float) -> void:
 	if not _is_open: return
 	var screen: Vector2 = get_viewport().get_visible_rect().size
-	_panel.size = Vector2(minf(1040,screen.x-32),minf(760,screen.y-32))
-	_panel.position = (screen-_panel.size)*.5
+	var layout = preload("res://systems/ui/workspace_layout.gd")
+	layout.compact_branch(_panel)
+	layout.fill_screen(_panel, screen, layout.safe_top(get_tree()))
 	var aspect: float = maxf(.3,_surface.size.x/maxf(1,_surface.size.y))
 	var angle: float = atan(tan(deg_to_rad(_camera.fov)*.5)*minf(1.0,aspect))
 	var distance: float = _radius/sin(angle)*_zoom

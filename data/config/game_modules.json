@@ -366,7 +366,7 @@
       ],
       "workspace_flag": "_is_open",
       "navigation": {
-        "label": "Флот",
+        "label": "Флот и верфь",
         "method": "_toggle",
         "order": 20
       }

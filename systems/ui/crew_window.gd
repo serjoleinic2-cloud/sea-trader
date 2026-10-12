@@ -60,7 +60,6 @@ func _ready() -> void:
 	_notice.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	box.add_child(_notice)
 	var content := HBoxContainer.new()
-	content.custom_minimum_size.y = 390
 	content.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	content.add_theme_constant_override("separation", 12)
 	box.add_child(content)
@@ -84,8 +83,14 @@ func _ready() -> void:
 	scroll_panel.add_theme_stylebox_override("panel", scroll_style)
 	content.add_child(scroll_panel)
 	_scroll_list = VBoxContainer.new()
+	_scroll_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_scroll_list.add_theme_constant_override("separation", 7)
-	scroll_panel.add_child(_scroll_list)
+	var scroll_library := ScrollContainer.new()
+	scroll_library.name = "TrainingScrollLibrary"
+	scroll_library.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll_library.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll_panel.add_child(scroll_library)
+	scroll_library.add_child(_scroll_list)
 	var close_button: Button = Button.new()
 	close_button.text = "Закрыть"
 	preload("res://systems/ui/brass_close_button.gd").apply(close_button)
