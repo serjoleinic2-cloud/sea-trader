@@ -51,8 +51,13 @@ func _get_origin_emblem() -> Texture2D:
 func _process(_delta: float) -> void:
 	var viewport: Vector2 = get_viewport().get_visible_rect().size
 	_button.position = Vector2((viewport.x - _button.size.x) * 0.5, 445.0)
-	_panel.position = (viewport - _panel.size) * 0.5
-	_panel.visible = _is_open
+	# WindowCoordinator owns workspace visibility and fullscreen bounds. Writing
+	# a centered 1100x660 rect here every frame fought its layout and made the
+	# fleet workspace flicker while opening. Keep this fallback for standalone
+	# scenes that do not have the coordinator.
+	if get_tree().get_first_node_in_group("window_coordinator") == null:
+		_panel.position = (viewport - _panel.size) * 0.5
+		_panel.visible = _is_open
 
 func _toggle() -> void:
 	_is_open = not _is_open
