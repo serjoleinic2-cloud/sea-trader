@@ -7,9 +7,10 @@ const NAMES: Array[String] = ["Причал", "Склад", "Мастерска�
 const BUILDING_ART_OVERRIDES: Dictionary = {
 	"crystari": {"barracks": "res://assets/ui/ports/crystari/barracks_harbor.png"},
 }
+const HOME_PANORAMA_ZOOM: float = 1.15
 ## Normalized anchors on the single panoramic home-port canvas. Background,
 ## building sprites, and upgrade details all scale from this same coordinate space.
-const SITES: Array[Vector2] = [Vector2(.69,.79), Vector2(.31,.62), Vector2(.40,.61), Vector2(.50,.59), Vector2(.60,.61), Vector2(.70,.62), Vector2(.23,.75), Vector2(.39,.47), Vector2(.49,.47), Vector2(.59,.49)]
+const SITES: Array[Vector2] = [Vector2(.69,.79), Vector2(.30,.62), Vector2(.41,.61), Vector2(.52,.59), Vector2(.63,.61), Vector2(.74,.62), Vector2(.23,.75), Vector2(.37,.47), Vector2(.51,.47), Vector2(.65,.49)]
 var _main: Node
 var _root: Control
 var _art: Control
@@ -166,7 +167,7 @@ func _layout() -> void:
 	var design_size: Vector2 = _background.texture.get_size() if _background.texture != null else Vector2(1838, 856)
 	var width_factor: float = available.x / design_size.x
 	var height_factor: float = available.y / design_size.y
-	var factor: float = maxf(width_factor, height_factor) if _home else minf(width_factor, height_factor)
+	var factor: float = maxf(width_factor, height_factor) * HOME_PANORAMA_ZOOM if _home else minf(width_factor, height_factor)
 	_art.size = design_size * factor
 	_art.position = Vector2((screen.x-_art.size.x)*.5, screen.y-_art.size.y)
 	_title.position = Vector2(78,top+12)
@@ -174,7 +175,9 @@ func _layout() -> void:
 	_emblem.size = Vector2(48,48)
 	for index in range(_sites.size()):
 		var site: Dictionary = _sites[index]
-		var size := Vector2(260,238) * factor
+		# Give the enlarged terraces room to read between buildings; the same
+		# factor keeps each sprite proportional to the panorama across resolutions.
+		var size := Vector2(190,178) * factor
 		site.container.size = size
 		site.container.position = SITES[index] * _art.size - Vector2(size.x*.5,size.y*.86)
 		site.annex.position = Vector2(size.x*.53,size.y*.38)
