@@ -14,6 +14,7 @@ const BUILDING_ART_OVERRIDES: Dictionary = {
 const SITES: Array[Vector2] = [Vector2(.81,.79), Vector2(.40,.57), Vector2(.6327,.5448), Vector2(.20,.37), Vector2(.865,.575), Vector2(.41,.37), Vector2(.18,.745), Vector2(.61,.3425), Vector2(.18,.52), Vector2(.8344,.3425)]
 var _main: Node
 var _root: Control
+var _side_fill: TextureRect
 var _art: Control
 var _background: TextureRect
 var _title: Label
@@ -45,6 +46,15 @@ func initialize(main: Node) -> void:
 	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_root.add_child(shade)
+	_side_fill = TextureRect.new()
+	_side_fill.name = "PanoramaSideFill"
+	_side_fill.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_side_fill.texture = load("res://assets/ui/ports/buildable_landscape_sidefill.png")
+	_side_fill.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_side_fill.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	_side_fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_side_fill.modulate = Color(0.82, 0.9, 0.92, 1.0)
+	_root.add_child(_side_fill)
 	_art = Control.new()
 	_root.add_child(_art)
 	_background = TextureRect.new()
@@ -140,6 +150,7 @@ func _process(delta: float) -> void:
 		_race = str(GameState.player_state.get("origin_race_id", "humans")) if _home else load("res://systems/world/port_faction_resolver.gd").new().resolve(port, int(GameState.world_state.get("seed", 0)))
 		if GameData.get_faction(_race).is_empty(): _race = "humans"
 		_background.texture = load("res://assets/ui/ports/buildable_landscape.png" if _home else "res://assets/ui/ports/%s/panorama.png" % _race)
+		_side_fill.visible = _home
 		_emblem.texture = GameData.get_faction_emblem(_race)
 		_title.text = str(_main.get_node("PortSystem").get_port_name(port_id))
 		_signature = ""
@@ -161,13 +172,12 @@ func _layout() -> void:
 	var screen: Vector2 = get_viewport().get_visible_rect().size
 	var coordinator: Node = _main.get_node("WindowCoordinator")
 	var top: float = float(coordinator.get("_top_height")) + 5
-	var available := Vector2(screen.x, maxf(200, screen.y - top - 68))
-	# Keep the whole authored island visible beneath the top HUD. Cover-scaling
-	# cropped the upper/lower part of the art on wide fullscreen viewports,
-	# taking building hotspots with it.
+	var available := Vector2(screen.x, maxf(200, screen.y - top))
+	# Scale the island proportionally, pin it to the bottom edge and let the
+	# panoramic side-fill show beyond the original artwork on wide screens.
 	var factor: float = minf(available.x / 1672.0, available.y / 941.0)
 	_art.size = Vector2(1672,941) * factor
-	_art.position = Vector2((screen.x-_art.size.x)*.5, top+(available.y-_art.size.y)*.5)
+	_art.position = Vector2((screen.x-_art.size.x)*.5, screen.y-_art.size.y)
 	_title.position = Vector2(78,top+12)
 	_emblem.position = Vector2(20,top+8)
 	_emblem.size = Vector2(48,48)

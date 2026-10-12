@@ -22,7 +22,7 @@ var _ship_bar: HBoxContainer
 var _ship_indicators: Dictionary = {}
 var _extra_resources_button: Button
 var _extra_resources_panel: PanelContainer
-var _extra_resources_list: VBoxContainer
+var _extra_resources_list: GridContainer
 var _extra_resource_values: Dictionary = {}
 var _goods_names: Dictionary = {}
 var _port_button: Button
@@ -362,8 +362,9 @@ func _refresh_resource_bar() -> void:
 	if current_ids != listed_ids:
 		_rebuild_extra_resource_rows(extras)
 	for key in extras:
-		var label: Label = _extra_resource_values[key]
-		label.text = "%s  %s" % [_goods_names.get(key, key), _format_resource_amount(int(inventory[key]))]
+		var cells: Dictionary = _extra_resource_values[key]
+		var amount_label: Label = cells["amount"]
+		amount_label.text = _format_resource_amount(int(inventory[key]))
 	_extra_resources_button.visible = not extras.is_empty()
 	_extra_resources_button.text = "ЕЩЁ  +%d" % extras.size()
 
@@ -383,31 +384,47 @@ func _create_extra_resources_menu() -> void:
 	_extra_resources_panel.name = "MoreResourcesPanel"
 	_extra_resources_panel.custom_minimum_size = Vector2(280, 0)
 	add_child(_extra_resources_panel)
-	var scroll := ScrollContainer.new()
-	scroll.name = "ResourceScroll"
-	scroll.custom_minimum_size = Vector2(280, 0)
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	_extra_resources_panel.add_child(scroll)
-	_extra_resources_list = VBoxContainer.new()
+	var margin := MarginContainer.new()
+	for side in ["left", "right"]:
+		margin.add_theme_constant_override("margin_" + side, 10)
+	for side in ["top", "bottom"]:
+		margin.add_theme_constant_override("margin_" + side, 8)
+	_extra_resources_panel.add_child(margin)
+	_extra_resources_list = GridContainer.new()
 	_extra_resources_list.name = "ResourceList"
+	_extra_resources_list.columns = 2
+	_extra_resources_list.add_theme_constant_override("h_separation", 18)
+	_extra_resources_list.add_theme_constant_override("v_separation", 3)
 	_extra_resources_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	scroll.add_child(_extra_resources_list)
+	margin.add_child(_extra_resources_list)
 	_extra_resources_panel.hide()
 
 func _rebuild_extra_resource_rows(resource_ids: Array[String]) -> void:
 	for row in _extra_resources_list.get_children():
 		row.queue_free()
 	_extra_resource_values.clear()
+	_add_resource_table_cell("МАТЕРИАЛ", false, true)
+	_add_resource_table_cell("КОЛИЧЕСТВО", true, true)
 	for resource_id in resource_ids:
-		var label := Label.new()
-		label.name = "Resource_" + resource_id
-		label.text = "%s  —" % _goods_names.get(resource_id, resource_id)
-		label.custom_minimum_size = Vector2(250, 28)
-		label.add_theme_font_size_override("font_size", 15)
-		_extra_resources_list.add_child(label)
-		_extra_resource_values[resource_id] = label
+		var name_label := _add_resource_table_cell(str(_goods_names.get(resource_id, resource_id)), false)
+		name_label.name = "ResourceName_" + resource_id
+		var amount_label := _add_resource_table_cell("—", true)
+		amount_label.name = "ResourceAmount_" + resource_id
+		_extra_resource_values[resource_id] = {"name": name_label, "amount": amount_label}
+
+func _add_resource_table_cell(text_value: String, right_aligned: bool, heading: bool = false) -> Label:
+	var label := Label.new()
+	label.text = text_value
+	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	label.custom_minimum_size = Vector2(0, 18)
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT if right_aligned else HORIZONTAL_ALIGNMENT_LEFT
+	label.add_theme_font_override("font", _hud_font)
+	label.add_theme_font_size_override("font_size", 11)
+	label.set_meta("compact_hud", true)
+	if heading:
+		label.add_theme_color_override("font_color", Color("80d7d1"))
+	_extra_resources_list.add_child(label)
+	return label
 
 func _create_more_panel() -> void:
 	_more_panel = PanelContainer.new()
@@ -709,7 +726,8 @@ func _process(_delta: float) -> void:
 	_readouts.position = Vector2(12, 4)
 	_readouts.size = Vector2(viewport.x - 24, 24)
 	_readouts.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	_extra_resources_panel.size = Vector2(280.0, minf(320.0, viewport.y - 100.0))
+	var resource_table_height: float = _extra_resources_list.get_combined_minimum_size().y + 28.0
+	_extra_resources_panel.size = Vector2(300.0, minf(resource_table_height, viewport.y - 100.0))
 	_extra_resources_panel.position = Vector2(
 		viewport.x - _extra_resources_panel.size.x - 12.0,
 		_top_height + 4.0
