@@ -3,6 +3,7 @@ extends CanvasLayer
 ## One workspace panel at a time; existing windows retain their own actions/state.
 var _entries: Array = []
 var _game_theme = preload("res://systems/ui/game_ui_theme.gd").new()
+var _hud_font: Font
 var _main: Node
 var _toolbar: HBoxContainer
 var _more_button: Button
@@ -38,6 +39,10 @@ const HUD_ART := "res://assets/ui/styles/approved_hud/"
 
 func initialize(main: Node) -> void:
 	_main = main
+	var hud_system_font := SystemFont.new()
+	hud_system_font.font_names = PackedStringArray(["Segoe UI", "Arial", "sans-serif"])
+	hud_system_font.font_weight = 600
+	_hud_font = hud_system_font
 	add_to_group("window_coordinator")
 	# Keep the shared HUD and its dropdowns above every in-game window, including
 	# the ship inspection overlay (layer 110).
@@ -56,7 +61,7 @@ func initialize(main: Node) -> void:
 		if panel is PanelContainer and str(window.name) != "FleetWindow":
 			_wrap_panel(window, panel as PanelContainer, flag)
 	_toolbar = HBoxContainer.new()
-	_toolbar.add_theme_constant_override("separation", 6)
+	_toolbar.add_theme_constant_override("separation", 3)
 	add_child(_toolbar)
 	_readouts = Label.new()
 	_readouts.name = "TopReadouts"
@@ -122,7 +127,9 @@ func initialize(main: Node) -> void:
 	_more_button.text = "⋮"
 	_more_button.set_meta("compact_hud", true)
 	_more_button.tooltip_text = "Другие разделы"
-	_more_button.custom_minimum_size = Vector2(40, 48)
+	_more_button.custom_minimum_size = Vector2(34, 36)
+	_more_button.add_theme_font_override("font", _hud_font)
+	_more_button.add_theme_font_size_override("font_size", 12)
 	_more_button.pressed.connect(_toggle_more)
 	_toolbar.add_child(_more_button)
 	_create_more_panel()
@@ -194,12 +201,13 @@ func _add_toolbar_button(item: Dictionary) -> void:
 
 func _style_primary_button(button: Button, icon_name: String) -> void:
 	button.set_meta("compact_hud", true)
-	button.custom_minimum_size = Vector2(88, 42)
-	button.add_theme_font_size_override("font_size", 12)
+	button.custom_minimum_size = Vector2(0, 36)
+	button.add_theme_font_override("font", _hud_font)
+	button.add_theme_font_size_override("font_size", 11)
 	if not icon_name.is_empty():
 		button.icon = load(HUD_ART + icon_name + ".png")
 		button.expand_icon = false
-		button.add_theme_constant_override("icon_max_width", 24)
+		button.add_theme_constant_override("icon_max_width", 18)
 
 func _toggle_details(node_name: String) -> void:
 	_details = "" if _details == node_name else node_name
@@ -757,13 +765,18 @@ func _layout_top_bar(viewport: Vector2) -> void:
 	_resource_bar.size = Vector2(stock_min.x, maxf(42, stock_min.y))
 	var menu_scale: float = minf(1.0, available / maxf(1.0, menu_min.x))
 	var stock_scale: float = minf(1.0, available / maxf(1.0, stock_min.x))
+	var combined_width: float = menu_min.x + stock_min.x + 16.0
+	var combined_scale: float = minf(1.0, available / maxf(1.0, combined_width))
+	var single_row: bool = combined_scale >= 0.74
+	if single_row:
+		menu_scale = combined_scale
+		stock_scale = combined_scale
 	_toolbar.scale = Vector2.ONE * menu_scale
 	_resource_bar.scale = Vector2.ONE * stock_scale
 	_toolbar.pivot_offset = Vector2.ZERO
 	_resource_bar.pivot_offset = Vector2.ZERO
 	var menu_height: float = _toolbar.size.y * menu_scale
 	var stock_height: float = _resource_bar.size.y * stock_scale
-	var single_row: bool = menu_min.x * menu_scale + stock_min.x * stock_scale + 16.0 <= available
 	var first_row_height: float = maxf(menu_height, stock_height) if single_row else menu_height
 	_toolbar.position = Vector2(12.0, 8.0 + (first_row_height - menu_height) * 0.5)
 	_resource_bar.position = Vector2(viewport.x - _resource_bar.size.x * stock_scale - 12.0,
