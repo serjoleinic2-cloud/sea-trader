@@ -7,21 +7,23 @@ const NAMES: Array[String] = ["Причал", "Склад", "Мастерска�
 const BUILDING_ART_OVERRIDES: Dictionary = {
 	"crystari": {"barracks": "res://assets/ui/ports/crystari/barracks_harbor.png"},
 }
-const HOME_PANORAMA_ZOOM: float = 1.4
-## Building anchors are pixel centers on buildable_landscape.png (1838x856).
+const HOME_CITY_EXTENT_PX: float = 1900.0
+const HOME_CITY_TARGET_SHARE: float = 0.70
+const HOME_CITY_SCALE_CAP: float = 0.84
+## Building anchors are pixel centers on buildable_landscape.jpg (3664x1718).
 ## Eight town buildings use a clear 3 / 3 / 2 terrace arrangement; dock and
 ## fishing wharf are anchored separately at the shoreline.
 const SITE_ANCHORS_PX: Array[Vector2] = [
-	Vector2(1245, 675), # dock / harbor pier
-	Vector2(560, 505), # warehouse — middle left
-	Vector2(740, 550), # workshop — lower left
-	Vector2(920, 502), # market — middle center
-	Vector2(1100, 550), # shipyard — lower right
-	Vector2(1280, 520), # timber yard — middle right
-	Vector2(420, 650), # fishing wharf / shore
-	Vector2(720, 418), # mage guild — upper left
-	Vector2(920, 414), # captain house — upper center
-	Vector2(1110, 425), # barracks — upper right
+	Vector2(2580, 1180), # dock / right harbor pier
+	Vector2(1270, 924), # warehouse — middle left; +2.5 cm right, 1 cm up
+	Vector2(1440, 1210), # workshop — lower left
+	Vector2(1850, 986), # market — middle center
+	Vector2(2300, 1210), # shipyard — lower right
+	Vector2(2412, 992), # timber yard — middle right; 3 cm left, 0.5 cm up
+	Vector2(1000, 1180), # fishing wharf / left shore
+	Vector2(1240, 670), # mage guild — upper left
+	Vector2(1840, 660), # captain house — upper center
+	Vector2(2408, 662), # barracks — upper right; 2 cm left, 0.5 cm up
 ]
 var _main: Node
 var _root: Control
@@ -93,9 +95,10 @@ func initialize(main: Node) -> void:
 		progress.z_index = 10
 		container.add_child(progress)
 		_sites.append({"container":container,"sprite":sprite,"annex":annex,"tower":tower,"scaffold":scaffold,"plot":plot,"progress":progress})
-	# Foreground buildings and their upgrades share the same drawing/click order.
-	for building_id in ["warehouse", "workshop"]:
-		_art.move_child(_sites[BUILDINGS.find(building_id)].container, -1)
+	# Depth-sort buildings by their fixed ground anchor so lower terraces draw
+	# in front of the upper rows, even where tall facades overlap in perspective.
+	for index in range(_sites.size()):
+		_sites[index].container.z_index = int(SITE_ANCHORS_PX[index].y)
 	_title = Label.new()
 	_title.add_theme_font_size_override("font_size", 23)
 	_title.add_theme_color_override("font_outline_color", Color("092430"))
@@ -150,7 +153,7 @@ func _process(delta: float) -> void:
 		var port: Dictionary = _main.get_node("PortSystem").get("_world_ports").get(port_id, {})
 		_race = str(GameState.player_state.get("origin_race_id", "humans")) if _home else load("res://systems/world/port_faction_resolver.gd").new().resolve(port, int(GameState.world_state.get("seed", 0)))
 		if GameData.get_faction(_race).is_empty(): _race = "humans"
-		_background.texture = load("res://assets/ui/ports/buildable_landscape.png" if _home else "res://assets/ui/ports/%s/panorama.png" % _race)
+		_background.texture = load("res://assets/ui/ports/buildable_landscape.jpg" if _home else "res://assets/ui/ports/%s/panorama.png" % _race)
 		_emblem.texture = GameData.get_faction_emblem(_race)
 		_title.text = str(_main.get_node("PortSystem").get_port_name(port_id))
 		_signature = ""
@@ -176,12 +179,25 @@ func _layout() -> void:
 	# The panoramic island is the single source of truth for background and
 	# building hotspots. Preserve aspect ratio, zoom into the town, pin the
 	# bottom edge, and let the viewport crop the outer scenery.
-	var design_size: Vector2 = _background.texture.get_size() if _background.texture != null else Vector2(1838, 856)
+	var design_size: Vector2 = _background.texture.get_size() if _background.texture != null else Vector2(3664, 1718)
 	var width_factor: float = available.x / design_size.x
 	var height_factor: float = available.y / design_size.y
-	var factor: float = maxf(width_factor, height_factor) * HOME_PANORAMA_ZOOM if _home else minf(width_factor, height_factor)
+	var cover_factor: float = maxf(width_factor, height_factor)
+	var factor: float = minf(width_factor, height_factor)
+	if _home:
+		# Size the full 3/3/2 town group to 70% of a 14-inch reference view.
+		# Cap growth on larger windows so they reveal more painted coastline
+		# instead of making every building larger; cover still wins if required.
+		var city_factor: float = available.x * HOME_CITY_TARGET_SHARE / HOME_CITY_EXTENT_PX
+		factor = maxf(cover_factor, minf(city_factor, HOME_CITY_SCALE_CAP))
 	_art.size = design_size * factor
-	_art.position = Vector2((screen.x-_art.size.x)*.5, screen.y-_art.size.y)
+	var art_y: float = screen.y - _art.size.y
+	if _home:
+		# Maximize mode can require vertical overscan. Bias it toward the empty
+		# water at the bottom so the upper terraces and mountain skyline stay visible.
+		var vertical_overscan: float = maxf(0.0, _art.size.y - available.y)
+		art_y = top - vertical_overscan * 0.25
+	_art.position = Vector2((screen.x-_art.size.x)*.5, art_y)
 	_title.position = Vector2(78,top+12)
 	_emblem.position = Vector2(20,top+8)
 	_emblem.size = Vector2(48,48)
@@ -189,7 +205,7 @@ func _layout() -> void:
 		var site: Dictionary = _sites[index]
 		# Give the enlarged terraces room to read between buildings; the same
 		# factor keeps each sprite proportional to the panorama across resolutions.
-		var size := Vector2(190,178) * factor
+		var size := Vector2(260,250) * factor
 		site.container.size = size
 		site.container.position = SITE_ANCHORS_PX[index] * factor - Vector2(size.x*.5,size.y*.86)
 		site.annex.position = Vector2(size.x*.53,size.y*.38)
@@ -199,7 +215,7 @@ func _layout() -> void:
 		site.scaffold.size = size
 		site.plot.position = Vector2(size.x*.5-18,size.y*.78)
 		site.progress.position = Vector2(size.x*.25,size.y*.86)
-		site.progress.size = Vector2(size.x*.5,18.0*factor)
+		site.progress.size = Vector2(size.x*.5,36.0*factor)
 	_footer.reset_size()
 	_footer.scale = Vector2.ONE * minf(1.0,(screen.x-20)/maxf(1,_footer.size.x))
 	_footer.position = Vector2((screen.x-_footer.size.x*_footer.scale.x)*.5,screen.y-51)

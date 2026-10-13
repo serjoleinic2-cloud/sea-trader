@@ -4,8 +4,12 @@ Built with the built-in image_gen tool. Exact prompts and original generated
 file paths are retained in `generation_manifest.json`. All production images
 are copied into this project; runtime needs no external service.
 
-`buildable_landscape.png` is the single wide home-port panorama, including the
-open terraces where buildings are placed. The live town screen uses this image
+`buildable_landscape.jpg` is the single wide home-port panorama, exported at
+3664×1718 from the generated 1832×859 master with high-quality 2× resampling.
+It includes the open terraces where
+buildings are placed. The town group is framed to about 70% of the reference
+viewport; larger windows reveal more coast before buildings grow further. The
+live town screen uses this image
 as its complete background; it does not extend it with cropped side strips.
 Building sprites and upgrade details use fixed source-image pixel anchors on
 the same canvas, so they remain aligned when the whole panorama is scaled

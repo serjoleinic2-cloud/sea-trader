@@ -50,8 +50,9 @@
       "destination": "assets/ui/ports/crystari/buildings_atlas.png"
     },
     {
-      "source": "C:\\Users\\Сергей\\.codex\\generated_images\\01a0f5c0-e5b7-7000-8934-629874bf789f\\exec-58b3d2e0-f541-4d64-82dc-2019177515b1.png",
-      "destination": "assets/ui/ports/buildable_landscape.png"
+      "source": "C:\\Users\\Сергей\\.codex\\generated_images\\01a0f5c0-e5b7-7000-8934-629874bf789f\\exec-5327edf1-df02-4108-adaf-fd075dd5617c.png",
+      "destination": "assets/ui/ports/buildable_landscape.jpg",
+      "export_size": "3664x1718 (2x high-quality resample)"
     }
   ],
   "prompts": [

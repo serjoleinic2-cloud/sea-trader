@@ -201,7 +201,7 @@ func _build_occupation_transfer() -> void:
     var player_race: String = str(GameState.player_state.get("origin_race_id", "humans"))
     var existing_port: Dictionary = GameState.port_state.get(_occupation_port_id, {})
     var already_stationed: Dictionary = existing_port.get("occupation_garrison", {})
-    var port_icon_path := "res://assets/ui/ports/buildable_landscape.png"
+    var port_icon_path := "res://assets/ui/ports/buildable_landscape.jpg"
     var banner := HBoxContainer.new()
     banner.alignment = BoxContainer.ALIGNMENT_CENTER
     banner.add_theme_constant_override("separation", 18)
