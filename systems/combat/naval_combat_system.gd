@@ -219,6 +219,12 @@ func ready_for_battle() -> bool:
 		if bool(ship.get("escort_enabled",false)) and float(ship.get("hull",0))>0 and bool(ship.get("escort_state",{}).get("initialized",false)) and position(ship).distance_to(player)<alert_radius()*float(_rules.escort_readiness_radius_multiplier): return true
 	return false
 
+func has_military_escort() -> bool:
+	for ship in warships():
+		if bool(ship.get("escort_enabled", false)) and float(ship.get("hull", 0)) > 0:
+			return true
+	return false
+
 func nearby_enemies() -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	if not ready_for_battle() or active(): return result
@@ -719,11 +725,19 @@ func _next_pirate_delay() -> float:
 	var roll: float=float(posmod(hash(str(GameState.world_state.get("seed",0))+":pirate:"+str(sequence)),10000))/10000.0
 	return lerpf(minimum,maximum,roll)
 
+func encounter_pirates() -> void:
+	# Reuse the real pirate group, its warning period, battle and defeat rules.
+	if active() or str(GameState.ship_state.get("docked_port_id", "")) != "": return
+	_spawn_pirates_if_absent()
+
 func _ensure_pirates() -> void:
 	if _clock<float(GameState.combat_state.get("next_pirate_at",INF)): return
 	if active() or str(GameState.ship_state.get("docked_port_id",""))!="":
 		GameState.combat_state["next_pirate_at"]=_clock+60.0
 		return
+	_spawn_pirates_if_absent()
+
+func _spawn_pirates_if_absent() -> void:
 	for enemy in GameState.combat_state.naval_enemies.values():
 		if str(enemy.get("kind",""))=="pirate" and _enemy_alive(enemy):
 			GameState.combat_state["next_pirate_at"]=_clock+60.0
@@ -813,7 +827,7 @@ func _detect_hostile() -> void:
 	for enemy in nearby: ids.append(str(enemy.id))
 	for enemy in GameState.combat_state.naval_enemies.values():
 		var pirate: bool=str(enemy.get("kind",""))=="pirate"
-		var unescorted_pirate: bool=pirate and not ready_for_battle() and str(GameState.ship_state.get("docked_port_id",""))=="" and _enemy_alive(enemy) and vector(enemy.position).distance_to(vector(GameState.ship_state.position))<=alert_radius()*.72
+		var unescorted_pirate: bool=pirate and not has_military_escort() and str(GameState.ship_state.get("docked_port_id",""))=="" and _enemy_alive(enemy) and vector(enemy.position).distance_to(vector(GameState.ship_state.position))<=alert_radius()*.72
 		if unescorted_pirate:
 			enemy.warning=float(enemy.get("warning",0))+1
 			if float(enemy.warning)>=float(_rules.hostile_warning_seconds):
@@ -826,6 +840,7 @@ func _detect_hostile() -> void:
 		else: enemy.warning=0.0
 
 func _resolve_unescorted_piracy(enemy: Dictionary) -> void:
+	if active() or has_military_escort(): return
 	var losses: Dictionary=_losses_at_fraction(float(_rules.get("pirate_unescorted_loot_fraction",.05)),false,true)
 	var old_cargo: Array=GameState.ship_state.get("cargo",[]).duplicate(true)
 	var old_money: float=float(GameState.player_state.money)

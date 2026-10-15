@@ -15,7 +15,6 @@ func setup(key: String) -> void:
 	var low_poly = load("res://systems/rendering/low_poly_island.gd")
 	low_poly.build(self, spec.get("coastline", []), str(spec.faction), bool(spec.mini))
 	low_poly.build_piers(self, spec.get("piers", []), str(spec.faction))
-	low_poly.build_settlement(self, spec.get("coastline", []), str(spec.faction), bool(spec.mini))
 	_add_reef(float(spec.reference_radius), 0.55 if bool(spec.mini) else 0.34)
 	var at: Array = spec.get("lighthouse", [])
 	if at.size() == 3: _add_lighthouse(Vector3(float(at[0]),float(at[1]),float(at[2])))
@@ -66,7 +65,7 @@ func _add_reef(radius: float, opening: float) -> void:
 		for entry in [[a,1.055],[a,1.15],[b,1.15],[b,1.055]]:
 			var angle: float = float(entry[0])
 			var distance: float = radius*float(entry[1])
-			var y: float = -1.5 + sin(angle*19.0)*.35
+			var y: float = -maxf(2.4, 0.65 / maxf(scale.x, 0.001)) + sin(angle*19.0)*.15
 			p.append(Vector3(sin(angle)*distance,y,cos(angle)*distance))
 		for corner in [0,2,1,0,3,2]: surface.add_vertex(p[corner])
 	surface.generate_normals()

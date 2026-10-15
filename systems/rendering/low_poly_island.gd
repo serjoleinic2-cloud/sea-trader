@@ -17,11 +17,9 @@ static func build(parent: Node3D, raw_outline: Array, race_id: String = "humans"
 		bounds = bounds.expand(point)
 	var size := maxf(bounds.size.x, bounds.size.y)
 	var center := bounds.get_center()
-	var race_color := _race_color(race_id)
-	_add_top(parent, outline, triangles, race_color)
-	_add_cliff_band(parent, outline, center, race_color.darkened(0.42), size)
-	_add_ridge(parent, center, bounds.size, race_color, mini)
-	_add_forest(parent, center, bounds.size, race_color, mini)
+	_add_terrain(parent, outline, triangles, bounds, mini)
+	_add_cliff_band(parent, outline, center, Color("8c9180"), size)
+	_add_terrain_forest(parent, outline, bounds, mini)
 
 
 static func build_piers(parent: Node3D, raw_piers: Array, race_id: String = "humans") -> void:
@@ -79,6 +77,7 @@ static func build_settlement(parent: Node3D, raw_outline: Array, race_id: String
 		_append_house(tool, Vector3(x, 0.15, z), Vector3(width, scale_factor * 0.10, width), wall.lightened(0.12), roof.lightened(0.16))
 	var material := StandardMaterial3D.new()
 	material.vertex_color_use_as_albedo = true
+	material.vertex_color_is_srgb = true
 	material.roughness = 0.92
 	material.cull_mode = BaseMaterial3D.CULL_DISABLED
 	_add_surface(parent, tool.commit(), material, "LowPolyHarborSettlement")
@@ -120,22 +119,67 @@ static func _simplify(points: PackedVector2Array, maximum: int) -> PackedVector2
 	return result
 
 
-static func _add_top(parent: Node3D, outline: PackedVector2Array, triangles: PackedInt32Array, base_color: Color) -> void:
+static func _coast_distance(point: Vector2, outline: PackedVector2Array) -> float:
+	var nearest: float = INF
+	for index in outline.size():
+		nearest = minf(nearest, point.distance_to(Geometry2D.get_closest_point_to_segment(point, outline[index], outline[(index + 1) % outline.size()])))
+	return nearest
+
+
+static func terrain_height(point: Vector2, outline: PackedVector2Array, bounds: Rect2) -> float:
+	if not Geometry2D.is_point_in_polygon(point, outline):
+		return 0.0
+	var size: float = maxf(bounds.size.x, bounds.size.y)
+	var inland: float = _coast_distance(point, outline) / size
+	var p: Vector2 = (point - bounds.get_center()) / size
+	# Connected, asymmetric ridges and broad ledges, not overlapping cones.
+	var ridge: float = exp(-pow((p.x + 0.12 + sin(p.y * 7.0) * 0.13) * 5.5, 2.0))
+	var relief: float = (0.045 + 0.24 * ridge) * smoothstep(0.008, 0.065, inland)
+	relief *= 0.84 + 0.16 * sin(p.y * 12.0 + p.x * 5.0)
+	var ledge: float = floor(relief / 0.026) * 0.026
+	return size * lerpf(relief, ledge, 0.48)
+
+
+static func _add_terrain(parent: Node3D, outline: PackedVector2Array, triangles: PackedInt32Array, bounds: Rect2, mini: bool) -> void:
 	var tool := SurfaceTool.new()
 	tool.begin(Mesh.PRIMITIVE_TRIANGLES)
-	var facet_colors := [base_color, base_color.lightened(0.08), base_color.darkened(0.07)]
+	var heights: Dictionary = {}
 	for index in range(0, triangles.size(), 3):
-		var color: Color = facet_colors[posmod(index / 3, facet_colors.size())]
-		for corner in 3:
-			var point := outline[triangles[index + corner]]
-			tool.set_color(color)
-			tool.add_vertex(Vector3(point.x, 0.0, point.y))
+		_terrain_triangle(tool, outline[triangles[index]], outline[triangles[index + 1]], outline[triangles[index + 2]], 2 if mini else 3, outline, bounds, heights)
 	tool.generate_normals()
 	var material := StandardMaterial3D.new()
 	material.vertex_color_use_as_albedo = true
-	material.roughness = 0.94
+	material.vertex_color_is_srgb = true
+	material.roughness = 0.96
 	material.cull_mode = BaseMaterial3D.CULL_DISABLED
-	_add_surface(parent, tool.commit(), material, "LowPolyIslandTop")
+	_add_surface(parent, tool.commit(), material, "LowPolyIslandTerrain")
+
+
+static func _terrain_triangle(tool: SurfaceTool, a: Vector2, b: Vector2, c: Vector2, depth: int, outline: PackedVector2Array, bounds: Rect2, heights: Dictionary) -> void:
+	if depth > 0:
+		var ab: Vector2 = (a + b) * 0.5
+		var bc: Vector2 = (b + c) * 0.5
+		var ca: Vector2 = (c + a) * 0.5
+		for tri in [[a,ab,ca],[ab,b,bc],[ca,bc,c],[ab,bc,ca]]:
+			_terrain_triangle(tool, tri[0], tri[1], tri[2], depth - 1, outline, bounds, heights)
+		return
+	var points: Array[Vector3] = []
+	for p in [a,b,c]:
+		if not heights.has(p): heights[p] = terrain_height(p, outline, bounds)
+		points.append(Vector3(p.x, float(heights[p]), p.y))
+	var normal: Vector3 = (points[1] - points[0]).cross(points[2] - points[0]).normalized()
+	var center: Vector2 = (a + b + c) / 3.0
+	var size: float = maxf(bounds.size.x, bounds.size.y)
+	var coast: float = _coast_distance(center, outline) / size
+	var grass := Color("416a36")
+	var stone := Color("707e70")
+	var color: Color = stone if absf(normal.y) < 0.63 else grass
+	if coast < 0.009: color = Color("baad7f")
+	var shade: float = float(posmod(hash(center.snapped(Vector2.ONE)), 5)) * 0.022
+	color = color.lightened(shade)
+	for point in points:
+		tool.set_color(color)
+		tool.add_vertex(point)
 
 
 static func _add_cliff_band(parent: Node3D, outline: PackedVector2Array, center: Vector2, color: Color, size: float) -> void:
@@ -153,57 +197,39 @@ static func _add_cliff_band(parent: Node3D, outline: PackedVector2Array, center:
 	tool.generate_normals()
 	var material := StandardMaterial3D.new()
 	material.vertex_color_use_as_albedo = true
+	material.vertex_color_is_srgb = true
 	material.roughness = 1.0
 	material.cull_mode = BaseMaterial3D.CULL_DISABLED
 	_add_surface(parent, tool.commit(), material, "LowPolyIslandCliffs")
 
 
-static func _add_ridge(parent: Node3D, center: Vector2, extent: Vector2, color: Color, mini: bool) -> void:
+static func _add_terrain_forest(parent: Node3D, outline: PackedVector2Array, bounds: Rect2, mini: bool) -> void:
 	var tool := SurfaceTool.new()
 	tool.begin(Mesh.PRIMITIVE_TRIANGLES)
-	var count := 5 if mini else 9
-	var ridge_height := maxf(2.0, maxf(extent.x, extent.y) * (0.045 if mini else 0.075))
-	var ridge_width := maxf(1.0, minf(extent.x, extent.y) * 0.12)
-	for peak in count:
-		var t := float(peak) / float(maxi(1, count - 1))
-		var x := lerpf(-extent.x * 0.31, extent.x * 0.29, t)
-		var z := sin(t * PI * 2.0) * extent.y * 0.13
-		var height := ridge_height * (0.58 + 0.42 * sin(t * PI))
-		var sides := 5
-		var apex := Vector3(center.x + x, height, center.y + z)
-		for side in sides:
-			var a := TAU * float(side) / float(sides)
-			var b := TAU * float(side + 1) / float(sides)
-			var p1 := Vector3(center.x + x + cos(a) * ridge_width, 0.05, center.y + z + sin(a) * ridge_width)
-			var p2 := Vector3(center.x + x + cos(b) * ridge_width, 0.05, center.y + z + sin(b) * ridge_width)
-			var facet := color.darkened(0.26 if side % 2 == 0 else 0.12)
-			for point in [p1, p2, apex]:
-				tool.set_color(facet)
-				tool.add_vertex(point)
+	var count: int = 14 if mini else 38
+	var size: float = maxf(bounds.size.x, bounds.size.y)
+	var placed: int = 0
+	for index in count * 8:
+		if placed >= count: break
+		var p := bounds.position + Vector2(fposmod(float(index) * 0.754877666, 1.0), fposmod(float(index) * 0.569840296, 1.0)) * bounds.size
+		if not Geometry2D.is_point_in_polygon(p, outline) or _coast_distance(p, outline) < size * 0.026:
+			continue
+		var height: float = size * (0.024 + float(index % 4) * 0.003)
+		var base := Vector3(p.x, terrain_height(p, outline, bounds), p.y)
+		var lean := Vector3(height * 0.06 * sin(float(index)), 0, height * 0.04 * cos(float(index)))
+		_append_cone(tool, base, height * 0.048, height * 0.76, 5, Color("796246"))
+		# Four slim overlapping tiers, with varied greens and no exposed roots.
+		var green: Color = [Color("527648"), Color("63854d"), Color("7a9956")][index % 3]
+		for tier in 4:
+			var fraction: float = float(tier) / 4.0
+			_append_cone(tool, base + lean * fraction + Vector3(0, height * (0.20 + fraction * 0.60), 0), height * (0.22 - fraction * 0.14), height * (0.42 - fraction * 0.15), 6, green.lightened(float(tier) * 0.025))
+		placed += 1
+	if placed == 0: return
 	tool.generate_normals()
 	var material := StandardMaterial3D.new()
 	material.vertex_color_use_as_albedo = true
-	material.roughness = 0.98
-	material.cull_mode = BaseMaterial3D.CULL_DISABLED
-	_add_surface(parent, tool.commit(), material, "LowPolyIslandRidge")
-
-
-static func _add_forest(parent: Node3D, center: Vector2, extent: Vector2, color: Color, mini: bool) -> void:
-	var tool := SurfaceTool.new()
-	tool.begin(Mesh.PRIMITIVE_TRIANGLES)
-	var count := 8 if mini else 18
-	var trunk := Color("76583b")
-	for index in count:
-		var angle := float(index) * 2.399963
-		var distance := 0.17 + 0.24 * float(posmod(index * 7, 11)) / 10.0
-		var x := center.x + cos(angle) * extent.x * distance
-		var z := center.y + sin(angle) * extent.y * distance
-		var h := maxf(1.1, maxf(extent.x, extent.y) * (0.012 + 0.005 * float(index % 3)))
-		_append_cone(tool, Vector3(x, 0.05, z), h * 0.22, h * 0.55, 5, trunk)
-		_append_cone(tool, Vector3(x, h * 0.26, z), h * 0.5, h * 0.62, 5, color.lightened(0.04 * float(index % 3)))
-	var material := StandardMaterial3D.new()
-	material.vertex_color_use_as_albedo = true
-	material.roughness = 0.9
+	material.vertex_color_is_srgb = true
+	material.roughness = 0.93
 	material.cull_mode = BaseMaterial3D.CULL_DISABLED
 	_add_surface(parent, tool.commit(), material, "LowPolyIslandForest")
 

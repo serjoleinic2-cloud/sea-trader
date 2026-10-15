@@ -142,11 +142,13 @@ func _flagship_screen_position() -> Vector2:
 	var main: Node = _system._main
 	if main!=null:
 		var approach: Node = main.get_node_or_null("Approach3DView")
-		if approach!=null:
+		if approach!=null and bool(approach.get("_camera_initialized")):
 			var camera: Camera3D = approach.get("_camera")
 			var ship: Node3D = approach.get("_ship")
 			if camera!=null and ship!=null:
-				return camera.unproject_position(ship.global_position+Vector3.UP*1.5)
+				var point: Vector3 = ship.global_position+Vector3.UP*1.5
+				if not camera.is_position_behind(point):
+					return camera.unproject_position(point)
 	var camera: Camera2D = get_viewport().get_camera_2d()
 	if camera!=null: return camera.get_canvas_transform()*_system.vector(GameState.ship_state.position)
 	return get_viewport().get_visible_rect().size*.5

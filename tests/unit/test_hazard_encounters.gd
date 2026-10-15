@@ -56,8 +56,9 @@ func test_pirates_cannot_take_sealed_contract_cargo() -> void:
 	]
 	_enter_zone()
 	assert_eq(GameState.ship_state.cargo[0].quantity, 4)
-	assert_eq(GameState.ship_state.cargo[1].quantity, 2)
-	assert_eq(GameState.ship_state.hull, 96.0)
+	assert_eq(GameState.ship_state.cargo[1].quantity, 3, "zone entry cannot bypass naval combat")
+	assert_eq(GameState.ship_state.hull, 100.0)
+	assert_true(str(_system.get_active_event().get("message", "")).contains("Пиратские воды"))
 
 func test_hazard_damage_keeps_emergency_repairs_possible() -> void:
 	_set_zone("anomaly")

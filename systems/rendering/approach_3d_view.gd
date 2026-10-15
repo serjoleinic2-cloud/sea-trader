@@ -25,6 +25,7 @@ var _ship_display_length: float = 3.48
 var _trader_traffic: Node
 var _fleet_traffic: Node
 var _water: MeshInstance3D
+var _balanced_water_material: ShaderMaterial
 var _water_material: ShaderMaterial
 var _sailing_gulls: Node3D
 var _island_nodes: Dictionary = {}
@@ -44,6 +45,7 @@ var _sky_material: ShaderMaterial
 var _sunlight: DirectionalLight3D
 var _day_clock: float = 0.0
 var _animation_clock: float = 0.0
+var _view_distance: float = 550.0
 var _orbit_dragging: bool = false
 var _manual_close_view: bool = false
 var _battle_camera_was_active: bool = false
@@ -156,10 +158,12 @@ func _process(delta: float) -> void:
 		_water.position.x = ship_position.x * MAP_TO_METERS
 		_water.position.z = ship_position.y * MAP_TO_METERS
 		_water_material.set_shader_parameter("ocean_time", _animation_clock)
+		_balanced_water_material.set_shader_parameter("ocean_time", _animation_clock)
+	_update_view_distance()
+	_cull_visuals()
 	_sync_fog(ship_position)
 	_sync_traffic(_trader_traffic, "trader", delta)
 	_sync_traffic(_fleet_traffic, "fleet", delta)
-	_cull_visuals()
 	_update_ambience(delta)
 
 
@@ -178,18 +182,11 @@ func _cull_visuals() -> void:
 		root.visible = RenderVisibility.intersects_frustum(root.get_meta("visual_world_bounds"), planes, inside)
 		root.process_mode = Node.PROCESS_MODE_INHERIT if root.visible else Node.PROCESS_MODE_DISABLED
 	for model in _traffic_models.values():
-		var model_key: String = str(model.name)
-		if model_key.begins_with("Traffic_combat_"):
-			var battle: Dictionary = GameState.combat_state.get("naval_battle",{})
-			var vessel_id: String = model_key.trim_prefix("Traffic_combat_")
-			var battle_ids: Array = battle.get("enemy_ids",[]) if bool(battle.get("active",false)) else []
-			if battle_ids.has(vessel_id):
-				model.visible = true
-				continue
 		if not model.has_meta("visual_local_bounds"):
 			model.set_meta("visual_local_bounds", model.global_transform.affine_inverse() * RenderVisibility.bounds_for(model))
 		var bounds: AABB = model.global_transform * (model.get_meta("visual_local_bounds") as AABB)
 		model.visible = RenderVisibility.intersects_frustum(bounds, planes, inside)
+		model.process_mode = Node.PROCESS_MODE_INHERIT if model.visible else Node.PROCESS_MODE_DISABLED
 
 
 func _input(event: InputEvent) -> void:
@@ -276,6 +273,12 @@ func _build_scene() -> void:
 	sky.sky_material = _sky_material
 	sky.process_mode = Sky.PROCESS_MODE_INCREMENTAL
 	sky.radiance_size = Sky.RADIANCE_SIZE_128
+	_environment.fog_enabled = true
+	_environment.fog_mode = Environment.FOG_MODE_DEPTH
+	_environment.fog_density = 1.0
+	_environment.fog_depth_curve = 1.4
+	_environment.fog_sky_affect = 0.0
+	_environment.fog_light_color = Color("d6e7ef")
 	_environment.background_mode = Environment.BG_SKY
 	_environment.sky = sky
 	_environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
@@ -319,9 +322,47 @@ func _add_water() -> void:
 	_water_material.set_shader_parameter("normal_a", preload("res://assets/world/materials/water_normal_a.tres"))
 	_water_material.set_shader_parameter("normal_b", preload("res://assets/world/materials/water_normal_b.tres"))
 	OceanSurface.configure_material(_water_material)
+	_balanced_water_material = _water_material.duplicate() as ShaderMaterial
+	_balanced_water_material.shader = preload("res://assets/world/materials/balanced_ocean.gdshader")
 	_water.material_override = _water_material
 	_water.position.y = SEA_LEVEL
 	_scene_root.add_child(_water)
+
+func apply_graphics_settings() -> void:
+	if _subviewport == null or _water == null:
+		return
+	_subviewport.scaling_3d_scale = clampf(float(GameState.settings_state.get("render_scale", 1.0)), 0.5, 1.0)
+	_subviewport.msaa_3d = Viewport.MSAA_2X if bool(GameState.settings_state.get("antialiasing", true)) else Viewport.MSAA_DISABLED
+	_view_distance = {"near": 320.0, "medium": 550.0, "far": 850.0}.get(str(GameState.settings_state.get("view_distance", "medium")), 550.0)
+	_update_view_distance()
+	var plane: PlaneMesh = _water.mesh as PlaneMesh
+	var quality: String = str(GameState.settings_state.get("water_quality", "medium"))
+	if quality in ["low", "simple"]:
+		var material := StandardMaterial3D.new()
+		material.albedo_color = Color("247c88")
+		material.roughness = 0.65
+		material.metallic_specular = 0.0
+		material.specular_mode = BaseMaterial3D.SPECULAR_DISABLED
+		material.normal_enabled = true
+		material.normal_texture = preload("res://assets/world/materials/water_normal_a.tres")
+		material.uv1_scale = Vector3(180, 180, 1)
+		_water.material_override = material
+		plane.subdivide_width = 0
+		plane.subdivide_depth = 0
+	else:
+		var high: bool = quality in ["high", "detailed"]
+		_water.material_override = _water_material if high else _balanced_water_material
+		plane.subdivide_width = 127 if high else 95
+		plane.subdivide_depth = plane.subdivide_width
+
+
+func _update_view_distance() -> void:
+	if _camera == null or _environment == null: return
+	# Overhead map views need a longer range, or their height would hide all land.
+	var end: float = maxf(_view_distance, maxf(0.0, _camera.position.y) * 2.5)
+	_camera.far = end + 20.0
+	_environment.fog_depth_begin = end * 0.46
+	_environment.fog_depth_end = end
 
 
 func _update_ambience(_delta: float) -> void:
@@ -347,6 +388,7 @@ func _update_ambience(_delta: float) -> void:
 		_sky_material.set_shader_parameter("night_amount", night)
 		_sky_material.set_shader_parameter("twilight_amount", twilight)
 	if _environment != null:
+		_environment.fog_light_color = Color("d6e7ef").lerp(Color("43526b"), night).lerp(Color("f48e53"), twilight * 0.7)
 		_environment.ambient_light_color = Color("b9d5df").lerp(Color("293955"), night).lerp(Color("e6a879"), twilight * 0.42)
 		_environment.ambient_light_energy = lerpf(0.65, 0.22, night) + twilight * 0.06
 	if _sunlight != null:
@@ -357,7 +399,9 @@ func _update_ambience(_delta: float) -> void:
 			solar_elevation = sin(PI * phase / 0.75)
 		else:
 			solar_elevation = -sin(PI * (phase - 0.75) / 0.25)
-		_sunlight.rotation_degrees = Vector3(-90.0 + 58.0 * solar_elevation, -28.0 + phase * 360.0, 0.0)
+		_sunlight.rotation_degrees = Vector3(-3.0 - 69.0 * solar_elevation, -28.0 + phase * 360.0, 0.0)
+		if _sky_material != null:
+			_sky_material.set_shader_parameter("sun_direction", _sunlight.global_basis.z.normalized())
 
 
 func _cyclic_pulse(phase: float, center: float, core: float, fade: float) -> float:
@@ -607,9 +651,8 @@ func _build_island(island_root: Node3D, island: Dictionary) -> void:
 				_add_cylinder(island_root, peak_radius, peak_radius * 0.06, peak_height, peak_at, Color("718269") if peak_index % 3 else Color("797c75"))
 			_add_cylinder(island_root, radius * 0.20, 0.0, 28.0, Vector3(-radius * 0.14, 14.4, -radius * 0.12), Color("747e70"))
 		elif landform == "sea_cliff":
-			var cliff_height: float = radius * 0.95
-			_add_cylinder(island_root, radius * 0.42, radius * 0.04, cliff_height, Vector3(-radius * 0.12, cliff_height * 0.5 + 0.4, 0.0), Color("727d79"))
-			_add_cylinder(island_root, radius * 0.31, radius * 0.02, cliff_height * 0.78, Vector3(radius * 0.27, cliff_height * 0.39 + 0.4, radius * 0.12), Color("626c69"))
+			preload("res://systems/rendering/rocky_straits.gd").build_stack(island_root, radius, seed_value)
+
 		else:
 			_add_cylinder(island_root, radius * 0.34, 0.0, 2.9, Vector3(-radius * 0.18, 3.45, -radius * 0.08), Color("607d4c"))
 			_add_cylinder(island_root, radius * 0.24, 0.0, 2.1, Vector3(radius * 0.28, 3.1, radius * 0.12), Color("71865a"))
@@ -800,16 +843,7 @@ func _build_port(island_root: Node3D, port: Dictionary, island_position: Vector2
 				var piling_at: Vector3 = pier_center + outward * float(distance_value) + pier_right * float(side_value) * 0.58 + Vector3(0.0, -0.12, 0.0)
 				_add_cylinder(island_root, 0.12, 0.12, 0.95, piling_at, Color("4b3829"))
 
-	# Warehouses and small port buildings sit between the beach and the pier.
-	var landward: Vector3 = -outward
-	var settlement_center: Vector3 = Vector3(local_port.x, 0.0, local_port.y) + landward * 1.8
-	var district = load("res://systems/rendering/npc_port_district.gd").new()
-	district.name = "NpcPortDistrict_" + str(port.get("id", "port"))
-	district.position = settlement_center
-	district.rotation.y = pier_yaw
-	island_root.add_child(district)
-	var owner: String = load("res://systems/world/port_faction_resolver.gd").new().resolve(port, int(GameState.world_state.get("seed", 0)))
-	district.setup(owner, island_radius)
+	# Dockside buildings are shown in the 2D town after mooring.
 
 
 func _add_port_shoals(parent: Node3D, harbor: Vector3, outward: Vector3, right: Vector3, yaw: float, bay_radius: float) -> void:
@@ -973,6 +1007,10 @@ func _sync_traffic(traffic_renderer: Node, traffic_group: String, delta: float =
 			heading = Vector2.UP
 		model.position = Vector3(position.x * MAP_TO_METERS, 0.12, position.y * MAP_TO_METERS)
 		model.rotation.y = -heading.angle() - PI * 0.5
+		if not model.visible:
+			# Keep the cheap world transform current for re-entry into the camera.
+			# Navigation/combat still run in their authoritative systems.
+			continue
 		var motion_time: float = _animation_clock
 		var sink: float=smoothstep(0.0,1.0,clampf(float(vessel.get("sink_progress",0)),0.0,1.0))
 		var visible_length: float=maxf(3.48,float(vessel.get("length",87.0))*MAP_TO_METERS)

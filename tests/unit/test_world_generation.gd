@@ -177,6 +177,8 @@ func test_stream_chunks_are_seed_stable_and_unbounded() -> void:
 		var channel_width: float = main_center.distance_to(Vector2(cliff.position)) - float(first.islands[0].radius) - float(cliff.radius)
 		assert_gte(channel_width, 220.0, "cliff gaps remain navigable")
 		assert_lte(channel_width, 370.0, "cliff channels are narrow enough to feel deliberate")
+		assert_eq(str(cliff.get("environment_class", "")), "rocky_straits")
+		assert_true(str(cliff.get("environment_group", "")).begins_with("straits_"))
 	for port_id in first.ports:
 		var port: Dictionary = first.ports[port_id]
 		assert_eq(int(port.get("chunk_generation_version", 0)), 2, "new ports retain their generation version")

@@ -606,3 +606,35 @@ func test_pending_projectiles_survive_saving() -> void:
 	assert_eq(GameState.combat_state.naval_battle.projectiles.size(),1)
 	navy._resolve_projectiles(GameState.combat_state.naval_battle,4.0)
 	assert_eq(GameState.combat_state.naval_enemies.enemy1.hull,180.0)
+
+func test_pirate_attack_with_escort_starts_battle_before_any_loot() -> void:
+	_sea()
+	GameState.ship_state.cargo=[{"resource_id":"resource_timber","quantity":10}]
+	var pirate: Dictionary=GameState.combat_state.naval_enemies.enemy1
+	pirate.kind="pirate"; pirate.faction_id="pirates"; pirate.hostile=true
+	for index in int(navy._rules.hostile_warning_seconds): navy._detect_hostile()
+	assert_true(navy.active())
+	assert_eq(GameState.player_state.money,200000.0)
+	assert_eq(int(GameState.ship_state.cargo[0].quantity),10)
+	assert_true(GameState.combat_state.naval_battle.ship_ids.has("war1"))
+	assert_eq(str(GameState.fleet_state[0].naval_order.kind),"hold","player retains command over firing")
+
+func test_uninitialized_escort_cannot_be_bypassed_by_pirate_loot() -> void:
+	_sea(); GameState.fleet_state[0].escort_state={}
+	var pirate: Dictionary=GameState.combat_state.naval_enemies.enemy1
+	pirate.kind="pirate"; pirate.faction_id="pirates"; pirate.hostile=true
+	pirate.position=Vector2(100,0)
+	for index in int(navy._rules.hostile_warning_seconds)+1: navy._detect_hostile()
+	assert_false(navy.active())
+	assert_eq(GameState.player_state.money,200000.0)
+	assert_true(GameState.combat_state.naval_report.is_empty())
+
+func test_pirate_zone_uses_one_real_group_without_instant_losses() -> void:
+	_sea(); GameState.combat_state.naval_enemies={}
+	navy.encounter_pirates()
+	var count: int=GameState.combat_state.naval_enemies.size()
+	assert_gte(count,1)
+	navy.encounter_pirates()
+	assert_eq(GameState.combat_state.naval_enemies.size(),count,"re-entry cannot stack pirate groups")
+	assert_eq(GameState.player_state.money,200000.0)
+	assert_eq(GameState.ship_state.hull,100.0)

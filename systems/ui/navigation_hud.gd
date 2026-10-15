@@ -149,6 +149,7 @@ func _rebuild_destinations() -> void:
 	if _destination_list == null or _port_system == null:
 		return
 	for child in _destination_list.get_children():
+		_destination_list.remove_child(child)
 		child.queue_free()
 	var home_port_id: String = str(GameState.world_state.get("home_port_id", ""))
 	for raw_port_id in GameState.player_state.get("discovered_port_ids", []):
@@ -161,7 +162,7 @@ func _add_destination_button(port_id: String) -> void:
 	button.custom_minimum_size.y = 28
 	button.set_meta("fixed_font_size",12)
 	button.set_meta("ui_base_min_height",28)
-	button.text = _port_system.get_port_name(port_id)
+	button.text = ("➤ " if port_id == str(GameState.world_state.get("destination_port_id", "")) else "") + _port_system.get_port_name(port_id)
 	button.add_theme_font_size_override("font_size", 12)
 	button.pressed.connect(_select_destination.bind(port_id))
 	_destination_list.add_child(button)
@@ -172,15 +173,17 @@ func _set_home_destination() -> void:
 		_course_label.text = "ДОМАШНИЙ ПОРТ НЕ НАЗНАЧЕН"
 		return
 	if _port_system.select_destination(home_port_id):
-		_is_open = false
 		_last_destination_id = home_port_id
+		_rebuild_destinations()
 		_update_course(home_port_id)
+		_chart.queue_redraw()
 
 func _select_destination(port_id: String) -> void:
 	if _port_system != null and _port_system.select_destination(port_id):
-		_is_open = false
 		_last_destination_id = port_id
+		_rebuild_destinations()
 		_update_course(port_id)
+		_chart.queue_redraw()
 
 func _update_course(destination_id: String) -> void:
 	var heading: float = float(GameState.ship_state.get("heading", -PI / 2.0))

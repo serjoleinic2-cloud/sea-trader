@@ -19,7 +19,7 @@ func play(world: Node3D, event: String, at: Vector3) -> void:
 		var index: int = AudioServer.bus_count
 		AudioServer.add_bus()
 		AudioServer.set_bus_name(index,"NavalBattle")
-		AudioServer.set_bus_send(index,"Master")
+		AudioServer.set_bus_send(index,"SFX" if AudioServer.get_bus_index("SFX") >= 0 else "Master")
 		var limiter := AudioEffectLimiter.new()
 		limiter.threshold_db=-6.0
 		limiter.ceiling_db=-1.0

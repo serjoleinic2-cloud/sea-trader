@@ -34,6 +34,7 @@ var _details: String = ""
 var _last_docked: String = ""
 var _merchant_button: Button
 var _encyclopedia: Node
+var _game_menu: Node
 var _top_height: float = 84.0
 const HUD_ART := "res://assets/ui/styles/approved_hud/"
 
@@ -133,6 +134,18 @@ func initialize(main: Node) -> void:
 	_more_button.pressed.connect(_toggle_more)
 	_toolbar.add_child(_more_button)
 	_create_more_panel()
+	_game_menu = preload("res://systems/ui/game_menu.gd").new()
+	_game_menu.name = "GameMenu"
+	add_child(_game_menu)
+	var menu_button := Button.new()
+	menu_button.name = "Menu_Settings"
+	menu_button.text = "⚙"
+	menu_button.add_theme_font_override("font", _hud_font)
+	menu_button.tooltip_text = "Игровое меню · настройки, сохранение и загрузка · Esc"
+	menu_button.custom_minimum_size = Vector2(36, 36)
+	menu_button.set_meta("compact_hud", true)
+	menu_button.pressed.connect(_open_game_menu)
+	_toolbar.add_child(menu_button)
 	_encyclopedia = load("res://systems/ui/encyclopedia_window.gd").new()
 	_encyclopedia.name = "EncyclopediaWindow"
 	add_child(_encyclopedia)
@@ -856,13 +869,23 @@ func _refresh_text_scale_button() -> void:
 
 func _unhandled_key_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
+		var had_window: bool = _port_expanded or _more_panel.visible or _extra_resources_panel.visible or _details != ""
+		for entry in _entries:
+			had_window = had_window or bool(entry["window"].get(str(entry["flag"])))
 		_more_panel.hide()
 		_extra_resources_panel.hide()
 		_port_expanded = false
 		_details = ""
 		for entry in _entries:
 			_close_window(entry["window"], str(entry["flag"]))
+		if not had_window:
+			_open_game_menu()
 		get_viewport().set_input_as_handled()
+
+func _open_game_menu() -> void:
+	_more_panel.hide()
+	_extra_resources_panel.hide()
+	_game_menu.open_menu()
 
 func _close_all_workspaces() -> void:
 	for entry in _entries:

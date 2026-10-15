@@ -56,3 +56,43 @@ func test_buoyancy_finds_the_horizontally_displaced_gerstner_surface() -> void:
 		var rendered_position: Vector2 = position + Vector2(displacement.x, displacement.z)
 		worst_error = maxf(worst_error, absf(ocean.height_at(rendered_position, time) - displacement.y))
 	assert_true(worst_error < 0.00002, "Buoyancy must sample displaced GPU vertices, not the undeformed plane")
+
+func test_low_poly_bay_terrain_and_forest_remain_on_land() -> void:
+	var builder = preload("res://systems/rendering/low_poly_island.gd")
+	var spec: Dictionary = GameData.read("res://data/world/faction_harbors.json").variants.humans
+	var outline := PackedVector2Array()
+	for point in spec.coastline: outline.append(Vector2(point[0], point[1]))
+	var root := Node3D.new()
+	builder.build(root,spec.coastline,"humans")
+	var terrain: MeshInstance3D = root.get_node("LowPolyIslandTerrain")
+	var vertices: PackedVector3Array = terrain.mesh.surface_get_arrays(0)[Mesh.ARRAY_VERTEX]
+	var highest: float = 0.0
+	for point in vertices:
+		highest = maxf(highest, point.y)
+	assert_true(highest > 20.0,"the bay has a connected mountain mass")
+	assert_true(vertices.size() < 15000,"terrain stays a lightweight batched mesh")
+	assert_true(root.has_node("LowPolyIslandForest"))
+	var forest_vertices: PackedVector3Array = root.get_node("LowPolyIslandForest").mesh.surface_get_arrays(0)[Mesh.ARRAY_VERTEX]
+	var trees_on_land: bool = true
+	for point in forest_vertices:
+		if not Geometry2D.is_point_in_polygon(Vector2(point.x,point.z),outline): trees_on_land = false
+	assert_true(trees_on_land,"forest roots and canopies stay outside the navigable bay")
+	assert_eq(root.get_child_count(),3,"terrain, submerged cliff base and forest are batched")
+	assert_false(root.has_node("LowPolyHarborSettlement"))
+	root.free()
+
+func test_rocky_strait_stacks_are_tall_and_do_not_expand_waterline_collision() -> void:
+	var root := Node3D.new()
+	preload("res://systems/rendering/rocky_straits.gd").build_stack(root,10.0,123)
+	var stack: MeshInstance3D = root.get_node("RockyStraitsStack")
+	var vertices: PackedVector3Array = stack.mesh.surface_get_arrays(0)[Mesh.ARRAY_VERTEX]
+	var highest: float = 0.0
+	var waterline_radius: float = 0.0
+	for point in vertices:
+		highest = maxf(highest,point.y)
+		if absf(point.y) < 0.001: waterline_radius = maxf(waterline_radius,Vector2(point.x,point.z).length())
+	assert_true(highest >= 30.0)
+	assert_almost_eq(waterline_radius,10.0,0.001,"visible stacks use the existing shoreline radius")
+	assert_true(vertices.size() < 1000)
+	assert_eq(root.get_child_count(),1,"one mesh per stack, no settlement or physics bodies")
+	root.free()

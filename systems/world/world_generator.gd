@@ -203,6 +203,8 @@ func _generate_large_island_chunk(world_seed: int, chunk_coord: Vector2i) -> Dic
 			"radius": cliff_radius,
 			"region": region_id,
 			"landform": "sea_cliff",
+			"environment_class": "rocky_straits",
+			"environment_group": "straits_c%d_%d" % [super_x, super_y],
 			"chunk_generation_version": 2
 		})
 	var ports: Dictionary = _generate_ports(islands)

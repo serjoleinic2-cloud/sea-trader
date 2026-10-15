@@ -30,6 +30,14 @@ func cycle_scale() -> int:
 	SaveSystem.save_game()
 	return get_scale_percent()
 
+func set_scale(value: float) -> void:
+	var next_scale: float = _normalize_scale(value)
+	GameState.settings_state["ui_scale"] = next_scale
+	if is_equal_approx(_scale, next_scale):
+		return
+	_scale = next_scale
+	_apply_existing()
+
 func _normalize_scale(value: float) -> float:
 	var best: float = SCALES[0]
 	var distance: float = absf(value - best)

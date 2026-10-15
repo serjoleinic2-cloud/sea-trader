@@ -3,7 +3,8 @@ shader_type sky;
 // Clear sky only. Procedural clouds are removed while gameplay is developed.
 uniform float night_amount : hint_range(0.0, 1.0) = 0.0;
 uniform float twilight_amount : hint_range(0.0, 1.0) = 0.0;
-uniform vec3 jupiter_direction = vec3(0.0, -0.10, -1.0);
+uniform vec3 jupiter_direction = vec3(0.0, 0.06, -1.0);
+uniform vec3 sun_direction = vec3(-0.4, 0.08, -1.0);
 uniform float jupiter_radius : hint_range(0.05, 0.5) = 0.30;
 
 float star_hash(vec2 cell) {
@@ -34,22 +35,12 @@ vec3 sky_stars(vec3 direction) {
 		* dot_light * night_amount * smoothstep(0.025, 0.10, direction.y);
 }
 
-float ring_stone(vec2 p, float orbit_radius, float count, float seed, float size) {
-	float radial = length(p);
-	float angle = atan(p.y, p.x);
-	float segment = floor(fract(angle / 6.2831853 + 0.5) * count);
-	float random_value = star_hash(vec2(segment + seed * 31.0, seed + 7.0));
-	float center_angle = ((segment + 0.18 + random_value * 0.64) / count - 0.5) * 6.2831853;
-	float angle_delta = atan(sin(angle - center_angle), cos(angle - center_angle));
-	float perspective = mix(0.56, 1.42, smoothstep(-0.68, 0.68, sin(angle)));
-	float stone_size = size * mix(0.55, 1.3, random_value) * perspective;
-	float tangent = angle_delta * orbit_radius;
-	float stone_radial = radial - orbit_radius + (random_value - 0.5) * size * 0.5;
-	vec2 stone = vec2(tangent, stone_radial) / max(stone_size, 0.001);
-	float ax = abs(stone.x);
-	float ay = abs(stone.y);
-	float faceted_distance = max(max(ax, ay * 0.82), (ax + ay) * mix(0.62, 0.76, random_value));
-	return (1.0 - smoothstep(0.66, 1.05, faceted_distance)) * step(random_value, 0.93);
+float ring_dust(vec2 p) {
+	float radius = length(p);
+	float band = smoothstep(1.20, 1.24, radius) * (1.0 - smoothstep(1.78, 1.83, radius));
+	float strands = 0.36 + 0.24 * sin(radius * 230.0);
+	float gap = smoothstep(0.006, 0.014, abs(radius - 1.48));
+	return band * strands * gap * 0.42;
 }
 
 vec3 distant_jupiter(vec3 direction, vec3 background) {
@@ -63,17 +54,21 @@ vec3 distant_jupiter(vec3 direction, vec3 background) {
 	float ring_angle = 0.785398;
 	vec2 rings = vec2(cos(ring_angle) * screen.x + sin(ring_angle) * screen.y,
 		(-sin(ring_angle) * screen.x + cos(ring_angle) * screen.y) / 0.70);
-	float rocks_a = ring_stone(rings, 1.28, 22.0, 1.0, 0.040);
-	float rocks_b = ring_stone(rings, 1.72, 29.0, 2.0, 0.033);
-	float rocks_c = ring_stone(rings, 2.20, 36.0, 3.0, 0.026);
-	float rocks_back = max(max(rocks_a, rocks_b), rocks_c) * step(rings.y, 0.0) * visible_sky;
-	vec3 stone_color = mix(vec3(0.83, 0.89, 0.90), vec3(0.22, 0.27, 0.34), night_amount);
-	vec3 result = mix(background, stone_color * 0.86, rocks_back * 0.92);
+	float dust = ring_dust(rings);
+	float rocks_back = dust * step(rings.y, 0.0) * visible_sky;
+	vec3 stone_color = mix(background + vec3(0.12, 0.13, 0.14), vec3(0.43, 0.50, 0.58), night_amount);
+	vec3 result = mix(background, stone_color, rocks_back);
 	float planet_hit = step(radius_squared, 1.0) * step(0.0, dot(direction, center)) * visible_sky;
-	vec3 planet_color = mix(vec3(0.73, 0.84, 0.88), vec3(0.15, 0.20, 0.27), night_amount);
-	float soft_shade = mix(0.94, 1.04, clamp(screen.x * 0.5 + 0.5, 0.0, 1.0));
-	result = mix(result, planet_color * soft_shade, planet_hit);
-	float rocks_front = max(max(rocks_a, rocks_b), rocks_c) * step(0.0, rings.y) * visible_sky;
+	vec3 planet_normal = vec3(screen, sqrt(max(0.0, 1.0 - radius_squared)));
+	vec3 key_light = normalize(vec3(-0.80, 0.28, -0.60));
+	float illumination = smoothstep(-0.015, 0.16, dot(planet_normal, key_light));
+	vec3 lit_color = mix(vec3(0.76, 0.86, 0.89), vec3(1.0, 0.77, 0.49), twilight_amount * 0.65);
+	vec3 dark_color = background * mix(0.88, 0.45, max(night_amount, twilight_amount));
+	vec3 planet_color = mix(dark_color, lit_color, illumination);
+	float limb = pow(1.0 - sqrt(max(0.0, 1.0 - radius_squared)), 7.0) * illumination;
+	planet_color += vec3(0.24, 0.48, 0.65) * limb * 0.3;
+	result = mix(result, planet_color, planet_hit * 0.82);
+	float rocks_front = dust * step(0.0, rings.y) * visible_sky;
 	result = mix(result, stone_color, rocks_front * 0.94);
 	float haze_shape = exp(-pow((direction.y - 0.025) * 9.0, 2.0)) * exp(-radius_squared * 0.10) * visible_sky;
 	vec3 haze_color = mix(vec3(0.82, 0.89, 0.91), vec3(0.20, 0.27, 0.37), night_amount);
@@ -81,14 +76,41 @@ vec3 distant_jupiter(vec3 direction, vec3 background) {
 	return result;
 }
 
+vec3 small_moon(vec3 direction, vec3 center, float radius, vec3 background) {
+	center = normalize(center);
+	vec3 right = normalize(cross(center, vec3(0.0, 1.0, 0.0)));
+	vec3 up = cross(right, center);
+	vec2 p = vec2(dot(direction, right), dot(direction, up)) / max(dot(direction, center), 0.001) / tan(radius);
+	float r2 = dot(p, p);
+	if (r2 > 1.0 || dot(direction, center) < 0.0 || direction.y < 0.0) { return background; }
+	vec3 normal = vec3(p, sqrt(max(0.0, 1.0 - r2)));
+	float light = smoothstep(0.0, 0.18, dot(normal, normalize(vec3(-0.8, 0.25, -0.25))));
+	return mix(background, mix(background * 0.65, vec3(0.68, 0.83, 0.93), light), 0.75);
+}
+
 void sky() {
-	float elevation = clamp(EYEDIR.y * 0.5 + 0.5, 0.0, 1.0);
-	float horizon = smoothstep(0.36, 0.94, elevation);
-	vec3 day = mix(vec3(0.67, 0.82, 0.87), vec3(0.20, 0.48, 0.70), horizon);
-	vec3 night = mix(vec3(0.055, 0.085, 0.14), vec3(0.012, 0.026, 0.075), horizon);
-	vec3 color = mix(day, night, night_amount);
-	vec3 dusk = mix(vec3(0.88, 0.40, 0.22), vec3(0.35, 0.43, 0.57), smoothstep(0.18, 0.85, elevation));
-	vec3 background = mix(color, dusk, twilight_amount * (1.0 - night_amount));
 	vec3 direction = normalize(EYEDIR);
-	COLOR = distant_jupiter(direction, background + sky_stars(direction));
+	float altitude = max(0.0, direction.y);
+	float horizon = pow(clamp(altitude, 0.0, 1.0), 0.55);
+	vec3 day = mix(vec3(0.67, 0.82, 0.87), vec3(0.16, 0.40, 0.65), horizon);
+	vec3 night = mix(vec3(0.055, 0.085, 0.14), vec3(0.012, 0.026, 0.075), horizon);
+	vec3 sun = normalize(sun_direction);
+	float facing_sunset = pow(max(0.0, dot(normalize(vec3(direction.x, 0.001, direction.z)), normalize(vec3(sun.x, 0.001, sun.z)))), 3.0);
+	float sunset_band = exp(-altitude * 5.0);
+	vec3 dusk = mix(vec3(0.018, 0.042, 0.090), vec3(0.90, 0.19, 0.035), sunset_band);
+	dusk = mix(dusk, vec3(1.0, 0.47, 0.11), exp(-altitude * 23.0) * facing_sunset * 0.8);
+	vec3 background = mix(mix(day, night, night_amount), dusk, twilight_amount * (1.0 - night_amount * 0.55));
+	float sun_alignment = dot(direction, sun);
+	float solar_disc = smoothstep(cos(0.010), cos(0.007), sun_alignment) * smoothstep(-0.01, 0.012, direction.y);
+	float glow = pow(max(0.0, sun_alignment), 190.0) * twilight_amount;
+	background += vec3(1.0, 0.48, 0.13) * glow * 0.6;
+	background = mix(background, vec3(1.0, 0.91, 0.65) * 2.0, solar_disc);
+	// Celestial artwork is a sky background, not blobs in the radiance cubemap.
+	if (AT_CUBEMAP_PASS) {
+		COLOR = background;
+	} else {
+		vec3 celestial = background + sky_stars(direction);
+		celestial = small_moon(direction, vec3(0.45, 0.40, -1.0), 0.072, celestial);
+		COLOR = distant_jupiter(direction, celestial);
+	}
 }

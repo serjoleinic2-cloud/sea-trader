@@ -26,7 +26,8 @@ func setup(port_id: String, showcase_level: int = 0, faction_id: String = "") ->
 		[[35,-30],[41,-30],[41,-50],[35,-50]]
 	], _race)
 	_add_landmarks()
-	_refresh_buildings()
+	# Buildings belong to the docked 2D town, not the sailing island.
+	set_process(false)
 	set_night_strength(0.0)
 
 func _process(delta: float) -> void:

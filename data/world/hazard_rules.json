@@ -13,9 +13,7 @@
       "steering_damage": 5
     },
     "pirate": {
-      "name": "Пиратская зона",
-      "hull_damage": 4,
-      "steal_one_cargo": true
+      "name": "Пиратская зона"
     },
     "anomaly": {
       "name": "Аномальная зона",

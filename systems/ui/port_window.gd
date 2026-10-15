@@ -35,7 +35,7 @@ var _quantity_label: Label
 var _quantity_slider: HSlider
 var _quantity_preview_label: Label
 var _modernization_switches: HBoxContainer
-var _save_button: Button
+var _building_grid: GridContainer
 var _bottom_menu: PanelContainer
 var _leave_button: Button
 var _encounter_tab_button: Button
@@ -190,10 +190,14 @@ func _ready() -> void:
 	column.add_theme_constant_override("separation", 10)
 	margin.add_child(column)
 	_title = Label.new()
-	_title.add_theme_font_size_override("font_size", 24)
+	_title.set_meta("compact_description", true)
+	_title.set_meta("ui_base_font_size", 18)
+	_title.add_theme_font_size_override("font_size", 18)
 	column.add_child(_title)
 	_details = Label.new()
-	_details.add_theme_font_size_override("font_size", 19)
+	_details.set_meta("compact_description", true)
+	_details.set_meta("ui_base_font_size", 13)
+	_details.add_theme_font_size_override("font_size", 13)
 	_details.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	column.add_child(_details)
 	_cargo_tabs = HBoxContainer.new()
@@ -226,7 +230,7 @@ func _ready() -> void:
 	_construction_workspace.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_construction_workspace.add_theme_constant_override("separation", 18)
 	_construction_details_column = VBoxContainer.new()
-	_construction_details_column.custom_minimum_size.x = 300
+	_construction_details_column.custom_minimum_size.x = 260
 	_construction_details_column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_construction_details_column.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_construction_details_column.size_flags_stretch_ratio = 0.8
@@ -352,14 +356,10 @@ func _ready() -> void:
 	upgrade_units_button.custom_minimum_size.y = 42
 	upgrade_units_button.pressed.connect(_set_modernization_branch.bind("units"))
 	_modernization_switches.add_child(upgrade_units_button)
-	_save_button = Button.new()
-	_save_button.text = "Сохранить игру"
-	_save_button.custom_minimum_size.y = 42
-	_save_button.pressed.connect(_save_progress)
-	column.add_child(_save_button)
 	_leave_button = Button.new()
 	_leave_button.text = "Выйти в море [E]"
-	_leave_button.custom_minimum_size.y = 42
+	_leave_button.custom_minimum_size.y = 32
+	_leave_button.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	_leave_button.pressed.connect(_leave_port)
 	column.add_child(_leave_button)
 	_create_bottom_menu()
@@ -412,9 +412,7 @@ func _process(_delta: float) -> void:
 			_content_scroll.custom_minimum_size.y = minf(300.0, maxf(80.0, viewport_size.y - 420.0))
 	_building_list.size_flags_vertical = Control.SIZE_EXPAND_FILL if _current_section in ["shipyard", "construction"] else Control.SIZE_FILL
 	_details.visible = _current_section != "shipyard" or not _notice.is_empty()
-	_save_button.visible = _current_section != "shipyard"
 	_leave_button.visible = _current_section != "shipyard"
-	_plan_button.visible = _construction_layout_active
 	_bottom_menu.position = Vector2((viewport_size.x - _bottom_menu.size.x) * 0.5, viewport_size.y - _bottom_menu.size.y - 14.0)
 	var is_home: bool = docked_port == str(GameState.world_state.get("home_port_id", ""))
 	_set_construction_layout(is_home and _current_section == "construction")
@@ -436,7 +434,9 @@ func _process(_delta: float) -> void:
 	_bottom_menu.visible = _current_section != "market"
 	_building_list.visible = (is_home and (_current_section == "construction" or _current_section == "resources" or _current_section == "market" or _current_section == "shipyard")) or (not is_home and (_current_section == "market" or _current_section == "encounter")) or _current_section == "management"
 	_cargo_tabs.visible = is_home and _current_section == "resources"
-	_plan_button.visible = false
+	_plan_button.visible = _construction_layout_active
+	if _construction_layout_active and is_instance_valid(_building_grid):
+		_building_grid.columns = clampi(int((_content_scroll.size.x + 10.0) / 230.0), 1, 3)
 	for tab_button in _home_tab_buttons:
 		tab_button.visible = is_home
 	_trade_tab_button.visible = not is_home
@@ -518,7 +518,9 @@ func _refresh_text(port_id: String, is_home: bool) -> void:
 	if _selected_building_id != "":
 		selected_name = _get_building_name(_selected_building_id)
 		selected_state = _get_building_state(port, _selected_building_id)
-	_details.text = "Выбрано: %s\nСтатус: %s\n\n%s\n\n%s" % [selected_name, selected_state, _get_building_description(_selected_building_id), _notice]
+	_details.text = "Выбрано: %s\nСтатус: %s\n\n%s" % [selected_name, selected_state, _get_building_description(_selected_building_id)]
+	if not _notice.is_empty():
+		_details.text += "\n\n" + _notice
 
 func _get_building_description(building_id: String) -> String:
 	for raw_building in _building_catalog:
@@ -540,6 +542,9 @@ func _set_construction_layout(active: bool) -> void:
 		if _content_scroll.get_parent() != _construction_buildings_column:
 			_content_scroll.get_parent().remove_child(_content_scroll)
 			_construction_buildings_column.add_child(_content_scroll)
+		if _leave_button.get_parent() != _construction_details_column:
+			_leave_button.get_parent().remove_child(_leave_button)
+			_construction_details_column.add_child(_leave_button)
 		_content_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		_content_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
 	else:
@@ -551,12 +556,18 @@ func _set_construction_layout(active: bool) -> void:
 			_content_scroll.get_parent().remove_child(_content_scroll)
 			_column.add_child(_content_scroll)
 			_column.move_child(_content_scroll, _construction_workspace.get_index())
+		if _leave_button.get_parent() != _column:
+			_leave_button.get_parent().remove_child(_leave_button)
+			_column.add_child(_leave_button)
 
 func _rebuild_building_list(port_id: String) -> void:
 	for child in _building_list.get_children():
+		_building_list.remove_child(child)
 		child.queue_free()
 	var grid: GridContainer = GridContainer.new()
-	grid.columns = 1
+	_building_grid = grid
+	grid.name = "BuildingCatalog"
+	grid.columns = 2
 	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	grid.add_theme_constant_override("h_separation", 10)
 	grid.add_theme_constant_override("v_separation", 10)
@@ -568,19 +579,21 @@ func _rebuild_building_list(port_id: String) -> void:
 		var icon_path: String = "res://assets/ui/ports/%s/%s.png" % [str(GameState.player_state.get("origin_race_id", "humans")), building_id]
 		if not ResourceLoader.exists(icon_path): icon_path = str(building.get("ui_icon", ""))
 		var card := PanelContainer.new()
-		card.custom_minimum_size = Vector2(0, 300)
+		card.custom_minimum_size = Vector2(220, 208)
 		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		var card_style := StyleBoxFlat.new()
-		card_style.bg_color = Color(0.055, 0.075, 0.09, 0.96)
-		card_style.border_color = Color(0.72, 0.58, 0.32, 0.85) if building_id == _selected_building_id else Color(0.20, 0.32, 0.38, 0.9)
-		card_style.set_border_width_all(1)
-		card_style.set_content_margin_all(8)
+		var theme: Theme = preload("res://systems/ui/game_ui_theme.gd").new().get_theme()
+		var card_style: StyleBox = theme.get_stylebox("panel", "PanelContainer").duplicate()
+		card_style.content_margin_left = 12
+		card_style.content_margin_right = 12
+		card_style.content_margin_top = 8
+		card_style.content_margin_bottom = 8
+		card.set_meta("preserve_art_style", true)
 		card.add_theme_stylebox_override("panel", card_style)
 		var card_content := VBoxContainer.new()
-		card_content.add_theme_constant_override("separation", 5)
+		card_content.add_theme_constant_override("separation", 3)
 		card.add_child(card_content)
 		var art := TextureRect.new()
-		art.custom_minimum_size = Vector2(0, 210)
+		art.custom_minimum_size = Vector2(0, 112)
 		art.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
@@ -675,7 +688,7 @@ func _rebuild_shipyard_list() -> void:
 	my_fleet.set_meta("ui_base_min_height", 28)
 	my_fleet.pressed.connect(_open_fleet_management)
 	left.add_child(my_fleet)
-	for action in [["Сохранить игру", _save_progress], ["Выйти в море [E]", _leave_port]]:
+	for action in [["Выйти в море [E]", _leave_port]]:
 		var compact := Button.new()
 		compact.text = action[0]
 		compact.set_meta("compact_description", true)

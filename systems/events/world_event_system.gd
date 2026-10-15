@@ -107,6 +107,17 @@ func _resolve_hazard_entry(zone: Dictionary) -> void:
 		_show_hazard_notice("Вы вошли в %s. Обплывайте отмеченную зону." % zone_name, now)
 		return
 
+	if zone_type == "pirate":
+		# These zones predate real naval combat. Never apply their old instant loot.
+		var navy: Node = get_tree().get_first_node_in_group("naval_combat_system")
+		if navy != null:
+			navy.encounter_pirates()
+		cooldowns[str(zone.get("id", ""))] = now
+		GameState.economy_state["hazard_cooldowns"] = cooldowns
+		_show_hazard_notice("Пиратские воды: следите за чёрными кораблями. Военное сопровождение вступит в бой; до поражения груз защищён.", now)
+		SaveSystem.save_game()
+		return
+
 	var consequences: Array[String] = []
 	var hull_loss: float = _apply_component_damage("hull", float(effect.get("hull_damage", 0.0)))
 	var engine_loss: float = _apply_component_damage("engine", float(effect.get("engine_damage", 0.0)))
@@ -117,8 +128,6 @@ func _resolve_hazard_entry(zone: Dictionary) -> void:
 		consequences.append("двигатель −%.0f" % engine_loss)
 	if steering_loss > 0.0:
 		consequences.append("руль −%.0f" % steering_loss)
-	if bool(effect.get("steal_one_cargo", false)) and _steal_unsealed_cargo():
-		consequences.append("потерян 1 груз")
 	if consequences.is_empty():
 		consequences.append("потерь нет, обплывайте её дальше")
 
@@ -141,26 +150,6 @@ func _apply_component_damage(component: String, amount: float) -> float:
 		GameState.ship_state[component] = next_value
 		EventBus.ship_damaged.emit(component, actual_loss)
 	return actual_loss
-
-
-func _steal_unsealed_cargo() -> bool:
-	var cargo: Array = GameState.ship_state.get("cargo", [])
-	for index in range(cargo.size() - 1, -1, -1):
-		var item: Dictionary = cargo[index]
-		if str(item.get("contract_id", "")) != "":
-			continue
-		var quantity: int = int(item.get("quantity", 0))
-		if quantity <= 0:
-			continue
-		quantity -= 1
-		if quantity == 0:
-			cargo.remove_at(index)
-		else:
-			item["quantity"] = quantity
-			cargo[index] = item
-		GameState.ship_state["cargo"] = cargo
-		return true
-	return false
 
 
 func _show_hazard_notice(message: String, now: int) -> void:
