@@ -92,7 +92,7 @@ func _ready() -> void:
 	add_child(_owned_footer)
 	_carousel = HFlowContainer.new()
 	_carousel.name = "FleetCarousel"
-	_carousel.alignment = BoxContainer.ALIGNMENT_CENTER
+	_carousel.alignment = FlowContainer.ALIGNMENT_CENTER
 	_carousel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_carousel.add_theme_constant_override("h_separation", 8)
 	_carousel.add_theme_constant_override("v_separation", 6)
