@@ -402,7 +402,14 @@ func _process(_delta: float) -> void:
 	_bottom_menu.size = Vector2(minf(1220.0 if desktop_layout else 920.0, viewport_size.x - 24.0), 82.0)
 	if _content_scroll != null:
 		_content_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED if _current_section == "shipyard" else ScrollContainer.SCROLL_MODE_AUTO
-		_content_scroll.custom_minimum_size.y = 0 if _current_section == "construction" else (80 if _current_section == "shipyard" else (230.0 if _current_section == "market" else minf(300.0, maxf(80.0, viewport_size.y - 420.0)))
+		if _current_section == "construction":
+			_content_scroll.custom_minimum_size.y = 0
+		elif _current_section == "shipyard":
+			_content_scroll.custom_minimum_size.y = 80
+		elif _current_section == "market":
+			_content_scroll.custom_minimum_size.y = 230
+		else:
+			_content_scroll.custom_minimum_size.y = minf(300.0, maxf(80.0, viewport_size.y - 420.0))
 	_building_list.size_flags_vertical = Control.SIZE_EXPAND_FILL if _current_section in ["shipyard", "construction"] else Control.SIZE_FILL
 	_details.visible = _current_section != "shipyard" or not _notice.is_empty()
 	_save_button.visible = _current_section != "shipyard"
