@@ -24,11 +24,14 @@ var _owned_footer: VBoxContainer
 var _draft_names: Dictionary = {}
 var _tick := 0.0
 var _signature := ""
+var _body: HBoxContainer
+var _outfitting: Control
+var _ship_selector: OptionButton
 
 func _ready() -> void:
 	size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	size_flags_vertical = Control.SIZE_EXPAND_FILL
-	add_theme_constant_override("separation", 8)
+	add_theme_constant_override("separation", 5)
 	var header := HBoxContainer.new()
 	add_child(header)
 	var pennant = preload("res://systems/ui/faction_pennant.gd").new()
@@ -53,9 +56,16 @@ func _ready() -> void:
 	add_child(_filters)
 	for choice in [["all", "Все суда"], ["trade", "Торговые"], ["transport", "Транспорты армии"], ["combat", "Боевые с орудиями"]]:
 		_filters.add_child(_button(str(choice[1]), _set_category.bind(str(choice[0]))))
+	_ship_selector = OptionButton.new()
+	_ship_selector.name = "OwnedShipSelector"
+	_ship_selector.fit_to_longest_item = false
+	_ship_selector.custom_minimum_size.x = 220
+	_ship_selector.item_selected.connect(func(index: int): _select(str(_ship_selector.get_item_metadata(index))))
+	_filters.add_child(_ship_selector)
 	_context = _label("", 12)
 	add_child(_context)
 	var body := HBoxContainer.new()
+	_body = body
 	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	body.add_theme_constant_override("separation", 16)
 	add_child(body)
@@ -85,6 +95,9 @@ func _ready() -> void:
 	art_column.add_child(_preview)
 	var hint: Label = _label("Мышь — вращение · колесо — масштаб · двойной щелчок — исходный вид", 11)
 	art_column.add_child(hint)
+	_outfitting = preload("res://systems/ui/ship_outfitting_view.gd").new()
+	_outfitting.name = "ShipOutfitting"
+	add_child(_outfitting)
 	_construction_footer = VBoxContainer.new()
 	_construction_footer.add_theme_constant_override("separation", 4)
 	add_child(_construction_footer)
@@ -160,12 +173,17 @@ func refresh() -> void:
 	for node in _owned_footer.get_children():
 		_owned_footer.remove_child(node)
 		node.queue_free()
+	_ship_selector.visible = mode == "owned"
+	_carousel.visible = mode == "build"
+	_ship_selector.clear()
+	_body.visible = mode == "build"
+	_outfitting.visible = mode == "owned"
 	_construction_footer.visible = mode == "build"
 	_owned_footer.visible = mode == "owned"
 	for index in _tabs.get_child_count():
 		_tabs.get_child(index).toggle_mode = true
 		_tabs.get_child(index).button_pressed = (mode == "owned") == (index == 0)
-	for index in _filters.get_child_count():
+	for index in 4:
 		_filters.get_child(index).toggle_mode = true
 		_filters.get_child(index).button_pressed = category == ["all", "trade", "transport", "combat"][index]
 	var entries: Array = []
@@ -190,6 +208,10 @@ func refresh() -> void:
 			owner_window._selected_ship_id = selection
 	var definition: Dictionary = {}
 	for entry in entries:
+		if mode == "owned":
+			_ship_selector.add_item(str(entry.name))
+			_ship_selector.set_item_metadata(_ship_selector.item_count-1,str(entry.id))
+			if str(entry.id) == selection: _ship_selector.select(_ship_selector.item_count-1)
 		var selected: bool = str(entry.id) == selection
 		var data: Dictionary = GameData.get_ship(str(entry.type))
 		var subtitle: String = "%d орудия · ранг %d" % [int(data.get("gun_slots", 0)), int(data.get("command_rank_required", 1))] if bool(data.get("warship", false)) else ("Перевозит десант" if bool(data.get("military_transport", false)) else "Трюм %d" % int(data.get("cargo_capacity", 0)))
@@ -219,6 +241,7 @@ func refresh() -> void:
 		return
 	_preview.show()
 	_preview.show_ship(str(definition.id))
+	if mode == "owned": _outfitting.open_ship(selection)
 	_heading.text = str(definition.name)
 	_specs.text = "%s\nКорпус %d · скорость %d · экипаж %d–%d" % [str(definition.get("role", "")), int(definition.get("hull_max", 100)), int(definition.get("base_speed", 0)), int(definition.get("min_crew", 1)), int(definition.get("max_crew", 1))]
 	if mode == "build":
@@ -248,6 +271,9 @@ func refresh() -> void:
 func _move_primary_actions(node: Node, row: HFlowContainer) -> void:
 	for child in node.get_children():
 		if child is Button and child.has_meta("fleet_primary_action"):
+			if str(child.get_meta("fleet_primary_action")) in ["Экипаж", "Командир и экипаж", "Орудия и склад"]:
+				child.hide()
+				continue
 			node.remove_child(child)
 			child.text = str(child.get_meta("fleet_primary_action"))
 			child.set_meta("compact_description", true)

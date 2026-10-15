@@ -1,0 +1,80 @@
+{
+  "crew_role_order": [
+    "captain",
+    "navigator",
+    "mechanic",
+    "bosun",
+    "quartermaster",
+    "sailor",
+    "dock_worker"
+  ],
+  "statistics": {
+    "speed": {
+      "label": "Скорость",
+      "maximum": 300,
+      "unit": "ед/с"
+    },
+    "hull": {
+      "label": "Прочность",
+      "maximum": 2000,
+      "unit": ""
+    },
+    "cargo": {
+      "label": "Трюм",
+      "maximum": 800,
+      "unit": ""
+    },
+    "fuel": {
+      "label": "Расход топлива",
+      "maximum": 2,
+      "unit": "ед/с",
+      "lower_better": true
+    },
+    "fuel_capacity": {
+      "label": "Запас топлива",
+      "maximum": 300,
+      "unit": ""
+    },
+    "maneuverability": {
+      "label": "Манёвренность",
+      "maximum": 2,
+      "unit": ""
+    },
+    "loading": {
+      "label": "Погрузка",
+      "maximum": 150,
+      "unit": "%"
+    },
+    "repair": {
+      "label": "Ремонт",
+      "maximum": 150,
+      "unit": "%"
+    },
+    "navigation": {
+      "label": "Навигация",
+      "maximum": 150,
+      "unit": "%"
+    },
+    "damage": {
+      "label": "Урон залпа",
+      "maximum": 2000,
+      "unit": ""
+    },
+    "range": {
+      "label": "Дальность",
+      "maximum": 1500,
+      "unit": "м"
+    },
+    "reload": {
+      "label": "Перезарядка",
+      "maximum": 40,
+      "unit": "с",
+      "lower_better": true
+    },
+    "accuracy": {
+      "label": "Точность",
+      "maximum": 100,
+      "unit": "%"
+    }
+  }
+}

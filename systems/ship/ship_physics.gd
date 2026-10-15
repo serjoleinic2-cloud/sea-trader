@@ -441,7 +441,7 @@ func _update_fuel(delta: float) -> void:
 		return
 
 	var speed_ratio: float = absf(_speed) / maxf(get_max_speed(), 1.0)
-	var crew_fuel_bonus: float = float(_get_crew_stat_total("fuel")) / 100.0
+	var crew_fuel_bonus: float = (float(_get_crew_stat_total("fuel")) + preload("res://systems/fleet/ship_loadout.gd").boost_bonus(GameState.ship_state,"fuel")) / 100.0
 	var consumption: float = float(_ship_data.get("fuel_per_second", 0.5)) * speed_ratio * delta * maxf(0.25, 1.0 - crew_fuel_bonus)
 
 	var current_fuel: float = float(GameState.ship_state.get("fuel", 0.0))
@@ -457,20 +457,9 @@ func _update_fuel(delta: float) -> void:
 # Internal — helpers
 # ============================================================================
 
-func _get_crew_stat_total(stat_id: String) -> int:
-	var raw_crew: Variant = GameState.ship_state.get("crew", [])
-	if not (raw_crew is Array):
-		return 0
-	var total: int = 0
-	for employee_id in raw_crew:
-		for raw_employee in GameState.employee_state:
-			var employee: Dictionary = raw_employee
-			if str(employee.get("employee_instance_id", "")) == str(employee_id):
-				var stats: Dictionary = employee.get("stats", {})
-				var skill_stats: Dictionary = employee.get("skill_stats", {})
-				total += int(stats.get(stat_id, 0)) + int(skill_stats.get(stat_id, 0))
-				break
-	return total
+func _get_crew_stat_total(stat_id: String) -> float:
+	return preload("res://systems/fleet/ship_loadout.gd").crew_bonus(GameState.ship_state,stat_id)
+
 
 func _get_engine_ratio() -> float:
 	var engine: float = float(GameState.ship_state.get("engine", 100.0))

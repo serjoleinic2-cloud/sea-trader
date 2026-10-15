@@ -127,7 +127,7 @@ func get_ship_options() -> Array:
 		})
 	return result
 
-func hire(candidate_id: String, voyages: int, target_ship_id: String = "active_ship") -> Dictionary:
+func hire(candidate_id: String, voyages: int, target_ship_id: String = "active_ship", persist: bool = true) -> Dictionary:
 	if str(GameState.ship_state.get("docked_port_id", "")) == "":
 		return {"ok": false, "message": "Найм доступен в любом порту после швартовки."}
 	var candidates: Array = get_candidates()
@@ -200,8 +200,9 @@ func hire(candidate_id: String, voyages: int, target_ship_id: String = "active_s
 		if str(candidate.get("candidate_id", "")) != candidate_id:
 			remaining_candidates.append(candidate)
 	GameState.company_state["hire_candidates"] = remaining_candidates
-	EventBus.employee_hired.emit(str(employee.get("employee_instance_id", "")), str(employee.get("role_id", "")))
-	SaveSystem.save_game()
+	if persist:
+		EventBus.employee_hired.emit(str(employee.get("employee_instance_id", "")), str(employee.get("role_id", "")))
+		SaveSystem.save_game()
 	var message: String = "Постоянный сотрудник принят в компанию." if employment_type == "permanent" else "Контракт оформлен на %d рейс." % voyages
 	return {"ok": true, "message": message + " Сотрудник назначен на «%s»." % str(ship.get("name", "корабль"))}
 
@@ -512,3 +513,41 @@ func _ensure_candidates() -> void:
 		})
 	GameState.company_state["hire_candidates"] = candidates
 	SaveSystem.save_game()
+
+func get_candidates_for_role(role_id: String) -> Array:
+	var pool: Array = get_candidates()
+	var race_id: String = str(GameState.player_state.get("origin_race_id","humans"))
+	var result: Array = []
+	for candidate in pool:
+		if str(candidate.get("role_id","")) == role_id and str(candidate.get("race_id","")) == race_id: result.append(candidate)
+	if result.size() >= 2: return result
+	# Each role uses the existing exchange pool and refresh index, not a second market.
+	var template: Dictionary = {}
+	for candidate in pool:
+		if str(candidate.get("role_id","")) == role_id: template=candidate; break
+	if template.is_empty(): return result
+	var names: Array = []
+	for candidate in pool:
+		if str(candidate.get("race_id","")) == race_id: names.append(str(candidate.name))
+	if names.is_empty(): names = ["Специалист " + str(GameData.get_faction(race_id).get("name",race_id))]
+	var refresh: int = int(GameState.company_state.get("hire_refresh_index",0))
+	for variant in 3:
+		var key: String = "slot_%d_%s_%s_%d" % [refresh,race_id,role_id,variant]
+		var hired: bool = false
+		for employee in GameState.employee_state:
+			if str(employee.get("candidate_id","")) == key: hired=true
+		if hired: continue
+		var exists: bool = false
+		for candidate in pool:
+			if str(candidate.get("candidate_id","")) == key: exists=true
+		if exists: continue
+		var person: Dictionary = template.duplicate(true)
+		person.candidate_id=key; person.race_id=race_id; person.race_name=str(GameData.get_faction(race_id).get("name",race_id)); person.portrait_id=posmod(variant+refresh,3)
+		person.name=names[variant % names.size()]
+		var stats: Dictionary=person.stats.duplicate()
+		stats["speed"]=int(stats.get("speed",0))+variant-1
+		stats["fuel"]=int(stats.get("fuel",0))-variant+1
+		person.stats=stats
+		pool.append(person); result.append(person)
+	GameState.company_state["hire_candidates"]=pool
+	return result

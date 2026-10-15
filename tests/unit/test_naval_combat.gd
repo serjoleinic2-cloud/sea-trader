@@ -264,7 +264,7 @@ func test_nearby_member_brings_its_patrol_group_into_battle() -> void:
 	assert_eq(GameState.combat_state.naval_battle.enemy_ids.size(),2)
 
 func test_pirates_spawn_as_rare_black_faction_groups() -> void:
-	_sea(); navy._clock=1000.0; GameState.combat_state.next_pirate_at=0.0
+	_open_pirate_water(); navy._clock=1000.0; GameState.combat_state.next_pirate_at=0.0
 	navy._ensure_pirates()
 	var pirates: Array=[]
 	for enemy in GameState.combat_state.naval_enemies.values():
@@ -281,18 +281,18 @@ func test_pirates_spawn_as_rare_black_faction_groups() -> void:
 	assert_eq(pirate_snapshot.get("color",Color.WHITE),Color("17191f"))
 
 func test_unescorted_pirates_rob_free_cargo_but_not_sealed_contracts() -> void:
-	_sea(); GameState.fleet_state[0].escort_enabled=false
+	_open_pirate_water(); GameState.fleet_state[0].escort_enabled=false
 	GameState.ship_state.cargo=[{"resource_id":"resource_timber","quantity":10},{"resource_id":"resource_parts","quantity":6,"contract_id":"sealed"}]
 	GameState.combat_state.naval_enemies={"pirate":{"id":"pirate","ship_type_id":"war_humans_1","name":"Чёрный корсар","position":Vector2(100,0),"heading":Vector2.LEFT,"faction_id":"pirates","kind":"pirate","hull":280.0,"hull_max":280.0,"hostile":true,"warning":0.0,"retreat_until":0.0}}
 	for index in int(navy._rules.hostile_warning_seconds): navy._detect_hostile()
-	assert_eq(GameState.player_state.money,190000.0)
+	assert_eq(GameState.player_state.money,200000.0)
 	assert_eq(GameState.ship_state.cargo.size(),2)
 	assert_eq(int(GameState.ship_state.cargo[0].quantity),9)
 	assert_eq(int(GameState.ship_state.cargo[1].quantity),6,"sealed contract cargo is protected")
 	assert_true(str(GameState.combat_state.naval_report.outcome).contains("ограбили"))
 
 func test_defeat_by_pirates_loots_cargo_after_the_ship_sinks() -> void:
-	_sea(); GameState.ship_state.cargo=[{"resource_id":"resource_timber","quantity":10}]
+	_open_pirate_water(); GameState.ship_state.cargo=[{"resource_id":"resource_timber","quantity":10}]
 	GameState.combat_state.naval_enemies.enemy1.kind="pirate"
 	GameState.combat_state.naval_enemies.enemy1.faction_id="pirates"
 	assert_true(navy.begin_battle(["enemy1"]).ok)
@@ -608,7 +608,7 @@ func test_pending_projectiles_survive_saving() -> void:
 	assert_eq(GameState.combat_state.naval_enemies.enemy1.hull,180.0)
 
 func test_pirate_attack_with_escort_starts_battle_before_any_loot() -> void:
-	_sea()
+	_open_pirate_water()
 	GameState.ship_state.cargo=[{"resource_id":"resource_timber","quantity":10}]
 	var pirate: Dictionary=GameState.combat_state.naval_enemies.enemy1
 	pirate.kind="pirate"; pirate.faction_id="pirates"; pirate.hostile=true
@@ -620,7 +620,7 @@ func test_pirate_attack_with_escort_starts_battle_before_any_loot() -> void:
 	assert_eq(str(GameState.fleet_state[0].naval_order.kind),"hold","player retains command over firing")
 
 func test_uninitialized_escort_cannot_be_bypassed_by_pirate_loot() -> void:
-	_sea(); GameState.fleet_state[0].escort_state={}
+	_open_pirate_water(); GameState.fleet_state[0].escort_state={}
 	var pirate: Dictionary=GameState.combat_state.naval_enemies.enemy1
 	pirate.kind="pirate"; pirate.faction_id="pirates"; pirate.hostile=true
 	pirate.position=Vector2(100,0)
@@ -630,7 +630,8 @@ func test_uninitialized_escort_cannot_be_bypassed_by_pirate_loot() -> void:
 	assert_true(GameState.combat_state.naval_report.is_empty())
 
 func test_pirate_zone_uses_one_real_group_without_instant_losses() -> void:
-	_sea(); GameState.combat_state.naval_enemies={}
+	_open_pirate_water(); GameState.combat_state.naval_enemies={}
+	GameState.combat_state.next_pirate_at=0.0
 	navy.encounter_pirates()
 	var count: int=GameState.combat_state.naval_enemies.size()
 	assert_gte(count,1)
@@ -638,3 +639,61 @@ func test_pirate_zone_uses_one_real_group_without_instant_losses() -> void:
 	assert_eq(GameState.combat_state.naval_enemies.size(),count,"re-entry cannot stack pirate groups")
 	assert_eq(GameState.player_state.money,200000.0)
 	assert_eq(GameState.ship_state.hull,100.0)
+
+func _open_pirate_water() -> void:
+	_sea()
+	main._navigation_world.ports.home.position=Vector2(10000,10000)
+
+func test_pirates_do_not_rob_in_port_guard_waters() -> void:
+	_sea();GameState.fleet_state[0].escort_enabled=false
+	GameState.ship_state.cargo=[{"resource_id":"resource_timber","quantity":100}]
+	GameState.combat_state.naval_enemies.enemy1.kind="pirate"
+	GameState.combat_state.naval_enemies.enemy1.hostile=true
+	for tick in 30:navy._detect_hostile()
+	assert_eq(int(GameState.ship_state.cargo[0].quantity),100)
+	assert_eq(GameState.player_state.money,200000.0)
+	assert_false(navy.active())
+
+func test_pirates_do_not_approach_living_military_patrols() -> void:
+	_open_pirate_water();GameState.fleet_state[0].escort_enabled=false
+	GameState.combat_state.naval_enemies.enemy1.kind="faction_patrol"
+	GameState.combat_state.naval_enemies.enemy1.hostile=false
+	GameState.combat_state.naval_enemies.pirate={"id":"pirate","kind":"pirate","position":Vector2(100,0),"hull":280.0,"hostile":true,"warning":100.0,"retreat_until":0.0}
+	navy._detect_hostile()
+	assert_eq(GameState.player_state.money,200000.0)
+	assert_false(navy.active())
+
+func test_pirate_loot_is_small_and_never_touches_the_treasury_or_shards() -> void:
+	_open_pirate_water();GameState.fleet_state[0].escort_enabled=false
+	GameState.ship_state.cargo=[{"resource_id":"resource_timber","quantity":10000}]
+	var enemy:Dictionary=GameState.combat_state.naval_enemies.enemy1
+	enemy.kind="pirate"
+	navy._resolve_unescorted_piracy(enemy)
+	assert_eq(GameState.player_state.money,200000.0)
+	assert_eq(int(GameState.ship_state.cargo[0].quantity),9998)
+	assert_true(float(GameState.combat_state.pirate_safe_until)>=navy._clock+1800)
+	assert_true(GameState.combat_state.naval_report.losses.get("resources",{}).is_empty())
+
+func test_pirates_preserve_sealed_cargo_and_cannot_repeat_robbery_during_protection() -> void:
+	_open_pirate_water();GameState.fleet_state[0].escort_enabled=false
+	GameState.combat_state.magic_shards=99
+	GameState.ship_state.cargo=[{"resource_id":"resource_timber","quantity":500,"contract_id":"sealed"},{"resource_id":"resource_timber","quantity":100,"contract_id":""}]
+	var enemy:Dictionary=GameState.combat_state.naval_enemies.enemy1
+	enemy.kind="pirate"
+	navy._resolve_unescorted_piracy(enemy)
+	assert_eq(int(GameState.ship_state.cargo[0].quantity),500)
+	assert_eq(int(GameState.ship_state.cargo[1].quantity),98)
+	assert_eq(GameState.combat_state.magic_shards,99)
+	navy._resolve_unescorted_piracy(enemy)
+	assert_eq(int(GameState.ship_state.cargo[1].quantity),98,"protection prevents a second deduction")
+	assert_true(SaveSystem.save_game());assert_true(SaveSystem.load_game())
+	assert_true(float(GameState.combat_state.pirate_safe_until)>navy._clock)
+
+func test_old_pirate_group_receives_new_delay_after_update() -> void:
+	_open_pirate_water()
+	GameState.combat_state.naval_enemies.enemy1.kind="pirate"
+	GameState.combat_state.naval_enemies.enemy1.warning=100.0
+	GameState.combat_state.erase("pirate_safety_version")
+	navy.initialize(main,military)
+	assert_false(navy._enemy_alive(GameState.combat_state.naval_enemies.enemy1))
+	assert_eq(float(GameState.combat_state.naval_enemies.enemy1.warning),0.0)

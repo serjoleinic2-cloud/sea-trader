@@ -353,7 +353,7 @@ func _step_ship(ship: Dictionary, index: int, delta: float) -> void:
 	var definition: Dictionary = GameData.get_ship(str(ship.ship_type_id))
 	var turn_rate: float = clampf(95.0/maxf(80.0,length),.28,1.05)*float(definition.get("base_maneuverability",.85))
 	var player_velocity: Vector2 = _to_vector2(GameState.ship_state.get("velocity", Vector2.ZERO), Vector2.ZERO)
-	var cruise: float = float(definition.get("base_speed",118))
+	var cruise: float = float(definition.get("base_speed",118)) * maxf(0.25,1.0+(preload("res://systems/fleet/ship_loadout.gd").crew_bonus(ship,"speed")+preload("res://systems/fleet/ship_loadout.gd").boost_bonus(ship,"speed"))/100.0)
 	var requested: float = cruise if tactical else minf(cruise*1.25,maxf(cruise,player_velocity.length()*float(_rules.catchup_speed_multiplier)))
 	var acceleration: float = clampf(3200.0/maxf(80,length),10,40)
 	var brake_speed: float = sqrt(2.0*acceleration*maxf(0,position.distance_to(waypoint)-length*.2))

@@ -163,16 +163,8 @@ func _get_effective_discovery_radius() -> float:
 	var raw_crew: Variant = GameState.ship_state.get("crew", [])
 	if not (raw_crew is Array):
 		return _discovery_radius
-	var navigation_bonus: int = 0
-	for employee_id in raw_crew:
-		for raw_employee in GameState.employee_state:
-			var employee: Dictionary = raw_employee
-			if str(employee.get("employee_instance_id", "")) == str(employee_id):
-				var stats: Dictionary = employee.get("stats", {})
-				var skill_stats: Dictionary = employee.get("skill_stats", {})
-				navigation_bonus += int(stats.get("navigation", 0)) + int(skill_stats.get("navigation", 0))
-				break
-	return _discovery_radius * maxf(0.55, 1.0 + float(navigation_bonus) / 100.0)
+	var navigation_bonus: float = preload("res://systems/fleet/ship_loadout.gd").crew_bonus(GameState.ship_state,"navigation")
+	return _discovery_radius * maxf(0.55, 1.0 + navigation_bonus / 100.0)
 
 func select_destination(port_id: String) -> bool:
 	if not GameState.player_state.get("discovered_port_ids", []).has(port_id) or not _world_ports.has(port_id):

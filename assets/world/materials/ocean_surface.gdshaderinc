@@ -100,16 +100,23 @@ void fragment() {
 
 	#endif
 	float foam = 0.0;
-	if (depth < 0.65) {
+	if (depth < 0.65 || swell_height > 0.1944) {
 		float noise = foam_noise(ocean_world.xz * 1.2 + vec2(t * 0.12, -t * 0.09));
 		float shore = 1.0 - smoothstep(0.06, 0.65, depth);
 		float wash = smoothstep(0.32, 0.68, noise + sin(depth * 11.0 - t * 2.2) * 0.16);
-		foam = clamp(shore * wash * 0.78, 0.0, 0.85);
+		float crest = 0.0;
+		#ifdef WATER_REFRACTION
+		crest = smoothstep(0.72, 0.95, swell_height / 0.27) * smoothstep(0.57, 0.78, noise) * 0.22;
+		#endif
+		foam = clamp(shore * wash * 0.78 + crest, 0.0, 0.85);
 	}
 	ALBEDO = mix(water_color, vec3(0.88, 0.96, 0.93), foam);
+	#ifdef WATER_REFRACTION
+	ROUGHNESS = mix(0.16, 0.62, foam);
+	#else
 	ROUGHNESS = mix(0.26, 0.66, foam);
-	// Keep the sun glint, without reflecting blurred planet/ring shapes.
-	RADIANCE = vec4(0.0, 0.0, 0.0, 1.0);
+	#endif
+	// Sky cubemap omits planet/moon/rings, retaining clean sky reflections.
 	SPECULAR = 0.5;
 	METALLIC = 0.0;
 }

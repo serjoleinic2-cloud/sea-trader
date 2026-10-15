@@ -32,7 +32,12 @@
       "weight_class": 1,
       "min_ship_tier": 1,
       "min_ship_level": 1,
-      "mounts": ["bow", "stern", "port", "starboard"],
+      "mounts": [
+        "bow",
+        "stern",
+        "port",
+        "starboard"
+      ],
       "effect": "cannon",
       "damage": 18,
       "range": 550,
@@ -49,7 +54,12 @@
       "weight_class": 1,
       "min_ship_tier": 1,
       "min_ship_level": 1,
-      "mounts": ["bow", "stern", "port", "starboard"],
+      "mounts": [
+        "bow",
+        "stern",
+        "port",
+        "starboard"
+      ],
       "effect": "rune",
       "damage": 26,
       "range": 650,
@@ -66,7 +76,11 @@
       "weight_class": 3,
       "min_ship_tier": 3,
       "min_ship_level": 1,
-      "mounts": ["stern", "port", "starboard"],
+      "mounts": [
+        "stern",
+        "port",
+        "starboard"
+      ],
       "effect": "mortar",
       "damage": 40,
       "range": 800,
@@ -83,7 +97,12 @@
       "weight_class": 2,
       "min_ship_tier": 2,
       "min_ship_level": 1,
-      "mounts": ["bow", "stern", "port", "starboard"],
+      "mounts": [
+        "bow",
+        "stern",
+        "port",
+        "starboard"
+      ],
       "effect": "cannon",
       "damage": 25,
       "range": 780,
@@ -100,7 +119,10 @@
       "weight_class": 3,
       "min_ship_tier": 3,
       "min_ship_level": 1,
-      "mounts": ["port", "starboard"],
+      "mounts": [
+        "port",
+        "starboard"
+      ],
       "effect": "cannon",
       "damage": 43,
       "range": 720,
@@ -117,7 +139,11 @@
       "weight_class": 3,
       "min_ship_tier": 3,
       "min_ship_level": 10,
-      "mounts": ["bow", "port", "starboard"],
+      "mounts": [
+        "bow",
+        "port",
+        "starboard"
+      ],
       "effect": "rune",
       "damage": 48,
       "range": 900,
@@ -134,7 +160,12 @@
       "weight_class": 1,
       "min_ship_tier": 1,
       "min_ship_level": 8,
-      "mounts": ["bow", "stern", "port", "starboard"],
+      "mounts": [
+        "bow",
+        "stern",
+        "port",
+        "starboard"
+      ],
       "effect": "cannon",
       "damage": 14,
       "range": 680,
@@ -151,7 +182,11 @@
       "weight_class": 2,
       "min_ship_tier": 2,
       "min_ship_level": 1,
-      "mounts": ["stern", "port", "starboard"],
+      "mounts": [
+        "stern",
+        "port",
+        "starboard"
+      ],
       "effect": "mortar",
       "damage": 31,
       "range": 880,
@@ -168,7 +203,11 @@
       "weight_class": 2,
       "min_ship_tier": 2,
       "min_ship_level": 8,
-      "mounts": ["bow", "port", "starboard"],
+      "mounts": [
+        "bow",
+        "port",
+        "starboard"
+      ],
       "effect": "rune",
       "damage": 36,
       "range": 860,
@@ -185,7 +224,11 @@
       "weight_class": 3,
       "min_ship_tier": 3,
       "min_ship_level": 15,
-      "mounts": ["bow", "port", "starboard"],
+      "mounts": [
+        "bow",
+        "port",
+        "starboard"
+      ],
       "effect": "cannon",
       "damage": 58,
       "range": 990,
@@ -202,7 +245,10 @@
       "weight_class": 4,
       "min_ship_tier": 4,
       "min_ship_level": 1,
-      "mounts": ["port", "starboard"],
+      "mounts": [
+        "port",
+        "starboard"
+      ],
       "effect": "cannon",
       "damage": 72,
       "range": 900,
@@ -219,7 +265,11 @@
       "weight_class": 4,
       "min_ship_tier": 4,
       "min_ship_level": 12,
-      "mounts": ["stern", "port", "starboard"],
+      "mounts": [
+        "stern",
+        "port",
+        "starboard"
+      ],
       "effect": "mortar",
       "damage": 86,
       "range": 1160,
@@ -236,7 +286,11 @@
       "weight_class": 4,
       "min_ship_tier": 4,
       "min_ship_level": 20,
-      "mounts": ["bow", "port", "starboard"],
+      "mounts": [
+        "bow",
+        "port",
+        "starboard"
+      ],
       "effect": "rune",
       "damage": 80,
       "range": 1120,
@@ -253,7 +307,10 @@
       "weight_class": 5,
       "min_ship_tier": 5,
       "min_ship_level": 1,
-      "mounts": ["port", "starboard"],
+      "mounts": [
+        "port",
+        "starboard"
+      ],
       "effect": "cannon",
       "damage": 98,
       "range": 1050,
@@ -270,7 +327,11 @@
       "weight_class": 5,
       "min_ship_tier": 5,
       "min_ship_level": 15,
-      "mounts": ["stern", "port", "starboard"],
+      "mounts": [
+        "stern",
+        "port",
+        "starboard"
+      ],
       "effect": "mortar",
       "damage": 126,
       "range": 1360,
@@ -287,7 +348,11 @@
       "weight_class": 5,
       "min_ship_tier": 5,
       "min_ship_level": 25,
-      "mounts": ["bow", "port", "starboard"],
+      "mounts": [
+        "bow",
+        "port",
+        "starboard"
+      ],
       "effect": "rune",
       "damage": 116,
       "range": 1280,
@@ -312,12 +377,17 @@
   "patrol_attack_chance": 0.12,
   "patrol_cruise_speed": 26,
   "patrol_roam_radius": 140,
-  "pirate_spawn_min_seconds": 300,
-  "pirate_spawn_max_seconds": 600,
-  "pirate_group_max": 2,
+  "pirate_spawn_min_seconds": 1200,
+  "pirate_spawn_max_seconds": 2400,
+  "pirate_group_max": 1,
   "pirate_loot_fraction": 0.1,
-  "pirate_unescorted_loot_fraction": 0.05,
+  "pirate_unescorted_loot_fraction": 0.02,
   "fire_damage_fraction": 0.5,
   "critical_damage_fraction": 0.7,
-  "sinking_duration_seconds": 8.0
+  "sinking_duration_seconds": 8.0,
+  "pirate_protection_seconds": 1800,
+  "pirate_port_safe_radius": 1200,
+  "pirate_guard_safe_radius": 900,
+  "pirate_loot_max_units": 3,
+  "pirate_unescorted_loot_max_units": 2
 }

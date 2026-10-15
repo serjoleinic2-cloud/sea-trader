@@ -220,6 +220,7 @@ func take_control(ship_id: String) -> Dictionary:
 	active_state["docked_port_id"] = port_id
 	active_state["velocity"] = Vector2.ZERO
 	active_state["cargo"] = candidate.get("cargo", []).duplicate(true)
+	active_state["boost_slots"] = candidate.get("boost_slots", []).duplicate(true)
 	active_state["crew"] = candidate.get("crew", []).duplicate()
 	active_state["cargo_capacity"] = int(candidate.get("cargo_capacity", active_state.get("cargo_capacity", 50)))
 	candidate["instance_id"] = previous_id
@@ -234,6 +235,7 @@ func take_control(ship_id: String) -> Dictionary:
 	candidate["current_port_id"] = port_id
 	candidate["status"] = "У причала"
 	candidate["autopilot"] = {}
+	candidate["boost_slots"] = previous_state.get("boost_slots",[]).duplicate(true)
 	candidate["vessel_state"] = previous_state
 	GameState.fleet_state[index] = candidate
 	GameState.ship_state = active_state

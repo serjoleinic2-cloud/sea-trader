@@ -1,16 +1,84 @@
 {
   "version": 2,
-  "premium": {"name": "Премиум", "sale_bonus_percent": 5, "seconds_per_day": 86400},
+  "premium": {
+    "name": "Премиум",
+    "sale_bonus_percent": 5,
+    "seconds_per_day": 86400
+  },
   "boosts": {
-    "fair_wind": {"name": "Попутный ветер", "description": "+5% к скорости на 30 минут игрового времени", "stat": "speed", "percent": 5, "duration_seconds": 1800}
+    "fair_wind": {
+      "name": "Попутный ветер",
+      "description": "+5% к скорости на 30 минут игрового времени",
+      "stat": "speed",
+      "percent": 5,
+      "duration_seconds": 1800,
+      "icon": "res://assets/ui/training_scrolls/scroll_seafaring.svg",
+      "price": 240,
+      "class": "timed_ship_scroll"
+    },
+    "economy_rune": {
+      "name": "Свиток экономного хода",
+      "stat": "fuel",
+      "percent": 8,
+      "duration_seconds": 1200,
+      "price": 280,
+      "icon": "res://assets/ui/training_scrolls/scroll_efficiency.svg",
+      "class": "timed_ship_scroll",
+      "description": "+8% · 20 мин игрового времени"
+    },
+    "powder_rune": {
+      "name": "Свиток мощного залпа",
+      "stat": "damage",
+      "percent": 6,
+      "duration_seconds": 600,
+      "price": 380,
+      "icon": "res://assets/ui/training_scrolls/scroll_engineering.svg",
+      "class": "timed_ship_scroll",
+      "description": "+6% · 10 мин игрового времени"
+    },
+    "reload_rune": {
+      "name": "Свиток расчёта",
+      "stat": "reload",
+      "percent": 8,
+      "duration_seconds": 900,
+      "price": 340,
+      "icon": "res://assets/ui/training_scrolls/scroll_logistics.svg",
+      "class": "timed_ship_scroll",
+      "description": "+8% · 15 мин игрового времени"
+    },
+    "aim_rune": {
+      "name": "Свиток точного огня",
+      "stat": "accuracy",
+      "percent": 4,
+      "duration_seconds": 1200,
+      "price": 420,
+      "icon": "res://assets/ui/training_scrolls/scroll_navigation.svg",
+      "class": "timed_ship_scroll",
+      "description": "+4% · 20 мин игрового времени"
+    }
   },
   "expedition_tokens": {
-    "sealed_chart": {"name": "Запечатанная карта экспедиции", "description": "Неторгуемый знак долгого достижения. Не создаёт редкий артефакт автоматически."}
+    "sealed_chart": {
+      "name": "Запечатанная карта экспедиции",
+      "description": "Неторгуемый знак долгого достижения. Не создаёт редкий артефакт автоматически."
+    }
   },
   "artifacts": {
-    "navigator_compass": {"name": "Компас первооткрывателя", "description": "+3% к скорости основного корабля", "fragments_required": 6, "stat": "speed", "percent": 3, "asset_class": "gameplay_relic", "transfer_policy": "bound"}
+    "navigator_compass": {
+      "name": "Компас первооткрывателя",
+      "description": "+3% к скорости основного корабля",
+      "fragments_required": 6,
+      "stat": "speed",
+      "percent": 3,
+      "asset_class": "gameplay_relic",
+      "transfer_policy": "bound"
+    }
   },
-  "limits": {"speed_bonus_percent": 15, "sale_bonus_percent": 10, "equipped_artifacts": 1},
+  "limits": {
+    "speed_bonus_percent": 15,
+    "sale_bonus_percent": 10,
+    "equipped_artifacts": 1
+  },
   "authority": "offline_gameplay_only",
   "official_asset_authority": "server_required"
 }

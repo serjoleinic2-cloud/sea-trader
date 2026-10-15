@@ -8,6 +8,7 @@ var _visuals: Dictionary = {}
 var _clock: float = 0.0
 var _patrol_clock: float = 0.0
 var _save_clock: float = 0.0
+const Loadout = preload("res://systems/fleet/ship_loadout.gd")
 var _economy = preload("res://systems/economy/economy_model.gd").new()
 
 func _ready() -> void:
@@ -24,6 +25,14 @@ func initialize(main: Node, military: Node) -> void:
 	_clock = float(GameState.combat_state.naval_time)
 	if float(GameState.combat_state.get("next_pirate_at",0.0))<=_clock:
 		GameState.combat_state["next_pirate_at"]=_clock+_next_pirate_delay()
+	if int(GameState.combat_state.get("pirate_safety_version",0)) < 2:
+		GameState.combat_state["pirate_safety_version"]=2
+		GameState.combat_state["next_pirate_at"]=_clock+float(_rules.get("pirate_spawn_min_seconds",1200))
+		for enemy in GameState.combat_state.naval_enemies.values():
+			if str(enemy.get("kind",""))!="pirate": continue
+			if active() and GameState.combat_state.naval_battle.get("enemy_ids",[]).has(str(enemy.get("id",""))): continue
+			enemy.warning=0.0
+			enemy.retreat_until=GameState.combat_state.next_pirate_at
 	_retire_training_encounter()
 	for ship in warships(): normalize_ship(ship)
 
@@ -335,10 +344,10 @@ func gun_combat_stats(ship: Dictionary, gun: Dictionary) -> Dictionary:
 	var skills: Dictionary = ship.get("commander",{}).get("skills",{})
 	var bonus: float = float(_rules.skill_bonus)
 	return {
-		"damage":float(definition.damage)*(1+float(_rules.gun_damage_growth_per_level)*(int(gun.get("level",1))-1))*(1+bonus*int(skills.get("gunnery",0))),
+		"damage":float(definition.damage)*(1+float(_rules.gun_damage_growth_per_level)*(int(gun.get("level",1))-1))*(1+bonus*int(skills.get("gunnery",0)))*(1.0+Loadout.boost_bonus(ship,"damage")/100.0),
 		"range":float(definition.range),
-		"reload":float(definition.reload)/(1+bonus*int(skills.get("reload",0))),
-		"accuracy":minf(float(_rules.maximum_accuracy),float(definition.accuracy)+bonus*int(skills.get("accuracy",0)))
+		"reload":float(definition.reload)/(1+bonus*int(skills.get("reload",0)))*(1.0-Loadout.boost_bonus(ship,"reload")/100.0),
+		"accuracy":minf(float(_rules.maximum_accuracy),float(definition.accuracy)+bonus*int(skills.get("accuracy",0))+Loadout.boost_bonus(ship,"accuracy")/100.0)
 	}
 
 func gun_upgrade_status(id: String, slot: int) -> Dictionary:
@@ -467,7 +476,7 @@ func respond_truce(accepted: bool) -> Dictionary:
 
 func surrender() -> Dictionary:
 	if not active(): return _result(false,"Бой уже завершён.")
-	var losses: Dictionary = _losses_at_fraction(float(_rules.surrender_fraction),false,false)
+	var losses: Dictionary = _pirate_losses(float(_rules.get("pirate_loot_fraction",.1)),int(_rules.get("pirate_loot_max_units",3))) if _battle_has_pirates(GameState.combat_state.naval_battle) else _losses_at_fraction(float(_rules.surrender_fraction),false,false)
 	return _finish("Сдача — поражение",losses)
 
 func _losses_at_fraction(fraction: float, include_home: bool, include_cargo: bool) -> Dictionary:
@@ -510,7 +519,7 @@ func _apply_losses(losses: Dictionary) -> void:
 		var retained_cargo: Array=[]
 		for raw_item in GameState.ship_state.get("cargo",[]):
 			var item: Dictionary=raw_item.duplicate(true)
-			if not item.has("contract_id"):
+			if str(item.get("contract_id","")) == "":
 				var resource_id: String=str(item.get("resource_id",""))
 				var take: int=mini(int(item.get("quantity",0)),int(remaining_to_take.get(resource_id,0)))
 				item.quantity=int(item.get("quantity",0))-take
@@ -524,6 +533,7 @@ func _finish(outcome: String, losses: Dictionary) -> Dictionary:
 	var reward_money: int = 0
 	var result: Dictionary = _transaction(func():
 		var battle: Dictionary = GameState.combat_state.naval_battle
+		if _battle_has_pirates(battle): _pirate_cooldown()
 		_apply_losses(losses)
 		var cleared_port_id: String = ""
 		if outcome=="Победа":
@@ -725,6 +735,39 @@ func _next_pirate_delay() -> float:
 	var roll: float=float(posmod(hash(str(GameState.world_state.get("seed",0))+":pirate:"+str(sequence)),10000))/10000.0
 	return lerpf(minimum,maximum,roll)
 
+func _pirate_protected(point: Vector2) -> bool:
+	if _clock < float(GameState.combat_state.get("pirate_safe_until",0)): return true
+	if _main != null:
+		var world: Dictionary = _main.get("_navigation_world")
+		for port in world.get("ports",{}).values():
+			var state: Dictionary = GameState.port_state.get(str(port.get("id","")),{})
+			if bool(state.get("guard_fleet_defeated",false)) and str(port.get("id","")) != str(GameState.world_state.get("home_port_id","")): continue
+			if point.distance_to(vector(port.get("position",Vector2.ZERO))) < float(_rules.get("pirate_port_safe_radius",1200)): return true
+	for guard in GameState.combat_state.get("naval_enemies",{}).values():
+		if str(guard.get("kind","")) != "faction_patrol" or not _enemy_alive(guard): continue
+		if point.distance_to(vector(guard.get("position",Vector2.ZERO))) < float(_rules.get("pirate_guard_safe_radius",900)): return true
+	return false
+
+func _pirate_losses(fraction: float, cap: int) -> Dictionary:
+	var losses: Dictionary={"money":0,"magic_shards":0,"resources":{},"cargo":{}}
+	var remaining: int=cap
+	for item in GameState.ship_state.get("cargo",[]):
+		if str(item.get("contract_id","")) != "" or remaining <= 0: continue
+		var quantity: int=maxi(0,int(item.get("quantity",0)))
+		var take: int=mini(remaining,mini(quantity,ceili(quantity*fraction)))
+		if take > 0:
+			var resource: String=str(item.get("resource_id",""))
+			losses.cargo[resource]=int(losses.cargo.get(resource,0))+take
+			remaining-=take
+	return losses
+
+func _pirate_cooldown() -> void:
+	var until: float=_clock+float(_rules.get("pirate_protection_seconds",1800))
+	GameState.combat_state["pirate_safe_until"]=until
+	GameState.combat_state["next_pirate_at"]=maxf(until,float(GameState.combat_state.get("next_pirate_at",0)))
+	for pirate in GameState.combat_state.get("naval_enemies",{}).values():
+		if str(pirate.get("kind","")) == "pirate": pirate.retreat_until=until; pirate.warning=0.0
+
 func encounter_pirates() -> void:
 	# Reuse the real pirate group, its warning period, battle and defeat rules.
 	if active() or str(GameState.ship_state.get("docked_port_id", "")) != "": return
@@ -738,6 +781,8 @@ func _ensure_pirates() -> void:
 	_spawn_pirates_if_absent()
 
 func _spawn_pirates_if_absent() -> void:
+	var player_point: Vector2=vector(GameState.ship_state.get("position",Vector2.ZERO))
+	if _clock<float(GameState.combat_state.get("next_pirate_at",0)) or _pirate_protected(player_point): return
 	for enemy in GameState.combat_state.naval_enemies.values():
 		if str(enemy.get("kind",""))=="pirate" and _enemy_alive(enemy):
 			GameState.combat_state["next_pirate_at"]=_clock+60.0
@@ -757,7 +802,7 @@ func _spawn_pirates_if_absent() -> void:
 		var lateral: Vector2=direction.orthogonal()*(float(index)-(float(count)-1.0)*.5)*length*2.2
 		var desired: Vector2=player+direction*alert_radius()*1.55+lateral
 		var point: Vector2=_military._spawn_position(desired,length,_enemy_spawn_obstacles(id)) if _military!=null else desired
-		if not point.is_finite(): continue
+		if not point.is_finite() or _pirate_protected(point): continue
 		GameState.combat_state.naval_enemies[id]={"id":id,"ship_type_id":definition.id,"name":"Пираты · Чёрный корсар","faction_id":"pirates","kind":"pirate","encounter_group":group_id,"formation_offset":lateral,"position":point,"patrol_center":point,"roam_phase":0.0,"heading":point.direction_to(player+lateral),"turn_velocity":0.0,"speed":0.0,"hull":float(definition.hull_max),"hull_max":float(definition.hull_max),"level":tier,"hostile":true,"warning":0.0,"cooldown":0.0,"retreat_until":0.0}
 	GameState.combat_state["next_pirate_at"]=_clock+_next_pirate_delay()
 
@@ -769,6 +814,10 @@ func _step_world_patrols(delta: float) -> void:
 		var current: Vector2=vector(enemy.get("position",Vector2.ZERO))
 		var pirate: bool=str(enemy.get("kind",""))=="pirate"
 		var target: Vector2
+		if pirate and (_pirate_protected(player) or _pirate_protected(current)):
+			enemy.warning=0.0
+			enemy.retreat_until=_clock+float(_rules.get("pirate_protection_seconds",1800))
+			continue
 		if pirate and not docked:
 			if not enemy.has("formation_offset"):
 				var pirate_ids: Array[String]=[]
@@ -822,11 +871,15 @@ func _world_patrol_segment_clear(id: String, from: Vector2, to: Vector2, length:
 	return true
 
 func _detect_hostile() -> void:
+	if active(): return
 	var nearby: Array[Dictionary] = nearby_enemies()
 	var ids: Array[String] = []
 	for enemy in nearby: ids.append(str(enemy.id))
 	for enemy in GameState.combat_state.naval_enemies.values():
 		var pirate: bool=str(enemy.get("kind",""))=="pirate"
+		if pirate and (_pirate_protected(vector(GameState.ship_state.position)) or _pirate_protected(vector(enemy.position))):
+			enemy.warning=0.0
+			continue
 		var unescorted_pirate: bool=pirate and not has_military_escort() and str(GameState.ship_state.get("docked_port_id",""))=="" and _enemy_alive(enemy) and vector(enemy.position).distance_to(vector(GameState.ship_state.position))<=alert_radius()*.72
 		if unescorted_pirate:
 			enemy.warning=float(enemy.get("warning",0))+1
@@ -840,12 +893,13 @@ func _detect_hostile() -> void:
 		else: enemy.warning=0.0
 
 func _resolve_unescorted_piracy(enemy: Dictionary) -> void:
-	if active() or has_military_escort(): return
-	var losses: Dictionary=_losses_at_fraction(float(_rules.get("pirate_unescorted_loot_fraction",.05)),false,true)
+	if active() or has_military_escort() or _pirate_protected(vector(GameState.ship_state.position)) or _pirate_protected(vector(enemy.position)): return
+	var losses: Dictionary=_pirate_losses(float(_rules.get("pirate_unescorted_loot_fraction",.02)),int(_rules.get("pirate_unescorted_loot_max_units",2)))
 	var old_cargo: Array=GameState.ship_state.get("cargo",[]).duplicate(true)
 	var old_money: float=float(GameState.player_state.money)
 	var result: Dictionary=_transaction(func():
 		_apply_losses(losses)
+		_pirate_cooldown()
 		enemy.retreat_until=_clock+float(_rules.patrol_respawn_seconds)
 		enemy.warning=0.0
 		GameState.combat_state.naval_report={"outcome":"Пираты ограбили незащищённый корабль","losses":losses,"time":_clock},"Пираты забрали часть груза и скрылись.")
@@ -919,7 +973,7 @@ func _step_battle(delta: float) -> void:
 			battle.notice="Флот уничтожен · корабли уходят под воду"
 			return
 		var pirate_defeat: bool=_battle_has_pirates(battle)
-		var defeat_losses: Dictionary=_losses_at_fraction(float(_rules.pirate_loot_fraction),false,true) if pirate_defeat else {}
+		var defeat_losses: Dictionary=_pirate_losses(float(_rules.pirate_loot_fraction),int(_rules.get("pirate_loot_max_units",3))) if pirate_defeat else {}
 		_finish("Поражение от пиратов — часть груза разграблена" if pirate_defeat else "Поражение",defeat_losses)
 		return
 	for enemy in enemies:

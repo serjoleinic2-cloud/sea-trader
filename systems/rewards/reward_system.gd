@@ -2,6 +2,7 @@ extends Node
 
 ## Local reward inventory. Offline items are NOT authoritative marketplace assets.
 var _catalog: Dictionary = {}
+const Loadout = preload("res://systems/fleet/ship_loadout.gd")
 
 func _ready() -> void:
 	add_to_group("reward_system")
@@ -64,6 +65,11 @@ func activate_boost(id: String) -> Dictionary:
 	var inventory: Dictionary = state.get("boosts", {})
 	if definition.is_empty() or int(inventory.get(id, 0)) <= 0:
 		return {"ok": false, "message": "Бустов этого типа нет."}
+	if str(definition.stat) in ["damage","reload","accuracy"] and not bool(Loadout.definition(GameState.ship_state).get("warship",false)): return {"ok":false,"message":"Этот свиток предназначен для артиллерийского корабля."}
+	var slots: Array = Loadout.boost_slots(GameState.ship_state)
+	if float(slots[0].get("seconds_remaining",0)) > 0: return {"ok":false,"message":"Первая ячейка занята действующим свитком."}
+	for equipped in slots:
+		if float(equipped.get("seconds_remaining",0))>0 and str(Loadout.boost_catalog().get(str(equipped.get("id","")),{}).get("stat",""))==str(definition.stat): return {"ok":false,"message":"Свиток этого действия уже установлен."}
 	var active: Dictionary = state.get("active_boost", {})
 	if float(active.get("seconds_remaining", 0)) > 0.0:
 		return {"ok": false, "message": "Дождитесь окончания действующего буста."}
@@ -113,18 +119,18 @@ func get_bonus_percent(stat: String) -> float:
 	var bonus: float = 0.0
 	if stat == "sale" and int(state.get("premium_until", 0)) > int(Time.get_unix_time_from_system()):
 		bonus += float(_catalog.get("premium", {}).get("sale_bonus_percent", 0))
-	var active: Dictionary = state.get("active_boost", {})
-	var boost: Dictionary = _catalog.get("boosts", {}).get(str(active.get("id", "")), {})
-	if float(active.get("seconds_remaining", 0)) > 0.0 and str(boost.get("stat", "")) == stat:
-		bonus += float(boost.get("percent", 0))
+	bonus += Loadout.boost_bonus(GameState.ship_state,stat)
 	for item in state.get("artifacts", []):
 		if str(item.get("instance_id", "")) == str(state.get("equipped_artifact", "")):
 			var definition: Dictionary = _catalog.get("artifacts", {}).get(str(item.get("definition_id", "")), {})
 			if str(definition.get("stat", "")) == stat:
 				bonus += float(definition.get("percent", 0))
-	return clampf(bonus, 0.0, float(_catalog.get("limits", {}).get(stat + "_bonus_percent", 0)))
+	return clampf(bonus, 0.0, float(_catalog.get("limits", {}).get(stat + "_bonus_percent", 15)))
 
 func _process(delta: float) -> void:
+	for ship in [GameState.ship_state] + GameState.fleet_state:
+		for boost in ship.get("boost_slots",[]):
+			if not boost.is_empty(): boost["seconds_remaining"]=maxf(0.0,float(boost.get("seconds_remaining",0))-delta)
 	var state: Dictionary = GameState.economy_state.get("rewards", {})
 	var active: Dictionary = state.get("active_boost", {})
 	if float(active.get("seconds_remaining", 0)) > 0.0:
@@ -139,3 +145,37 @@ func _save_state(state: Dictionary, message: String) -> Dictionary:
 		GameState.economy_state["rewards"] = before
 		return {"ok": false, "message": "Не удалось сохранить награду."}
 	return {"ok": true, "message": message}
+
+func equip_ship_boost(ship_id: String, slot: int, id: String, buy: bool = false) -> Dictionary:
+	var ship: Dictionary = Loadout.vessel(ship_id)
+	if ship.is_empty() or slot < 0 or slot >= 4: return {"ok":false,"message":"Неизвестный корабль или ячейка."}
+	if not ship.get("autopilot",{}).is_empty(): return {"ok":false,"message":"Свитки для автоматического рейса устанавливаются до его начала."}
+	var definition: Dictionary = _catalog.get("boosts",{}).get(id,{})
+	if definition.is_empty(): return {"ok":false,"message":"Свиток не найден."}
+	var slots: Array = Loadout.boost_slots(ship)
+	if float(slots[slot].get("seconds_remaining",0)) > 0: return {"ok":false,"message":"Свиток действует до окончания таймера; замена его не сбрасывает."}
+	for active in slots:
+		var other: Dictionary = _catalog.get("boosts",{}).get(str(active.get("id","")),{})
+		if float(active.get("seconds_remaining",0)) > 0 and str(other.get("stat","")) == str(definition.stat): return {"ok":false,"message":"Свиток этого действия уже работает на корабле."}
+	if str(definition.stat) in ["damage","reload","accuracy"] and not bool(Loadout.definition(ship).get("warship",false)): return {"ok":false,"message":"Этот свиток предназначен для артиллерийского корабля."}
+	var state: Dictionary = get_state()
+	var inventory: Dictionary = state.get("boosts",{})
+	var price: float = float(definition.get("price",0))
+	if buy:
+		var status: Dictionary = Loadout.management_status(ship_id)
+		if not bool(status.ok): return status
+		if price <= 0 or float(GameState.player_state.money) < price: return {"ok":false,"message":"Недостаточно монет для свитка."}
+	elif int(inventory.get(id,0)) <= 0: return {"ok":false,"message":"Такого свитка нет в запасе."}
+	var before_slots: Array = ship.get("boost_slots",[]).duplicate(true)
+	var before_money: float = float(GameState.player_state.money)
+	# Legacy active_boost remains owned by the legacy timer, not duplicated here.
+	for index in slots.size():
+		if bool(slots[index].get("legacy",false)): slots[index]={}
+	slots[slot]={"id":id,"seconds_remaining":float(definition.duration_seconds)}
+	ship["boost_slots"]=slots
+	if buy: GameState.player_state.money -= price
+	else: inventory[id]=int(inventory[id])-1
+	state["boosts"]=inventory
+	var result: Dictionary = _save_state(state,"Свиток установлен. Таймер идёт только во время игры и останавливается на паузе.")
+	if not bool(result.ok): ship["boost_slots"]=before_slots; GameState.player_state.money=before_money
+	return result
