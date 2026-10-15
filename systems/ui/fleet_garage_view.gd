@@ -370,7 +370,19 @@ func _upgrade_yard() -> void:
 		windows[0].open_for_building("shipyard")
 
 func _state_signature() -> String:
-	return str(hash([GameState.fleet_state, GameState.port_state.get(str(GameState.world_state.get("home_port_id", "")), {}), GameState.ship_state.get("docked_port_id", ""), GameState.company_state.get("shipyard_project", {}), GameState.progression_state.get("career", {})]))
+	# Escort and battle ships update their position/heading every frame. Including
+	# the full fleet dictionaries here rebuilt the whole UI twice per second while
+	# a moving warship was selected, which appeared as a flashing window. Keep the
+	# data that affects visible cards, but omit continuous movement and reload state.
+	var visible_fleet: Array[Dictionary] = []
+	for raw_ship in GameState.fleet_state:
+		var ship: Dictionary = raw_ship
+		var visible_ship: Dictionary = {}
+		for key in ["instance_id", "ship_type_id", "name", "status", "hull", "level", "experience", "guns", "commander", "escort_enabled", "embarked_units", "crew", "autopilot", "pending_trade", "cargo", "current_port_id"]:
+			if ship.has(key):
+				visible_ship[key] = ship[key]
+		visible_fleet.append(visible_ship)
+	return str(hash([visible_fleet, GameState.port_state.get(str(GameState.world_state.get("home_port_id", "")), {}), GameState.ship_state.get("docked_port_id", ""), GameState.company_state.get("shipyard_project", {}), GameState.progression_state.get("career", {})]))
 
 func _process(delta: float) -> void:
 	if not owner_window._is_open:
