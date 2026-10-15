@@ -8,7 +8,7 @@ var category := "all"
 var selected_type := ""
 var _tabs: HBoxContainer
 var _filters: HBoxContainer
-var _carousel: HBoxContainer
+var _carousel: HFlowContainer
 var _preview: Control
 var _heading: Label
 var _specs: Label
@@ -90,16 +90,13 @@ func _ready() -> void:
 	add_child(_construction_footer)
 	_owned_footer = VBoxContainer.new()
 	add_child(_owned_footer)
-	var carousel_scroll := ScrollContainer.new()
-	carousel_scroll.name = "FleetCarousel"
-	carousel_scroll.set_meta("horizontal_catalog", true)
-	carousel_scroll.custom_minimum_size.y = 72
-	carousel_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	carousel_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
-	add_child(carousel_scroll)
-	_carousel = HBoxContainer.new()
-	_carousel.add_theme_constant_override("separation", 8)
-	carousel_scroll.add_child(_carousel)
+	_carousel = HFlowContainer.new()
+	_carousel.name = "FleetCarousel"
+	_carousel.alignment = BoxContainer.ALIGNMENT_CENTER
+	_carousel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_carousel.add_theme_constant_override("h_separation", 8)
+	_carousel.add_theme_constant_override("v_separation", 6)
+	add_child(_carousel)
 
 func _label(value: String, font_size: int) -> Label:
 	var label := Label.new()

@@ -8,7 +8,7 @@ var _main: Node
 var _toolbar: HBoxContainer
 var _more_button: Button
 var _more_panel: PanelContainer
-var _more_list: VBoxContainer
+var _more_list: GridContainer
 var _more_navigation: Array = []
 var _status: Label
 var _cancel: Button
@@ -445,9 +445,11 @@ func _create_more_panel() -> void:
 	var banner: Control = load("res://systems/ui/faction_window_banner.gd").new()
 	banner.call("set_faction", str(GameState.player_state.get("origin_race_id", "humans")))
 	stack.add_child(banner)
-	_more_list = VBoxContainer.new()
+	_more_list = GridContainer.new()
 	_more_list.name = "MoreList"
-	_more_list.add_theme_constant_override("separation", 7)
+	_more_list.columns = 2
+	_more_list.add_theme_constant_override("h_separation", 6)
+	_more_list.add_theme_constant_override("v_separation", 6)
 	var scroll := ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
@@ -459,15 +461,26 @@ func _create_more_panel() -> void:
 		var node_name: String = str(item.get("node_name", ""))
 		button.name = "More_" + node_name
 		button.text = "Флот и верфь" if node_name == "FleetWindow" else str(item.get("label", ""))
-		button.custom_minimum_size = Vector2(230, 46)
-		button.add_theme_font_size_override("font_size", 19)
+		button.set_meta("compact_hud", true)
+		button.custom_minimum_size = Vector2(128, 36)
+		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		button.autowrap_mode = TextServer.AUTOWRAP_OFF
+		button.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		button.tooltip_text = str(item.get("label", button.text))
+		button.add_theme_font_size_override("font_size", 12)
 		button.pressed.connect(_open_more_tool.bind(node_name, str(item.get("method", ""))))
 		_more_list.add_child(button)
 	_more_panel.hide()
 
 func _add_more_button(button: Button) -> void:
-	button.custom_minimum_size = Vector2(230, 44)
-	button.add_theme_font_size_override("font_size", 18)
+	if button.tooltip_text.is_empty():
+		button.tooltip_text = button.text
+	button.custom_minimum_size = Vector2(128, 36)
+	button.set_meta("compact_hud", true)
+	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	button.autowrap_mode = TextServer.AUTOWRAP_OFF
+	button.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	button.add_theme_font_size_override("font_size", 12)
 	_more_list.add_child(button)
 
 func _toggle_more() -> void:
@@ -754,7 +767,7 @@ func _process(_delta: float) -> void:
 	_main.get_node("NavigationHUD").get("_toggle_button").hide()
 	_main.get_node("NavigationHUD").get("_course_label").hide()
 	_toolbar.visible = true
-	_more_panel.size = Vector2(260.0, minf(330.0, viewport.y - 100.0))
+	_more_panel.size = Vector2(296.0, minf(360.0, viewport.y - 100.0))
 	_more_panel.position = Vector2(
 		clampf(_toolbar.position.x + _toolbar.size.x * _toolbar.scale.x - _more_panel.size.x, 12.0, viewport.x - _more_panel.size.x - 12.0),
 		_top_height + 4.0

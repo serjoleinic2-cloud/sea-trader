@@ -205,7 +205,7 @@ func _layout() -> void:
 		var site: Dictionary = _sites[index]
 		# Give the enlarged terraces room to read between buildings; the same
 		# factor keeps each sprite proportional to the panorama across resolutions.
-		var size := Vector2(260,250) * factor
+		var size := Vector2(320,285) * factor
 		site.container.size = size
 		site.container.position = SITE_ANCHORS_PX[index] * factor - Vector2(size.x*.5,size.y*.86)
 		site.annex.position = Vector2(size.x*.53,size.y*.38)
