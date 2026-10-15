@@ -1,109 +1,112 @@
 shader_type spatial;
-render_mode cull_disabled, depth_draw_always;
+render_mode cull_back, diffuse_burley, specular_schlick_ggx;
 
-uniform sampler2D depth_texture : hint_depth_texture, repeat_disable, filter_linear;
-uniform vec3 deep_water : source_color = vec3(0.018, 0.17, 0.22);
-uniform vec3 shallow_water : source_color = vec3(0.25, 0.68, 0.55);
-uniform vec3 sky_reflection : source_color = vec3(0.48, 0.73, 0.78);
-uniform vec3 twilight_reflection : source_color = vec3(0.95, 0.41, 0.18);
-uniform float twilight_amount = 0.0;
-// Four long, crossing swells keep the sea readable without becoming stormy.
-uniform float wave_strength = 1.0;
-uniform float crest_foam_strength = 0.42;
-uniform float shore_foam_strength = 1.0;
-uniform float wave_speed = 1.0;
+// Gerstner waves adapted from UnionBytes / Achim Menzel (2019), MIT.
+// Godot 4 port and calm-ocean tuning: Sea Trader. See WATER_LICENSE.md.
+// Wave parameters are supplied by OceanSurface on CPU.
+uniform vec4 wave_a;
+uniform vec4 wave_b;
+uniform vec4 wave_c;
 uniform float ocean_time = 0.0;
+uniform float wave_time_scale = 0.42;
+uniform sampler2D normal_a : hint_normal, repeat_enable, filter_linear_mipmap;
+uniform sampler2D normal_b : hint_normal, repeat_enable, filter_linear_mipmap;
+uniform sampler2D screen_texture : hint_screen_texture, repeat_disable, filter_linear;
+uniform sampler2D depth_texture : hint_depth_texture, repeat_disable, filter_nearest;
+uniform vec3 deep_water : source_color = vec3(0.025, 0.19, 0.25);
+uniform vec3 shallow_water : source_color = vec3(0.22, 0.64, 0.51);
+uniform float normal_strength = 0.24;
+uniform float refraction_strength = 0.012;
+varying vec3 ocean_world;
+varying vec3 swell_normal;
+varying float swell_height;
 
-varying vec3 ocean_at;
-
-float grain(vec2 p) {
-	return fract(sin(dot(p, vec2(127.1,311.7))) * 43758.5453);
+vec3 gerstner(vec4 wave, vec2 p, float t, inout vec3 tangent, inout vec3 binormal) {
+	float k = 6.28318530718 / wave.w;
+	vec2 d = normalize(wave.xy);
+	float phase = k * (dot(d, p) - sqrt(9.8 / k) * t);
+	float s = wave.z * sin(phase);
+	float c = wave.z * cos(phase);
+	tangent += vec3(-d.x * d.x * s, d.x * c, -d.x * d.y * s);
+	binormal += vec3(-d.x * d.y * s, d.y * c, -d.y * d.y * s);
+	float a = wave.z / k;
+	return vec3(d.x * a * cos(phase), a * sin(phase), d.y * a * cos(phase));
+}
+vec3 surface_offset(vec2 p, float t, inout vec3 tangent, inout vec3 binormal) {
+	vec3 offset = gerstner(wave_a, p, t, tangent, binormal);
+	offset += gerstner(wave_b, p, t, tangent, binormal);
+	offset += gerstner(wave_c, p, t, tangent, binormal);
+	return offset;
 }
 float foam_noise(vec2 p) {
-	// Warped, continuous bands avoid the checkerboard from interpolated cell noise.
-	vec2 q = p + vec2(
-		sin(p.y * 1.17 + cos(p.x * 0.63)) * 0.38,
-		cos(p.x * 0.91 - sin(p.y * 0.72)) * 0.34
-	);
-	return 0.5
-		+ 0.22 * sin(dot(q, vec2(1.17, 0.73)))
-		+ 0.16 * cos(dot(q, vec2(-0.61, 1.43)) + sin(q.x * 0.31))
-		+ 0.09 * sin(dot(q, vec2(1.91, -1.27)));
+	p += vec2(sin(p.y * 0.71), cos(p.x * 0.63)) * 0.7;
+	return 0.5 + 0.22 * sin(dot(p, vec2(1.17, 0.73)))
+		+ 0.16 * cos(dot(p, vec2(-0.61, 1.43)) + sin(p.x * 0.31))
+		+ 0.09 * sin(dot(p, vec2(1.91, -1.27)));
 }
-
-float wave_height(vec2 p, float t) {
-	float a = dot(p, vec2(0.32, 0.11)) + t * 0.83;
-	float b = dot(p, vec2(-0.19, 0.36)) + t * 0.67;
-	float c = dot(p, vec2(0.57, -0.28)) + t * 1.02;
-	float d = dot(p, vec2(-0.13, -0.43)) - t * 0.51;
-	return (sin(a) * 0.14 + sin(b) * 0.075 + sin(c) * 0.035 + sin(d) * 0.025) * wave_strength;
-}
-
-void vertex() {
-	// Concentrate existing vertices around the ship, rather than 4.7m-wide cells.
-	VERTEX.xz = sign(VERTEX.xz) * pow(abs(VERTEX.xz) / 1200.0, vec2(2.0)) * 1200.0;
-	vec3 world_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
-	VERTEX.y += wave_height(world_pos.xz, ocean_time * wave_speed);
-	ocean_at = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
-}
-
-void fragment() {
-	float scene_depth = texture(depth_texture, SCREEN_UV).r;
+vec3 view_position(vec2 uv, mat4 inverse_projection) {
+	float depth = textureLod(depth_texture, uv, 0.0).r;
 	#if CURRENT_RENDERER == RENDERER_COMPATIBILITY
-	vec3 ndc = vec3(SCREEN_UV, scene_depth) * 2.0 - 1.0;
+	vec3 ndc = vec3(uv, depth) * 2.0 - 1.0;
 	#else
-	vec3 ndc = vec3(SCREEN_UV * 2.0 - 1.0, scene_depth);
+	vec3 ndc = vec3(uv * 2.0 - 1.0, depth);
 	#endif
-	vec4 scene_position = INV_PROJECTION_MATRIX * vec4(ndc, 1.0);
-	scene_position.xyz /= scene_position.w;
-	float raw_thickness = VERTEX.z - scene_position.z;
-	// Depth reconstruction also rejects any ocean fragment behind an opaque deck.
-	if (raw_thickness < -0.015) { discard; }
-	float thickness = max(0.0, raw_thickness);
-	float shallow = exp(-thickness * 0.21);
-	vec2 p = ocean_at.xz;
-	float t = ocean_time * wave_speed;
-	float a = dot(p, vec2(0.32, 0.11)) + t * 0.83;
-	float b = dot(p, vec2(-0.19, 0.36)) + t * 0.67;
-	float c = dot(p, vec2(0.57, -0.28)) + t * 1.02;
-	float d = dot(p, vec2(-0.13, -0.43)) - t * 0.51;
-	vec2 slope = cos(a) * 0.14 * vec2(0.32, 0.11);
-	slope += cos(b) * 0.075 * vec2(-0.19, 0.36);
-	slope += cos(c) * 0.035 * vec2(0.57, -0.28);
-	slope += cos(d) * 0.025 * vec2(-0.13, -0.43);
-	slope *= wave_strength;
-	// Fine, independently scrolling chop gives highlights texture without grid-like bands.
-	slope += cos(dot(p, vec2(1.4, 0.8)) + t * 0.9) * vec2(0.035, 0.020);
-	slope += cos(dot(p, vec2(-0.6, 1.7)) - t * 0.65) * vec2(-0.015, 0.043);
-	float ripple = foam_noise(p*2.1+vec2(t*.17,-t*.08));
-	slope += cos(dot(p, vec2(1.16, 0.77)) + t * 0.81) * vec2(0.018, 0.012);
-	slope += cos(dot(p, vec2(-0.53, 1.45)) - t * 0.63) * vec2(-0.010, 0.021);
-	NORMAL = normalize((VIEW_MATRIX * vec4(normalize(vec3(-slope.x, 1.0, -slope.y)), 0.0)).xyz);
+	vec4 position = inverse_projection * vec4(ndc, 1.0);
+	return position.xyz / position.w;
+}
+void vertex() {
+	// Dense near the ship, coarse towards the horizon, using a single grid.
+	VERTEX.xz = sign(VERTEX.xz) * pow(abs(VERTEX.xz) / 1200.0, vec2(2.0)) * 1200.0;
+	vec3 at = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+	vec3 tangent = vec3(1.0, 0.0, 0.0);
+	vec3 binormal = vec3(0.0, 0.0, 1.0);
+	vec3 offset = surface_offset(at.xz, ocean_time * wave_time_scale, tangent, binormal);
+	VERTEX += offset;
+	NORMAL = normalize(cross(binormal, tangent));
+	swell_normal = NORMAL;
+	swell_height = offset.y;
+	ocean_world = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+}
+void fragment() {
+	float t = ocean_time * wave_time_scale;
+	vec3 world_normal = normalize(swell_normal);
+	vec2 uv = ocean_world.xz * 0.075;
+	vec3 a = texture(normal_a, uv + vec2(t * 0.019, -t * 0.013)).xyz * 2.0 - 1.0;
+	vec3 b = texture(normal_b, uv * 1.83 + vec2(-t * 0.014, t * 0.021)).xyz * 2.0 - 1.0;
+	vec2 detail = (a.xy * 0.68 + b.xy * 0.32) * normal_strength;
+	world_normal = normalize(world_normal + vec3(detail.x, 0.0, detail.y));
+	NORMAL = normalize((VIEW_MATRIX * vec4(world_normal, 0.0)).xyz);
 
-	// World-space foam breakup avoids repeating square/diamond patterns.
-	float noise = sin(dot(p, vec2(0.73, 1.19)) + t * 0.37) * 0.5;
-	noise += sin(dot(p, vec2(-1.31, 0.47)) - t * 0.29) * 0.3;
-	noise += cos(dot(p, vec2(1.87, -0.91)) + t * 0.19) * 0.2;
-	float shoreline = 1.0 - smoothstep(0.18, 2.35, thickness);
-	float shore_breakup = smoothstep(-0.68, 0.35, noise + sin(a) * 0.22 + sin(b * 1.3) * 0.12);
-	float shore_foam = shoreline * shore_breakup * shore_foam_strength;
-	float crest = sin(a) * 0.48 + sin(b) * 0.29 + sin(c) * 0.15 + sin(d) * 0.08;
-	float crest_breakup = clamp(0.86 + noise * 0.12 + sin(b * 1.7) * 0.025 + cos(c * 1.9) * 0.025, 0.68, 1.0);
-	float crest_width = max(fwidth(crest), 0.025);
-	// Thin wind-torn streaks follow individual crests, not broad summed sine blobs.
-	float streak = smoothstep(0.90-crest_width,0.99,sin(a));
-	streak *= smoothstep(.40,.68,foam_noise(p*.85+vec2(-t*.15,t*.07)));
-	streak += smoothstep(.94,.999,sin(b))*smoothstep(.58,.78,foam_noise(p*1.15-vec2(t*.12,0.0)))*.6;
-	float crest_foam = streak * crest_foam_strength * smoothstep(.15,.65,ripple);
-	float foam = clamp(max(shore_foam, crest_foam), 0.0, 0.86);
+	vec3 behind = view_position(SCREEN_UV, INV_PROJECTION_MATRIX);
+	float thickness = VERTEX.z - behind.z;
+	// Above-water hulls/decks occlude water, including at refraction edges.
+	if (thickness < -0.015) { discard; }
+	vec3 ground_world = (INV_VIEW_MATRIX * vec4(behind, 1.0)).xyz;
+	float depth = max(0.0, ocean_world.y - ground_world.y);
+	float shallow = exp(-depth * 0.38);
+	vec3 tint = mix(deep_water, shallow_water, shallow);
+	vec3 water_color = tint;
+	// At depth transmission is negligible: avoid refraction lookups over the
+	// open ocean, where they cannot contribute to the image.
+	if (thickness < 12.0) {
+		vec2 refracted_uv = clamp(SCREEN_UV + NORMAL.xy * refraction_strength * smoothstep(0.0, 1.5, thickness), vec2(0.001), vec2(0.999));
+		vec3 refracted_position = view_position(refracted_uv, INV_PROJECTION_MATRIX);
+		if (refracted_position.z > VERTEX.z) { refracted_uv = SCREEN_UV; }
+		vec3 ground_color = texture(screen_texture, refracted_uv).rgb;
+		float transmission = exp(-max(thickness, 0.0) * 0.36) * 0.62;
+		water_color = mix(tint, ground_color * vec3(0.65, 0.94, 0.87), transmission);
+	}
 
-	vec3 color = mix(deep_water, shallow_water, shallow * 0.9);
-	float fresnel = pow(1.0 - clamp(dot(normalize(NORMAL), normalize(VIEW)), 0.0, 1.0), 4.0);
-	color = mix(color, sky_reflection, fresnel * 0.42);
-	color = mix(color, vec3(0.92, 0.99, 0.96), foam);
-	ALBEDO = mix(color, twilight_reflection, twilight_amount * 0.14);
-	ROUGHNESS = mix(0.36, 0.70, foam);
-	SPECULAR = 0.38;
+	float foam = 0.0;
+	if (depth < 0.65 || swell_height > 0.1944) {
+		float noise = foam_noise(ocean_world.xz * 1.2 + vec2(t * 0.12, -t * 0.09));
+		float shore = 1.0 - smoothstep(0.06, 0.65, depth);
+		float wash = smoothstep(0.32, 0.68, noise + sin(depth * 11.0 - t * 2.2) * 0.16);
+		float crest = smoothstep(0.72, 0.95, swell_height / 0.27) * smoothstep(0.57, 0.78, noise);
+		foam = clamp(shore * wash * 0.78 + crest * 0.22, 0.0, 0.85);
+	}
+	ALBEDO = mix(water_color, vec3(0.88, 0.96, 0.93), foam);
+	ROUGHNESS = mix(0.16, 0.62, foam);
+	SPECULAR = 0.5;
 	METALLIC = 0.0;
-	ALPHA = mix(0.90, 1.0, 1.0 - shallow);
 }

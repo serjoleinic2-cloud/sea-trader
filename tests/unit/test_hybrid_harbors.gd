@@ -45,3 +45,14 @@ func test_shared_buoyancy_tracks_water_without_washing_over_smallest_deck() -> v
 			worst=maxf(worst,height-point.y)
 	assert_almost_eq(worst,0.0,.0001,"Water must remain below every sampled corner of the sloop deck")
 	ship.free()
+
+func test_buoyancy_finds_the_horizontally_displaced_gerstner_surface() -> void:
+	var ocean = load("res://systems/rendering/ocean_surface.gd")
+	var worst_error: float = 0.0
+	for step in range(60):
+		var position := Vector2(step * 1.23, step * -0.83)
+		var time: float = step * 0.31
+		var displacement: Vector3 = ocean.displacement_at(position, time)
+		var rendered_position: Vector2 = position + Vector2(displacement.x, displacement.z)
+		worst_error = maxf(worst_error, absf(ocean.height_at(rendered_position, time) - displacement.y))
+	assert_true(worst_error < 0.00002, "Buoyancy must sample displaced GPU vertices, not the undeformed plane")

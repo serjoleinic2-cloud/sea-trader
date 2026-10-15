@@ -21,9 +21,11 @@ var _subviewport: SubViewport
 var _scene_root: Node3D
 var _camera: Camera3D
 var _ship: Node3D
+var _ship_display_length: float = 3.48
 var _trader_traffic: Node
 var _fleet_traffic: Node
 var _water: MeshInstance3D
+var _water_material: ShaderMaterial
 var _sailing_gulls: Node3D
 var _island_nodes: Dictionary = {}
 var _hazard_nodes: Dictionary = {}
@@ -153,6 +155,7 @@ func _process(delta: float) -> void:
 	if _water != null:
 		_water.position.x = ship_position.x * MAP_TO_METERS
 		_water.position.z = ship_position.y * MAP_TO_METERS
+		_water_material.set_shader_parameter("ocean_time", _animation_clock)
 	_sync_fog(ship_position)
 	_sync_traffic(_trader_traffic, "trader", delta)
 	_sync_traffic(_fleet_traffic, "fleet", delta)
@@ -304,17 +307,19 @@ func _build_scene() -> void:
 func _add_water() -> void:
 	var plane := PlaneMesh.new()
 	plane.size = Vector2(2400.0, 2400.0)
+	plane.subdivide_width = 127
+	plane.subdivide_depth = 127
 	_water = MeshInstance3D.new()
-	_water.name = "PlainOcean"
+	_water.name = "TropicalOcean"
 	_water.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_water.extra_cull_margin = 1.0
 	_water.mesh = plane
-	# Diagnostic baseline: two triangles, opaque colour, no waves, depth
-	# sampling, reflection, glints, foam, transparency, or lighting effects.
-	var material := StandardMaterial3D.new()
-	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	material.albedo_color = Color("247c88")
-	material.roughness = 1.0
-	_water.material_override = material
+	_water_material = ShaderMaterial.new()
+	_water_material.shader = preload("res://assets/world/materials/tropical_ocean.gdshader")
+	_water_material.set_shader_parameter("normal_a", preload("res://assets/world/materials/water_normal_a.tres"))
+	_water_material.set_shader_parameter("normal_b", preload("res://assets/world/materials/water_normal_b.tres"))
+	OceanSurface.configure_material(_water_material)
+	_water.material_override = _water_material
 	_water.position.y = SEA_LEVEL
 	_scene_root.add_child(_water)
 
@@ -416,6 +421,7 @@ func _update_lanterns_for(ship: Node3D, night: float) -> void:
 func _make_ship() -> Node3D:
 	var ship_id: String = str(GameState.ship_state.get("ship_id", "ship_sloop"))
 	var visual: Dictionary = GameData.read("res://data/world/ship_visuals.json").get("ships", {}).get(ship_id, {})
+	_ship_display_length = float(visual.get("display_length", 3.48))
 	var faction_id: String = str(GameState.player_state.get("origin_race_id", "humans"))
 	var registered_ship: Node3D = _attach_catalog_scene(_scene_root, "ships", ship_id, float(visual.get("display_length", 3.48)), faction_id)
 	if registered_ship != null:
@@ -781,17 +787,8 @@ func _build_port(island_root: Node3D, port: Dictionary, island_position: Vector2
 		registered_port.position += Vector3(local_port.x, 0.0, local_port.y)
 		registered_port.rotation.y = atan2(outward.x, outward.z)
 		return
-	var bay_water := CylinderMesh.new()
-	bay_water.top_radius = bay_radius
-	bay_water.bottom_radius = bay_radius
-	bay_water.height = 0.035
-	bay_water.radial_segments = 32
-	var bay_surface := MeshInstance3D.new()
-	bay_surface.name = "NaturalHarborWater"
-	bay_surface.mesh = bay_water
-	bay_surface.material_override = _material(Color("247b91"), 0.35)
-	bay_surface.position = Vector3(local_port.x, 0.05, local_port.y)
-	island_root.add_child(bay_surface)
+	# One continuous ocean also covers the bay. The submerged sand below it
+	# controls shallows; a flat opaque blue cylinder would hide the new waves.
 	var dock_start: Vector3 = Vector3(local_port.x, 0.12, local_port.y) + outward * 1.1
 	for berth_side in [-1.0, 1.0]:
 		var pier_center := Vector3(local_port.x, 0.12, local_port.y) + outward * 2.6 + pier_right * float(berth_side) * 5.0
@@ -976,14 +973,15 @@ func _sync_traffic(traffic_renderer: Node, traffic_group: String, delta: float =
 			heading = Vector2.UP
 		model.position = Vector3(position.x * MAP_TO_METERS, 0.12, position.y * MAP_TO_METERS)
 		model.rotation.y = -heading.angle() - PI * 0.5
-		var motion_time: float = Time.get_ticks_msec() * 0.001 + float(posmod(hash(model_key),100))/10.0
+		var motion_time: float = _animation_clock
 		var sink: float=smoothstep(0.0,1.0,clampf(float(vessel.get("sink_progress",0)),0.0,1.0))
 		var visible_length: float=maxf(3.48,float(vessel.get("length",87.0))*MAP_TO_METERS)
 		var sink_roll: float=-1.0 if posmod(hash(vessel_id),2)==0 else 1.0
-		var target_turn_bank: float = clampf(float(vessel.get("turn_velocity",0))*-.09,-.08,.08)
+		# Local +Z roll raises starboard: a right turn heels outwards to port.
+		var target_turn_bank: float = clampf(float(vessel.get("turn_velocity",0))*.09,-.08,.08)
 		var turn_bank: float = lerpf(float(model.get_meta("turn_bank",0.0)),target_turn_bank,1.0-exp(-delta*4.0))
 		model.set_meta("turn_bank",turn_bank)
-		OceanSurface.float_ship(model, position * MAP_TO_METERS, heading.angle(), visible_length, motion_time)
+		OceanSurface.float_ship(model, position * MAP_TO_METERS, heading.angle(), visible_length, motion_time, delta)
 		model.position.y -= sink*(.8+visible_length*.34)
 		model.rotation.x += sink*.22
 		model.rotation.z += turn_bank+sink*sink_roll*.18
@@ -1028,10 +1026,8 @@ func _update_camera(ship_position: Vector2, close_factor: float, delta: float, m
 		_sailing_gulls.position = ship_world_position
 	_ship.position = ship_world_position
 	var motion_time: float = _animation_clock
-	var turn_bank: float = clampf(-deg_to_rad(float(GameState.ship_state.get("visual_roll",0.0)))*.45,-.095,.095)
-	var ship_id: String = str(GameState.ship_state.get("ship_id", "ship_sloop"))
-	var ship_visual: Dictionary = GameData.read("res://data/world/ship_visuals.json").get("ships", {}).get(ship_id, {})
-	OceanSurface.float_ship(_ship, ship_position * MAP_TO_METERS, heading, float(ship_visual.get("display_length", 3.48)), motion_time)
+	var turn_bank: float = clampf(deg_to_rad(float(GameState.ship_state.get("visual_roll",0.0)))*.45,-.095,.095)
+	OceanSurface.float_ship(_ship, ship_position * MAP_TO_METERS, heading, _ship_display_length, motion_time, delta)
 	_ship.rotation.z += turn_bank
 
 	if not move_camera: return
