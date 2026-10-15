@@ -22,6 +22,7 @@ var _scene_root: Node3D
 var _camera: Camera3D
 var _ship: Node3D
 var _ship_display_length: float = 3.48
+var _wake: Node3D
 var _trader_traffic: Node
 var _fleet_traffic: Node
 var _water: MeshInstance3D
@@ -72,6 +73,7 @@ func _on_active_ship_changed(_ship_type_id: String) -> void:
 		_ship.queue_free()
 	_ship = _make_ship()
 	_scene_root.add_child(_ship)
+	if _wake!=null:_wake.clear_trail()
 
 
 func initialize(world_data: Dictionary, map_world: CanvasItem, map_ship: CanvasItem, trader_traffic: Node = null, fleet_traffic: Node = null) -> void:
@@ -113,12 +115,14 @@ func _process(delta: float) -> void:
 	_animation_clock += delta
 	_day_clock = fposmod(_day_clock + delta, DAY_CYCLE_SECONDS)
 	if str(GameState.ship_state.get("docked_port_id", "")) != "":
+		if _wake!=null:_wake.clear_trail()
 		_viewport_container.hide()
 		_subviewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
 		return
 	_viewport_container.show()
 	if _world_data.is_empty() or _camera == null:
 		return
+	_wake.begin_frame(delta,_animation_clock,_camera)
 	var ship_position: Vector2 = Vector2(GameState.ship_state.get("position", Vector2.ZERO))
 	var nearest: Dictionary = _find_nearest_island(ship_position)
 	var coast_factor: float = 0.0
@@ -164,6 +168,7 @@ func _process(delta: float) -> void:
 	_sync_fog(ship_position)
 	_sync_traffic(_trader_traffic, "trader", delta)
 	_sync_traffic(_fleet_traffic, "fleet", delta)
+	_wake.finish_frame()
 	_update_ambience(delta)
 
 
@@ -305,6 +310,9 @@ func _build_scene() -> void:
 	_camera.current = true
 	_camera.fov = 58.0
 	_scene_root.add_child(_camera)
+	_wake=preload("res://systems/rendering/ship_wake.gd").new()
+	_wake.name="ShipWake"
+	_scene_root.add_child(_wake)
 
 
 func _add_water() -> void:
@@ -335,6 +343,7 @@ func apply_graphics_settings() -> void:
 	_subviewport.msaa_3d = Viewport.MSAA_2X if bool(GameState.settings_state.get("antialiasing", true)) else Viewport.MSAA_DISABLED
 	_view_distance = {"near": 320.0, "medium": 550.0, "far": 850.0}.get(str(GameState.settings_state.get("view_distance", "medium")), 550.0)
 	_update_view_distance()
+	if _wake!=null:_wake.apply_settings()
 	var plane: PlaneMesh = _water.mesh as PlaneMesh
 	var quality: String = str(GameState.settings_state.get("water_quality", "medium"))
 	if quality in ["low", "simple"]:
@@ -1023,6 +1032,8 @@ func _sync_traffic(traffic_renderer: Node, traffic_group: String, delta: float =
 		model.position.y -= sink*(.8+visible_length*.34)
 		model.rotation.x += sink*.22
 		model.rotation.z += turn_bank+sink*sink_roll*.18
+		if _wake!=null:
+			_wake.track(model_key,position*MAP_TO_METERS,heading.angle(),visible_length,delta,sink<=0.0)
 
 	for raw_model_key in _traffic_models.keys():
 		var model_key: String = str(raw_model_key)
@@ -1067,6 +1078,8 @@ func _update_camera(ship_position: Vector2, close_factor: float, delta: float, m
 	var turn_bank: float = clampf(deg_to_rad(float(GameState.ship_state.get("visual_roll",0.0)))*.45,-.095,.095)
 	OceanSurface.float_ship(_ship, ship_position * MAP_TO_METERS, heading, _ship_display_length, motion_time, delta)
 	_ship.rotation.z += turn_bank
+	if _wake!=null:
+		_wake.track("player",ship_position*MAP_TO_METERS,heading,_ship_display_length,delta)
 
 	if not move_camera: return
 	var forward := Vector3(cos(heading), 0.0, sin(heading))

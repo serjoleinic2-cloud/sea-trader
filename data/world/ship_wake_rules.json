@@ -1,0 +1,12 @@
+{
+  "default_quality": "low",
+  "minimum_speed_mps": 0.25,
+  "full_strength_speed_mps": 4.5,
+  "foam_opacity": 0.28,
+  "spray_opacity": 0.48,
+  "profiles": {
+    "off": {"foam_capacity": 0, "spray_capacity": 0, "emitters": 0, "distance_m": 0, "spacing_hulls": 1.0, "foam_lifetime": 0},
+    "low": {"foam_capacity": 28, "spray_capacity": 6, "emitters": 4, "distance_m": 85, "spacing_hulls": 0.28, "foam_lifetime": 2.8},
+    "high": {"foam_capacity": 64, "spray_capacity": 20, "emitters": 8, "distance_m": 150, "spacing_hulls": 0.18, "foam_lifetime": 4.0}
+  }
+}

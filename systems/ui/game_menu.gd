@@ -134,6 +134,7 @@ func _show_section(section: String) -> void:
 			_content.add_child(_label("ГРАФИКА", 18))
 			_content.add_child(_label("Нажмите «Применить настройки». Масштаб 3D не меняет резкость текста и меню.", 13))
 			_water_quality_slider()
+			_choice("След и брызги кораблей", "ship_wake_quality", ["Выключено", "Лёгкий", "Подробный"], ["off", "low", "high"])
 			_choice("Дальность прорисовки", "view_distance", ["Ближняя", "Средняя", "Дальняя"], ["near", "medium", "far"])
 			var display_row: HBoxContainer = _toggle("Полноэкранный режим", "fullscreen")
 			var vsync := CheckButton.new()

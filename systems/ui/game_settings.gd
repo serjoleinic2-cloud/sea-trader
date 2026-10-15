@@ -10,6 +10,8 @@ static func normalized(raw: Dictionary) -> Dictionary:
 	var quality: String = str(raw.get("water_quality", "medium"))
 	quality = {"simple": "low", "detailed": "high"}.get(quality, quality)
 	settings["water_quality"] = quality if quality in ["low", "medium", "high"] else "medium"
+	var wake: String = str(raw.get("ship_wake_quality", "low"))
+	settings["ship_wake_quality"] = wake if wake in ["off", "low", "high"] else "low"
 	var distance: String = str(raw.get("view_distance", "medium"))
 	settings["view_distance"] = distance if distance in ["near", "medium", "far"] else "medium"
 	settings["antialiasing"] = bool(raw.get("antialiasing", true))
