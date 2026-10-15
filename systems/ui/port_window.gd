@@ -237,7 +237,7 @@ func _ready() -> void:
 	_construction_buildings_column.size_flags_stretch_ratio = 1.35
 	_construction_workspace.add_child(_construction_buildings_column)
 	column.add_child(_construction_workspace)
-	column.move_child(_construction_workspace, column.get_child_index(_content_scroll))
+	column.move_child(_construction_workspace, _content_scroll.get_index())
 	_construction_workspace.hide()
 	_plan_button = Button.new()
 	_plan_button.text = "Открыть проект строительства"
@@ -550,7 +550,7 @@ func _set_construction_layout(active: bool) -> void:
 		if _content_scroll.get_parent() != _column:
 			_content_scroll.get_parent().remove_child(_content_scroll)
 			_column.add_child(_content_scroll)
-			_column.move_child(_content_scroll, _column.get_child_index(_construction_workspace))
+			_column.move_child(_content_scroll, _construction_workspace.get_index())
 
 func _rebuild_building_list(port_id: String) -> void:
 	for child in _building_list.get_children():
