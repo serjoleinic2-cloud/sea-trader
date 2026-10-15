@@ -6,10 +6,15 @@ var _transfers: Node
 var _port_system: Node
 var _root: Control
 var _sheet: PanelContainer
+var _column: VBoxContainer
 var _title: Label
 var _details: Label
 var _building_list: VBoxContainer
 var _content_scroll: ScrollContainer
+var _construction_workspace: HBoxContainer
+var _construction_details_column: VBoxContainer
+var _construction_buildings_column: VBoxContainer
+var _construction_layout_active: bool = false
 var _plan_button: Button
 var _load_button: Button
 var _unload_button: Button
@@ -181,6 +186,7 @@ func _ready() -> void:
 		margin.add_theme_constant_override("margin_" + side, 18)
 	_sheet.add_child(margin)
 	var column: VBoxContainer = VBoxContainer.new()
+	_column = column
 	column.add_theme_constant_override("separation", 10)
 	margin.add_child(column)
 	_title = Label.new()
@@ -214,11 +220,31 @@ func _ready() -> void:
 	_building_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_building_list.add_theme_constant_override("separation", 6)
 	_content_scroll.add_child(_building_list)
+	_construction_workspace = HBoxContainer.new()
+	_construction_workspace.name = "ConstructionWorkspace"
+	_construction_workspace.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_construction_workspace.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_construction_workspace.add_theme_constant_override("separation", 18)
+	_construction_details_column = VBoxContainer.new()
+	_construction_details_column.custom_minimum_size.x = 300
+	_construction_details_column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_construction_details_column.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_construction_details_column.size_flags_stretch_ratio = 0.8
+	_construction_workspace.add_child(_construction_details_column)
+	_construction_buildings_column = VBoxContainer.new()
+	_construction_buildings_column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_construction_buildings_column.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_construction_buildings_column.size_flags_stretch_ratio = 1.35
+	_construction_workspace.add_child(_construction_buildings_column)
+	column.add_child(_construction_workspace)
+	column.move_child(_construction_workspace, column.get_child_index(_content_scroll))
+	_construction_workspace.hide()
 	_plan_button = Button.new()
 	_plan_button.text = "Открыть проект строительства"
 	_plan_button.custom_minimum_size.y = 42
 	_plan_button.pressed.connect(_plan_selected_building)
-	column.add_child(_plan_button)
+	_construction_details_column.add_child(_plan_button)
+	_plan_button.hide()
 	_load_button = Button.new()
 	_load_button.text = "Загрузить 1 единицу"
 	_load_button.custom_minimum_size.y = 42
@@ -376,13 +402,15 @@ func _process(_delta: float) -> void:
 	_bottom_menu.size = Vector2(minf(1220.0 if desktop_layout else 920.0, viewport_size.x - 24.0), 82.0)
 	if _content_scroll != null:
 		_content_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED if _current_section == "shipyard" else ScrollContainer.SCROLL_MODE_AUTO
-		_content_scroll.custom_minimum_size.y = 80 if _current_section == "shipyard" else (230.0 if _current_section == "market" else minf(300.0, maxf(80.0, viewport_size.y - 420.0)))
-	_building_list.size_flags_vertical = Control.SIZE_EXPAND_FILL if _current_section == "shipyard" else Control.SIZE_FILL
+		_content_scroll.custom_minimum_size.y = 0 if _current_section == "construction" else (80 if _current_section == "shipyard" else (230.0 if _current_section == "market" else minf(300.0, maxf(80.0, viewport_size.y - 420.0)))
+	_building_list.size_flags_vertical = Control.SIZE_EXPAND_FILL if _current_section in ["shipyard", "construction"] else Control.SIZE_FILL
 	_details.visible = _current_section != "shipyard" or not _notice.is_empty()
 	_save_button.visible = _current_section != "shipyard"
 	_leave_button.visible = _current_section != "shipyard"
+	_plan_button.visible = _construction_layout_active
 	_bottom_menu.position = Vector2((viewport_size.x - _bottom_menu.size.x) * 0.5, viewport_size.y - _bottom_menu.size.y - 14.0)
 	var is_home: bool = docked_port == str(GameState.world_state.get("home_port_id", ""))
+	_set_construction_layout(is_home and _current_section == "construction")
 	if docked_port != _active_port_id:
 		_active_port_id = docked_port
 		if not is_home and docked_port != "":
@@ -483,13 +511,45 @@ func _refresh_text(port_id: String, is_home: bool) -> void:
 	if _selected_building_id != "":
 		selected_name = _get_building_name(_selected_building_id)
 		selected_state = _get_building_state(port, _selected_building_id)
-	_details.text = "Выбрано: %s\nСтатус: %s\n%s" % [selected_name, selected_state, _notice]
+	_details.text = "Выбрано: %s\nСтатус: %s\n\n%s\n\n%s" % [selected_name, selected_state, _get_building_description(_selected_building_id), _notice]
+
+func _get_building_description(building_id: String) -> String:
+	for raw_building in _building_catalog:
+		var building: Dictionary = raw_building
+		if str(building.get("building_id", "")) == building_id:
+			return str(building.get("description", ""))
+	return "Выберите карточку здания справа, чтобы посмотреть его назначение."
+
+func _set_construction_layout(active: bool) -> void:
+	if _construction_layout_active == active:
+		return
+	_construction_layout_active = active
+	_construction_workspace.visible = active
+	if active:
+		if _details.get_parent() != _construction_details_column:
+			_details.get_parent().remove_child(_details)
+			_construction_details_column.add_child(_details)
+			_construction_details_column.move_child(_details, 0)
+		if _content_scroll.get_parent() != _construction_buildings_column:
+			_content_scroll.get_parent().remove_child(_content_scroll)
+			_construction_buildings_column.add_child(_content_scroll)
+		_content_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		_content_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	else:
+		if _details.get_parent() != _column:
+			_details.get_parent().remove_child(_details)
+			_column.add_child(_details)
+			_column.move_child(_details, 1)
+		if _content_scroll.get_parent() != _column:
+			_content_scroll.get_parent().remove_child(_content_scroll)
+			_column.add_child(_content_scroll)
+			_column.move_child(_content_scroll, _column.get_child_index(_construction_workspace))
 
 func _rebuild_building_list(port_id: String) -> void:
 	for child in _building_list.get_children():
 		child.queue_free()
 	var grid: GridContainer = GridContainer.new()
-	grid.columns = 2
+	grid.columns = 1
 	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	grid.add_theme_constant_override("h_separation", 10)
 	grid.add_theme_constant_override("v_separation", 10)
@@ -501,7 +561,7 @@ func _rebuild_building_list(port_id: String) -> void:
 		var icon_path: String = "res://assets/ui/ports/%s/%s.png" % [str(GameState.player_state.get("origin_race_id", "humans")), building_id]
 		if not ResourceLoader.exists(icon_path): icon_path = str(building.get("ui_icon", ""))
 		var card := PanelContainer.new()
-		card.custom_minimum_size = Vector2(0, 286)
+		card.custom_minimum_size = Vector2(0, 300)
 		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		var card_style := StyleBoxFlat.new()
 		card_style.bg_color = Color(0.055, 0.075, 0.09, 0.96)
