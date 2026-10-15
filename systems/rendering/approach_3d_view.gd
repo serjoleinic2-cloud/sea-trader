@@ -11,6 +11,7 @@ const FOG_HEIGHT: float = 28.0
 const DAY_CYCLE_SECONDS: float = 300.0
 const SEA_LEVEL: float = -0.18
 const RenderVisibility = preload("res://systems/rendering/render_visibility.gd")
+const OceanSurface = preload("res://systems/rendering/ocean_surface.gd")
 
 var _world_data: Dictionary = {}
 var _map_world: CanvasItem
@@ -976,16 +977,16 @@ func _sync_traffic(traffic_renderer: Node, traffic_group: String, delta: float =
 		model.position = Vector3(position.x * MAP_TO_METERS, 0.12, position.y * MAP_TO_METERS)
 		model.rotation.y = -heading.angle() - PI * 0.5
 		var motion_time: float = Time.get_ticks_msec() * 0.001 + float(posmod(hash(model_key),100))/10.0
-		var hull_factor: float = clampf(100.0/maxf(80.0,float(vessel.get("length",100))),.4,1.0)
 		var sink: float=smoothstep(0.0,1.0,clampf(float(vessel.get("sink_progress",0)),0.0,1.0))
 		var visible_length: float=maxf(3.48,float(vessel.get("length",87.0))*MAP_TO_METERS)
 		var sink_roll: float=-1.0 if posmod(hash(vessel_id),2)==0 else 1.0
 		var target_turn_bank: float = clampf(float(vessel.get("turn_velocity",0))*-.09,-.08,.08)
 		var turn_bank: float = lerpf(float(model.get_meta("turn_bank",0.0)),target_turn_bank,1.0-exp(-delta*4.0))
 		model.set_meta("turn_bank",turn_bank)
-		model.position.y = SEA_LEVEL + 0.04 + sin(motion_time*1.35)*.026*hull_factor-sink*(.8+visible_length*.34)
-		model.rotation.x = sin(motion_time*.85)*.015*hull_factor+sink*.22
-		model.rotation.z = sin(motion_time*1.1)*.025*hull_factor+turn_bank+sink*sink_roll*.18
+		OceanSurface.float_ship(model, position * MAP_TO_METERS, heading.angle(), visible_length, motion_time)
+		model.position.y -= sink*(.8+visible_length*.34)
+		model.rotation.x += sink*.22
+		model.rotation.z += turn_bank+sink*sink_roll*.18
 
 	for raw_model_key in _traffic_models.keys():
 		var model_key: String = str(raw_model_key)
@@ -1028,9 +1029,10 @@ func _update_camera(ship_position: Vector2, close_factor: float, delta: float, m
 	_ship.position = ship_world_position
 	var motion_time: float = _animation_clock
 	var turn_bank: float = clampf(-deg_to_rad(float(GameState.ship_state.get("visual_roll",0.0)))*.45,-.095,.095)
-	_ship.position.y = SEA_LEVEL + 0.04 + sin(motion_time*1.35)*.026
-	_ship.rotation.x = sin(motion_time*.85)*.015
-	_ship.rotation.z = sin(motion_time*1.1)*.025+turn_bank
+	var ship_id: String = str(GameState.ship_state.get("ship_id", "ship_sloop"))
+	var ship_visual: Dictionary = GameData.read("res://data/world/ship_visuals.json").get("ships", {}).get(ship_id, {})
+	OceanSurface.float_ship(_ship, ship_position * MAP_TO_METERS, heading, float(ship_visual.get("display_length", 3.48)), motion_time)
+	_ship.rotation.z += turn_bank
 
 	if not move_camera: return
 	var forward := Vector3(cos(heading), 0.0, sin(heading))
