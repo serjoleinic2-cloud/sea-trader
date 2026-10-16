@@ -58,10 +58,6 @@ func show_ship(id: String) -> void:
 	if _model != null:
 		var style = preload("res://systems/rendering/faction_base_style.gd").new()
 		style.apply_ship(_model, race)
-		var flag: Node3D = style.make_flag(race)
-		flag.position = Vector3(0, 1.3, 2.6)
-		flag.scale = Vector3.ONE * 0.28
-		_model.add_child(flag)
 		var bounds: Array[AABB] = []
 		_collect_bounds(_model, bounds)
 		var box := AABB()

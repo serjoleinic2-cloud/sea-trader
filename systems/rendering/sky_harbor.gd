@@ -50,9 +50,6 @@ func set_faction(faction_id: String) -> void:
 			ship.scale = Vector3.ONE * 5.8 / float(definition.get("length", 8.5))
 			_district.add_child(ship)
 			_style.apply_ship(ship, faction_id)
-			var ship_flag: Node3D = _style.make_flag(faction_id, 2.0)
-			ship_flag.position = Vector3(0, 3.0, 0)
-			ship.add_child(ship_flag)
 		index += 1
 
 func set_night_strength(strength: float) -> void:

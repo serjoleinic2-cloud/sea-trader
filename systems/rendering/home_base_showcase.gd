@@ -186,11 +186,6 @@ func _add_visiting_ships() -> void:
 		ship.rotation.y = PI if index % 2 == 0 else 0
 		add_child(ship)
 		style.apply_ship(ship, factions[index])
-		var flag: Node3D = style.make_flag(factions[index])
-		var at: Array = visual.flag_at
-		flag.position = Vector3(at[0], at[1], at[2])
-		flag.scale = Vector3.ONE * 0.28
-		ship.add_child(flag)
 		var renderer = load("res://systems/rendering/approach_3d_view.gd").new()
 		renderer._add_ship_lanterns(ship, visual.lamps, false)
 		renderer.free()

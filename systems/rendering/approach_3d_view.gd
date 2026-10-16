@@ -483,11 +483,6 @@ func _make_ship() -> Node3D:
 		_add_ship_lanterns(registered_ship, visual.get("lamps", []))
 		var heraldry = load("res://systems/rendering/faction_base_style.gd").new()
 		heraldry.apply_ship(registered_ship, faction_id)
-		var flag: Node3D = heraldry.make_flag(faction_id)
-		var anchor: Array = visual.get("flag_at", [0.0, 1.3, 2.6])
-		flag.position = Vector3(float(anchor[0]), float(anchor[1]), float(anchor[2]))
-		flag.scale = Vector3.ONE * 0.28
-		registered_ship.add_child(flag)
 		return registered_ship
 	var ship := Node3D.new()
 	ship.name = "CloseViewShip"
@@ -1000,11 +995,6 @@ func _sync_traffic(traffic_renderer: Node, traffic_group: String, delta: float =
 				var heraldry = load("res://systems/rendering/faction_base_style.gd").new()
 				heraldry.apply_ship(model, faction_id)
 				_add_ship_lanterns(model, visual.get("lamps", []), false)
-				var flag: Node3D = heraldry.make_flag(faction_id)
-				var anchor: Array = visual.get("flag_at", [0.0, 1.3, 2.6])
-				flag.position = Vector3(float(anchor[0]), float(anchor[1]), float(anchor[2]))
-				flag.scale = Vector3.ONE * 0.28
-				model.add_child(flag)
 			model.name = "Traffic_" + model_key.replace(":", "_").replace("/", "_")
 			_traffic_models[model_key] = model
 			model.set_meta("ship_identity", wanted_identity)

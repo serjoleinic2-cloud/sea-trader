@@ -1,6 +1,6 @@
 extends Node3D
 
-## Read-only fleet viewer: the same assets, paints and flags as the sailing view.
+## Read-only fleet viewer: the same assets and paints as the sailing view.
 var _ids: Array[String] = []
 var _index: int = 0
 var _faction: String = "humans"
@@ -114,11 +114,6 @@ func _rebuild() -> void:
 		add_child(_ship)
 	var style = load("res://systems/rendering/faction_base_style.gd").new()
 	style.apply_ship(_ship, _faction)
-	var flag: Node3D = style.make_flag(_faction)
-	var anchor: Array = visual.flag_at
-	flag.position = Vector3(anchor[0], anchor[1], anchor[2])
-	flag.scale = Vector3.ONE * 0.28
-	_ship.add_child(flag)
 	# The sailing renderer owns the lantern geometry and warm-light behavior.
 	var renderer = load("res://systems/rendering/approach_3d_view.gd").new()
 	renderer._add_ship_lanterns(_ship, visual.lamps)
