@@ -396,19 +396,25 @@ func _upgrade_yard() -> void:
 		windows[0].open_for_building("shipyard")
 
 func _state_signature() -> String:
-	# Escort and battle ships update their position/heading every frame. Including
-	# the full fleet dictionaries here rebuilt the whole UI twice per second while
-	# a moving warship was selected, which appeared as a flashing window. Keep the
-	# data that affects visible cards, but omit continuous movement and reload state.
+	# Only include values shown by this workspace. Transient trade/autopilot and
+	# production timestamps change continuously and must not rebuild the whole UI.
 	var visible_fleet: Array[Dictionary] = []
 	for raw_ship in GameState.fleet_state:
 		var ship: Dictionary = raw_ship
 		var visible_ship: Dictionary = {}
-		for key in ["instance_id", "ship_type_id", "name", "status", "hull", "level", "experience", "guns", "commander", "escort_enabled", "embarked_units", "crew", "autopilot", "pending_trade", "cargo", "current_port_id"]:
+		for key in ["instance_id", "ship_type_id", "name", "status", "hull", "level", "experience", "guns", "commander", "escort_enabled", "embarked_units", "crew", "cargo", "current_port_id"]:
 			if ship.has(key):
 				visible_ship[key] = ship[key]
 		visible_fleet.append(visible_ship)
-	return str(hash([visible_fleet, GameState.port_state.get(str(GameState.world_state.get("home_port_id", "")), {}), GameState.ship_state.get("docked_port_id", ""), GameState.company_state.get("shipyard_project", {}), GameState.progression_state.get("career", {})]))
+	var home_id: String = str(GameState.world_state.get("home_port_id", ""))
+	var home: Dictionary = GameState.port_state.get(home_id, {})
+	var inventory: Dictionary = home.get("inventory", {})
+	var visible_inventory: Dictionary = {}
+	for item in inventory:
+		visible_inventory[str(item)] = int(inventory[item])
+	var shipyard: Dictionary = home.get("buildings", {}).get("shipyard", {})
+	var career: Dictionary = GameState.progression_state.get("career", {})
+	return str(hash([visible_fleet, visible_inventory, shipyard.get("level", 0), GameState.ship_state.get("docked_port_id", ""), GameState.company_state.get("shipyard_project", {}), career.get("rank", 1), career.get("experience", 0)]))
 
 func _process(delta: float) -> void:
 	if not owner_window._is_open:

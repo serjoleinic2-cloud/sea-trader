@@ -116,8 +116,10 @@ func _ready() -> void:
 	navy._military=battle_military
 	check(int(GameState.combat_state.naval_battle.shots)>0,"attack order fires on its selected enemy")
 	var vfx: Node = main.get_node("NavalCombatVFX")
-	EventBus.naval_shot_visual.emit(water, water + Vector2(180, 0), true, "rune", Vector2.UP, id)
+	EventBus.naval_shot_visual.emit(water, water + Vector2(180, 0), true, "rune", Vector2.UP, id, 0)
 	check(not vfx.get("_shots").is_empty(),"3D naval VFX creates a visible projectile")
+	check(vfx.get("_debris").any(func(effect: Dictionary): return is_instance_valid(effect.get("node")) and str(effect.node.name)=="Naval_smoke"),"each cannon shot creates a camera-facing 2D powder-smoke puff")
+	check(vfx._shots.back().start.distance_to((approach.get("_scene_root").get_node("Traffic_combat_"+id) as Node3D).find_child("GunMuzzle_0",true,false).global_position)<.01,"projectile starts at the selected gun's muzzle marker")
 	ship.hull=navy.hull_max(ship)*.5
 	vfx._process(.05)
 	var damage_root: Node3D=vfx._damage_effects.get(id) as Node3D

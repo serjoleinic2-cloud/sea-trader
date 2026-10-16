@@ -547,6 +547,16 @@ func _add_naval_ship_card(ship: Dictionary) -> void:
 	box.add_child(row)
 	_naval_button(row, "Улучшить корпус", available, func(): return navy.upgrade_ship(id)).set_meta("fleet_primary_action", "Улучшить корпус")
 	_naval_button(row, "Ремонт", available, func(): return navy.repair_ship(id)).set_meta("fleet_primary_action", "Ремонт")
+	# A closed post-battle repair panel must not strand damaged ships. Keep a
+	# priced field-repair action in the fleet card while the latest report lives.
+	var battle_report: Dictionary = GameState.combat_state.get("naval_report", {})
+	var at_sea: bool = str(GameState.ship_state.get("docked_port_id", "")) == ""
+	if at_sea and not battle_report.is_empty():
+		var quote: Dictionary = navy.repair_quote(id)
+		if bool(quote.get("ok", false)):
+			var field_repair: Button = _naval_button(box, "Полевой ремонт · %d монет" % int(quote.get("cost", 0)), float(GameState.player_state.money) >= float(quote.get("cost", 0)), func(): return navy.repair_ship_after_battle(id))
+			field_repair.tooltip_text = "Полевой ремонт в море после боя. Стоимость: %d монет." % int(quote.get("cost", 0))
+			field_repair.set_meta("fleet_primary_action", "Полевой ремонт")
 	var commander: Dictionary = ship.commander
 	var personnel_button := Button.new()
 	personnel_button.text = "КОМАНДИР И ЭКИПАЖ · %s" % (str(commander.get("name", "назначить командира")) if not commander.is_empty() else "НАНЯТЬ И НАЗНАЧИТЬ")

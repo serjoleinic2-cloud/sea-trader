@@ -62,9 +62,15 @@ func _ready() -> void:
 				_box(Vector3(.3,.14,.34),Vector3(side*width*.25,.53,z),metal)
 				muzzle=Vector3(side*(width*.48+.24),.7,z)
 				_rod(Vector3(side*width*.25,.7,z),muzzle,.055,hull)
-			if index==0:
-				var marker := Marker3D.new()
-				marker.name="BowMuzzlePoint" if index<bow_slots else "MuzzlePoint"; marker.position=muzzle; add_child(marker)
+			var marker := Marker3D.new()
+			marker.name = "GunMuzzle_%d" % index
+			marker.position = muzzle
+			add_child(marker)
+			if index == 0:
+				var alias := Marker3D.new()
+				alias.name = "BowMuzzlePoint" if index < bow_slots else "MuzzlePoint"
+				alias.position = muzzle
+				add_child(alias)
 	else:
 		if ship_id.contains("tanker"):
 			for index in 3: _rod(Vector3(0,.73,-length*.25+index*.75),Vector3(0,.73,-length*.25+index*.75+.55),width*.32,metal)

@@ -389,6 +389,25 @@ func repair_ship(id: String) -> Dictionary:
 	var ship: Dictionary = ship_by_id(id)
 	var status: Dictionary = _management_status(ship)
 	if not status.ok: return status
+	return _repair_ship_transaction(ship)
+
+func repair_ship_after_battle(id: String) -> Dictionary:
+	if active(): return _result(false, "Сначала завершите морской бой.")
+	if GameState.combat_state.get("naval_report", {}).is_empty(): return _result(false, "После боя нечего ремонтировать.")
+	var ship: Dictionary = ship_by_id(id)
+	if ship.is_empty(): return _result(false, "Боевой корабль не найден.")
+	if float(ship.get("hull", 0.0)) <= 0.0: return _result(false, "Потопленный корабль нельзя восстановить полевым ремонтом.")
+	return _repair_ship_transaction(ship)
+
+func repair_quote(id: String) -> Dictionary:
+	var ship: Dictionary = ship_by_id(id)
+	if ship.is_empty(): return {"ok": false, "cost": 0, "message": "Корабль не найден."}
+	if float(ship.get("hull", 0.0)) <= 0.0: return {"ok": false, "cost": 0, "message": "Корабль потоплен."}
+	var missing: float = maxf(0.0, hull_max(ship) - float(ship.get("hull", 0.0)))
+	var cost: int = ceili(missing * float(_rules.repair_per_hull))
+	return {"ok": missing > 0.0, "cost": cost, "missing": missing, "message": "Корпус цел." if missing <= 0.0 else ""}
+
+func _repair_ship_transaction(ship: Dictionary) -> Dictionary:
 	var missing: float = maxf(0,hull_max(ship)-float(ship.get("hull",0)))
 	var cost: float = ceil(missing*float(_rules.repair_per_hull))
 	if float(GameState.player_state.money)<cost: return _result(false,"Ремонт стоит %d монет." % int(cost))
@@ -1015,7 +1034,7 @@ func _step_battle(delta: float) -> void:
 			var damage: float = maxf(1,float(_rules.enemy_damage)-float(GameData.get_ship(str(nearest.ship_type_id)).get("armor",0)))
 			var impact: Vector2 = _queue_projectile(battle, from, to, hit, "cannon", "ally", str(nearest.instance_id), damage, sequence, _military._length(nearest) if _military != null else 130.0)
 			EventBus.naval_shot_fired.emit(from,impact,hit)
-			EventBus.naval_shot_visual.emit(from,impact,hit,"cannon",vector(enemy.get("heading",Vector2.LEFT)),str(enemy.get("id","")))
+			EventBus.naval_shot_visual.emit(from,impact,hit,"cannon",vector(enemy.get("heading",Vector2.LEFT)),str(enemy.get("id","")),-1)
 	if bool(battle.get("truce_pending",false)) and _clock>=float(battle.get("truce_at",INF)):
 		var consent: bool = true
 		for enemy in enemies:
@@ -1123,7 +1142,7 @@ func _fire_ship(ship: Dictionary, enemies: Array[Dictionary], delta: float, batt
 		var effect: String=str(definition.get("effect",gun.kind))
 		var impact: Vector2 = _queue_projectile(battle, origin, vector(target.position), hit, effect, "enemy", str(target.id), maxf(1,damage-armor), int(battle.shots), length, str(ship.instance_id), gun_index)
 		EventBus.naval_shot_fired.emit(origin,impact,hit)
-		EventBus.naval_shot_visual.emit(origin,impact,hit,effect,vector(ship.get("escort_state",{}).get("heading",Vector2.UP)),str(ship.get("instance_id","")))
+		EventBus.naval_shot_visual.emit(origin,impact,hit,effect,vector(ship.get("escort_state",{}).get("heading",Vector2.UP)),str(ship.get("instance_id","")),gun_index)
 	if fired>0:
 		ship.naval_reload=volley_reload
 		for loaded_gun in ship.get("guns",[]):

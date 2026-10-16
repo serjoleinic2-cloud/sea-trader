@@ -65,6 +65,8 @@ func test_three_ship_battle_supports_independent_map_orders() -> void:
 	assert_eq(battle.enemy_ids.size(),3,"the wings join their training leader beyond the alert circle")
 	var map: Control=preload("res://systems/ui/naval_tactical_map.gd").new()
 	add_child(map); map.system=navy; map.size=Vector2(320,560); map.fit_battle()
+	assert_gt(float(map._vessels()[0].length),100.0,"tactical icons use real ship hull length in map units")
+	assert_gt(float(map._vessels()[0].beam),15.0,"tactical icons use ship beam proportionally")
 	for index in 3:
 		var ship: Dictionary=navy.ship_by_id(str(battle.ship_ids[index]))
 		var target: Dictionary=GameState.combat_state.naval_enemies[battle.enemy_ids[index]]
@@ -479,6 +481,19 @@ func test_repair_clears_old_sinking_state() -> void:
 	assert_gt(float(ship.hull),0.0)
 	assert_false(ship.has("sinking"))
 	assert_false(ship.has("sink_elapsed"))
+
+func test_post_battle_repair_quote_and_field_repair() -> void:
+	var ship: Dictionary=navy.ship_by_id("war1")
+	ship.hull=navy.hull_max(ship)-100.0
+	ship.current_port_id=""
+	_sea()
+	GameState.combat_state.naval_report={"outcome":"Победа","time":1.0}
+	var quote: Dictionary=navy.repair_quote("war1")
+	assert_true(bool(quote.ok))
+	assert_eq(int(quote.cost),50,"post-battle repair quote uses the established per-hull rate")
+	assert_true(navy.repair_ship_after_battle("war1").ok,"a damaged escort can be repaired after battle before returning to port")
+	assert_eq(float(ship.hull),navy.hull_max(ship))
+	assert_eq(float(GameState.player_state.money),199950.0)
 
 func test_z_starts_battle_without_a_confirmation_dialog() -> void:
 	_sea()

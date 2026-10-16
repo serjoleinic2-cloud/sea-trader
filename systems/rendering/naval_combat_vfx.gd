@@ -24,16 +24,17 @@ func initialize(approach_view: Node) -> void:
 	if not EventBus.naval_shot_visual.is_connected(_on_shot):
 		EventBus.naval_shot_visual.connect(_on_shot)
 
-func _on_shot(origin: Vector2, target: Vector2, hit: bool, weapon_kind: String, heading: Vector2, attacker_id: String) -> void:
+func _on_shot(origin: Vector2, target: Vector2, hit: bool, weapon_kind: String, heading: Vector2, attacker_id: String, gun_slot: int) -> void:
 	if not is_instance_valid(_world): return
 	var side: Vector2 = heading.normalized().orthogonal()
 	if side.length_squared() < 0.01: side = (target - origin).normalized().orthogonal()
 	var muzzle_map: Vector2 = origin + side * 13.0
 	var start := Vector3(muzzle_map.x * MAP_TO_METERS, 0.58, muzzle_map.y * MAP_TO_METERS)
-	start = _model_muzzle_position(attacker_id, start)
+	start = _model_muzzle_position(attacker_id, gun_slot, start)
 	var finish := Vector3(target.x * MAP_TO_METERS, 0.48 if hit else 0.08, target.y * MAP_TO_METERS)
 	var palette := _palette(weapon_kind)
 	_spawn_flash(start, palette.flash)
+	_spawn_muzzle_smoke(start, heading, weapon_kind)
 	_audio.play(_world,"cannon_fire",start)
 	if _shots.size() >= MAX_ACTIVE_SHOTS:
 		_remove_shot(0)
@@ -57,14 +58,25 @@ func _on_shot(origin: Vector2, target: Vector2, hit: bool, weapon_kind: String, 
 	var duration: float = preload("res://systems/combat/naval_artillery.gd").flight_seconds(origin,target,weapon_kind)
 	_shots.append({"projectile": projectile, "tracer": tracer, "start": start, "finish": finish, "previous": start, "progress": 0.0, "duration": duration, "hit": hit, "kind": weapon_kind})
 
-func _model_muzzle_position(attacker_id: String, fallback: Vector3) -> Vector3:
+func _model_muzzle_position(attacker_id: String, gun_slot: int, fallback: Vector3) -> Vector3:
 	if attacker_id == "" or not is_instance_valid(_world): return fallback
 	var model: Node3D = _world.get_node_or_null("Traffic_combat_" + attacker_id) as Node3D
 	if model == null: return fallback
-	for marker_name in ["BowMuzzlePoint", "MuzzlePoint", "GunMuzzle", "MuzzleFlash"]:
+	var marker_names: Array[String] = []
+	if gun_slot >= 0: marker_names.append("GunMuzzle_%d" % gun_slot)
+	marker_names.append_array(["BowMuzzlePoint", "MuzzlePoint", "GunMuzzle", "MuzzleFlash"])
+	for marker_name in marker_names:
 		var marker: Node3D = model.find_child(marker_name, true, false) as Node3D
 		if marker != null: return marker.global_position
 	return fallback
+
+func _spawn_muzzle_smoke(at: Vector3, heading: Vector2, weapon_kind: String) -> void:
+	# Billboarded 2D puff from the muzzle; a tiny drift away from the hull makes
+	# black-powder shots readable without adding particle emitters or 3D physics.
+	var direction := Vector3(heading.x, 0.0, heading.y).normalized()
+	if direction.length_squared() < 0.01: direction = Vector3.FORWARD
+	var tint: Color = Color("d9c9aa") if weapon_kind != "rune" else Color("b9edf2")
+	_spawn_sprite("smoke", at - direction * 0.16 + Vector3(0, 0.04, 0), tint, 0.9 if weapon_kind == "mortar" else 0.64, 0.72, -direction * 0.22 + Vector3(0, 0.18, 0))
 
 func _process(delta: float) -> void:
 	if _approach != null and is_instance_valid(_approach):

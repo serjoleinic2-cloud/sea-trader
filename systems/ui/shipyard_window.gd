@@ -15,6 +15,7 @@ var _build_button: Button
 var _notice: String = ""
 var _is_open: bool = false
 var _last_refresh_second: int = -1
+var _refresh_signature: String = ""
 
 func _ready() -> void:
 	add_to_group("shipyard_window")
@@ -128,9 +129,24 @@ func _process(_delta: float) -> void:
 	_panel.size = Vector2(minf(920.0, viewport.x - 32.0), minf(1080.0, viewport.y - 32.0))
 	_panel.position = (viewport - _panel.size) * 0.5
 	var second: int = int(Time.get_unix_time_from_system())
-	if second != _last_refresh_second:
+	var signature: String = _visible_state_signature()
+	if second != _last_refresh_second and signature != _refresh_signature:
 		_last_refresh_second = second
+		_refresh_signature = signature
 		_refresh()
+
+func _visible_state_signature() -> String:
+	if _system == null:
+		return ""
+	var project: Dictionary = _system.get_project()
+	var materials: Dictionary = project.get("required_materials", {})
+	var visible_materials: Dictionary = {}
+	var status: Dictionary = _system.get_material_status(project) if not project.is_empty() else {}
+	var rows: Dictionary = status.get("rows", {})
+	for id in materials:
+		var row: Dictionary = rows.get(id, {})
+		visible_materials[str(id)] = [int(row.get("available", 0)), int(row.get("required", 0)), int(row.get("reserved", 0))]
+	return str(hash([project.get("ship_type_id", ""), project.get("name", ""), visible_materials, _system.get_build_status().get("ok", false), _notice]))
 
 func _refresh() -> void:
 	if _system == null:
@@ -178,6 +194,7 @@ func _refresh() -> void:
 	else:
 		_build_button.text = "НЕ ХВАТАЕТ МАТЕРИАЛОВ" if not bool(material_status.ready) else "ПОСТРОЙКА НЕДОСТУПНА"
 		_details.text += "\n" + str(build_status.message)
+	_refresh_signature = _visible_state_signature()
 
 func _add_material_row(resource_id: String, status: Dictionary) -> void:
 	var label: Label = Label.new()
