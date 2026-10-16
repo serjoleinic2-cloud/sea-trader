@@ -983,7 +983,9 @@
         ]
       ],
       "procedural_id": "war_crystari_3",
-      "local_scene": "res://work/ships/naval/war_crystari_3.tscn"
+      "local_scene": "res://work/ships/naval/war_crystari_3.tscn",
+      "local_glb": "res://work/ships/crystari/crystari_frigate/crystari_frigate.glb",
+      "local_glb_length": 7.3
     },
     "war_crystari_4": {
       "scene": "",
