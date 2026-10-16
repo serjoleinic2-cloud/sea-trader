@@ -1035,7 +1035,9 @@
         ]
       ],
       "procedural_id": "war_crystari_5",
-      "local_scene": "res://work/ships/naval/war_crystari_5.tscn"
+      "local_scene": "res://work/ships/naval/war_crystari_5.tscn",
+      "local_glb": "res://work/ships/crystari/crystari_battleship/crystari_battleship.glb",
+      "local_glb_length": 9.5
     }
   }
 }

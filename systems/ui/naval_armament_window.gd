@@ -248,22 +248,25 @@ func _refresh_slots(ship: Dictionary) -> void:
 	for mount in ["bow","stern","port","starboard"]:
 		var mount_title:=Label.new(); mount_title.text=_system.gun_mount_name(mount).to_upper(); mount_title.add_theme_font_size_override("font_size",13); _slot_list.add_child(mount_title)
 		var found:=false
+		var row:=HFlowContainer.new(); row.add_theme_constant_override("h_separation",6); row.add_theme_constant_override("v_separation",4); _slot_list.add_child(row)
 		for index in ship.guns.size():
 			if _system.gun_slot_mount(ship,index)!=mount: continue
 			found=true
 			var gun: Dictionary=ship.guns[index]
 			var definition: Dictionary=_system._rules.guns.get(str(gun.get("kind","")),{})
+			var tile:=VBoxContainer.new(); tile.custom_minimum_size.x=92; tile.add_theme_constant_override("separation",2); row.add_child(tile)
 			var button:=Button.new()
 			button.set_meta("armament_slot",index)
-			button.text="%s %d · %s" % [_system.gun_mount_name(mount),index+1,"ПУСТО" if gun.is_empty() else str(definition.get("name",gun.get("kind","")))]
-			button.add_theme_font_size_override("font_size",12)
-			button.clip_text=true
-			button.text_overrun_behavior=TextServer.OVERRUN_TRIM_ELLIPSIS
-			button.tooltip_text="%s\nСектор огня: %s" % [button.text,_system.gun_mount_name(mount)]
+			button.text=""
+			button.custom_minimum_size=Vector2(86,58)
+			button.tooltip_text="%s %d · %s\nСектор огня: %s" % [_system.gun_mount_name(mount),index+1,"ПУСТО" if gun.is_empty() else str(definition.get("name",gun.get("kind",""))),_system.gun_mount_name(mount)]
 			button.toggle_mode=true
 			button.button_pressed=index==_selected_slot
 			button.pressed.connect(_select_slot.bind(index))
-			_slot_list.add_child(button)
+			var icon:=TextureRect.new(); icon.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT); icon.offset_left=4; icon.offset_right=-4; icon.offset_top=4; icon.offset_bottom=-4; icon.expand_mode=TextureRect.EXPAND_IGNORE_SIZE; icon.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_COVERED; icon.mouse_filter=Control.MOUSE_FILTER_IGNORE
+			icon.texture=_gun_art_texture(str(gun.get("kind","cannon")) if not gun.is_empty() else "cannon")
+			button.add_child(icon); tile.add_child(button)
+			var caption:=Label.new(); caption.text="%d · %s" % [index+1,"Пусто" if gun.is_empty() else str(definition.get("name",gun.get("kind","Орудие")))]; caption.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER; caption.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART; caption.add_theme_font_size_override("font_size",10); tile.add_child(caption)
 		if not found:
 			var absent:=Label.new(); absent.text="— нет точки установки"; absent.add_theme_font_size_override("font_size",11); _slot_list.add_child(absent)
 
@@ -359,21 +362,15 @@ func _gun_row(parent: VBoxContainer, definition: Dictionary, weapon_id: String) 
 	panel.add_theme_stylebox_override("panel",style)
 	parent.add_child(panel)
 	var row:=HBoxContainer.new()
-	row.add_theme_constant_override("separation",8)
+	row.add_theme_constant_override("separation",6)
 	panel.add_child(row)
 	var icon:=TextureRect.new()
 	if _gun_art_atlas != null and GUN_ART_CELLS.has(weapon_id):
-		var cell: int = int(GUN_ART_CELLS[weapon_id])
-		var cell_width: float = float(_gun_art_atlas.get_width()) / 4.0
-		var cell_height: float = float(_gun_art_atlas.get_height()) / 4.0
-		var art := AtlasTexture.new()
-		art.atlas = _gun_art_atlas
-		art.region = Rect2(Vector2(float(cell % 4) * cell_width, floori(float(cell) / 4.0) * cell_height), Vector2(cell_width, cell_height))
-		icon.texture = art
+		icon.texture = _gun_art_texture(weapon_id)
 	else:
 		var path: String=str(definition.get("icon",""))
 		if path!="" and ResourceLoader.exists(path): icon.texture=load(path) as Texture2D
-	icon.custom_minimum_size=Vector2(86,58)
+	icon.custom_minimum_size=Vector2(104,76)
 	icon.expand_mode=TextureRect.EXPAND_IGNORE_SIZE
 	icon.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	row.add_child(icon)
@@ -387,6 +384,16 @@ func _gun_row(parent: VBoxContainer, definition: Dictionary, weapon_id: String) 
 	name.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	copy.add_child(name)
 	return row
+
+func _gun_art_texture(weapon_id: String) -> Texture2D:
+	if _gun_art_atlas==null or not GUN_ART_CELLS.has(weapon_id): return null
+	var cell:int=int(GUN_ART_CELLS[weapon_id])
+	var width:float=float(_gun_art_atlas.get_width())/4.0
+	var height:float=float(_gun_art_atlas.get_height())/4.0
+	var art:=AtlasTexture.new()
+	art.atlas=_gun_art_atlas
+	art.region=Rect2(Vector2(float(cell%4)*width,floori(float(cell)/4.0)*height),Vector2(width,height))
+	return art
 
 func _button(parent: Control, text_value: String, callback: Callable) -> Button:
 	var button:=Button.new(); button.text=text_value; button.custom_minimum_size.y=32; button.add_theme_font_size_override("font_size",12); button.pressed.connect(_action.bind(callback)); parent.add_child(button); return button
