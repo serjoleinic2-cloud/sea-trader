@@ -957,7 +957,9 @@
         ]
       ],
       "procedural_id": "war_crystari_2",
-      "local_scene": "res://work/ships/naval/war_crystari_2.tscn"
+      "local_scene": "res://work/ships/naval/war_crystari_2.tscn",
+      "local_glb": "res://work/ships/crystari/crystari_corvette/crystari_corvette.glb",
+      "local_glb_length": 6.2
     },
     "war_crystari_3": {
       "scene": "",
