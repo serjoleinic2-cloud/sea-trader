@@ -1003,7 +1003,9 @@
         ]
       ],
       "procedural_id": "war_crystari_4",
-      "local_scene": "res://work/ships/naval/war_crystari_4.tscn"
+      "local_scene": "res://work/ships/naval/war_crystari_4.tscn",
+      "local_glb": "res://work/ships/crystari/crystal_aegis_cruiser/crystari_crystal_aegis_cruiser.glb",
+      "local_glb_length": 8.4
     },
     "war_crystari_5": {
       "scene": "",
