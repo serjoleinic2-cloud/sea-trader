@@ -931,7 +931,9 @@
         ]
       ],
       "procedural_id": "war_crystari_1",
-      "local_scene": "res://work/ships/naval/war_crystari_1.tscn"
+      "local_scene": "res://work/ships/naval/war_crystari_1.tscn",
+      "local_glb": "res://work/ships/crystari/crystari_vanguard_cutter/crystari_vanguard_cutter.glb",
+      "local_glb_length": 5.1
     },
     "war_crystari_2": {
       "scene": "",
