@@ -371,7 +371,8 @@ func test_armament_window_shows_ship_hardpoints_preview_shop_and_store() -> void
 	assert_true(window.find_children("*","SubViewportContainer",true,false).any(func(node): return node.has_meta("armament_ship_preview")))
 	var slot_buttons: Array=window.find_children("*","Button",true,false).filter(func(node): return node.has_meta("armament_slot"))
 	assert_eq(slot_buttons.size(),2)
-	assert_eq(window._shop_list.get_child_count(),17,"capacity note plus sixteen weapon choices")
+	assert_eq(window._shop_list.get_child_count(),3,"capacity note plus only guns compatible with the selected bow slot")
+	assert_eq(slot_buttons[0].find_children("*","TextureRect",true,false).size(),0,"an empty hardpoint has no placeholder gun art")
 	assert_true(str(window._title.text).contains("Страж"))
 	window.free()
 
@@ -380,9 +381,9 @@ func test_armament_filters_and_button_purchase_install_upgrade_flow() -> void:
 	add_child(window)
 	window.initialize(navy)
 	window.open_ship("war1")
-	window._compatible_filter.button_pressed=true
 	var choices: Array=window._shop_list.find_children("*","Button",true,false).filter(func(button): return button.has_meta("armament_buy"))
 	assert_eq(choices.size(),2,"a new bow cutter offers only its two compatible starter guns")
+	assert_true(choices.all(func(button): return navy.gun_install_status(GameState.fleet_state[0],0,str(button.get_meta("armament_buy"))).ok),"the shop hides guns incompatible with the selected bow slot")
 	var buy: Button=choices.filter(func(button): return str(button.get_meta("armament_buy"))=="cannon")[0]
 	assert_true(buy.get_theme_stylebox("normal") is StyleBoxTexture,"purchases use the approved brass art")
 	var money: float=GameState.player_state.money

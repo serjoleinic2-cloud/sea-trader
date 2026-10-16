@@ -500,11 +500,13 @@ func _refresh_commander_controls(ship: Dictionary) -> void:
 	_naval_commander_portrait.texture = _naval_commander_portrait_for(str(commander.get("race_id", GameState.player_state.get("origin_race_id", "humans"))), int(commander.get("portrait_variant", 0)))
 	_naval_commander_portrait.show()
 	_ship_action_button.text = "КОМАНДИР: %s · УР. %d · НАВЫКИ %d" % [str(commander.get("name", "")), int(commander.get("level", 1)), int(commander.get("skill_points", 0))]
+	_ship_action_button.tooltip_text = "При найме командир получает 1 очко навыка; ещё 1 — за каждый новый уровень. Опыт даётся за выстрелы (+6) и победы (+80). До следующего уровня нужно 150 × текущий уровень опыта."
 	_ship_action_button.disabled = true
 	for skill in ["gunnery", "accuracy", "reload"]:
 		var label: String = {"gunnery": "Урон", "accuracy": "Точность", "reload": "Перезарядка"}[skill]
 		var button := Button.new()
 		button.text = "%s %d +" % [label, int(commander.get("skills", {}).get(skill, 0))]
+		button.tooltip_text = {"gunnery": "Потратит 1 свободное очко навсегда. Урон орудий +3,5%.", "accuracy": "Потратит 1 свободное очко навсегда. Точность +3,5 процентного пункта.", "reload": "Потратит 1 свободное очко навсегда. Время перезарядки уменьшится примерно на 3,4%."}[skill]
 		button.custom_minimum_size.y = 32
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		button.disabled = not _ship_is_available(ship) or int(commander.get("skill_points", 0)) <= 0

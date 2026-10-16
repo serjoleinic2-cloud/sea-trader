@@ -195,9 +195,9 @@ func _refresh() -> void:
 				button.add_theme_stylebox_override("normal", gun_slot_style)
 				button.add_theme_stylebox_override("hover", gun_slot_style)
 				button.add_theme_stylebox_override("pressed", gun_slot_style)
-				var weapon_id:String=str(gun.get("kind","cannon")) if not gun.is_empty() else "cannon"
-				var texture:Texture2D=_gun_texture(weapon_id)
-				if texture!=null: _slot_image(button,texture)
+				if not gun.is_empty():
+					var texture:Texture2D=_gun_texture(str(gun.get("kind","")))
+					if texture!=null: _slot_image(button,texture,4.0)
 				var slot_caption:String=caption+" · "+(str(gun_definition.get("caliber_mm",0))+" мм" if not gun.is_empty() else "Свободно")
 				var caption_label:Label=_label(slot_caption,9)
 				caption_label.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
@@ -210,10 +210,10 @@ func _refresh() -> void:
 	_refresh_stats()
 	_update_timers()
 
-func _slot_image(button: Button, texture: Texture2D) -> void:
+func _slot_image(button: Button, texture: Texture2D, inset: float = 7.0) -> void:
 	var art := TextureRect.new()
 	art.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	art.offset_left=4;art.offset_right=-4;art.offset_top=4;art.offset_bottom=-4
+	art.offset_left=inset;art.offset_right=-inset;art.offset_top=inset;art.offset_bottom=-inset
 	art.expand_mode=TextureRect.EXPAND_IGNORE_SIZE
 	art.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	art.mouse_filter=Control.MOUSE_FILTER_IGNORE
@@ -324,8 +324,11 @@ func _open_crew(key: String) -> void:
 		var commander:Dictionary=Loadout.vessel(_ship_id).get("commander",{})
 		if str(slot.role)=="captain" and not commander.is_empty() and _navy()!=null:
 			_choices.add_child(_label("Навыки командира · свободных очков %d"%int(commander.get("skill_points",0)),12))
+			_choices.add_child(_label("Найм даёт 1 очко; каждый новый уровень — ещё 1. Командир получает опыт за выстрелы (+6) и победы (+80); до следующего уровня нужно 150 × текущий уровень опыта.",10))
+			_choices.add_child(_label("Каждое улучшение тратит 1 очко навсегда: урон +3,5%, точность +3,5 п.п. или время перезарядки −3,4%.",10))
 			for skill in [["gunnery","Мощность залпа"],["accuracy","Точность"],["reload","Перезарядка"]]:
 				var upgrade:Button=_button(_choices,"%s · %d  +"%[str(skill[1]),int(commander.get("skills",{}).get(skill[0],0))],func():_begin_change();_done(_navy().train_skill(_ship_id,str(skill[0]))))
+				upgrade.tooltip_text = {"gunnery":"Тратит 1 очко навсегда. Урон орудий +3,5%.","accuracy":"Тратит 1 очко навсегда. Точность орудий +3,5 процентного пункта.","reload":"Тратит 1 очко навсегда. Время перезарядки уменьшается примерно на 3,4%."}[str(skill[0])]
 				upgrade.disabled=int(commander.get("skill_points",0))<=0
 	for person in GameState.employee_state:
 		if str(person.get("assigned_to",""))!="reserve" or str(person.get("role_id",""))!=str(slot.role) or str(person.get("race_id",""))!=str(GameState.player_state.get("origin_race_id","humans")): continue
@@ -396,26 +399,28 @@ func _open_gun(slot: int) -> void:
 		var spec:Dictionary=navy._rules.guns.get(stored_kind, {})
 		if spec.is_empty():
 			continue
+		var compatibility:Dictionary=navy.gun_install_status(ship,slot,stored_kind)
+		if not bool(compatibility.ok):
+			continue
 		var stored_row:=HBoxContainer.new();stored_row.add_theme_constant_override("separation",8);_choices.add_child(stored_row)
 		stored_row.add_child(_gun_art_frame(stored_kind, 88))
 		var stored_info:=VBoxContainer.new();stored_info.size_flags_horizontal=Control.SIZE_EXPAND_FILL;stored_row.add_child(stored_info)
 		stored_info.add_child(_label("%s · ур. %d"%[str(spec.get("name", "Орудие")),int(stored.get("level",1))],11))
 		var install:Button=_button(stored_info,"Установить со склада",func():_begin_change();_done(navy.install_gun(_ship_id,slot,"",index)))
-		var compatibility:Dictionary=navy.gun_install_status(ship,slot,stored_kind)
-		install.disabled=not bool(compatibility.ok);install.tooltip_text=str(compatibility.message)
+		install.tooltip_text=str(compatibility.message)
 		_button(stored_row,"Продать · %d"%int(float(spec.get("cost",0))*.5),func():_begin_change();_done(navy.sell_arsenal_gun(_ship_id,index)))
 	for id in navy._rules.guns:
 		var spec:Dictionary=navy._rules.guns[id]
-		if not spec.get("mounts",[]).has(navy.gun_slot_mount(ship,slot)):continue
 		var compatible:Dictionary=navy.gun_install_status(ship,slot,str(id))
+		if not bool(compatible.ok): continue
 		var buy_row:=HBoxContainer.new();buy_row.add_theme_constant_override("separation",8);_choices.add_child(buy_row)
 		buy_row.add_child(_gun_art_frame(str(id), 88))
 		var gun_info:=VBoxContainer.new();gun_info.size_flags_horizontal=Control.SIZE_EXPAND_FILL;buy_row.add_child(gun_info)
 		gun_info.add_child(_label("%s · %d мм · ур. от %d"%[str(spec.name),int(spec.get("caliber_mm",0)),int(spec.get("min_ship_level",1))],11))
 		gun_info.add_child(_label("Урон %.0f · дальность %.0f · перезарядка %.0f с"%[float(spec.damage),float(spec.range),float(spec.reload)],10))
-		if not bool(compatible.ok): gun_info.add_child(_label(str(compatible.message),10))
 		var buy:Button=_button(gun_info,"Купить и установить · %d"%int(spec.cost),func():_begin_change();_done(navy.install_gun(_ship_id,slot,str(id))))
-		buy.disabled=not bool(compatible.ok) or float(GameState.player_state.money)<float(spec.cost)
+		buy.set_meta("gun_kind",str(id))
+		buy.disabled=float(GameState.player_state.money)<float(spec.cost)
 
 func _update_timers() -> void:
 	var slots:Array=Loadout.boost_slots(Loadout.vessel(_ship_id))

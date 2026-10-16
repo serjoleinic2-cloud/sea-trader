@@ -34,6 +34,7 @@ func _ready() -> void:
 	var bow_gun_slot: Button = view.find_child("GunSlot_0",true,false) as Button
 	check(bow_gun_slot!=null,"bow gun slot exists on military ship")
 	if bow_gun_slot!=null: check(is_equal_approx(bow_gun_slot.custom_minimum_size.x,bow_gun_slot.custom_minimum_size.y),"gun art uses a square framed slot")
+	if bow_gun_slot!=null: check(bow_gun_slot.find_children("*","TextureRect",true,false).is_empty(),"empty gun slot has no weapon placeholder art")
 	check(view._bars.find_child("Stat_speed",true,false) is ProgressBar,"statistics use numeric horizontal bars")
 	view._crew.find_child("CrewSlot_crew_0",true,false).pressed.emit()
 	await frames()
@@ -71,6 +72,8 @@ func _ready() -> void:
 	check(view._picker.visible,"gun picker opens safely with a legacy arsenal entry missing its kind")
 	var gun_frames: Array = view._choices.find_children("*", "PanelContainer", true, false).filter(func(node): return node.custom_minimum_size==Vector2(88,88))
 	check(not gun_frames.is_empty(),"arsenal and shop art use larger square brass frames")
+	var gun_choices: Array = view._choices.find_children("*", "Button", true, false).filter(func(button): return button.has_meta("gun_kind"))
+	check(gun_choices.all(func(button): return view._navy().gun_install_status(GameState.fleet_state[0],0,str(button.get_meta("gun_kind"))).ok),"gun picker offers only weapons compatible with the selected mount")
 	buy=null
 	for button in view._choices.find_children("*","Button",true,false):
 		if button.text.begins_with("Купить и установить") and not button.disabled:buy=button;break

@@ -30,7 +30,6 @@ var _preview_root: Node3D
 var _preview_model: Node3D
 var _money: Label
 var _class_filter: OptionButton
-var _compatible_filter: CheckButton
 var _selected_progress: ProgressBar
 var _preview_container: SubViewportContainer
 var _gun_art_atlas: Texture2D
@@ -107,12 +106,11 @@ func _ready() -> void:
 	_class_filter.add_theme_font_size_override("font_size",12)
 	_class_filter.item_selected.connect(func(_index: int): _refresh_shop(_system.ship_by_id(_ship_id)))
 	filters.add_child(_class_filter)
-	_compatible_filter=CheckButton.new()
-	_compatible_filter.text="Для слота"
-	_compatible_filter.add_theme_font_size_override("font_size",12)
-	_compatible_filter.tooltip_text="Показать только орудия, подходящие выбранной точке и уровню корабля."
-	_compatible_filter.toggled.connect(func(_pressed: bool): _refresh_shop(_system.ship_by_id(_ship_id)))
-	filters.add_child(_compatible_filter)
+	var compatible_note := Label.new()
+	compatible_note.text = "Для слота"
+	compatible_note.add_theme_font_size_override("font_size", 12)
+	compatible_note.tooltip_text = "Показаны только орудия, подходящие выбранной точке и уровню корабля."
+	filters.add_child(compatible_note)
 	var tabs:=TabContainer.new()
 	tabs.size_flags_vertical=Control.SIZE_EXPAND_FILL
 	market.add_child(tabs)
@@ -179,7 +177,6 @@ func open_ship(ship_id: String) -> void:
 	_ship_id=ship_id
 	_selected_slot=0
 	_class_filter.select(0)
-	_compatible_filter.set_pressed_no_signal(false)
 	_notice.text="Выберите точку установки и орудие со склада."
 	_refresh_preview()
 	_refresh()
@@ -273,9 +270,11 @@ func _refresh_slots(ship: Dictionary) -> void:
 			button.toggle_mode=true
 			button.button_pressed=index==_selected_slot
 			button.pressed.connect(_select_slot.bind(index))
-			var icon:=TextureRect.new(); icon.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT); icon.offset_left=5; icon.offset_right=-5; icon.offset_top=5; icon.offset_bottom=-5; icon.expand_mode=TextureRect.EXPAND_IGNORE_SIZE; icon.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED; icon.mouse_filter=Control.MOUSE_FILTER_IGNORE
-			icon.texture=_gun_art_texture(str(gun.get("kind","cannon")) if not gun.is_empty() else "cannon")
-			button.add_child(icon); tile.add_child(button)
+			if not gun.is_empty():
+				var icon:=TextureRect.new(); icon.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT); icon.offset_left=5; icon.offset_right=-5; icon.offset_top=5; icon.offset_bottom=-5; icon.expand_mode=TextureRect.EXPAND_IGNORE_SIZE; icon.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED; icon.mouse_filter=Control.MOUSE_FILTER_IGNORE
+				icon.texture=_gun_art_texture(str(gun.get("kind","")))
+				button.add_child(icon)
+			tile.add_child(button)
 			var caption:=Label.new(); caption.text="%d · %s" % [index+1,"Пусто" if gun.is_empty() else str(definition.get("name",gun.get("kind","Орудие")))]; caption.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER; caption.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART; caption.add_theme_font_size_override("font_size",10); tile.add_child(caption)
 		if not found:
 			var absent:=Label.new(); absent.text="— нет точки установки"; absent.add_theme_font_size_override("font_size",11); _slot_list.add_child(absent)
@@ -322,23 +321,23 @@ func _refresh_shop(ship: Dictionary) -> void:
 		var definition: Dictionary=_system._rules.guns[kind]
 		if _class_filter.selected>0 and int(definition.get("weight_class",1))!=_class_filter.selected: continue
 		var compatibility: Dictionary=_system.gun_install_status(ship,_selected_slot,kind)
-		if _compatible_filter.button_pressed and not bool(compatibility.ok): continue
+		if not bool(compatibility.ok): continue
 		shown+=1
 		var row:=_gun_row(_shop_list,definition,kind)
 		var copy:=row.get_meta("copy") as VBoxContainer
 		var stats:=Label.new(); stats.text="Класс %d · корабль ур. %d · %d мм\nУрон %.0f · дальность %.0f · перезарядка %.0f с\n%s" % [int(definition.get("weight_class",1)),int(definition.get("min_ship_level",1)),int(definition.get("caliber_mm",0)),float(definition.damage),float(definition.range),float(definition.reload),str(definition.get("description",""))]; stats.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART; stats.add_theme_font_size_override("font_size",11); copy.add_child(stats)
 		var eligibility:=Label.new()
-		eligibility.text="Подходит выбранному слоту" if bool(compatibility.ok) else str(compatibility.message)
+		eligibility.text="Подходит выбранному слоту"
 		eligibility.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 		eligibility.add_theme_font_size_override("font_size",11)
-		eligibility.add_theme_color_override("font_color",Color("7ee1c3") if bool(compatibility.ok) else Color("d4a677"))
+		eligibility.add_theme_color_override("font_color",Color("7ee1c3"))
 		copy.add_child(eligibility)
 		var buy:=_button(copy,"Купить · %d" % int(definition.cost),func(): return _system.buy_gun(_ship_id,kind))
 		buy.set_meta("armament_buy",kind)
 		buy.disabled=float(GameState.player_state.money)<float(definition.cost) or inventory.size()>=_system.arsenal_capacity()
-		buy.tooltip_text="Склад заполнен." if inventory.size()>=_system.arsenal_capacity() else ("Не хватает монет." if buy.disabled else ("Купить на склад для будущего оснащения." if not bool(compatibility.ok) else "Купить на склад."))
+		buy.tooltip_text="Склад заполнен." if inventory.size()>=_system.arsenal_capacity() else ("Не хватает монет." if buy.disabled else "Купить на склад.")
 	if shown==0:
-		var empty:=Label.new(); empty.text="Нет орудий для этого класса и слота. Измените фильтры."; empty.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART; empty.add_theme_font_size_override("font_size",12); _shop_list.add_child(empty)
+		var empty:=Label.new(); empty.text="Нет орудий, подходящих выбранной точке и уровню корабля."; empty.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART; empty.add_theme_font_size_override("font_size",12); _shop_list.add_child(empty)
 
 func _refresh_storage(ship: Dictionary) -> void:
 	_clear(_storage_list)
@@ -350,17 +349,23 @@ func _refresh_storage(ship: Dictionary) -> void:
 	for index in inventory.size():
 		var gun: Dictionary=inventory[index]
 		var definition: Dictionary=_system._rules.guns.get(str(gun.get("kind","")),{})
+		var mount_status: Dictionary=_system.gun_install_status(ship,_selected_slot,str(gun.get("kind","")))
+		if not bool(mount_status.ok): continue
 		var row:=_gun_row(_storage_list,definition,str(gun.get("kind","")))
 		var copy:=row.get_meta("copy") as VBoxContainer
 		var progress:=Label.new(); progress.text="Уровень %d · опыт %d" % [int(gun.get("level",1)),int(gun.get("experience",0))]; progress.add_theme_font_size_override("font_size",12); copy.add_child(progress)
-		var mount_status: Dictionary=_system.gun_install_status(ship,_selected_slot,str(gun.get("kind","")))
 		var install:=_button(copy,"Установить в выбранный слот",func(): return _system.install_gun(_ship_id,_selected_slot,"",index))
-		install.disabled=not bool(mount_status.ok) or not ship.guns[_selected_slot].is_empty()
-		install.tooltip_text="Сначала снимите установленное орудие." if not ship.guns[_selected_slot].is_empty() else str(mount_status.message)
+		install.disabled=not ship.guns[_selected_slot].is_empty()
+		install.tooltip_text="Сначала снимите установленное орудие." if install.disabled else "Установить в выбранный слот."
 		install.set_meta("armament_install",index)
 		var explanation:=Label.new(); explanation.text=install.tooltip_text; explanation.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART; explanation.add_theme_font_size_override("font_size",11); copy.add_child(explanation)
 		var refund: int=int(floor(float(definition.get("cost",0))*float(_system._rules.get("gun_sell_fraction",.5))))
 		_button(copy,"Продать · %d монет" % refund,func(): return _system.sell_arsenal_gun(_ship_id,index))
+	if _storage_list.get_child_count() <= 2:
+		var empty := Label.new()
+		empty.text = "На складе нет орудий, подходящих выбранному слоту."
+		empty.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_storage_list.add_child(empty)
 
 func _gun_row(parent: VBoxContainer, definition: Dictionary, weapon_id: String) -> HBoxContainer:
 	var panel:=PanelContainer.new()
