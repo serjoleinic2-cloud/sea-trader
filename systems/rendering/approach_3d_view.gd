@@ -1067,7 +1067,8 @@ func _update_camera(ship_position: Vector2, close_factor: float, delta: float, m
 	var motion_time: float = _animation_clock
 	var turn_bank: float = clampf(deg_to_rad(float(GameState.ship_state.get("visual_roll",0.0)))*.45,-.095,.095)
 	OceanSurface.float_ship(_ship, ship_position * MAP_TO_METERS, heading, _ship_display_length, motion_time, delta)
-	_ship.rotation.z += turn_bank
+	# A right turn heels outward to port, opposite the turn direction.
+	_ship.rotation.z -= turn_bank
 	if _wake!=null:
 		_wake.track("player",ship_position*MAP_TO_METERS,heading,_ship_display_length,delta)
 

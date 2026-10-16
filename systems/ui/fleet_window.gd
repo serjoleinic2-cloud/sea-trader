@@ -27,8 +27,11 @@ func _ready() -> void:
 	_panel.size = Vector2(1100, 660)
 	add_child(_panel)
 	var margin := MarginContainer.new()
-	for side in ["left", "top", "right", "bottom"]:
+	for side in ["left", "right"]:
 		margin.add_theme_constant_override("margin_" + side, 12)
+	for side in ["top", "bottom"]:
+		# Keep the panel's minimum height inside the usable area on 720p displays.
+		margin.add_theme_constant_override("margin_" + side, 10)
 	_panel.add_child(margin)
 	_garage = preload("res://systems/ui/fleet_garage_view.gd").new()
 	_garage.owner_window = self

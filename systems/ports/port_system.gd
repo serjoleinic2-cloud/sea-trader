@@ -327,6 +327,10 @@ func dock(port_id: String) -> bool:
 	return saved
 
 func port_entry_status(port_id: String) -> Dictionary:
+	# Unit tests and preview tools may construct this system without adding it to
+	# the scene tree. In that case there cannot be an active naval guard system.
+	if not is_inside_tree():
+		return {"protected": false, "blocked": false, "tier": 0, "message": ""}
 	var naval: Node = get_tree().get_first_node_in_group("naval_combat_system")
 	if naval != null and naval.has_method("port_entry_status"):
 		return naval.call("port_entry_status", port_id)

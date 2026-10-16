@@ -231,10 +231,11 @@ func test_fleet_contract_expires_on_arrival_and_blocks_next_trip() -> void:
 	assert_false(_market.start_single_trip("aux", _destination, "home", "resource_timber", 5).ok)
 
 func test_career_transitions_and_maximum() -> void:
-	GameState.player_state.stats = {"total_distance": 135000}
+	# Career ladder is tuned at 25 activity per rank for the first stage.
+	GameState.player_state.stats = {"total_distance": 225000}
 	assert_eq(_career.get_command_progress().rank, 10)
-	assert_eq(_career.get_command_progress().next_activity, 150)
-	GameState.player_state.stats.total_distance = 150000
+	assert_eq(_career.get_command_progress().next_activity, 250)
+	GameState.player_state.stats.total_distance = 250000
 	assert_eq(_career.get_command_progress().stage_id, "bosun")
 	assert_eq(_career.get_command_progress().stage_level, 1)
 	GameState.player_state.stats.total_distance = 100000000
@@ -365,8 +366,8 @@ func test_auxiliary_voyage_status_has_saved_route_progress_and_cargo() -> void:
 	assert_eq(status.cargo_units, 5)
 
 func test_next_hull_unlocks_after_previous_career_stage() -> void:
-	GameState.player_state.stats = {"total_distance": 135000}
+	GameState.player_state.stats = {"total_distance": 225000}
 	assert_false(_fleet.get_ship_access("ship_barque").ok)
-	GameState.player_state.stats = {"total_distance": 150000}
+	GameState.player_state.stats = {"total_distance": 250000}
 	assert_true(_fleet.get_ship_access("ship_barque").ok)
 	assert_false(_fleet.get_ship_access("ship_schooner").ok)

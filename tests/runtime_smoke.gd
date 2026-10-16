@@ -66,8 +66,9 @@ func _ready() -> void:
 	_check(extra_resources.visible and extra_resources.text == "ЕЩЁ  +1", "Newly produced resource appears in the overflow menu without changing pinned slots")
 	main.get_node("WindowCoordinator/MoreResourcesPanel").show()
 	await _frames()
-	var extra_label: Label = main.get_node("WindowCoordinator/MoreResourcesPanel/ResourceScroll/ResourceList/Resource_resource_oil")
-	_check(extra_label.text == "Масло  6", "Overflow resource uses catalog name and current stock")
+	var extra_name: Label = main.get_node("WindowCoordinator/MoreResourcesPanel").find_child("ResourceName_resource_oil", true, false)
+	var extra_amount: Label = main.get_node("WindowCoordinator/MoreResourcesPanel").find_child("ResourceAmount_resource_oil", true, false)
+	_check(extra_name != null and extra_name.text == "Масло" and extra_amount != null and extra_amount.text == "6", "Overflow resource uses catalog name and current stock")
 	if not main._world_ready:
 		get_tree().quit(1)
 		return

@@ -19,13 +19,18 @@ func setup(port_id: String, showcase_level: int = 0, faction_id: String = "") ->
 	_showcase_level = showcase_level
 	_race = faction_id if faction_id != "" else str(GameState.player_state.get("origin_race_id", "humans"))
 	_manifest = GameData.read("res://data/world/home_base_visuals.json")
-	Island.build(self, _manifest.get("coastline", []), _race)
+	# Sailing camera sees this island at a distance; use the renderer's compact
+	# geometry profile instead of the detailed docked-town mesh budget.
+	Island.build(self, _manifest.get("coastline", []), _race, true)
 	# Piers remain at the authored home-port placements and waterline height.
 	Island.build_piers(self, [
 		[[-29,-25],[-23,-25],[-23,-50],[-29,-50]],
 		[[35,-30],[41,-30],[41,-50],[35,-50]]
 	], _race)
 	_add_landmarks()
+	# Build the current town silhouette immediately so callers can inspect the
+	# preview as soon as setup() returns (the periodic refresh is only for live ports).
+	_refresh_buildings()
 	# Buildings belong to the docked 2D town, not the sailing island.
 	set_process(false)
 	set_night_strength(0.0)
