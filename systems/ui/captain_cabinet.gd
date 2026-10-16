@@ -17,6 +17,11 @@ var _replay_reward_button: Button
 var _rewards_overlay: PanelContainer
 var _rewards_summary: Label
 var _rewards_rows: VBoxContainer
+var _medal_list_view: VBoxContainer
+var _medal_case_view: Control
+var _medal_case_grid: GridContainer
+var _rewards_list_toggle: Button
+var _rewards_case_toggle: Button
 var _show_rewards: bool = false
 var _displayed_race_id: String = ""
 var _open := false
@@ -238,16 +243,26 @@ func _build_rewards_overlay() -> void:
 	title.add_theme_font_size_override("font_size", 20)
 	title.add_theme_color_override("font_color", Color("f0d18d"))
 	heading.add_child(title)
-	var close_rewards := Button.new()
-	close_rewards.name = "CloseRewardsButton"
-	preload("res://systems/ui/brass_close_button.gd").apply(close_rewards)
-	close_rewards.pressed.connect(func() -> void: _show_rewards = false; _rewards_overlay.hide())
-	heading.add_child(close_rewards)
+	var close_rewards_icon := Button.new()
+	close_rewards_icon.name = "CloseRewardsButton"
+	preload("res://systems/ui/brass_close_button.gd").apply(close_rewards_icon)
+	close_rewards_icon.pressed.connect(func() -> void: _show_rewards = false; _rewards_overlay.hide())
+	heading.add_child(close_rewards_icon)
 	_rewards_summary = Label.new()
 	_rewards_summary.add_theme_font_size_override("font_size", 13)
 	_rewards_summary.add_theme_color_override("font_color", Color("d7e2e5"))
 	_rewards_summary.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	column.add_child(_rewards_summary)
+	var view_switch := HBoxContainer.new()
+	view_switch.alignment = BoxContainer.ALIGNMENT_CENTER
+	view_switch.add_theme_constant_override("separation", 10)
+	column.add_child(view_switch)
+	_rewards_list_toggle = _rewards_view_button("СПИСОК")
+	_rewards_list_toggle.pressed.connect(func() -> void: _set_rewards_view(false))
+	view_switch.add_child(_rewards_list_toggle)
+	_rewards_case_toggle = _rewards_view_button("ЗАЛ СЛАВЫ")
+	_rewards_case_toggle.pressed.connect(func() -> void: _set_rewards_view(true))
+	view_switch.add_child(_rewards_case_toggle)
 	column.add_child(HSeparator.new())
 	var scroll := ScrollContainer.new()
 	scroll.name = "RankRewardsScroll"
@@ -255,10 +270,16 @@ func _build_rewards_overlay() -> void:
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
 	column.add_child(scroll)
+	_medal_list_view = VBoxContainer.new()
+	_medal_list_view.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_medal_list_view.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.add_child(_medal_list_view)
 	_rewards_rows = VBoxContainer.new()
 	_rewards_rows.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_rewards_rows.add_theme_constant_override("separation", 3)
-	scroll.add_child(_rewards_rows)
+	_medal_list_view.add_child(_rewards_rows)
+	_build_medal_case_view()
+	_medal_list_view.add_child(_medal_case_view)
 	_replay_reward_button = Button.new()
 	_replay_reward_button.name = "ReplayRankCeremonyButton"
 	_replay_reward_button.text = "ПОСМОТРЕТЬ ЦЕРЕМОНИЮ"
@@ -272,7 +293,117 @@ func _build_rewards_overlay() -> void:
 			systems[0].replay_rank_ceremony()
 	)
 	column.add_child(_replay_reward_button)
+	var close_footer := CenterContainer.new()
+	close_footer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	column.add_child(close_footer)
+	var close_rewards := Button.new()
+	close_rewards.name = "CloseHallOfFameButton"
+	close_rewards.text = "ЗАКРЫТЬ"
+	close_rewards.custom_minimum_size = Vector2(150, 34)
+	close_rewards.add_theme_font_size_override("font_size", 13)
+	close_rewards.pressed.connect(func() -> void: _show_rewards = false; _rewards_overlay.hide())
+	close_footer.add_child(close_rewards)
 	_rewards_overlay.hide()
+	_set_rewards_view(false)
+
+func _rewards_view_button(caption: String) -> Button:
+	var button := Button.new()
+	button.custom_minimum_size = Vector2(150, 36)
+	button.text = caption
+	button.toggle_mode = true
+	button.add_theme_font_size_override("font_size", 13)
+	for state_name in ["normal", "pressed", "hover", "hover_pressed", "disabled", "focus"]:
+		button.add_theme_stylebox_override(state_name, _brass_style(14.0, 10.0))
+	return button
+
+func _build_medal_case_view() -> void:
+	_medal_case_view = Control.new()
+	_medal_case_view.name = "CaptainMedalCase"
+	_medal_case_view.custom_minimum_size = Vector2(1000, 560)
+	_medal_case_view.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var case_art := TextureRect.new()
+	case_art.name = "UniversalBrassMedalCaseArt"
+	case_art.texture = load("res://assets/ui/ranks/captain_medal_case.jpg")
+	case_art.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	case_art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	case_art.stretch_mode = TextureRect.STRETCH_SCALE
+	case_art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_medal_case_view.add_child(case_art)
+	_medal_case_grid = GridContainer.new()
+	_medal_case_grid.name = "MedalCushionGrid"
+	_medal_case_grid.columns = 10
+	_medal_case_grid.add_theme_constant_override("h_separation", 7)
+	_medal_case_grid.add_theme_constant_override("v_separation", 6)
+	_medal_case_grid.anchor_left = 0.145
+	_medal_case_grid.anchor_right = 0.855
+	_medal_case_grid.anchor_top = 0.535
+	_medal_case_grid.anchor_bottom = 0.86
+	_medal_case_grid.offset_left = 0
+	_medal_case_grid.offset_right = 0
+	_medal_case_grid.offset_top = 0
+	_medal_case_grid.offset_bottom = 0
+	_medal_case_view.add_child(_medal_case_grid)
+	var velvet_gradient := Gradient.new()
+	velvet_gradient.offsets = PackedFloat32Array([0.0, 0.5, 1.0])
+	velvet_gradient.colors = PackedColorArray([Color("6f101c"), Color("bd3541"), Color("72131f")])
+	var velvet_texture := GradientTexture2D.new()
+	velvet_texture.width = 48
+	velvet_texture.height = 32
+	velvet_texture.fill = GradientTexture2D.FILL_RADIAL
+	velvet_texture.fill_from = Vector2(0.25, 0.25)
+	velvet_texture.fill_to = Vector2(0.8, 0.8)
+	velvet_texture.gradient = velvet_gradient
+	for rank in range(1, 51):
+		var slot := Panel.new()
+		slot.name = "MedalSlot_%02d" % rank
+		slot.set_meta("medal_rank", rank)
+		slot.custom_minimum_size = Vector2(58, 34)
+		slot.tooltip_text = "Ранг %02d · медаль будет здесь" % rank
+		var rim := StyleBoxFlat.new()
+		rim.bg_color = Color("50141a")
+		rim.border_color = Color("bd9752")
+		rim.set_border_width_all(1)
+		rim.set_corner_radius_all(7)
+		rim.shadow_color = Color(0.02, 0.01, 0.01, 0.7)
+		rim.shadow_size = 3
+		rim.content_margin_left = 3
+		rim.content_margin_right = 3
+		rim.content_margin_top = 2
+		rim.content_margin_bottom = 2
+		slot.add_theme_stylebox_override("panel", rim)
+		var pillow := TextureRect.new()
+		pillow.name = "EmptyVelvetPillow"
+		pillow.texture = velvet_texture
+		pillow.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		pillow.offset_left = 4
+		pillow.offset_right = -4
+		pillow.offset_top = 3
+		pillow.offset_bottom = -3
+		pillow.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		pillow.stretch_mode = TextureRect.STRETCH_SCALE
+		slot.add_child(pillow)
+		var medal := TextureRect.new()
+		medal.name = "EarnedMedal"
+		medal.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		medal.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		medal.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		medal.offset_left = 5
+		medal.offset_right = -5
+		medal.offset_top = 2
+		medal.offset_bottom = -2
+		medal.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		medal.hide()
+		slot.add_child(medal)
+		_medal_case_grid.add_child(slot)
+	_medal_case_view.hide()
+
+func _set_rewards_view(show_case: bool) -> void:
+	if _medal_case_view == null or _medal_list_view == null:
+		return
+	_rewards_rows.visible = not show_case
+	_medal_case_view.visible = show_case
+	_rewards_list_toggle.button_pressed = not show_case
+	_rewards_case_toggle.button_pressed = show_case
 
 func _refresh_rewards() -> void:
 	if _rewards_rows == null:
@@ -327,6 +458,23 @@ func _refresh_rewards() -> void:
 		details.add_theme_color_override("font_color", Color("65d7c9") if claimed.has(rank) else Color("c2c9ca"))
 		row.add_child(details)
 		_rewards_rows.add_child(HSeparator.new())
+	_refresh_medal_case(claimed, current_rank)
+
+func _refresh_medal_case(claimed: Dictionary, current_rank: int) -> void:
+	if _medal_case_grid == null:
+		return
+	for slot in _medal_case_grid.get_children():
+		var rank: int = int(slot.get_meta("medal_rank", 0))
+		var pillow: TextureRect = slot.get_node("EmptyVelvetPillow") as TextureRect
+		var medal: TextureRect = slot.get_node("EarnedMedal") as TextureRect
+		var received: bool = claimed.has(rank)
+		pillow.visible = not received
+		medal.visible = received
+		if received:
+			medal.texture = _rank_medal_texture(rank)
+			slot.tooltip_text = "Ранг %02d · медаль получена" % rank
+		else:
+			slot.tooltip_text = "Ранг %02d · %s" % [rank, "медаль ещё не получена" if rank > current_rank else "медаль не записана в журнале наград"]
 
 func _rank_medal_texture(rank: int) -> AtlasTexture:
 	var texture := AtlasTexture.new()

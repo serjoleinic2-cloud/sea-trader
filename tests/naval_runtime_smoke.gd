@@ -170,6 +170,29 @@ func _ready() -> void:
 	hud._truce.pressed.emit(); check(bool(GameState.combat_state.naval_battle.truce_pending),"truce button requests mutual consent")
 	navy.respond_truce(true); await frames()
 	check(not navy.active() and ship.escort_enabled,"mutual truce restores escort")
+	GameState.player_state.money=50000
+	ship.hull=navy.hull_max(ship)*.6
+	for repair_index in 2:
+		var extra_ship: Dictionary=ship.duplicate(true)
+		extra_ship.instance_id="repair_fixture_%d" % repair_index
+		extra_ship.name="Тестовый корабль %d" % (repair_index+2)
+		extra_ship.hull=navy.hull_max(extra_ship)*.6
+		GameState.fleet_state.append(extra_ship)
+	GameState.combat_state.naval_report={"outcome":"Тестовый результат","time":999.0}
+	hud._open_repair_after_report(); await frames(6)
+	check(hud._repair_panel.visible and hud._repair_rows.get_child_count()==3,"post-battle repair lists all three damaged ships")
+	var repair_view: Rect2= hud._repair_scroll.get_global_rect()
+	var all_buttons_visible: bool=true
+	for repair_row in hud._repair_rows.get_children():
+		var repair_button: Button=repair_row.get_child(1) as Button
+		var button_rect: Rect2=repair_button.get_global_rect()
+		all_buttons_visible=all_buttons_visible and not repair_button.disabled and repair_view.has_point(button_rect.get_center())
+	check(all_buttons_visible,"all three repair actions are visible inside the scroll viewport")
+	for repair_index in 3:
+		if hud._repair_rows.get_child_count()==0: break
+		var repair_button: Button=hud._repair_rows.get_child(0).get_child(1) as Button
+		repair_button.pressed.emit(); await frames(2)
+	check(hud._repair_rows.get_child_count()==0,"all three repair buttons can be pressed")
 	print("NAVAL SMOKE checks=%d fail=%d" % [checks,failures])
 	main.queue_free(); await frames(); SaveSystem.delete_save()
 	get_tree().quit(0 if failures==0 else 1)

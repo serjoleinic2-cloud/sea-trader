@@ -79,6 +79,15 @@ func _ready() -> void:
 	await _frames()
 	var surface := cabinet._rewards_overlay.get_theme_stylebox("panel") as StyleBoxFlat
 	_check(surface != null and surface.bg_color.a == 1.0, "rewards window has an opaque background")
+	_check(cabinet._medal_case_grid.get_child_count() == 50, "universal medal case has a cushion for every career rank")
+	_check(cabinet._medal_case_view.get_node("UniversalBrassMedalCaseArt").texture != null, "all factions share the same brass-and-velvet medal case art")
+	var fame_close := cabinet._panel.find_child("CloseHallOfFameButton", true, false) as Button
+	var close_center: float = fame_close.get_global_rect().get_center().x
+	_check(absf(close_center - cabinet._rewards_overlay.get_global_rect().get_center().x) < 1.0, "hall-of-fame close button stays centered")
+	cabinet._set_rewards_view(true)
+	await _frames()
+	_check(cabinet._medal_case_view.visible and not cabinet._rewards_rows.visible, "hall-of-fame toggle switches from the list to the medal case")
+	cabinet._set_rewards_view(false)
 	await _capture("captain_rewards")
 	var money: float = GameState.player_state.money
 	var rank: int = career.get_command_rank()

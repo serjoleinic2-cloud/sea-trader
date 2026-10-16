@@ -10,6 +10,7 @@ var _surrender: ConfirmationDialog
 var _repair_panel: PanelContainer
 var _repair_rows: VBoxContainer
 var _repair_status: Label
+var _repair_scroll: ScrollContainer
 var _report_panel: PanelContainer
 var _report_text: Label
 var _open_amount: float = 0
@@ -140,23 +141,20 @@ func _build_repair_panel() -> void:
 	close.pressed.connect(func(): _repair_panel.hide())
 	header.add_child(close)
 	_repair_status = Label.new()
+	_repair_status.custom_minimum_size.y = 28
 	_repair_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_repair_status.add_theme_font_size_override("font_size", 12)
 	column.add_child(_repair_status)
-	var scroll := ScrollContainer.new()
-	scroll.custom_minimum_size.y = 130
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	column.add_child(scroll)
+	_repair_scroll = ScrollContainer.new()
+	_repair_scroll.name = "RepairShipRowsScroll"
+	_repair_scroll.custom_minimum_size.y = 250
+	_repair_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_repair_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	column.add_child(_repair_scroll)
 	_repair_rows = VBoxContainer.new()
 	_repair_rows.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_repair_rows.add_theme_constant_override("separation", 6)
-	scroll.add_child(_repair_rows)
-	var footer := Label.new()
-	footer.text = "Полевой ремонт оплачивается монетами. Потопленные корабли здесь не восстановить."
-	footer.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	footer.add_theme_font_size_override("font_size", 10)
-	column.add_child(footer)
+	_repair_scroll.add_child(_repair_rows)
 
 func _open_repair_after_report() -> void:
 	if _system == null or _system.active(): return
@@ -170,7 +168,7 @@ func _open_repair_after_report() -> void:
 	_repair_panel.show()
 	_repair_panel.z_index = 31
 	var viewport: Vector2 = get_viewport().get_visible_rect().size
-	_repair_panel.size = Vector2(minf(620.0, viewport.x - 32.0), minf(440.0, viewport.y - 32.0))
+	_repair_panel.size = Vector2(minf(680.0, viewport.x - 32.0), minf(600.0, viewport.y - 32.0))
 	_repair_panel.position = (viewport - _repair_panel.size) * 0.5
 	_repair_panel.move_to_front()
 
@@ -187,21 +185,24 @@ func _refresh_repair_rows() -> void:
 		var id: String = str(ship.get("instance_id", ""))
 		var quote: Dictionary = _system.repair_quote(id)
 		var row := HBoxContainer.new()
+		row.custom_minimum_size.y = 40
 		row.add_theme_constant_override("separation", 8)
 		_repair_rows.add_child(row)
 		var label := Label.new()
-		label.text = "%s · корпус %.0f / %.0f · ремонт %d монет" % [str(ship.get("name", "Корабль")), hull, maximum, int(quote.get("cost", 0))]
+		label.text = "%s · корпус %.0f / %.0f · %d монет" % [str(ship.get("name", "Корабль")), hull, maximum, int(quote.get("cost", 0))]
 		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		label.add_theme_font_size_override("font_size", 12)
+		label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		label.clip_text = true
+		label.add_theme_font_size_override("font_size", 11)
 		row.add_child(label)
 		var repair := Button.new()
 		repair.text = "Ремонт"
+		repair.custom_minimum_size = Vector2(92, 34)
 		repair.disabled = float(GameState.player_state.get("money", 0.0)) < float(quote.get("cost", 0))
 		repair.tooltip_text = "Восстановить корпус до максимума за %d монет" % int(quote.get("cost", 0))
 		repair.pressed.connect(_repair_after_battle.bind(id))
 		row.add_child(repair)
-	_repair_status.text = "Выберите корабль и отремонтируйте его за указанную сумму." if damaged_count > 0 else "Все боевые корабли исправны."
+	_repair_status.text = "Выберите корабль: цена указана в строке. Потопленные суда нельзя восстановить." if damaged_count > 0 else "Все боевые корабли исправны."
 
 func _repair_after_battle(ship_id: String) -> void:
 	var result: Dictionary = _system.repair_ship_after_battle(ship_id)
@@ -289,7 +290,8 @@ func _process(delta: float) -> void:
 		_report_panel.position = (report_viewport - _report_panel.size) * 0.5
 	if _repair_panel.visible:
 		var repair_viewport: Vector2 = get_viewport().get_visible_rect().size
-		_repair_panel.size = Vector2(minf(620.0, repair_viewport.x - 32.0), minf(440.0, repair_viewport.y - 32.0))
+		_repair_panel.size = Vector2(minf(680.0, repair_viewport.x - 32.0), minf(600.0, repair_viewport.y - 32.0))
+		_repair_panel.position = (repair_viewport - _repair_panel.size) * 0.5
 		_repair_panel.position = (repair_viewport - _repair_panel.size) * 0.5
 	var report: Dictionary = GameState.combat_state.get("naval_report",{})
 	if not report.is_empty() and float(report.get("time",-1))!=_report_time:
