@@ -79,6 +79,13 @@ func _apply_control(control: Control) -> void:
 		var minimum_size: int = 11 if control.has_meta("compact_hud") else (14 if control.has_meta("compact_description") else MINIMUM_READABLE_SIZE)
 		control.add_theme_font_size_override("font_size", maxi(minimum_size, int(round(stored_size * _scale))))
 	if control is Button and not control.has_meta("brass_close"):
+		if control.has_meta("square_art_slot"):
+			var side: float = maxf(control.custom_minimum_size.x, control.custom_minimum_size.y)
+			if not control.has_meta("ui_base_square_size"):
+				control.set_meta("ui_base_square_size", side)
+			var scaled_side: float = ceil(float(control.get_meta("ui_base_square_size")) * _scale)
+			control.custom_minimum_size = Vector2(scaled_side, scaled_side)
+			return
 		if not control.has_meta("ui_base_min_height"):
 			control.set_meta("ui_base_min_height", maxf(36.0, control.custom_minimum_size.y))
 		var base_height: float = float(control.get_meta("ui_base_min_height", 36.0))

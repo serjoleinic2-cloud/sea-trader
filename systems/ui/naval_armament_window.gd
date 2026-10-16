@@ -254,16 +254,26 @@ func _refresh_slots(ship: Dictionary) -> void:
 			found=true
 			var gun: Dictionary=ship.guns[index]
 			var definition: Dictionary=_system._rules.guns.get(str(gun.get("kind","")),{})
-			var tile:=VBoxContainer.new(); tile.custom_minimum_size.x=92; tile.add_theme_constant_override("separation",2); row.add_child(tile)
+			var tile:=VBoxContainer.new(); tile.custom_minimum_size.x=96; tile.add_theme_constant_override("separation",2); row.add_child(tile)
 			var button:=Button.new()
 			button.set_meta("armament_slot",index)
+			button.set_meta("selection_card",true)
+			button.set_meta("square_art_slot",true)
 			button.text=""
-			button.custom_minimum_size=Vector2(86,58)
+			button.custom_minimum_size=Vector2(88,88)
+			var slot_style := StyleBoxFlat.new()
+			slot_style.bg_color = Color(0.025, 0.055, 0.075, 1.0)
+			slot_style.border_color = Color("b89144")
+			slot_style.set_border_width_all(2)
+			slot_style.set_content_margin_all(3)
+			button.add_theme_stylebox_override("normal", slot_style)
+			button.add_theme_stylebox_override("hover", slot_style)
+			button.add_theme_stylebox_override("pressed", slot_style)
 			button.tooltip_text="%s %d · %s\nСектор огня: %s" % [_system.gun_mount_name(mount),index+1,"ПУСТО" if gun.is_empty() else str(definition.get("name",gun.get("kind",""))),_system.gun_mount_name(mount)]
 			button.toggle_mode=true
 			button.button_pressed=index==_selected_slot
 			button.pressed.connect(_select_slot.bind(index))
-			var icon:=TextureRect.new(); icon.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT); icon.offset_left=4; icon.offset_right=-4; icon.offset_top=4; icon.offset_bottom=-4; icon.expand_mode=TextureRect.EXPAND_IGNORE_SIZE; icon.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_COVERED; icon.mouse_filter=Control.MOUSE_FILTER_IGNORE
+			var icon:=TextureRect.new(); icon.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT); icon.offset_left=5; icon.offset_right=-5; icon.offset_top=5; icon.offset_bottom=-5; icon.expand_mode=TextureRect.EXPAND_IGNORE_SIZE; icon.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED; icon.mouse_filter=Control.MOUSE_FILTER_IGNORE
 			icon.texture=_gun_art_texture(str(gun.get("kind","cannon")) if not gun.is_empty() else "cannon")
 			button.add_child(icon); tile.add_child(button)
 			var caption:=Label.new(); caption.text="%d · %s" % [index+1,"Пусто" if gun.is_empty() else str(definition.get("name",gun.get("kind","Орудие")))]; caption.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER; caption.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART; caption.add_theme_font_size_override("font_size",10); tile.add_child(caption)
@@ -370,10 +380,19 @@ func _gun_row(parent: VBoxContainer, definition: Dictionary, weapon_id: String) 
 	else:
 		var path: String=str(definition.get("icon",""))
 		if path!="" and ResourceLoader.exists(path): icon.texture=load(path) as Texture2D
-	icon.custom_minimum_size=Vector2(104,76)
+	icon.custom_minimum_size=Vector2(92,92)
 	icon.expand_mode=TextureRect.EXPAND_IGNORE_SIZE
 	icon.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	row.add_child(icon)
+	var icon_frame := PanelContainer.new()
+	icon_frame.custom_minimum_size = Vector2(104, 104)
+	var icon_style := StyleBoxFlat.new()
+	icon_style.bg_color = Color(0.025, 0.055, 0.075, 1.0)
+	icon_style.border_color = Color("b89144")
+	icon_style.set_border_width_all(2)
+	icon_style.set_content_margin_all(4)
+	icon_frame.add_theme_stylebox_override("panel", icon_style)
+	icon_frame.add_child(icon)
+	row.add_child(icon_frame)
 	var copy:=VBoxContainer.new()
 	copy.size_flags_horizontal=Control.SIZE_EXPAND_FILL
 	row.add_child(copy)

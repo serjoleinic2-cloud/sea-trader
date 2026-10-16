@@ -179,12 +179,22 @@ func _refresh() -> void:
 				var gun_definition: Dictionary=navy._rules.guns.get(str(gun.get("kind","")),{})
 				var caption: String=("Л" if str(layout[index])=="port" else "П") if str(layout[index]) in ["port","starboard"] else str(index+1)
 				var cell:=VBoxContainer.new()
-				cell.custom_minimum_size.x=72
+				cell.custom_minimum_size.x=78
 				cell.add_theme_constant_override("separation",2)
 				row.add_child(cell)
 				var button: Button=_button(cell,"",_open_gun.bind(index))
 				button.name="GunSlot_%d" % index
-				button.custom_minimum_size=Vector2(68,54)
+				button.set_meta("selection_card",true)
+				button.set_meta("square_art_slot",true)
+				button.custom_minimum_size=Vector2(72,72)
+				var gun_slot_style := StyleBoxFlat.new()
+				gun_slot_style.bg_color = Color(0.025, 0.055, 0.075, 1.0)
+				gun_slot_style.border_color = Color("b89144")
+				gun_slot_style.set_border_width_all(2)
+				gun_slot_style.set_content_margin_all(3)
+				button.add_theme_stylebox_override("normal", gun_slot_style)
+				button.add_theme_stylebox_override("hover", gun_slot_style)
+				button.add_theme_stylebox_override("pressed", gun_slot_style)
 				var weapon_id:String=str(gun.get("kind","cannon")) if not gun.is_empty() else "cannon"
 				var texture:Texture2D=_gun_texture(weapon_id)
 				if texture!=null: _slot_image(button,texture)
@@ -203,9 +213,9 @@ func _refresh() -> void:
 func _slot_image(button: Button, texture: Texture2D) -> void:
 	var art := TextureRect.new()
 	art.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	art.offset_left=7;art.offset_right=-7;art.offset_top=7;art.offset_bottom=-7
+	art.offset_left=4;art.offset_right=-4;art.offset_top=4;art.offset_bottom=-4
 	art.expand_mode=TextureRect.EXPAND_IGNORE_SIZE
-	art.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	art.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	art.mouse_filter=Control.MOUSE_FILTER_IGNORE
 	art.texture=texture
 	button.add_child(art)
@@ -219,6 +229,24 @@ func _gun_texture(weapon_id: String) -> Texture2D:
 	art.atlas=_gun_art_atlas
 	art.region=Rect2(Vector2(float(cell%4)*width,floori(float(cell)/4.0)*height),Vector2(width,height))
 	return art
+
+func _gun_art_frame(weapon_id: String, size: int) -> PanelContainer:
+	var frame := PanelContainer.new()
+	frame.custom_minimum_size = Vector2(size, size)
+	frame.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.025, 0.055, 0.075, 1.0)
+	style.border_color = Color("b89144")
+	style.set_border_width_all(2)
+	style.set_content_margin_all(4)
+	frame.add_theme_stylebox_override("panel", style)
+	var icon := TextureRect.new()
+	icon.custom_minimum_size = Vector2(size - 12, size - 12)
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	icon.texture = _gun_texture(weapon_id)
+	frame.add_child(icon)
+	return frame
 
 func _portrait_button(button: Button, person: Dictionary) -> void:
 	_slot_image(button,Art.ship_officer_portrait(str(person.get("race_id","humans")),str(person.get("role_id","captain")),int(person.get("portrait_id",0)),load("res://assets/characters/crew/crew_portrait_atlas.png")))
@@ -364,13 +392,16 @@ func _open_gun(slot: int) -> void:
 		_choices.add_child(_label("Для замены сначала снимите орудие: оно останется на складе."));return
 	for index in GameState.combat_state.get("naval_arsenal",[]).size():
 		var stored:Dictionary=GameState.combat_state.naval_arsenal[index]
-		var spec:Dictionary=navy._rules.guns[str(stored.kind)]
+		var stored_kind: String = str(stored.get("kind", ""))
+		var spec:Dictionary=navy._rules.guns.get(stored_kind, {})
+		if spec.is_empty():
+			continue
 		var stored_row:=HBoxContainer.new();stored_row.add_theme_constant_override("separation",8);_choices.add_child(stored_row)
-		var stored_icon:=TextureRect.new();stored_icon.custom_minimum_size=Vector2(78,62);stored_icon.expand_mode=TextureRect.EXPAND_IGNORE_SIZE;stored_icon.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED;stored_icon.texture=_gun_texture(str(stored.get("kind","")));stored_row.add_child(stored_icon)
+		stored_row.add_child(_gun_art_frame(stored_kind, 88))
 		var stored_info:=VBoxContainer.new();stored_info.size_flags_horizontal=Control.SIZE_EXPAND_FILL;stored_row.add_child(stored_info)
-		stored_info.add_child(_label("%s · ур. %d"%[str(spec.name),int(stored.get("level",1))],11))
+		stored_info.add_child(_label("%s · ур. %d"%[str(spec.get("name", "Орудие")),int(stored.get("level",1))],11))
 		var install:Button=_button(stored_info,"Установить со склада",func():_begin_change();_done(navy.install_gun(_ship_id,slot,"",index)))
-		var compatibility:Dictionary=navy.gun_install_status(ship,slot,str(stored.get("kind","")))
+		var compatibility:Dictionary=navy.gun_install_status(ship,slot,stored_kind)
 		install.disabled=not bool(compatibility.ok);install.tooltip_text=str(compatibility.message)
 		_button(stored_row,"Продать · %d"%int(float(spec.get("cost",0))*.5),func():_begin_change();_done(navy.sell_arsenal_gun(_ship_id,index)))
 	for id in navy._rules.guns:
@@ -378,7 +409,7 @@ func _open_gun(slot: int) -> void:
 		if not spec.get("mounts",[]).has(navy.gun_slot_mount(ship,slot)):continue
 		var compatible:Dictionary=navy.gun_install_status(ship,slot,str(id))
 		var buy_row:=HBoxContainer.new();buy_row.add_theme_constant_override("separation",8);_choices.add_child(buy_row)
-		var gun_icon:=TextureRect.new();gun_icon.custom_minimum_size=Vector2(78,62);gun_icon.expand_mode=TextureRect.EXPAND_IGNORE_SIZE;gun_icon.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED;gun_icon.texture=_gun_texture(str(id));buy_row.add_child(gun_icon)
+		buy_row.add_child(_gun_art_frame(str(id), 88))
 		var gun_info:=VBoxContainer.new();gun_info.size_flags_horizontal=Control.SIZE_EXPAND_FILL;buy_row.add_child(gun_info)
 		gun_info.add_child(_label("%s · %d мм · ур. от %d"%[str(spec.name),int(spec.get("caliber_mm",0)),int(spec.get("min_ship_level",1))],11))
 		gun_info.add_child(_label("Урон %.0f · дальность %.0f · перезарядка %.0f с"%[float(spec.damage),float(spec.range),float(spec.reload)],10))

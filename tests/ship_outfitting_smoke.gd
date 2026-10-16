@@ -31,7 +31,9 @@ func _ready() -> void:
 	check(view._crew.get_parent().get_parent().position.x < view._preview.get_parent().position.x,"crew column is left of ship")
 	check(view._right.get_parent().get_parent().position.x > view._preview.get_parent().position.x,"boost and weapons column is right of ship")
 	check(view.find_child("BoostSlot_3",true,false)!=null,"four boost slots exist")
-	check(view.find_child("GunSlot_0",true,false)!=null,"bow gun slot exists on military ship")
+	var bow_gun_slot: Button = view.find_child("GunSlot_0",true,false) as Button
+	check(bow_gun_slot!=null,"bow gun slot exists on military ship")
+	if bow_gun_slot!=null: check(is_equal_approx(bow_gun_slot.custom_minimum_size.x,bow_gun_slot.custom_minimum_size.y),"gun art uses a square framed slot")
 	check(view._bars.find_child("Stat_speed",true,false) is ProgressBar,"statistics use numeric horizontal bars")
 	view._crew.find_child("CrewSlot_crew_0",true,false).pressed.emit()
 	await frames()
@@ -63,7 +65,12 @@ func _ready() -> void:
 	await frames()
 	check(not GameState.fleet_state[0].boost_slots[0].is_empty(),"scroll purchase really fills selected boost slot")
 	check(view._timer_labels[0].text!="Свободно","boost expiry is visible below slot")
+	# Older local saves can contain a partial gun entry; opening the picker must ignore it safely.
+	GameState.combat_state.naval_arsenal = [{}]
 	view._right.find_child("GunSlot_0",true,false).pressed.emit();await frames()
+	check(view._picker.visible,"gun picker opens safely with a legacy arsenal entry missing its kind")
+	var gun_frames: Array = view._choices.find_children("*", "PanelContainer", true, false).filter(func(node): return node.custom_minimum_size==Vector2(88,88))
+	check(not gun_frames.is_empty(),"arsenal and shop art use larger square brass frames")
 	buy=null
 	for button in view._choices.find_children("*","Button",true,false):
 		if button.text.begins_with("Купить и установить") and not button.disabled:buy=button;break
