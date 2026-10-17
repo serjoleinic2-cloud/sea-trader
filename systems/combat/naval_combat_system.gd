@@ -21,7 +21,7 @@ func initialize(main: Node, military: Node) -> void:
 	GameState.combat_state.merge({"naval_battle":{},"naval_enemies":{},"naval_arsenal":[],"naval_arsenal_capacity":int(_rules.get("arsenal_base_capacity",10)),"naval_gun_sequence":0,"naval_report":{},"naval_port_control":{},"naval_time":0.0,"next_pirate_at":0.0,"pirate_sequence":0},false)
 	GameState.combat_state.merge({"naval_guard_revolt_seen":{}}, false)
 	GameState.combat_state["naval_arsenal_capacity"]=maxi(int(_rules.get("arsenal_base_capacity",10)),int(GameState.combat_state.get("naval_arsenal_capacity",10)))
-	for gun in GameState.combat_state.naval_arsenal: _normalize_gun(gun)
+	var invalid_inventory_removed: bool = normalize_arsenal()
 	_clock = float(GameState.combat_state.naval_time)
 	if float(GameState.combat_state.get("next_pirate_at",0.0))<=_clock:
 		GameState.combat_state["next_pirate_at"]=_clock+_next_pirate_delay()
@@ -34,7 +34,22 @@ func initialize(main: Node, military: Node) -> void:
 			enemy.warning=0.0
 			enemy.retreat_until=GameState.combat_state.next_pirate_at
 	_retire_training_encounter()
-	for ship in warships(): normalize_ship(ship)
+	var invalid_slot_cleared := false
+	for ship in warships():
+		invalid_slot_cleared = normalize_ship(ship) or invalid_slot_cleared
+	if invalid_inventory_removed or invalid_slot_cleared:
+		SaveSystem.save_game()
+
+func normalize_arsenal() -> bool:
+	var invalid_inventory_removed := false
+	for index in range(GameState.combat_state.naval_arsenal.size() - 1, -1, -1):
+		var gun: Variant = GameState.combat_state.naval_arsenal[index]
+		if not gun is Dictionary or str(gun.get("kind", "")).strip_edges().is_empty():
+			GameState.combat_state.naval_arsenal.remove_at(index)
+			invalid_inventory_removed = true
+		else:
+			_normalize_gun(gun)
+	return invalid_inventory_removed
 
 func _retire_training_encounter() -> void:
 	# The temporary 3v3 button wrote its fixtures into the real save. Retire that
@@ -97,12 +112,21 @@ func warships() -> Array[Dictionary]:
 		if bool(GameData.get_ship(str(ship.get("ship_type_id", ""))).get("warship", false)): ships.append(ship)
 	return ships
 
-func normalize_ship(ship: Dictionary) -> void:
+func normalize_ship(ship: Dictionary) -> bool:
 	var definition: Dictionary = GameData.get_ship(str(ship.get("ship_type_id", "")))
 	ship.merge({"level":1,"experience":0,"hull":float(definition.get("hull_max",280)),"commander":{},"guns":[],"naval_order":{},"naval_reload":-1.0,"escort_enabled":false,"escort_state":{},"cargo":[],"autopilot":{}},false)
 	while ship.guns.size() < int(definition.get("gun_slots",2)): ship.guns.append({})
-	for gun in ship.guns:
-		if not gun.is_empty(): _normalize_gun(gun)
+	var cleared_invalid_slot := false
+	for index in ship.guns.size():
+		var gun: Variant = ship.guns[index]
+		if gun is Dictionary and gun.is_empty():
+			continue
+		if not gun is Dictionary or str(gun.get("kind", "")).strip_edges().is_empty():
+			ship.guns[index] = {}
+			cleared_invalid_slot = true
+			continue
+		_normalize_gun(gun)
+	return cleared_invalid_slot
 
 func gun_slot_layout(ship: Dictionary) -> Array[String]:
 	var count: int=int(GameData.get_ship(str(ship.get("ship_type_id",""))).get("gun_slots",ship.get("guns",[]).size()))

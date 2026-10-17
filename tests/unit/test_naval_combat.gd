@@ -328,6 +328,18 @@ func test_ship_gun_commander_progression_and_arsenal() -> void:
 	assert_true(navy.upgrade_ship("war1").ok)
 	assert_eq(GameState.fleet_state[0].level,2)
 
+func test_legacy_blank_gun_records_become_empty_slots() -> void:
+	var ship: Dictionary = {"ship_type_id": "war_crystari_1", "guns": [{"kind": "", "level": 1}, {"kind": "cannon", "level": 1}]}
+	assert_true(navy.normalize_ship(ship), "legacy blank weapon record is recognized as an invalid occupied slot")
+	assert_true(ship.guns[0].is_empty(), "invalid blank weapon record becomes a truly empty slot")
+	assert_eq(str(ship.guns[1].kind), "cannon", "valid installed weapons are preserved")
+	var original_arsenal: Array = GameState.combat_state.get("naval_arsenal", []).duplicate(true)
+	GameState.combat_state["naval_arsenal"] = [{"kind": "", "instance_id": "phantom"}, {"kind": "cannon", "instance_id": "valid_cannon"}]
+	assert_true(navy.normalize_arsenal(), "legacy blank arsenal record is recognized")
+	assert_eq(GameState.combat_state.naval_arsenal.size(), 1, "only the phantom stock item is removed")
+	assert_eq(str(GameState.combat_state.naval_arsenal[0].kind), "cannon", "valid stock item is preserved")
+	GameState.combat_state["naval_arsenal"] = original_arsenal
+
 func test_weapon_classes_follow_ship_project_and_level_progression() -> void:
 	var ship: Dictionary=GameState.fleet_state[0]
 	assert_eq(navy.ship_gun_class_cap(ship),1)
