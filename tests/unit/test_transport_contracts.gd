@@ -58,6 +58,14 @@ func test_order_requires_known_second_port_and_honors_daily_limit() -> void:
 	GameState.economy_state["transport_completed"] = {Time.get_date_string_from_system(): 3}
 	assert_false(_contracts.offer().ok)
 
+func test_multiple_orders_are_offered_and_selected_offer_is_accepted() -> void:
+	var offers: Array[Dictionary] = _contracts.get_offers()
+	assert_gte(offers.size(), 2)
+	var chosen: Dictionary = offers[offers.size() - 1]
+	assert_true(bool(_contracts.accept_offer(str(chosen.id)).ok))
+	assert_eq(str(_contracts.get_active().id), str(chosen.id))
+	assert_false(_contracts.accept_offer(str(offers[0].id)).ok)
+
 func test_sealed_cargo_cannot_be_sent_by_autopilot() -> void:
 	assert_true(_contracts.accept().ok)
 	assert_true(_contracts.load().ok)

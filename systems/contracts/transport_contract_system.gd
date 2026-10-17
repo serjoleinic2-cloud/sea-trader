@@ -20,30 +20,64 @@ func get_active() -> Dictionary:
 	return raw if raw is Dictionary else {}
 
 func offer() -> Dictionary:
+	var offers: Array[Dictionary] = get_offers()
+	if not offers.is_empty():
+		return offers[0]
+	return {"ok": false, "message": _offer_unavailable_message()}
+
+func get_offers() -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
 	var origin_id: String = str(GameState.ship_state.get("docked_port_id", ""))
 	if origin_id == "" or _port_system == null:
-		return {"ok": false, "message": "Заказы доступны только у причала."}
+		return result
 	if not get_active().is_empty():
-		return {"ok": false, "message": "Сначала завершите текущий заказ."}
+		return result
 	if _completed_today() >= int(_rules.get("daily_limit", 3)):
-		return {"ok": false, "message": "На сегодня лимит заказов выполнен. Рынок и обычные рейсы остаются доступны."}
-	var destination_id: String = _choose_destination(origin_id)
-	if destination_id == "":
-		return {"ok": false, "message": "Сначала вручную посетите ещё один порт — появятся заказы между известными портами."}
-	var good: Dictionary = _choose_good(origin_id, destination_id)
-	if good.is_empty():
-		return {"ok": false, "message": "Нет подходящего товара для заказа."}
+		return result
+	var destinations: Array[String] = _choose_destinations(origin_id)
+	if destinations.is_empty() or _goods.is_empty():
+		return result
+	var seen: Dictionary = {}
+	for raw_destination in destinations:
+		for variant in range(10):
+			var destination_id: String = str(raw_destination)
+			var good: Dictionary = _choose_good(origin_id, destination_id, variant)
+			var unique_key: String = destination_id + ":" + str(good.get("id", ""))
+			if good.is_empty() or seen.has(unique_key):
+				continue
+			seen[unique_key] = true
+			var candidate: Dictionary = _build_offer(origin_id, destination_id, good, result.size())
+			if bool(candidate.get("ok", false)):
+				result.append(candidate)
+			if result.size() >= int(_rules.get("offers_per_port", 5)):
+				return result
+	return result
+
+func accept_offer(offer_id: String) -> Dictionary:
+	if not get_active().is_empty():
+		return {"ok": false, "message": "Уже есть активный заказ."}
+	var selected: Dictionary = {}
+	for candidate in get_offers():
+		if str(candidate.get("id", "")) == offer_id:
+			selected = candidate
+			break
+	if selected.is_empty():
+		return {"ok": false, "message": _offer_unavailable_message()}
+	return _accept_offer(selected)
+
+func _build_offer(origin_id: String, destination_id: String, good: Dictionary, offer_index: int) -> Dictionary:
 	var capacity: int = int(GameState.ship_state.get("cargo_capacity", 0))
 	var minimum: int = int(_rules.get("min_quantity", 3))
 	var maximum: int = mini(capacity, int(_rules.get("max_quantity", 8)))
 	if maximum < minimum:
 		return {"ok": false, "message": "Вместимость корабля недостаточна для заказа."}
-	var quantity: int = clampi(minimum + posmod(abs(hash(origin_id + destination_id + str(_day_key()))), 4), minimum, maximum)
+	var seed: String = origin_id + destination_id + str(_day_key()) + str(offer_index) + str(good.get("id", ""))
+	var quantity: int = clampi(minimum + posmod(abs(hash(seed)), maximum - minimum + 1), minimum, maximum)
 	var distance: float = _port_system.get_port_position(origin_id).distance_to(_port_system.get_port_position(destination_id))
 	var reward: float = float(_rules.get("base_reward", 18)) + quantity * float(_rules.get("reward_per_unit", 4)) + floor(distance / 1000.0) * float(_rules.get("reward_per_1000_distance", 7))
 	return {
 		"ok": true,
-		"id": "transport:%s:%s:%s" % [origin_id, destination_id, _day_key()],
+		"id": "transport:%s:%s:%s:%d:%s" % [origin_id, destination_id, _day_key(), offer_index, str(good.get("id", ""))],
 		"origin_port_id": origin_id,
 		"destination_port_id": destination_id,
 		"origin_name": _port_system.get_port_name(origin_id),
@@ -57,11 +91,12 @@ func offer() -> Dictionary:
 	}
 
 func accept() -> Dictionary:
-	if not get_active().is_empty():
-		return {"ok": false, "message": "Уже есть активный заказ."}
 	var contract: Dictionary = offer()
 	if not bool(contract.get("ok", false)):
 		return contract
+	return _accept_offer(contract)
+
+func _accept_offer(contract: Dictionary) -> Dictionary:
 	contract["loaded"] = false
 	contract["accepted_at"] = int(Time.get_unix_time_from_system())
 	GameState.economy_state["transport_contract"] = contract
@@ -122,19 +157,31 @@ func complete() -> Dictionary:
 	EventBus.contract_completed.emit(str(contract.id), reward)
 	return {"ok": true, "message": "Заказ сдан: %s × %d. Получено %.0f." % [str(contract.resource_name), int(contract.quantity), reward]}
 
-func _choose_destination(origin_id: String) -> String:
+func _offer_unavailable_message() -> String:
+	var origin_id: String = str(GameState.ship_state.get("docked_port_id", ""))
+	if origin_id == "" or _port_system == null:
+		return "Заказы доступны только у причала."
+	if not get_active().is_empty():
+		return "Сначала завершите текущий заказ."
+	if _completed_today() >= int(_rules.get("daily_limit", 3)):
+		return "На сегодня лимит заказов выполнен. Рынок и обычные рейсы остаются доступны."
+	if _choose_destinations(origin_id).is_empty():
+		return "Сначала вручную посетите ещё один порт — появятся заказы между известными портами."
+	return "Нет подходящих заказов для этого корабля."
+
+func _choose_destinations(origin_id: String) -> Array[String]:
 	var ids: Array[String] = []
 	for raw_id in GameState.player_state.get("discovered_port_ids", []):
 		var port_id: String = str(raw_id)
 		if port_id != "" and port_id != origin_id:
 			ids.append(port_id)
 	ids.sort()
-	return ids[posmod(abs(hash(origin_id + _day_key())), ids.size())] if not ids.is_empty() else ""
+	return ids
 
-func _choose_good(origin_id: String, destination_id: String) -> Dictionary:
+func _choose_good(origin_id: String, destination_id: String, variant: int = 0) -> Dictionary:
 	if _goods.is_empty():
 		return {}
-	return _goods[posmod(abs(hash(origin_id + destination_id + _day_key())), _goods.size())]
+	return _goods[posmod(abs(hash(origin_id + destination_id + _day_key() + str(variant))), _goods.size())]
 
 func _remove_sealed_cargo(contract_id: String, quantity: int) -> bool:
 	var cargo: Array = GameState.ship_state.get("cargo", [])
