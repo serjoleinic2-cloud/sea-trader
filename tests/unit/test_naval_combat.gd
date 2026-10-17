@@ -390,6 +390,18 @@ func test_battleship_stern_slot_shows_installed_gun_art_and_name() -> void:
 	assert_true(stern_slot.find_children("*","Label",true,false).any(func(label): return (label as Label).text.contains("Палубная пушка") and (label as Label).text.contains("ур. 3")),"the hardpoint names its installed gun and level directly in the slot")
 	window.free()
 
+func test_black_powder_muzzle_smoke_expands_forward_as_a_lightweight_sprite_ring() -> void:
+	var vfx: Node=preload("res://systems/rendering/naval_combat_vfx.gd").new()
+	add_child(vfx)
+	var effect_world:=Node3D.new()
+	vfx.add_child(effect_world)
+	vfx._world=effect_world
+	vfx._spawn_muzzle_smoke(Vector3.ZERO,Vector3.FORWARD,"cannon")
+	assert_eq(vfx._debris.size(),7,"one central puff plus six billboards form the dispersing ring")
+	for puff in vfx._debris:
+		assert_gt(Vector3(puff.velocity).dot(Vector3.FORWARD),0.0,"the smoke ring drifts forward along the shot")
+	vfx.free()
+
 func test_ship_outfitting_portraits_open_large_crew_and_gun_cards() -> void:
 	var view: Control=preload("res://systems/ui/ship_outfitting_view.gd").new()
 	add_child(view)

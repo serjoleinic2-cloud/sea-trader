@@ -34,7 +34,7 @@ func _on_shot(origin: Vector2, target: Vector2, hit: bool, weapon_kind: String, 
 	var finish := Vector3(target.x * MAP_TO_METERS, 0.48 if hit else 0.08, target.y * MAP_TO_METERS)
 	var palette := _palette(weapon_kind)
 	_spawn_flash(start, palette.flash)
-	_spawn_muzzle_smoke(start, heading, weapon_kind)
+	_spawn_muzzle_smoke(start, finish - start, weapon_kind)
 	_audio.play(_world,"cannon_fire",start)
 	if _shots.size() >= MAX_ACTIVE_SHOTS:
 		_remove_shot(0)
@@ -70,13 +70,24 @@ func _model_muzzle_position(attacker_id: String, gun_slot: int, fallback: Vector
 		if marker != null: return marker.global_position
 	return fallback
 
-func _spawn_muzzle_smoke(at: Vector3, heading: Vector2, weapon_kind: String) -> void:
-	# Billboarded 2D puff from the muzzle; a tiny drift away from the hull makes
-	# black-powder shots readable without adding particle emitters or 3D physics.
-	var direction := Vector3(heading.x, 0.0, heading.y).normalized()
-	if direction.length_squared() < 0.01: direction = Vector3.FORWARD
-	var tint: Color = Color("d9c9aa") if weapon_kind != "rune" else Color("b9edf2")
-	_spawn_sprite("smoke", at - direction * 0.16 + Vector3(0, 0.04, 0), tint, 0.9 if weapon_kind == "mortar" else 0.64, 0.72, -direction * 0.22 + Vector3(0, 0.18, 0))
+func _spawn_muzzle_smoke(at: Vector3, shot_vector: Vector3, weapon_kind: String) -> void:
+	# Camera-facing 2D smoke puffs expand in a short ring and move downrange.
+	# This is intentionally sprite-only: no particle emitter or 3D simulation.
+	var direction: Vector3=shot_vector.normalized()
+	if direction.length_squared()<0.01: direction=Vector3.FORWARD
+	if weapon_kind=="rune":
+		_spawn_sprite("smoke",at+direction*.06,Color("b9edf2"),.64,.72,direction*.24+Vector3(0,.18,0))
+		return
+	var size: float=.9 if weapon_kind=="mortar" else .64
+	var tint:=Color("d9c9aa")
+	_spawn_sprite("smoke",at+direction*.08,tint,size*.82,.58,direction*.44+Vector3(0,.14,0))
+	var lateral: Vector3=direction.cross(Vector3.UP).normalized()
+	if lateral.length_squared()<.01: lateral=Vector3.RIGHT
+	for index in 6:
+		var angle: float=TAU*float(index)/6.0
+		var radial: Vector3=lateral*cos(angle)+Vector3.UP*sin(angle)
+		var puff_size: float=size*(_rng.randf_range(.48,.66))
+		_spawn_sprite("smoke",at+direction*.12+radial*.035,tint,puff_size,_rng.randf_range(.62,.82),direction*.58+radial*_rng.randf_range(.48,.72)+Vector3(0,.12,0))
 
 func _process(delta: float) -> void:
 	if _approach != null and is_instance_valid(_approach):
