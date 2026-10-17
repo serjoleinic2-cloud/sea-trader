@@ -14,6 +14,10 @@ var _notice: Label
 var _picker: Control
 var _choices: VBoxContainer
 var _picker_notice: Label
+var _detail_art: TextureRect
+var _detail_heading: Label
+var _detail_text: Label
+var _detail_actions: VBoxContainer
 var _timer_labels: Array[Label] = []
 var _gun_art_atlas: Texture2D
 var _comparison: Dictionary = {}
@@ -230,23 +234,38 @@ func _gun_texture(weapon_id: String) -> Texture2D:
 	art.region=Rect2(Vector2(float(cell%4)*width,floori(float(cell)/4.0)*height),Vector2(width,height))
 	return art
 
-func _gun_art_frame(weapon_id: String, size: int) -> PanelContainer:
-	var frame := PanelContainer.new()
+func _gun_art_frame(weapon_id: String, size: int, spec: Dictionary, level: int, action_text: String, action: Callable) -> Button:
+	var frame := Button.new()
 	frame.custom_minimum_size = Vector2(size, size)
 	frame.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	frame.set_meta("selection_card",true)
+	frame.set_meta("gun_portrait_card",weapon_id)
+	frame.tooltip_text="Открыть подробную карточку орудия"
 	var style := StyleBoxFlat.new()
 	style.bg_color = Color(0.025, 0.055, 0.075, 1.0)
 	style.border_color = Color("b89144")
 	style.set_border_width_all(2)
 	style.set_content_margin_all(4)
-	frame.add_theme_stylebox_override("panel", style)
+	frame.add_theme_stylebox_override("normal", style)
+	frame.add_theme_stylebox_override("hover", style)
+	frame.add_theme_stylebox_override("pressed", style)
 	var icon := TextureRect.new()
 	icon.custom_minimum_size = Vector2(size - 12, size - 12)
+	icon.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	icon.offset_left=6;icon.offset_right=-6;icon.offset_top=6;icon.offset_bottom=-6
 	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	icon.texture = _gun_texture(weapon_id)
+	icon.mouse_filter=Control.MOUSE_FILTER_IGNORE
 	frame.add_child(icon)
+	frame.pressed.connect(_show_gun_detail.bind(weapon_id,spec.duplicate(true),level,action_text,action))
 	return frame
+
+func _show_gun_detail(weapon_id: String, spec: Dictionary, level: int, action_text: String, action: Callable) -> void:
+	_detail_art.texture=_gun_texture(weapon_id)
+	_detail_heading.text=str(spec.get("name",weapon_id))
+	_detail_text.text="Калибр: %d мм\nУровень: %d\nУрон: %.0f\nДальность: %.0f\nПерезарядка: %.1f с\nМинимальный уровень корабля: %d\nЦена: %d монет" % [int(spec.get("caliber_mm",0)),level,float(spec.get("damage",0)),float(spec.get("range",0)),float(spec.get("reload",0)),int(spec.get("min_ship_level",1)),int(spec.get("cost",0))]
+	_set_detail_action(action_text,action)
 
 func _portrait_button(button: Button, person: Dictionary) -> void:
 	_slot_image(button,Art.ship_officer_portrait(str(person.get("race_id","humans")),str(person.get("role_id","captain")),int(person.get("portrait_id",0)),load("res://assets/characters/crew/crew_portrait_atlas.png")))
@@ -282,8 +301,8 @@ func _show_picker(title: String) -> void:
 	panel.theme=preload("res://systems/ui/game_ui_theme.gd").new().get_theme()
 	var screen:Vector2=_picker.size
 	var top:float=preload("res://systems/ui/workspace_layout.gd").safe_top(get_tree())
-	panel.position=Vector2(maxf(12,(screen.x-700)*0.5),top+12)
-	panel.size=Vector2(minf(700,screen.x-24),screen.y-top-24)
+	panel.position=Vector2(maxf(12,(screen.x-1100)*0.5),top+12)
+	panel.size=Vector2(minf(1100,screen.x-24),screen.y-top-24)
 	_picker.add_child(panel)
 	var margin:=MarginContainer.new()
 	for side in ["left","right","top","bottom"]: margin.add_theme_constant_override("margin_"+side,16)
@@ -300,14 +319,42 @@ func _show_picker(title: String) -> void:
 	_picker_notice.add_theme_color_override("font_color",Color("ee987e"))
 	column.add_child(_picker_notice)
 	_picker_notice.hide()
+	var picker_body:=HBoxContainer.new()
+	picker_body.size_flags_vertical=Control.SIZE_EXPAND_FILL
+	picker_body.add_theme_constant_override("separation",14)
+	column.add_child(picker_body)
 	var scroll:=ScrollContainer.new()
+	scroll.size_flags_horizontal=Control.SIZE_EXPAND_FILL
 	scroll.horizontal_scroll_mode=ScrollContainer.SCROLL_MODE_DISABLED
 	scroll.size_flags_vertical=Control.SIZE_EXPAND_FILL
-	column.add_child(scroll)
+	picker_body.add_child(scroll)
 	_choices=VBoxContainer.new()
 	_choices.size_flags_horizontal=Control.SIZE_EXPAND_FILL
 	_choices.add_theme_constant_override("separation",10)
 	scroll.add_child(_choices)
+	var detail:=PanelContainer.new()
+	detail.custom_minimum_size.x=310
+	detail.size_flags_vertical=Control.SIZE_EXPAND_FILL
+	picker_body.add_child(detail)
+	var detail_stack:=VBoxContainer.new()
+	detail_stack.add_theme_constant_override("separation",8)
+	detail.add_child(detail_stack)
+	_detail_heading=_label("Выберите портрет или орудие",15)
+	_detail_heading.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	detail_stack.add_child(_detail_heading)
+	_detail_art=TextureRect.new()
+	_detail_art.custom_minimum_size=Vector2(270,300)
+	_detail_art.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+	_detail_art.size_flags_vertical=Control.SIZE_EXPAND_FILL
+	_detail_art.expand_mode=TextureRect.EXPAND_IGNORE_SIZE
+	_detail_art.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	detail_stack.add_child(_detail_art)
+	_detail_text=_label("Нажмите на изображение в списке слева, чтобы рассмотреть персонажа или характеристики орудия.",11)
+	_detail_text.size_flags_vertical=Control.SIZE_EXPAND_FILL
+	detail_stack.add_child(_detail_text)
+	_detail_actions=VBoxContainer.new()
+	_detail_actions.add_theme_constant_override("separation",5)
+	detail_stack.add_child(_detail_actions)
 	_picker.show()
 
 func _open_crew(key: String) -> void:
@@ -332,23 +379,27 @@ func _open_crew(key: String) -> void:
 				upgrade.disabled=int(commander.get("skill_points",0))<=0
 	for person in GameState.employee_state:
 		if str(person.get("assigned_to",""))!="reserve" or str(person.get("role_id",""))!=str(slot.role) or str(person.get("race_id",""))!=str(GameState.player_state.get("origin_race_id","humans")): continue
-		var row:HBoxContainer=_person_row(person)
-		_button(row,"Назначить из резерва",func():_begin_change();_done(service.assign_reserve(_ship_id,key,str(person.employee_instance_id))))
+		var employee_id:=str(person.employee_instance_id)
+		_person_row(person,"Назначить из резерва",func():_begin_change();_done(service.assign_reserve(_ship_id,key,employee_id)))
 	_choices.add_child(_label("Кандидаты вашей расы · найм навсегда",13))
 	for person in service.candidates(str(slot.role)):
-		var row:HBoxContainer=_person_row(person)
-		_button(row,"Нанять · %d" % int(person.get("hire_price",0)),func():_begin_change();_done(service.hire_into_slot(_ship_id,key,str(person.candidate_id))))
+		var candidate_id:=str(person.candidate_id)
+		_person_row(person,"Нанять и назначить · %d" % int(person.get("hire_price",0)),func():_begin_change();_done(service.hire_into_slot(_ship_id,key,candidate_id)))
 	_button(_choices,"Обновить кандидатов",func():get_tree().get_first_node_in_group("hiring_system").refresh_candidates();_open_crew(key))
 
-func _person_row(person: Dictionary) -> HBoxContainer:
+func _person_row(person: Dictionary, action_text: String = "", action: Callable = Callable()) -> HBoxContainer:
 	var row:=HBoxContainer.new()
 	row.add_theme_constant_override("separation",10)
 	_choices.add_child(row)
-	var portrait:=TextureRect.new()
-	portrait.custom_minimum_size=Vector2(78,88)
-	portrait.expand_mode=TextureRect.EXPAND_IGNORE_SIZE
-	portrait.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	portrait.texture=Art.ship_officer_portrait(str(person.get("race_id","humans")),str(person.get("role_id","captain")),int(person.get("portrait_id",0)),load("res://assets/characters/crew/crew_portrait_atlas.png"))
+	var portrait:=Button.new()
+	portrait.custom_minimum_size=Vector2(84,96)
+	portrait.size_flags_vertical=Control.SIZE_SHRINK_BEGIN
+	portrait.set_meta("selection_card",true)
+	portrait.set_meta("crew_portrait_card",str(person.get("candidate_id",person.get("employee_instance_id",""))))
+	portrait.tooltip_text="Открыть большую карточку персонажа"
+	var portrait_texture:Texture2D=Art.ship_officer_portrait(str(person.get("race_id","humans")),str(person.get("role_id","captain")),int(person.get("portrait_id",0)),load("res://assets/characters/crew/crew_portrait_atlas.png"))
+	_slot_image(portrait,portrait_texture,3)
+	portrait.pressed.connect(_show_person_detail.bind(person.duplicate(true),action_text,action))
 	row.add_child(portrait)
 	var info:=VBoxContainer.new(); info.size_flags_horizontal=Control.SIZE_EXPAND_FILL;row.add_child(info)
 	info.add_child(_label(str(person.get("name","Сотрудник")),13))
@@ -356,7 +407,30 @@ func _person_row(person: Dictionary) -> HBoxContainer:
 	var labels:Dictionary=GameData.read("res://data/employees/hiring_rules.json").get("stat_labels",{})
 	for stat in person.get("stats",{}): details.append("%s %+.1f%%" % [str(labels.get(stat,stat)),float(person.stats[stat])+float(person.get("skill_stats",{}).get(stat,0))])
 	info.add_child(_label(" · ".join(details),10))
+	if action_text!="":
+		_button(row,action_text,action)
 	return row
+
+func _show_person_detail(person: Dictionary, action_text: String, action: Callable) -> void:
+	_detail_art.texture=Art.ship_officer_portrait(str(person.get("race_id","humans")),str(person.get("role_id","captain")),int(person.get("portrait_id",0)),load("res://assets/characters/crew/crew_portrait_atlas.png"))
+	_detail_heading.text=str(person.get("name","Сотрудник"))
+	var lines:Array[String]=[]
+	lines.append("%s · %s" % [str(person.get("race_name",person.get("race_id",""))),str(person.get("role_name",person.get("role_id","член экипажа")))])
+	var labels:Dictionary=GameData.read("res://data/employees/hiring_rules.json").get("stat_labels",{})
+	for stat in person.get("stats",{}):
+		var value:float=float(person.stats[stat])+float(person.get("skill_stats",{}).get(stat,0))
+		lines.append("%s  %+.1f%%" % [str(labels.get(stat,stat)),value])
+	var flaw:=str(person.get("flaw_trait",""))
+	if flaw!="": lines.append("Изъян: "+flaw)
+	if person.has("level"): lines.append("Уровень %d · опыт %d" % [int(person.get("level",1)),int(person.get("experience",0))])
+	if person.has("hire_price"): lines.append("Найм навсегда · %d монет" % int(person.get("hire_price",0)))
+	_detail_text.text="\n".join(lines)
+	_set_detail_action(action_text,action)
+
+func _set_detail_action(text: String, action: Callable) -> void:
+	_clear(_detail_actions)
+	if text!="" and action.is_valid():
+		_button(_detail_actions,text,action)
 
 func _open_boost(slot: int) -> void:
 	_show_picker("ВРЕМЕННЫЙ СВИТОК · ЯЧЕЙКА %d" % (slot+1))
@@ -390,6 +464,11 @@ func _open_gun(slot: int) -> void:
 	_choices.add_child(_label("Склад орудий: %d / %d"%[GameState.combat_state.get("naval_arsenal",[]).size(),navy.arsenal_capacity()],12))
 	_button(_choices,"Расширить склад · %d"%navy.arsenal_expansion_cost(),func():_begin_change();_done(navy.expand_arsenal(_ship_id)))
 	if not ship.guns[slot].is_empty():
+		var installed:Dictionary=ship.guns[slot]
+		var installed_kind:=str(installed.get("kind",""))
+		var installed_spec:Dictionary=navy._rules.guns.get(installed_kind,{})
+		var remove_action:=func():_begin_change();_done(navy.remove_gun(_ship_id,slot))
+		_show_gun_detail(installed_kind,installed_spec,int(installed.get("level",1)),"Снять орудие на склад",remove_action)
 		_button(_choices,"Снять на склад",func():_begin_change();_done(navy.remove_gun(_ship_id,slot)))
 		_button(_choices,"Улучшить орудие",func():_begin_change();_done(navy.upgrade_gun(_ship_id,slot)))
 		_choices.add_child(_label("Для замены сначала снимите орудие: оно останется на складе."));return
@@ -403,9 +482,11 @@ func _open_gun(slot: int) -> void:
 		if not bool(compatibility.ok):
 			continue
 		var stored_row:=HBoxContainer.new();stored_row.add_theme_constant_override("separation",8);_choices.add_child(stored_row)
-		stored_row.add_child(_gun_art_frame(stored_kind, 88))
+		var stored_level:=int(stored.get("level",1))
+		var stored_action:=func():_begin_change();_done(navy.install_gun(_ship_id,slot,"",index))
+		stored_row.add_child(_gun_art_frame(stored_kind,88,spec,stored_level,"Установить со склада",stored_action))
 		var stored_info:=VBoxContainer.new();stored_info.size_flags_horizontal=Control.SIZE_EXPAND_FILL;stored_row.add_child(stored_info)
-		stored_info.add_child(_label("%s · ур. %d"%[str(spec.get("name", "Орудие")),int(stored.get("level",1))],11))
+		stored_info.add_child(_label("%s · ур. %d"%[str(spec.get("name", "Орудие")),stored_level],11))
 		var install:Button=_button(stored_info,"Установить со склада",func():_begin_change();_done(navy.install_gun(_ship_id,slot,"",index)))
 		install.tooltip_text=str(compatibility.message)
 		_button(stored_row,"Продать · %d"%int(float(spec.get("cost",0))*.5),func():_begin_change();_done(navy.sell_arsenal_gun(_ship_id,index)))
@@ -414,7 +495,9 @@ func _open_gun(slot: int) -> void:
 		var compatible:Dictionary=navy.gun_install_status(ship,slot,str(id))
 		if not bool(compatible.ok): continue
 		var buy_row:=HBoxContainer.new();buy_row.add_theme_constant_override("separation",8);_choices.add_child(buy_row)
-		buy_row.add_child(_gun_art_frame(str(id), 88))
+		var gun_id:=str(id)
+		var buy_action:=func():_begin_change();_done(navy.install_gun(_ship_id,slot,gun_id))
+		buy_row.add_child(_gun_art_frame(gun_id,88,spec,1,"Купить и установить · %d"%int(spec.cost),buy_action))
 		var gun_info:=VBoxContainer.new();gun_info.size_flags_horizontal=Control.SIZE_EXPAND_FILL;buy_row.add_child(gun_info)
 		gun_info.add_child(_label("%s · %d мм · ур. от %d"%[str(spec.name),int(spec.get("caliber_mm",0)),int(spec.get("min_ship_level",1))],11))
 		gun_info.add_child(_label("Урон %.0f · дальность %.0f · перезарядка %.0f с"%[float(spec.damage),float(spec.range),float(spec.reload)],10))

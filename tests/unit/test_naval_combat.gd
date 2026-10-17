@@ -376,6 +376,34 @@ func test_armament_window_shows_ship_hardpoints_preview_shop_and_store() -> void
 	assert_true(str(window._title.text).contains("Страж"))
 	window.free()
 
+func test_ship_outfitting_portraits_open_large_crew_and_gun_cards() -> void:
+	var view: Control=preload("res://systems/ui/ship_outfitting_view.gd").new()
+	add_child(view)
+	view.open_ship("war1")
+	view._show_picker("ЭКИПАЖ")
+	var hired: Array=[false]
+	var person: Dictionary={"candidate_id":"candidate_test","name":"Мира","race_id":"humans","race_name":"Люди","role_id":"sailor","role_name":"Моряк","portrait_id":0,"hire_price":120,"stats":{"speed":4.0},"flaw_trait":"Нетерпеливый ход"}
+	var row: HBoxContainer=view._person_row(person,"Нанять и назначить",func():hired[0]=true)
+	var portrait: Button=row.get_child(0)
+	portrait.pressed.emit()
+	assert_eq(view._detail_heading.text,"Мира")
+	assert_eq(view._detail_art.custom_minimum_size,Vector2(270,300))
+	assert_true(view._detail_art.texture!=null,"the crew portrait is shown at large size")
+	assert_true(view._detail_text.text.contains("Нетерпеливый ход"),"the large card explains the employee's flaw")
+	view._detail_actions.get_child(0).pressed.emit()
+	assert_true(hired[0],"the large card keeps the hire-and-assign action available")
+	var gun_spec:Dictionary=navy._rules.guns.get("cannon",{})
+	var installed: Array=[false]
+	var gun_button:Button=view._gun_art_frame("cannon",88,gun_spec,1,"Установить",func():installed[0]=true)
+	view._choices.add_child(gun_button)
+	gun_button.pressed.emit()
+	assert_eq(view._detail_heading.text,str(gun_spec.name))
+	assert_true(view._detail_art.texture!=null,"the cannon art is shown at large size")
+	assert_true(view._detail_text.text.contains("Дальность"),"the large weapon card includes its firing stats")
+	view._detail_actions.get_child(0).pressed.emit()
+	assert_true(installed[0],"the large gun card keeps the install action available")
+	view.free()
+
 func test_armament_filters_and_button_purchase_install_upgrade_flow() -> void:
 	var window: Control=preload("res://systems/ui/naval_armament_window.gd").new()
 	add_child(window)
