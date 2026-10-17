@@ -12,6 +12,8 @@ var _bars: Control
 var _title: Label
 var _notice: Label
 var _picker: Control
+var _picker_layer: CanvasLayer
+var _picker_panel: PanelContainer
 var _choices: VBoxContainer
 var _picker_notice: Label
 var _detail_art: TextureRect
@@ -49,13 +51,28 @@ func _ready() -> void:
 	center.add_child(_notice)
 	_right = _side("ОСНАЩЕНИЕ",330)
 	if ResourceLoader.exists(GUN_ART_ATLAS_PATH): _gun_art_atlas=load(GUN_ART_ATLAS_PATH) as Texture2D
+	# A CanvasItem z_index cannot rise above notifications on another CanvasLayer.
+	# Keep equipment selection above those toasts and below the shared HUD/menu.
+	_picker_layer = CanvasLayer.new()
+	_picker_layer.layer = 125
+	add_child(_picker_layer)
 	_picker = Control.new()
 	_picker.name = "LoadoutPicker"
 	_picker.set_as_top_level(true)
 	_picker.z_index = 4095
 	_picker.mouse_filter = Control.MOUSE_FILTER_STOP
-	add_child(_picker)
+	_picker_layer.add_child(_picker)
 	_picker.hide()
+	visibility_changed.connect(_on_visibility_changed)
+
+func _on_visibility_changed() -> void:
+	if not is_visible_in_tree() and is_instance_valid(_picker):
+		_picker.hide()
+
+func _input(event: InputEvent) -> void:
+	if is_instance_valid(_picker) and _picker.visible and event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
+		_picker.hide()
+		get_viewport().set_input_as_handled()
 
 func _label(text: String, font_size: int = 12) -> Label:
 	var label := Label.new()
@@ -298,6 +315,7 @@ func _show_picker(title: String) -> void:
 	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_picker.add_child(shade)
 	var panel:=PanelContainer.new()
+	_picker_panel = panel
 	panel.theme=preload("res://systems/ui/game_ui_theme.gd").new().get_theme()
 	var screen:Vector2=_picker.size
 	var top:float=preload("res://systems/ui/workspace_layout.gd").safe_top(get_tree())
@@ -356,18 +374,31 @@ func _show_picker(title: String) -> void:
 	_detail_actions.add_theme_constant_override("separation",5)
 	detail_stack.add_child(_detail_actions)
 	_picker.show()
+	_layout_picker()
+
+func _layout_picker() -> void:
+	if not is_instance_valid(_picker_panel):
+		return
+	var screen: Vector2 = get_viewport().get_visible_rect().size
+	var top: float = preload("res://systems/ui/workspace_layout.gd").safe_top(get_tree())
+	_picker.position = Vector2.ZERO
+	_picker.size = screen
+	_picker_panel.position = Vector2(maxf(12, (screen.x - 1100) * 0.5), top + 12)
+	_picker_panel.size = Vector2(minf(1100, screen.x - 24), maxf(120, screen.y - top - 24))
 
 func _open_crew(key: String) -> void:
 	var slot:Dictionary={}
 	for item in Loadout.crew_slots(_ship_id):
 		if str(item.key)==key: slot=item
-	if slot.is_empty(): return
+	if slot.is_empty() or bool(slot.get("player", false)): return
 	_show_picker("ЭКИПАЖ · "+str(GameData.read("res://data/employees/hiring_rules.json").get("roles",{}).get(str(slot.role),{}).get("name",slot.role)))
 	var service=Loadout.new(get_tree())
 	var status:Dictionary=Loadout.management_status(_ship_id)
 	if not bool(status.ok): _choices.add_child(_label(str(status.message))); return
 	if not slot.person.is_empty():
-		_button(_choices,"Снять в резерв компании",func():_begin_change(); _done(service.remove_crew(_ship_id,key)))
+		var remove_action: Callable = func(): _begin_change(); _done(service.remove_crew(_ship_id,key))
+		_show_person_detail(slot.person, "Снять в резерв компании", remove_action)
+		_button(_choices,"Снять в резерв компании",remove_action)
 		var commander:Dictionary=Loadout.vessel(_ship_id).get("commander",{})
 		if str(slot.role)=="captain" and not commander.is_empty() and _navy()!=null:
 			_choices.add_child(_label("Навыки командира · свободных очков %d"%int(commander.get("skill_points",0)),12))
@@ -434,9 +465,12 @@ func _set_detail_action(text: String, action: Callable) -> void:
 
 func _open_boost(slot: int) -> void:
 	_show_picker("ВРЕМЕННЫЙ СВИТОК · ЯЧЕЙКА %d" % (slot+1))
+	var ship: Dictionary = Loadout.vessel(_ship_id)
+	if ship.is_empty() or slot < 0 or slot >= 4:
+		_choices.add_child(_label("Корабль или ячейка свитка недоступны. Выберите судно заново."))
+		return
 	var rewards:Node=_rewards()
 	if rewards==null: return
-	var ship:Dictionary=Loadout.vessel(_ship_id)
 	var active:Dictionary=Loadout.boost_slots(ship)[slot]
 	if float(active.get("seconds_remaining",0))>0:
 		_choices.add_child(_label("Свиток уже действует. Его нельзя снять для сброса таймера; дождитесь окончания."));return
@@ -540,6 +574,8 @@ func _update_timers() -> void:
 
 func _process(delta: float) -> void:
 	if not is_visible_in_tree():_picker.hide();return
+	if _picker.visible:
+		_layout_picker()
 	_tick+=delta
 	if _tick<0.25:return
 	_tick=0
