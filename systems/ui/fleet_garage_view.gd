@@ -173,7 +173,6 @@ func refresh() -> void:
 	for node in _owned_footer.get_children():
 		_owned_footer.remove_child(node)
 		node.queue_free()
-	_ship_selector.visible = mode == "owned"
 	_carousel.visible = mode == "build"
 	_ship_selector.clear()
 	_body.visible = mode == "build"
@@ -199,6 +198,10 @@ func refresh() -> void:
 			var type_id: String = str(ship.get("ship_type_id", ""))
 			if _matches(GameData.get_ship(type_id)):
 				entries.append({"id": str(ship.instance_id), "type": type_id, "name": str(ship.get("name", "Корабль"))})
+	# OptionButton with no items renders as an empty, unexplained control. This
+	# happens when a category has no owned ships (for example, before building a
+	# military transport), so keep it out of the filter row in that state.
+	_ship_selector.visible = mode == "owned" and not entries.is_empty()
 	var selection: String = selected_type if mode == "build" else owner_window._selected_ship_id
 	if entries.filter(func(entry: Dictionary) -> bool: return str(entry.id) == selection).is_empty():
 		selection = str(entries[0].id) if not entries.is_empty() else ""
