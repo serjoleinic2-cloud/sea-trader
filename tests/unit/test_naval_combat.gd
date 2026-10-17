@@ -338,6 +338,38 @@ func test_weapon_classes_follow_ship_project_and_level_progression() -> void:
 	assert_true(navy.gun_install_status(battleship,6,"leviathan_rune").ok)
 	assert_false(navy.gun_install_status(battleship,7,"leviathan_rune").ok,"the Leviathan rune has no stern firing mount")
 
+func test_each_mount_has_five_distinct_weapons_art_and_projectile_effects() -> void:
+	var art_cells: Dictionary=preload("res://systems/ui/naval_armament_window.gd").GUN_ART_CELLS
+	for mount in ["bow","port","starboard","stern"]:
+		var weapons: Array[String]=[]
+		var effects: Array[String]=[]
+		var cells: Array[int]=[]
+		for raw_id in navy._rules.guns:
+			var weapon: Dictionary=navy._rules.guns[raw_id]
+			if not weapon.get("mounts",[]).has(mount): continue
+			var id: String=str(raw_id)
+			weapons.append(id)
+			var effect: String=str(weapon.get("effect",""))
+			if not effects.has(effect): effects.append(effect)
+			if art_cells.has(id) and not cells.has(int(art_cells[id])): cells.append(int(art_cells[id]))
+		assert_gte(weapons.size(),5,"%s has at least five compatible gun models" % mount)
+		assert_gte(effects.size(),5,"%s has at least five distinct shot effects" % mount)
+		assert_eq(cells.size(),weapons.size(),"every compatible weapon has its own atlas artwork")
+
+func test_weapon_classes_use_distinct_projectile_colors_and_flight_profiles() -> void:
+	var vfx: Node=preload("res://systems/rendering/naval_combat_vfx.gd").new()
+	var cannon: Dictionary=vfx._palette("cannon")
+	var piercing: Dictionary=vfx._palette("piercing")
+	var rune: Dictionary=vfx._palette("rune")
+	var storm: Dictionary=vfx._palette("storm_rune")
+	var void_shell: Dictionary=vfx._palette("void_mortar")
+	assert_ne(cannon.projectile,piercing.projectile,"armor-piercing shells have a different visible core")
+	assert_ne(rune.trail,storm.trail,"storm runes use a separate energy color")
+	assert_ne(storm.trail,void_shell.trail,"void shells have a different trail from storm energy")
+	var artillery=preload("res://systems/combat/naval_artillery.gd")
+	assert_gt(artillery.flight_seconds(Vector2.ZERO,Vector2(500,0),"mortar"),artillery.flight_seconds(Vector2.ZERO,Vector2(500,0),"piercing"),"mortar shells travel in a slower ballistic arc than penetrators")
+	vfx.free()
+
 func test_weapon_store_capacity_expansion_and_half_price_sale() -> void:
 	assert_eq(navy.arsenal_capacity(),10)
 	var initial_money: float=GameState.player_state.money

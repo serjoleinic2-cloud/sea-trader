@@ -103,7 +103,7 @@
         "port",
         "starboard"
       ],
-      "effect": "cannon",
+      "effect": "piercing",
       "damage": 25,
       "range": 780,
       "reload": 15,
@@ -123,7 +123,7 @@
         "port",
         "starboard"
       ],
-      "effect": "cannon",
+      "effect": "bombard",
       "damage": 43,
       "range": 720,
       "reload": 19,
@@ -144,7 +144,7 @@
         "port",
         "starboard"
       ],
-      "effect": "rune",
+      "effect": "focused_rune",
       "damage": 48,
       "range": 900,
       "reload": 21,
@@ -166,7 +166,7 @@
         "port",
         "starboard"
       ],
-      "effect": "cannon",
+      "effect": "scatter",
       "damage": 14,
       "range": 680,
       "reload": 10,
@@ -187,7 +187,7 @@
         "port",
         "starboard"
       ],
-      "effect": "mortar",
+      "effect": "deck_mortar",
       "damage": 31,
       "range": 880,
       "reload": 18,
@@ -208,7 +208,7 @@
         "port",
         "starboard"
       ],
-      "effect": "rune",
+      "effect": "focused_rune",
       "damage": 36,
       "range": 860,
       "reload": 17,
@@ -229,7 +229,7 @@
         "port",
         "starboard"
       ],
-      "effect": "cannon",
+      "effect": "piercing",
       "damage": 58,
       "range": 990,
       "reload": 25,
@@ -249,7 +249,7 @@
         "port",
         "starboard"
       ],
-      "effect": "cannon",
+      "effect": "bombard",
       "damage": 72,
       "range": 900,
       "reload": 29,
@@ -270,7 +270,7 @@
         "port",
         "starboard"
       ],
-      "effect": "mortar",
+      "effect": "siege_mortar",
       "damage": 86,
       "range": 1160,
       "reload": 33,
@@ -291,7 +291,7 @@
         "port",
         "starboard"
       ],
-      "effect": "rune",
+      "effect": "storm_rune",
       "damage": 80,
       "range": 1120,
       "reload": 30,
@@ -311,7 +311,7 @@
         "port",
         "starboard"
       ],
-      "effect": "cannon",
+      "effect": "dread_cannon",
       "damage": 98,
       "range": 1050,
       "reload": 35,
@@ -332,7 +332,7 @@
         "port",
         "starboard"
       ],
-      "effect": "mortar",
+      "effect": "void_mortar",
       "damage": 126,
       "range": 1360,
       "reload": 41,
@@ -353,7 +353,7 @@
         "port",
         "starboard"
       ],
-      "effect": "rune",
+      "effect": "leviathan_rune",
       "damage": 116,
       "range": 1280,
       "reload": 37,

@@ -40,12 +40,15 @@ func _on_shot(origin: Vector2, target: Vector2, hit: bool, weapon_kind: String, 
 		_remove_shot(0)
 	var projectile := MeshInstance3D.new()
 	projectile.name = "NavalProjectile"
-	var sphere := SphereMesh.new()
-	sphere.radius = 0.10 if weapon_kind == "cannon" else 0.14
-	sphere.height = sphere.radius * 2.0
-	sphere.radial_segments = 8
-	sphere.rings = 4
-	projectile.mesh = sphere
+	if weapon_kind=="piercing":
+		var penetrator:=BoxMesh.new(); penetrator.size=Vector3(.10,.10,.38); projectile.mesh=penetrator
+	else:
+		var sphere:=SphereMesh.new()
+		sphere.radius=_projectile_radius(weapon_kind)
+		sphere.height=sphere.radius*2.0
+		sphere.radial_segments=8
+		sphere.rings=4
+		projectile.mesh=sphere
 	projectile.material_override = _glow_material(palette.projectile, palette.energy)
 	_world.add_child(projectile)
 	var tracer := MeshInstance3D.new()
@@ -75,8 +78,9 @@ func _spawn_muzzle_smoke(at: Vector3, shot_vector: Vector3, weapon_kind: String)
 	# This is intentionally sprite-only: no particle emitter or 3D simulation.
 	var direction: Vector3=shot_vector.normalized()
 	if direction.length_squared()<0.01: direction=Vector3.FORWARD
-	if weapon_kind=="rune":
-		_spawn_sprite("smoke",at+direction*.06,Color("b9edf2"),.64,.72,direction*.24+Vector3(0,.18,0))
+	if _is_energy_effect(weapon_kind):
+		var energy_palette: Dictionary=_palette(weapon_kind)
+		_spawn_sprite("smoke",at+direction*.06,energy_palette.trail,.64,.72,direction*.24+Vector3(0,.18,0))
 		return
 	var size: float=.9 if weapon_kind=="mortar" else .64
 	var tint:=Color("d9c9aa")
@@ -100,7 +104,7 @@ func _process(delta: float) -> void:
 		shot.progress = float(shot.progress) + delta / float(shot.duration)
 		var t: float = minf(float(shot.progress), 1.0)
 		var current: Vector3 = shot.start.lerp(shot.finish, t)
-		if str(shot.kind) == "mortar": current.y += sin(t * PI) * 1.1
+		current.y+=_arc_height(str(shot.kind))*sin(t*PI)
 		var projectile: MeshInstance3D = shot.projectile
 		var tracer: MeshInstance3D = shot.tracer
 		if is_instance_valid(projectile): projectile.position = current
@@ -109,6 +113,8 @@ func _process(delta: float) -> void:
 			var segment: Vector3 = current - previous
 			tracer.position = (current + previous) * 0.5
 			tracer.look_at(current if segment.length_squared() > 0.00001 else current + Vector3.FORWARD, Vector3.UP)
+			if is_instance_valid(projectile) and str(shot.kind)=="piercing" and segment.length_squared()>0.00001:
+				projectile.look_at(current+segment,Vector3.UP)
 			var mesh: BoxMesh = tracer.mesh as BoxMesh
 			mesh.size = Vector3(0.045, 0.045, maxf(0.06, segment.length()))
 		shot.previous = current
@@ -246,9 +252,39 @@ func _spawn_impact(at: Vector3, weapon_kind: String) -> void:
 
 func _palette(kind: String) -> Dictionary:
 	match kind:
-		"rune": return {"flash": Color("55eaff"), "projectile": Color("beffff"), "trail": Color("18cbe8"), "energy": 4.0}
-		"mortar": return {"flash": Color("ff9e3a"), "projectile": Color("ffd78d"), "trail": Color("ff6a28"), "energy": 3.3}
+		"rune": return {"flash":Color("55eaff"),"projectile":Color("beffff"),"trail":Color("18cbe8"),"energy":4.0}
+		"focused_rune": return {"flash":Color("a9fbff"),"projectile":Color("f0ffff"),"trail":Color("48cfff"),"energy":5.2}
+		"storm_rune": return {"flash":Color("b18bff"),"projectile":Color("d4c6ff"),"trail":Color("7354ff"),"energy":5.0}
+		"leviathan_rune": return {"flash":Color("56ffe0"),"projectile":Color("c5fff2"),"trail":Color("12d9b9"),"energy":5.4}
+		"mortar": return {"flash":Color("ff9e3a"),"projectile":Color("ffd78d"),"trail":Color("ff6a28"),"energy":2.0}
+		"deck_mortar": return {"flash":Color("ffd176"),"projectile":Color("ffe4ac"),"trail":Color("f3a94b"),"energy":2.2}
+		"siege_mortar": return {"flash":Color("ff753c"),"projectile":Color("ffb35c"),"trail":Color("cf3e21"),"energy":2.8}
+		"void_mortar": return {"flash":Color("d34eff"),"projectile":Color("f3a5ff"),"trail":Color("6c1bba"),"energy":5.0}
+		"piercing": return {"flash":Color("fff0bf"),"projectile":Color("eaf4ff"),"trail":Color("ff7047"),"energy":3.0}
+		"scatter": return {"flash":Color("ffe49c"),"projectile":Color("ffd984"),"trail":Color("ffad4a"),"energy":2.3}
+		"bombard": return {"flash":Color("ff9a48"),"projectile":Color("ffc16d"),"trail":Color("ed542c"),"energy":3.3}
+		"dread_cannon": return {"flash":Color("fff1cf"),"projectile":Color("ffcf86"),"trail":Color("ff643b"),"energy":4.0}
 		_: return {"flash": Color("ffbd62"), "projectile": Color("555b62"), "trail": Color("ff974e"), "energy": 2.0}
+
+func _is_energy_effect(kind: String) -> bool:
+	return kind in ["rune","focused_rune","storm_rune","leviathan_rune"]
+
+func _projectile_radius(kind: String) -> float:
+	match kind:
+		"scatter": return .065
+		"mortar","deck_mortar": return .15
+		"siege_mortar","bombard": return .19
+		"void_mortar","dread_cannon","leviathan_rune": return .22
+		"focused_rune","storm_rune": return .11
+		_: return .10
+
+func _arc_height(kind: String) -> float:
+	match kind:
+		"mortar": return 1.1
+		"deck_mortar": return .8
+		"siege_mortar","bombard": return 1.5
+		"void_mortar": return 2.0
+		_: return 0.0
 
 func _glow_material(color: Color, energy: float) -> StandardMaterial3D:
 	var material := StandardMaterial3D.new()
