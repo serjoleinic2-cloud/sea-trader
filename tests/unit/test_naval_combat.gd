@@ -376,6 +376,20 @@ func test_armament_window_shows_ship_hardpoints_preview_shop_and_store() -> void
 	assert_true(str(window._title.text).contains("Страж"))
 	window.free()
 
+func test_battleship_stern_slot_shows_installed_gun_art_and_name() -> void:
+	var battleship: Dictionary={"instance_id":"battleship_test","ship_type_id":"war_humans_5","name":"Линкор","level":25,"guns":[]}
+	navy.normalize_ship(battleship)
+	battleship.guns[7]={"kind":"cannon","level":3,"experience":0}
+	GameState.fleet_state.append(battleship)
+	var window: Control=preload("res://systems/ui/naval_armament_window.gd").new()
+	add_child(window)
+	window.initialize(navy)
+	window.open_ship("battleship_test")
+	var stern_slot: Button=window._slot_list.find_children("*","Button",true,false).filter(func(button): return int(button.get_meta("armament_slot",-1))==7)[0]
+	assert_true(stern_slot.find_children("*","TextureRect",true,false).any(func(icon): return icon.texture!=null),"the installed stern gun has visible artwork inside its hardpoint")
+	assert_true(stern_slot.find_children("*","Label",true,false).any(func(label): return (label as Label).text.contains("Палубная пушка") and (label as Label).text.contains("ур. 3")),"the hardpoint names its installed gun and level directly in the slot")
+	window.free()
+
 func test_ship_outfitting_portraits_open_large_crew_and_gun_cards() -> void:
 	var view: Control=preload("res://systems/ui/ship_outfitting_view.gd").new()
 	add_child(view)

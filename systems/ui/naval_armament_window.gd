@@ -271,9 +271,23 @@ func _refresh_slots(ship: Dictionary) -> void:
 			button.button_pressed=index==_selected_slot
 			button.pressed.connect(_select_slot.bind(index))
 			if not gun.is_empty():
-				var icon:=TextureRect.new(); icon.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT); icon.offset_left=5; icon.offset_right=-5; icon.offset_top=5; icon.offset_bottom=-5; icon.expand_mode=TextureRect.EXPAND_IGNORE_SIZE; icon.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED; icon.mouse_filter=Control.MOUSE_FILTER_IGNORE
-				icon.texture=_gun_art_texture(str(gun.get("kind","")))
+				var weapon_id: String=str(gun.get("kind",""))
+				var icon:=TextureRect.new(); icon.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT); icon.offset_left=5; icon.offset_right=-5; icon.offset_top=5; icon.offset_bottom=-25; icon.expand_mode=TextureRect.EXPAND_IGNORE_SIZE; icon.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED; icon.mouse_filter=Control.MOUSE_FILTER_IGNORE
+				icon.texture=_gun_art_texture(weapon_id)
+				if icon.texture==null:
+					var fallback_path: String=str(definition.get("icon", ""))
+					if fallback_path!="" and ResourceLoader.exists(fallback_path): icon.texture=load(fallback_path) as Texture2D
 				button.add_child(icon)
+				var name_plate:=PanelContainer.new()
+				name_plate.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
+				name_plate.offset_left=2; name_plate.offset_right=-2; name_plate.offset_top=-27; name_plate.mouse_filter=Control.MOUSE_FILTER_IGNORE
+				var name_style:=StyleBoxFlat.new(); name_style.bg_color=Color(0.015,0.035,0.05,.96); name_style.border_color=Color("b89144"); name_style.set_border_width_all(1); name_style.set_content_margin_all(2)
+				name_plate.add_theme_stylebox_override("panel",name_style)
+				var mounted_name:=Label.new()
+				mounted_name.text="%s · ур. %d" % [str(definition.get("name",weapon_id.replace("_"," ").capitalize())),int(gun.get("level",1))]
+				mounted_name.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER; mounted_name.vertical_alignment=VERTICAL_ALIGNMENT_CENTER; mounted_name.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART; mounted_name.clip_text=true; mounted_name.mouse_filter=Control.MOUSE_FILTER_IGNORE
+				mounted_name.add_theme_font_size_override("font_size",9); mounted_name.add_theme_color_override("font_color",Color("f0d58d"))
+				name_plate.add_child(mounted_name); button.add_child(name_plate)
 			tile.add_child(button)
 			var caption:=Label.new(); caption.text="%d · %s" % [index+1,"Пусто" if gun.is_empty() else str(definition.get("name",gun.get("kind","Орудие")))]; caption.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER; caption.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART; caption.add_theme_font_size_override("font_size",10); tile.add_child(caption)
 		if not found:
