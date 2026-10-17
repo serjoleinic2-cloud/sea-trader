@@ -134,7 +134,7 @@ func _render_offers(offers: Array[Dictionary]) -> void:
 		heading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		header.add_child(heading)
 	if offers.is_empty():
-		var unavailable := _system.offer()
+		var unavailable: Dictionary = _system.offer()
 		var message := Label.new()
 		message.text = str(unavailable.get("message", "Сейчас нет доступных заказов."))
 		message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
