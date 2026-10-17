@@ -404,6 +404,21 @@ func test_ship_outfitting_portraits_open_large_crew_and_gun_cards() -> void:
 	assert_true(installed[0],"the large gun card keeps the install action available")
 	view.free()
 
+func test_outfitting_shows_capacity_gain_before_expanding_the_gun_store() -> void:
+	var view: Control=preload("res://systems/ui/ship_outfitting_view.gd").new()
+	add_child(view)
+	view.open_ship("war1")
+	view._open_gun(0)
+	var old_capacity:int=navy.arsenal_capacity()
+	var increase:int=int(navy._rules.get("arsenal_expansion_size",5))
+	var labels: Array=view._choices.find_children("*","Label",true,false)
+	assert_true(labels.any(func(node): return (node as Label).text.contains("После расширения: %d → %d мест (+%d)."%[old_capacity,old_capacity+increase,increase])))
+	var expand_button:Button=view._choices.find_children("*","Button",true,false).filter(func(button): return button.text.begins_with("Расширить на "))[0]
+	assert_true(expand_button.text.contains("%d мест"%increase) and expand_button.text.contains("монет"))
+	expand_button.pressed.emit()
+	assert_eq(navy.arsenal_capacity(),old_capacity+increase,"the visible capacity gain matches the applied expansion")
+	view.free()
+
 func test_armament_filters_and_button_purchase_install_upgrade_flow() -> void:
 	var window: Control=preload("res://systems/ui/naval_armament_window.gd").new()
 	add_child(window)

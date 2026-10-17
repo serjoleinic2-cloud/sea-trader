@@ -461,8 +461,11 @@ func _open_gun(slot: int) -> void:
 	_show_picker("ОРУДИЯ · "+navy.gun_mount_name(navy.gun_slot_mount(ship,slot)))
 	var status:Dictionary=navy.management_status(_ship_id)
 	if not bool(status.ok):_choices.add_child(_label(str(status.message)));return
-	_choices.add_child(_label("Склад орудий: %d / %d"%[GameState.combat_state.get("naval_arsenal",[]).size(),navy.arsenal_capacity()],12))
-	_button(_choices,"Расширить склад · %d"%navy.arsenal_expansion_cost(),func():_begin_change();_done(navy.expand_arsenal(_ship_id)))
+	var capacity:int=navy.arsenal_capacity()
+	var expansion:int=int(navy._rules.get("arsenal_expansion_size",5))
+	_choices.add_child(_label("Склад орудий: %d / %d"%[GameState.combat_state.get("naval_arsenal",[]).size(),capacity],12))
+	_choices.add_child(_label("После расширения: %d → %d мест (+%d)."%[capacity,capacity+expansion,expansion],11))
+	_button(_choices,"Расширить на %d мест · %d монет"%[expansion,navy.arsenal_expansion_cost()],func():_begin_change();_done(navy.expand_arsenal(_ship_id)))
 	if not ship.guns[slot].is_empty():
 		var installed:Dictionary=ship.guns[slot]
 		var installed_kind:=str(installed.get("kind",""))
