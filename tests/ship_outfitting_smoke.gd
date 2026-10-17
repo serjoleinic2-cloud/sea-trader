@@ -35,6 +35,18 @@ func _ready() -> void:
 	check(bow_gun_slot!=null,"bow gun slot exists on military ship")
 	if bow_gun_slot!=null: check(is_equal_approx(bow_gun_slot.custom_minimum_size.x,bow_gun_slot.custom_minimum_size.y),"gun art uses a square framed slot")
 	if bow_gun_slot!=null: check(bow_gun_slot.find_children("*","TextureRect",true,false).is_empty(),"empty gun slot has no weapon placeholder art")
+	for slot_index in GameState.fleet_state[0].guns.size():
+		var slot_button: Button = view.find_child("GunSlot_%d" % slot_index,true,false) as Button
+		check(slot_button != null,"gun slot %d is present" % slot_index)
+		if slot_button != null:
+			slot_button.pressed.emit();await frames()
+			check(view._picker.visible,"gun slot %d opens its equipment picker" % slot_index)
+			view._picker.hide()
+	await frames()
+	view._open_gun(999)
+	check(view._picker.visible,"invalid gun slot is handled without closing the game")
+	check(view._choices.get_child_count()>0,"invalid gun slot explains that it is unavailable")
+	view._picker.hide()
 	check(view._bars.find_child("Stat_speed",true,false) is ProgressBar,"statistics use numeric horizontal bars")
 	view._crew.find_child("CrewSlot_crew_0",true,false).pressed.emit()
 	await frames()
@@ -70,7 +82,7 @@ func _ready() -> void:
 	GameState.combat_state.naval_arsenal = [{}]
 	view._right.find_child("GunSlot_0",true,false).pressed.emit();await frames()
 	check(view._picker.visible,"gun picker opens safely with a legacy arsenal entry missing its kind")
-	var gun_frames: Array = view._choices.find_children("*", "PanelContainer", true, false).filter(func(node): return node.custom_minimum_size==Vector2(88,88))
+	var gun_frames: Array = view._choices.find_children("*", "Button", true, false).filter(func(node): return node.custom_minimum_size.x>=88 and node.custom_minimum_size.y>=88 and node.has_meta("gun_portrait_card"))
 	check(not gun_frames.is_empty(),"arsenal and shop art use larger square brass frames")
 	var gun_choices: Array = view._choices.find_children("*", "Button", true, false).filter(func(button): return button.has_meta("gun_kind"))
 	check(gun_choices.all(func(button): return view._navy().gun_install_status(GameState.fleet_state[0],0,str(button.get_meta("gun_kind"))).ok),"gun picker offers only weapons compatible with the selected mount")
@@ -86,4 +98,5 @@ func _ready() -> void:
 		await RenderingServer.frame_post_draw
 		get_viewport().get_texture().get_image().save_png("res://ship_outfitting.png")
 	print("OUTFITTING checks=%d fail=%d"%[checks,failures])
+	SaveSystem.delete_save()
 	get_tree().quit(0 if failures==0 else 1)

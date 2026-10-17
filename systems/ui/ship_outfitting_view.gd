@@ -455,19 +455,40 @@ func _open_boost(slot: int) -> void:
 		else:_button(row,"Купить · %d"%int(spec.get("price",0)),func():_begin_change();_done(rewards.equip_ship_boost(_ship_id,slot,str(id),true)))
 
 func _open_gun(slot: int) -> void:
-	var navy:Node=_navy()
-	if navy==null:return
-	var ship:Dictionary=Loadout.vessel(_ship_id)
+	var navy: Node = _navy()
+	if navy == null:
+		return
+	var ship: Dictionary = Loadout.vessel(_ship_id)
+	if ship.is_empty():
+		_show_picker("ОРУДИЯ")
+		_choices.add_child(_label("Корабль не найден. Закройте окно и выберите судно заново."))
+		return
+	if not bool(Loadout.definition(ship).get("warship", false)):
+		_show_picker("ОРУДИЯ")
+		_choices.add_child(_label("На этом корабле нет артиллерийских слотов."))
+		return
+	navy.normalize_ship(ship)
+	var guns: Array = ship.get("guns", [])
+	var layout: Array = navy.gun_slot_layout(ship)
+	if slot < 0 or slot >= layout.size() or slot >= guns.size():
+		_show_picker("ОРУДИЯ")
+		_choices.add_child(_label("Этот слот отсутствует в выбранном корабле. Обновите окно флота."))
+		return
 	_show_picker("ОРУДИЯ · "+navy.gun_mount_name(navy.gun_slot_mount(ship,slot)))
 	var status:Dictionary=navy.management_status(_ship_id)
 	if not bool(status.ok):_choices.add_child(_label(str(status.message)));return
+	var arsenal_value: Variant = GameState.combat_state.get("naval_arsenal", [])
+	if not arsenal_value is Array:
+		_choices.add_child(_label("Склад орудий повреждён. Перезапустите игру для восстановления данных."))
+		return
+	var arsenal: Array = arsenal_value
 	var capacity:int=navy.arsenal_capacity()
 	var expansion:int=int(navy._rules.get("arsenal_expansion_size",5))
-	_choices.add_child(_label("Склад орудий: %d / %d"%[GameState.combat_state.get("naval_arsenal",[]).size(),capacity],12))
+	_choices.add_child(_label("Склад орудий: %d / %d"%[arsenal.size(),capacity],12))
 	_choices.add_child(_label("После расширения: %d → %d мест (+%d)."%[capacity,capacity+expansion,expansion],11))
 	_button(_choices,"Расширить на %d мест · %d монет"%[expansion,navy.arsenal_expansion_cost()],func():_begin_change();_done(navy.expand_arsenal(_ship_id)))
-	if not ship.guns[slot].is_empty():
-		var installed:Dictionary=ship.guns[slot]
+	if not guns[slot].is_empty():
+		var installed:Dictionary=guns[slot]
 		var installed_kind:=str(installed.get("kind",""))
 		var installed_spec:Dictionary=navy._rules.guns.get(installed_kind,{})
 		var remove_action:=func():_begin_change();_done(navy.remove_gun(_ship_id,slot))
@@ -475,8 +496,11 @@ func _open_gun(slot: int) -> void:
 		_button(_choices,"Снять на склад",func():_begin_change();_done(navy.remove_gun(_ship_id,slot)))
 		_button(_choices,"Улучшить орудие",func():_begin_change();_done(navy.upgrade_gun(_ship_id,slot)))
 		_choices.add_child(_label("Для замены сначала снимите орудие: оно останется на складе."));return
-	for index in GameState.combat_state.get("naval_arsenal",[]).size():
-		var stored:Dictionary=GameState.combat_state.naval_arsenal[index]
+	for index in arsenal.size():
+		var stored_value: Variant = arsenal[index]
+		if not stored_value is Dictionary:
+			continue
+		var stored: Dictionary = stored_value
 		var stored_kind: String = str(stored.get("kind", ""))
 		var spec:Dictionary=navy._rules.guns.get(stored_kind, {})
 		if spec.is_empty():
