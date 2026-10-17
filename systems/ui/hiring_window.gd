@@ -41,6 +41,7 @@ var _portrait_atlas: Texture2D
 var _mode_buttons: Dictionary = {}
 var _view_buttons: Dictionary = {}
 var _employee_actions: VBoxContainer
+var _role_guide: Label
 
 func _ready() -> void:
 	add_to_group("hiring_window")
@@ -72,15 +73,14 @@ func _ready() -> void:
 	shell.add_child(mode_row)
 	_mode_buttons["trade"] = _make_toggle(mode_row, "ТОРГОВЫЙ ПЕРСОНАЛ", func(): _set_mode("trade"))
 	_mode_buttons["military"] = _make_toggle(mode_row, "ВОЕННЫЙ ПЕРСОНАЛ", func(): _set_mode("military"))
-	var explanation := Label.new()
-	explanation.name = "RoleGuide"
-	explanation.text = "«Капитан» в меню — это вы. Нанятый капитан и боцман служат на одном корабле. Командир и заместитель в казармах усиливают всю армию."
-	explanation.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	explanation.add_theme_font_size_override("font_size", 13)
-	explanation.set_meta("compact_description", true)
-	explanation.set_meta("ui_base_font_size", 12)
-	explanation.add_theme_color_override("font_color", Color("c8d6d4"))
-	shell.add_child(explanation)
+	_role_guide = Label.new()
+	_role_guide.name = "RoleGuide"
+	_role_guide.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_role_guide.add_theme_font_size_override("font_size", 12)
+	_role_guide.set_meta("compact_description", true)
+	_role_guide.set_meta("ui_base_font_size", 12)
+	_role_guide.add_theme_color_override("font_color", Color("c8d6d4"))
+	shell.add_child(_role_guide)
 	var view_row := HBoxContainer.new()
 	view_row.add_theme_constant_override("separation", 8)
 	shell.add_child(view_row)
@@ -235,6 +235,11 @@ func _set_view(value: String) -> void:
 	_refresh_details()
 
 func _update_tabs() -> void:
+	if _role_guide != null:
+		if _mode == "military":
+			_role_guide.text = "ВОЕННЫЙ ПЕРСОНАЛ — экипаж боевых кораблей. Выберите судно в списке ниже, затем кандидата и нажмите «Нанять и посадить на корабль». Командира корабля назначайте отдельно; командир армии и заместитель находятся в Казармах."
+		else:
+			_role_guide.text = "ТОРГОВЫЙ ПЕРСОНАЛ — капитаны и специалисты торговых судов. Выберите корабль в списке ниже, затем кандидата и нажмите «Нанять и посадить на корабль». Нанятый капитан служит на одном судне; это не ваш капитан игрока."
 	for key in _mode_buttons:
 		(_mode_buttons[key] as Button).set_pressed_no_signal(key == _mode)
 	for key in _view_buttons:
