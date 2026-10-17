@@ -374,7 +374,7 @@ func upgrade_gun(id: String, slot: int) -> Dictionary:
 	var cost: float = float(_rules.gun_level_cost)*level
 	return _transaction(func(): gun.level+=1; gun.experience-=xp; GameState.player_state.money-=cost,"Орудие улучшено.")
 
-func upgrade_ship(id: String) -> Dictionary:
+func ship_upgrade_quote(id: String) -> Dictionary:
 	var ship: Dictionary = ship_by_id(id)
 	var status: Dictionary = _management_status(ship)
 	if not status.ok: return status
@@ -382,7 +382,36 @@ func upgrade_ship(id: String) -> Dictionary:
 	var xp: int = level*int(_rules.ship_level_xp)
 	var cost: float = level*float(_rules.ship_level_cost)
 	if level>=int(_rules.max_level): return _result(false,"Корабль достиг максимального уровня.")
-	if int(ship.get("experience",0))<xp or float(GameState.player_state.money)<cost: return _result(false,"Требуется опыт %d/%d и %d монет." % [int(ship.get("experience",0)),xp,int(cost)])
+	var experience_available: int = int(ship.get("experience", 0))
+	var money_available: int = int(GameState.player_state.money)
+	var affordable: bool = experience_available >= xp and money_available >= cost
+	return {
+		"ok": true,
+		"can_upgrade": affordable,
+		"message": "" if affordable else "Не хватает %s." % ("опыта корабля" if experience_available < xp else "монет"),
+		"level": level,
+		"next_level": level + 1,
+		"experience_required": xp,
+		"experience_available": experience_available,
+		"cost": int(cost),
+		"money_available": money_available,
+		"hull_current": float(ship.get("hull", hull_max(ship))),
+		"hull_max_before": hull_max(ship),
+		"hull_max_after": float(GameData.get_ship(str(ship.get("ship_type_id", ""))).get("hull_max", 280)) * (1.0 + float(_rules.hull_growth_per_level) * level)
+	}
+
+func upgrade_ship(id: String) -> Dictionary:
+	var ship: Dictionary = ship_by_id(id)
+	var quote: Dictionary = ship_upgrade_quote(id)
+	if not bool(quote.get("ok", false)): return quote
+	if not bool(quote.get("can_upgrade", false)):
+		return _result(false, "Требуется опыт %d/%d и %d монет; сейчас доступно %d опыта и %d монет." % [
+			int(quote.experience_required), int(quote.experience_required), int(quote.cost),
+			int(quote.experience_available), int(quote.money_available)
+		])
+	var level: int = int(quote.level)
+	var xp: int = int(quote.experience_required)
+	var cost: float = float(quote.cost)
 	return _transaction(func(): ship.level=level+1; ship.experience-=xp; GameState.player_state.money-=cost,"Корабль улучшен; максимальная прочность повышена.")
 
 func repair_ship(id: String) -> Dictionary:

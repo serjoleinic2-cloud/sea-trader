@@ -88,7 +88,26 @@ func _ready() -> void:
 	await frames()
 	check(menu._is_open and get_tree().paused, "menu opens and pauses the existing world")
 	check(coordinator._port_expanded, "closing menu can return to the construction workspace")
+	var renderer: Node = main.get_node("Approach3DView")
 	menu._show_section("graphics")
+	var vsync: Button = menu._content.find_child("Setting_vsync", true, false)
+	var antialiasing: Button = menu._content.find_child("Setting_antialiasing", true, false)
+	var clouds: Button = menu._content.find_child("Setting_clouds_enabled", true, false)
+	check(vsync != null and antialiasing != null and clouds != null, "VSync, edge smoothing, and clouds have visible game-styled toggles")
+	if vsync != null:
+		check(vsync.text in ["Вкл", "Выкл"] and vsync.get_theme_stylebox("hover") != null, "VSync toggle keeps its framed hover style")
+	if antialiasing != null:
+		check(antialiasing.text in ["Вкл", "Выкл"] and antialiasing.get_theme_stylebox("hover") != null, "edge-smoothing toggle keeps its framed hover style")
+	check(not bool(GameState.settings_state.get("clouds_enabled", true)), "clouds remain off by default")
+	if clouds != null:
+		clouds.button_pressed = true
+		clouds.toggled.emit(true)
+		menu._apply_settings()
+		check(bool(renderer._sky_material.get_shader_parameter("clouds_enabled")), "cloud toggle enables sky clouds")
+		clouds.button_pressed = false
+		clouds.toggled.emit(false)
+		menu._apply_settings()
+		check(not bool(renderer._sky_material.get_shader_parameter("clouds_enabled")), "cloud toggle disables sky clouds")
 	var water: HSlider = menu._content.find_child("Setting_water_quality", true, false)
 	water.value = 0
 	water.value_changed.emit(0)
@@ -96,7 +115,6 @@ func _ready() -> void:
 	resolution.select(1)
 	resolution.item_selected.emit(1)
 	menu._apply_settings()
-	var renderer: Node = main.get_node("Approach3DView")
 	var wake: OptionButton = menu._content.find_child("Setting_ship_wake_quality", true, false)
 	check(wake!=null,"independent ship wake quality control exists")
 	wake.select(0);wake.item_selected.emit(0);menu._apply_settings()

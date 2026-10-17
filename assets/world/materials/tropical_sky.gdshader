@@ -1,6 +1,7 @@
 shader_type sky;
 
-// Clear sky only. Procedural clouds are removed while gameplay is developed.
+// Optional lightweight procedural sky clouds; disabled by default for performance.
+uniform bool clouds_enabled = false;
 uniform float night_amount : hint_range(0.0, 1.0) = 0.0;
 uniform float twilight_amount : hint_range(0.0, 1.0) = 0.0;
 uniform vec3 jupiter_direction = vec3(0.0, 0.06, -1.0);
@@ -33,6 +34,35 @@ vec3 sky_stars(vec3 direction) {
 	float dot_light = 1.0 - smoothstep(radius, radius + antialias, distance(fract(grid), point));
 	return mix(vec3(0.57, 0.72, 1.0), vec3(1.0, 0.90, 0.72), star_hash(cell + 11.9))
 		* dot_light * night_amount * smoothstep(0.025, 0.10, direction.y);
+}
+
+float cloud_hash(vec2 p) {
+	return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+}
+
+float cloud_noise(vec2 p) {
+	vec2 cell = floor(p);
+	vec2 local = fract(p);
+	local = local * local * (3.0 - 2.0 * local);
+	float a = cloud_hash(cell);
+	float b = cloud_hash(cell + vec2(1.0, 0.0));
+	float c = cloud_hash(cell + vec2(0.0, 1.0));
+	float d = cloud_hash(cell + vec2(1.0, 1.0));
+	return mix(mix(a, b, local.x), mix(c, d, local.x), local.y);
+}
+
+vec3 sky_clouds(vec3 direction, vec3 background) {
+	if (!clouds_enabled || direction.y < -0.01) {
+		return background;
+	}
+	vec2 cloud_uv = direction.xz / max(direction.y + 0.20, 0.16) * 2.2;
+	float density = cloud_noise(cloud_uv) * 0.58
+		+ cloud_noise(cloud_uv * 2.03 + vec2(8.3, 2.1)) * 0.29
+		+ cloud_noise(cloud_uv * 4.07 + vec2(3.7, 9.2)) * 0.13;
+	float cover = smoothstep(0.49, 0.67, density) * smoothstep(-0.01, 0.10, direction.y);
+	float daylight = (1.0 - night_amount * 0.96) * (1.0 - twilight_amount * 0.30);
+	vec3 cloud_color = mix(vec3(0.42, 0.52, 0.62), vec3(0.96, 0.98, 1.0), smoothstep(0.53, 0.70, density));
+	return mix(background, cloud_color, cover * daylight * 0.76);
 }
 
 float ring_dust(vec2 p) {
@@ -100,6 +130,7 @@ void sky() {
 	vec3 dusk = mix(vec3(0.018, 0.042, 0.090), vec3(0.90, 0.19, 0.035), sunset_band);
 	dusk = mix(dusk, vec3(1.0, 0.47, 0.11), exp(-altitude * 23.0) * facing_sunset * 0.8);
 	vec3 background = mix(mix(day, night, night_amount), dusk, twilight_amount * (1.0 - night_amount * 0.55));
+	background = sky_clouds(direction, background);
 	float sun_alignment = dot(direction, sun);
 	float solar_disc = smoothstep(cos(0.010), cos(0.007), sun_alignment) * smoothstep(-0.01, 0.012, direction.y);
 	float glow = pow(max(0.0, sun_alignment), 190.0) * twilight_amount;

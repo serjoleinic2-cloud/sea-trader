@@ -319,6 +319,12 @@ func test_ship_gun_commander_progression_and_arsenal() -> void:
 	assert_true(navy.install_gun("war1",1,"",0).ok)
 	assert_eq(GameState.fleet_state[0].guns[1].level,2)
 	GameState.fleet_state[0].experience=100
+	var money_before_upgrade: float = float(GameState.player_state.money)
+	var upgrade_quote: Dictionary = navy.ship_upgrade_quote("war1")
+	assert_true(upgrade_quote.ok and upgrade_quote.can_upgrade)
+	assert_eq(GameState.fleet_state[0].level,1,"preview does not apply the hull upgrade")
+	assert_eq(float(GameState.player_state.money),money_before_upgrade,"preview does not spend coins")
+	assert_eq(int(upgrade_quote.cost),150,"preview states the coin cost")
 	assert_true(navy.upgrade_ship("war1").ok)
 	assert_eq(GameState.fleet_state[0].level,2)
 

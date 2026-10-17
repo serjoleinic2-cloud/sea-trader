@@ -15,6 +15,7 @@ static func normalized(raw: Dictionary) -> Dictionary:
 	var distance: String = str(raw.get("view_distance", "medium"))
 	settings["view_distance"] = distance if distance in ["near", "medium", "far"] else "medium"
 	settings["antialiasing"] = bool(raw.get("antialiasing", true))
+	settings["clouds_enabled"] = bool(raw.get("clouds_enabled", false))
 	settings["fullscreen"] = bool(raw.get("fullscreen", false))
 	settings["vsync"] = bool(raw.get("vsync", true))
 	settings["fps_limit"] = int(raw.get("fps_limit", 60)) if int(raw.get("fps_limit", 60)) in [0, 30, 60, 120] else 60

@@ -136,17 +136,13 @@ func _show_section(section: String) -> void:
 			_water_quality_slider()
 			_choice("След и брызги кораблей", "ship_wake_quality", ["Выключено", "Лёгкий", "Подробный"], ["off", "low", "high"])
 			_choice("Дальность прорисовки", "view_distance", ["Ближняя", "Средняя", "Дальняя"], ["near", "medium", "far"])
-			var display_row: HBoxContainer = _toggle("Полноэкранный режим", "fullscreen")
-			var vsync := CheckButton.new()
-			vsync.name = "Setting_vsync"
-			vsync.text = "VSync"
-			vsync.tooltip_text = "Вертикальная синхронизация"
-			vsync.button_pressed = bool(_draft.vsync)
-			vsync.toggled.connect(func(value: bool): _draft.vsync = value)
-			display_row.add_child(vsync)
+			_toggle("Полноэкранный режим", "fullscreen")
+			_toggle("VSync", "vsync")
+			_content.add_child(_label("Синхронизирует кадры с монитором и убирает разрывы изображения. Иногда снижает FPS и добавляет небольшую задержку управления.", 12))
 			_choice("Ограничение FPS", "fps_limit", ["30", "60", "120", "Без ограничения"], [30, 60, 120, 0])
 			_choice("Разрешение 3D", "render_scale", ["100%", "85%", "70%"], [1.0, 0.85, 0.7])
 			_toggle("Сглаживание краёв", "antialiasing")
+			_toggle("Облака в небе", "clouds_enabled")
 
 		"sound":
 			_content.add_child(_label("ЗВУК", 18))
@@ -187,11 +183,19 @@ func _row(title: String) -> HBoxContainer:
 
 func _toggle(title: String, key: String) -> HBoxContainer:
 	var row: HBoxContainer = _row(title)
-	var check := CheckButton.new()
-	check.name = "Setting_" + key
-	check.button_pressed = bool(_draft.get(key, false))
-	check.toggled.connect(func(value: bool): _draft[key] = value)
-	row.add_child(check)
+	var toggle := Button.new()
+	toggle.name = "Setting_" + key
+	toggle.toggle_mode = true
+	toggle.button_pressed = bool(_draft.get(key, false))
+	toggle.text = "Вкл" if toggle.button_pressed else "Выкл"
+	toggle.custom_minimum_size.x = 78
+	toggle.size_flags_horizontal = Control.SIZE_SHRINK_END
+	toggle.set_meta("compact_description", true)
+	toggle.set_meta("ui_base_font_size", 12)
+	toggle.toggled.connect(func(value: bool):
+		_draft[key] = value
+		toggle.text = "Вкл" if value else "Выкл")
+	row.add_child(toggle)
 	return row
 
 func _choice(title: String, key: String, captions: Array, values: Array) -> void:

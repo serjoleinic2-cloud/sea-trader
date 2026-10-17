@@ -14,6 +14,8 @@ var _origin_emblem: TextureRect
 var _crew_atlas: Texture2D
 var _armament_window: Control
 var _garage: Control
+var _upgrade_dialog: ConfirmationDialog
+var _pending_upgrade_ship_id: String = ""
 const CREW_ATLAS := "res://assets/characters/crew/crew_portrait_atlas.png"
 const CharacterArtCatalog = preload("res://systems/characters/character_art_catalog.gd")
 
@@ -39,6 +41,13 @@ func _ready() -> void:
 	_armament_window = preload("res://systems/ui/naval_armament_window.gd").new()
 	_armament_window.closed.connect(_return_from_armament)
 	add_child(_armament_window)
+	_upgrade_dialog = ConfirmationDialog.new()
+	_upgrade_dialog.name = "HullUpgradePreview"
+	_upgrade_dialog.title = "Улучшение корпуса"
+	_upgrade_dialog.get_ok_button().text = "Улучшить"
+	_upgrade_dialog.get_cancel_button().text = "Отмена"
+	_upgrade_dialog.confirmed.connect(_confirm_hull_upgrade)
+	add_child(_upgrade_dialog)
 	_panel.hide()
 
 func initialize(fleet_system: Node) -> void:
@@ -79,6 +88,38 @@ func _open_armament(ship_id: String) -> void:
 
 func _return_from_armament() -> void:
 	_is_open=true
+	_refresh()
+
+func _show_hull_upgrade_preview(ship_id: String) -> void:
+	var navy: Node = get_tree().get_first_node_in_group("naval_combat_system")
+	if navy == null:
+		_notice = "Система флота недоступна."
+		_refresh()
+		return
+	var quote: Dictionary = navy.ship_upgrade_quote(ship_id)
+	if not bool(quote.get("ok", false)):
+		_notice = str(quote.get("message", "Улучшение сейчас недоступно."))
+		_refresh()
+		return
+	_pending_upgrade_ship_id = ship_id
+	_upgrade_dialog.get_ok_button().disabled = not bool(quote.get("can_upgrade", false))
+	_upgrade_dialog.dialog_text = "Уровень %d → %d\n\nТребуется: %d монет и %d опыта корабля.\nУ вас: %d монет и %d / %d опыта корабля.\nПрочность корпуса: %.0f / %.0f → %.0f / %.0f.\n\nДругие материалы не расходуются. Списание произойдёт только после нажатия «Улучшить»." % [
+		int(quote.next_level) - 1, int(quote.next_level), int(quote.cost), int(quote.experience_required),
+		int(quote.money_available), int(quote.experience_available), int(quote.experience_required),
+		float(quote.hull_current), float(quote.hull_max_before), float(quote.hull_current), float(quote.hull_max_after)
+	]
+	_upgrade_dialog.popup_centered(Vector2i(520, 250))
+
+func _confirm_hull_upgrade() -> void:
+	if _pending_upgrade_ship_id.is_empty():
+		return
+	var navy: Node = get_tree().get_first_node_in_group("naval_combat_system")
+	if navy == null:
+		_notice = "Система флота недоступна."
+	else:
+		var result: Dictionary = navy.upgrade_ship(_pending_upgrade_ship_id)
+		_notice = str(result.get("message", ""))
+	_pending_upgrade_ship_id = ""
 	_refresh()
 
 func _refresh() -> void:
@@ -548,7 +589,13 @@ func _add_naval_ship_card(ship: Dictionary) -> void:
 	var available: bool = bool(status.ok)
 	var row := HBoxContainer.new()
 	box.add_child(row)
-	_naval_button(row, "Улучшить корпус", available, func(): return navy.upgrade_ship(id)).set_meta("fleet_primary_action", "Улучшить корпус")
+	var upgrade_button := Button.new()
+	upgrade_button.text = "Улучшить корпус"
+	upgrade_button.custom_minimum_size.y = 36
+	upgrade_button.disabled = not available
+	upgrade_button.pressed.connect(_show_hull_upgrade_preview.bind(id))
+	row.add_child(upgrade_button)
+	upgrade_button.set_meta("fleet_primary_action", "Улучшить корпус")
 	_naval_button(row, "Ремонт", available, func(): return navy.repair_ship(id)).set_meta("fleet_primary_action", "Ремонт")
 	# A closed post-battle repair panel must not strand damaged ships. Keep a
 	# priced field-repair action in the fleet card while the latest report lives.

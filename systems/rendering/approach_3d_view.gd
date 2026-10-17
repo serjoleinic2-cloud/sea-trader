@@ -339,6 +339,8 @@ func _add_water() -> void:
 func apply_graphics_settings() -> void:
 	if _subviewport == null or _water == null:
 		return
+	if _sky_material != null:
+		_sky_material.set_shader_parameter("clouds_enabled", bool(GameState.settings_state.get("clouds_enabled", false)))
 	_subviewport.scaling_3d_scale = clampf(float(GameState.settings_state.get("render_scale", 1.0)), 0.5, 1.0)
 	_subviewport.msaa_3d = Viewport.MSAA_2X if bool(GameState.settings_state.get("antialiasing", true)) else Viewport.MSAA_DISABLED
 	_view_distance = {"near": 320.0, "medium": 550.0, "far": 850.0}.get(str(GameState.settings_state.get("view_distance", "medium")), 550.0)
