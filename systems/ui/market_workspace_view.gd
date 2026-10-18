@@ -1,5 +1,8 @@
 extends VBoxContainer
 
+const ItemArt = preload("res://systems/ui/resource_item_art.gd")
+const ITEM_ART_WIDTH := 36
+
 ## A single market transaction workspace. Economic calculations and mutations
 ## remain in the existing market, merchant and supply-order services.
 var owner_window: Node
@@ -273,11 +276,11 @@ func _refresh_products() -> void:
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		button.custom_minimum_size.y = 48
-		var path: String = "res://assets/ui/styles/approved_hud/%s.png" % str(resource)
-		if ResourceLoader.exists(path):
-			button.icon = load(path)
+		button.icon = ItemArt.texture(str(resource))
+		if button.icon != null:
 			button.expand_icon = true
-			button.add_theme_constant_override("icon_max_width", 28)
+			button.add_theme_constant_override("icon_max_width", ITEM_ART_WIDTH)
+		button.theme_changed.connect(_update_layout, CONNECT_DEFERRED)
 		_products.add_child(button)
 		if first == "":
 			first = str(resource)
@@ -295,13 +298,17 @@ func _update_layout() -> void:
 		return
 	# Measure the whole catalog so filtering never shifts the purchase panel.
 	var sample: Button = _modes.get_child(0)
+	for child in _products.get_children():
+		if child is Button and child.has_meta("resource_id"):
+			sample = child
+			break
 	var font: Font = sample.get_theme_font("font")
 	var font_size: int = sample.get_theme_font_size("font_size")
 	var name_width := 0.0
 	for resource in owner_window._goods:
 		name_width = maxf(name_width, font.get_string_size(owner_window._get_resource_name(str(resource)), HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x)
 	var padding: float = sample.get_theme_stylebox("normal").get_minimum_size().x
-	var list_width: float = ceilf(name_width + padding + 28 + sample.get_theme_constant("h_separation") + _product_scroll.get_v_scroll_bar().get_combined_minimum_size().x)
+	var list_width: float = ceilf(name_width + padding + ITEM_ART_WIDTH + sample.get_theme_constant("h_separation") + _product_scroll.get_v_scroll_bar().get_combined_minimum_size().x)
 	var panel_width: float = clampf(_body.size.x - list_width - 12, 260, 360)
 	_transaction_panel.custom_minimum_size.x = panel_width
 	_product_scroll.custom_minimum_size.x = maxf(list_width, minf(400, _body.size.x - panel_width - 12)) if mode == "orders" else list_width

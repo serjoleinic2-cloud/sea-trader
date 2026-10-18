@@ -37,6 +37,7 @@ var _encyclopedia: Node
 var _game_menu: Node
 var _top_height: float = 84.0
 const HUD_ART := "res://assets/ui/styles/approved_hud/"
+const ItemArt = preload("res://systems/ui/resource_item_art.gd")
 
 func initialize(main: Node) -> void:
 	_main = main
@@ -244,7 +245,8 @@ func _create_resource_chip(title: String, resource_id: String, tooltip: String) 
 	row.add_theme_constant_override("separation", 5)
 	chip.add_child(row)
 	var icon := TextureRect.new()
-	icon.texture = load(HUD_ART + resource_id + ".png")
+	icon.name = "ResourceIcon_" + resource_id
+	icon.texture = ItemArt.texture(resource_id)
 	icon.custom_minimum_size = Vector2(26, 30)
 	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
@@ -418,13 +420,13 @@ func _rebuild_extra_resource_rows(resource_ids: Array[String]) -> void:
 	_add_resource_table_cell("МАТЕРИАЛ", false, true)
 	_add_resource_table_cell("КОЛИЧЕСТВО", true, true)
 	for resource_id in resource_ids:
-		var name_label := _add_resource_table_cell(str(_goods_names.get(resource_id, resource_id)), false)
+		var name_label := _add_resource_table_cell(str(_goods_names.get(resource_id, resource_id)), false, false, resource_id)
 		name_label.name = "ResourceName_" + resource_id
 		var amount_label := _add_resource_table_cell("—", true)
 		amount_label.name = "ResourceAmount_" + resource_id
 		_extra_resource_values[resource_id] = {"name": name_label, "amount": amount_label}
 
-func _add_resource_table_cell(text_value: String, right_aligned: bool, heading: bool = false) -> Label:
+func _add_resource_table_cell(text_value: String, right_aligned: bool, heading: bool = false, resource_id: String = "") -> Label:
 	var label := Label.new()
 	label.text = text_value
 	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -435,7 +437,20 @@ func _add_resource_table_cell(text_value: String, right_aligned: bool, heading: 
 	label.set_meta("compact_hud", true)
 	if heading:
 		label.add_theme_color_override("font_color", Color("80d7d1"))
-	_extra_resources_list.add_child(label)
+	if resource_id.is_empty():
+		_extra_resources_list.add_child(label)
+	else:
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 5)
+		var icon := TextureRect.new()
+		icon.name = "ResourceIcon_" + resource_id
+		icon.texture = ItemArt.texture(resource_id)
+		icon.custom_minimum_size = Vector2(22, 22)
+		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		row.add_child(icon)
+		row.add_child(label)
+		_extra_resources_list.add_child(row)
 	return label
 
 func _create_more_panel() -> void:

@@ -220,7 +220,7 @@ func _ready() -> void:
 			for product in market._products.get_children():
 				if product is Button:
 					var name_width: float = product.get_theme_font("font").get_string_size(product.text.get_slice("\n", 0), HORIZONTAL_ALIGNMENT_LEFT, -1, product.get_theme_font_size("font_size")).x
-					var chrome: float = product.get_theme_stylebox("normal").get_minimum_size().x + (28 + product.get_theme_constant("h_separation") if product.icon != null else 0)
+					var chrome: float = product.get_theme_stylebox("normal").get_minimum_size().x + (product.get_theme_constant("icon_max_width") + product.get_theme_constant("h_separation") if product.icon != null else 0)
 					check(product.position.y > previous_y and is_zero_approx(product.position.x), "goods form one vertical column")
 					check(product.size.x >= name_width + chrome, "long resource names fit their compact buttons")
 					previous_y = product.position.y

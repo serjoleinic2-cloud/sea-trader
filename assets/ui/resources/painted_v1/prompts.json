@@ -1,0 +1,54 @@
+{
+  "tool": "Built-in image_gen.imagegen",
+  "transparent_background": true,
+  "assets": [
+    {
+      "id": "resource_timber",
+      "prompt": "Create ONE square inventory item mini-art for the Sea Trader game, intended to read clearly at 32–48 px. Subject: three short dark golden-brown timber logs, cut ends clearly visible, neatly bound together with a blue cord and a small brass clasp. Polished hand-painted semi-realistic fantasy strategy game asset, nautical technological fantasy, rich natural material texture, elegant coherent forms, soft warm upper-left light, crisp silhouette, restrained teal and brass highlights. Isolated centered object on a genuinely transparent background, generous clear padding, no frame, no plaque, no lettering, no numbers, no watermark, no scenery. Square composition, readable bold shapes; actual illustrative mini-art, not a flat symbolic pictogram."
+    },
+    {
+      "id": "resource_fish",
+      "prompt": "Create ONE square inventory item mini-art for Sea Trader, readable at 32–48 px. Polished hand-painted semi-realistic fantasy strategy game asset, nautical technological fantasy, rich natural material textures, elegant coherent construction, warm upper-left light, crisp silhouette, restrained teal and brass accents. Centered isolated object on genuine transparent background, generous padding, no frame, no plaque, no lettering or numbers, no watermark, no scenery. Bold readable shapes, illustrative mini-art rather than a flat pictogram. Subject: two fresh silver-blue sea fish, one slightly overlapping the other, clear heads tails and fins, subtle turquoise scales, arranged diagonally; no container or ice."
+    },
+    {
+      "id": "resource_parts",
+      "prompt": "Create ONE square inventory item mini-art for Sea Trader, readable at 32–48 px. Polished hand-painted semi-realistic fantasy strategy game asset, nautical technological fantasy, rich natural material textures, elegant coherent construction, warm upper-left light, crisp silhouette, restrained teal and brass accents. Centered isolated object on genuine transparent background, generous padding, no frame, no plaque, no lettering or numbers, no watermark, no scenery. Bold readable shapes, illustrative mini-art rather than a flat pictogram. Subject: a compact group of brass and dark steel mechanical replacement parts: one large cogwheel, one small cogwheel and a short threaded shaft, a tiny restrained cyan energy core in the central gear. Clearly spare mechanical parts, not a weapon."
+    },
+    {
+      "id": "resource_oil",
+      "prompt": "Create ONE square inventory item mini-art for Sea Trader, readable at 32–48 px. Polished hand-painted semi-realistic fantasy strategy game asset, nautical technological fantasy, rich natural material textures, elegant coherent construction, warm upper-left light, crisp silhouette, restrained teal and brass accents. Centered isolated object on genuine transparent background, generous padding, no frame, no plaque, no lettering or numbers, no watermark, no scenery. Bold readable shapes, illustrative mini-art rather than a flat pictogram. Subject: a stout sealed deep teal metal oil canister with brass riveted bands and a short pouring spout, a single amber oil droplet beside the spout, no lettering, distinct from a glass bottle or paint pot."
+    },
+    {
+      "id": "resource_nails",
+      "prompt": "Create ONE square inventory item mini-art for Sea Trader, readable at 32–48 px. Polished hand-painted semi-realistic fantasy strategy game asset, nautical technological fantasy, rich natural material textures, elegant coherent construction, warm upper-left light, crisp silhouette, restrained teal and brass accents. Centered isolated object on genuine transparent background, generous padding, no frame, no plaque, no lettering or numbers, no watermark, no scenery. Bold readable shapes, illustrative mini-art rather than a flat pictogram. Subject: a small neatly tied bundle of long dark steel shipbuilding nails with broad square heads, three loose nails crossing in front, realistic forged metal with subtle warm highlights; a short navy binding strap with a brass stud."
+    },
+    {
+      "id": "resource_fabric",
+      "prompt": "Create ONE square inventory item mini-art for Sea Trader, readable at 32–48 px. Polished hand-painted semi-realistic fantasy strategy game asset, nautical technological fantasy, rich natural material textures, elegant coherent construction, warm upper-left light, crisp silhouette, restrained teal and brass accents. Centered isolated object on genuine transparent background, generous padding, no frame, no plaque, no lettering or numbers, no watermark, no scenery. Bold readable shapes, illustrative mini-art rather than a flat pictogram. Subject: a neatly folded roll of thick ivory sailcloth, visible layered fabric edges, a navy blue reinforced hem with two small brass eyelets. Cloth volume and weave, subtle marine technology detail. No sail mast, no background."
+    },
+    {
+      "id": "resource_rope",
+      "prompt": "Create ONE square inventory item mini-art for Sea Trader, readable at 32–48 px. Polished hand-painted semi-realistic fantasy strategy game asset, nautical technological fantasy, rich natural material textures, elegant coherent construction, warm upper-left light, crisp silhouette, restrained teal and brass accents. Centered isolated object on genuine transparent background, generous padding, no frame, no plaque, no lettering or numbers, no watermark, no scenery. Bold readable shapes, illustrative mini-art rather than a flat pictogram. Subject: a single compact coil of thick golden hemp ship rope, one loose tail curled in front, braided fibers, a small restrained dark teal tie. Clear circular rope silhouette; no anchor."
+    },
+    {
+      "id": "resource_paint",
+      "prompt": "Create ONE square inventory item mini-art for Sea Trader, readable at 32–48 px. Polished hand-painted semi-realistic fantasy strategy game asset, nautical technological fantasy, rich natural material textures, elegant coherent construction, warm upper-left light, crisp silhouette, restrained teal and brass accents. Centered isolated object on genuine transparent background, generous padding, no frame, no plaque, no lettering or numbers, no watermark, no scenery. Bold readable shapes, illustrative mini-art rather than a flat pictogram. Subject: a small open tin pot of vivid red vermilion marine paint in a brass-rimmed dark teal can, a short paintbrush resting diagonally against it, red paint visible on the bristles and can rim. No labels."
+    },
+    {
+      "id": "resource_varnish",
+      "prompt": "Create ONE square inventory item mini-art for Sea Trader, readable at 32–48 px. Polished hand-painted semi-realistic fantasy strategy game asset, nautical technological fantasy, rich natural material textures, elegant coherent construction, warm upper-left light, crisp silhouette, restrained teal and brass accents. Centered isolated object on genuine transparent background, generous padding, no frame, no plaque, no lettering or numbers, no watermark, no scenery. Bold readable shapes, illustrative mini-art rather than a flat pictogram. Subject: a broad round amber glass varnish bottle with a brass stopper and handle collar, translucent honey golden liquid, a small polished wooden sample beside it showing a glossy sheen. Clearly a varnish supply, not a potion with magical smoke; no paintbrush or labels."
+    },
+    {
+      "id": "resource_glass",
+      "prompt": "Create ONE square inventory item mini-art for Sea Trader, readable at 32–48 px. Polished hand-painted semi-realistic fantasy strategy game asset, nautical technological fantasy, rich natural material textures, elegant coherent construction, warm upper-left light, crisp silhouette, restrained teal and brass accents. Centered isolated object on genuine transparent background, generous padding, no frame, no plaque, no lettering or numbers, no watermark, no scenery. Bold readable shapes, illustrative mini-art rather than a flat pictogram. Subject: three overlapping clean translucent blue-green glass panes with clearly visible bevelled edges, one small curved glass shard in front, restrained bright reflections and slight warm highlights. Flat manufactured glass sheets, not magical crystals, no support or container."
+    },
+    {
+      "id": "money",
+      "prompt": "Create ONE square inventory item mini-art for Sea Trader, readable at 32–48 px. Polished hand-painted semi-realistic fantasy strategy game asset, nautical technological fantasy, rich natural material textures, elegant coherent construction, warm upper-left light, crisp silhouette, restrained teal and brass accents. Centered isolated object on genuine transparent background, generous padding, no frame, no plaque, no lettering or numbers, no watermark, no scenery. Bold readable shapes, illustrative mini-art rather than a flat pictogram. Subject: a small tidy stack of three thick warm gold trade coins and one upright gold coin in front, the front coin bears only a simple compass-star relief, beautifully minted brass-gold edges, strong golden silhouette, no letters or numerals."
+    },
+    {
+      "id": "magic_shards",
+      "prompt": "Create ONE square inventory item mini-art for Sea Trader, readable at 32–48 px. Polished hand-painted semi-realistic fantasy strategy game asset, nautical technological fantasy, rich natural material textures, elegant coherent construction, warm upper-left light, crisp silhouette, restrained teal and brass accents. Centered isolated object on genuine transparent background, generous padding, no frame, no plaque, no lettering or numbers, no watermark, no scenery. Bold readable shapes, illustrative mini-art rather than a flat pictogram. Subject: a compact cluster of three luminous faceted magical crystal shards, cyan centers and violet edges, crisp angular transparent stone facets, restrained inner glow that stays close to the silhouette, no magical smoke, no pedestal."
+    }
+  ]
+}
