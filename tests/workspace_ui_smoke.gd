@@ -144,6 +144,7 @@ func _ready() -> void:
 	var orders: Array = merchant.get_sell_orders()
 	market._cancel_order(str(orders[orders.size() - 1].id))
 	check(merchant.get_reserved_quantity("resource_fish") == reserved_before, "cancel restores merchant-order stock")
+	check(market._receipt.is_visible_in_tree(), "order cancellation feedback remains visible in the compact layout")
 	market._set_mode("buy")
 	var supply: Node = main.get_node("SupplyOrderSystem")
 	var purchasable := ""
@@ -214,6 +215,15 @@ func _ready() -> void:
 			check(market._primary.get_global_rect().end.y <= port._sheet.get_global_rect().end.y, "market action fits inside its unclipped panel")
 			check(market._receipt.get_global_rect().end.y <= port._sheet.get_global_rect().end.y, "transaction feedback stays visible without scrolling")
 			check(market._primary.get_global_rect().end.x <= screen.x, "market action stays inside the right edge")
+			check(market._transaction_panel.get_global_rect().end.x <= screen.x * 0.65, "compact market leaves the merchant side unobstructed")
+			var previous_y := -1.0
+			for product in market._products.get_children():
+				if product is Button:
+					var name_width: float = product.get_theme_font("font").get_string_size(product.text.get_slice("\n", 0), HORIZONTAL_ALIGNMENT_LEFT, -1, product.get_theme_font_size("font_size")).x
+					var chrome: float = product.get_theme_stylebox("normal").get_minimum_size().x + (28 + product.get_theme_constant("h_separation") if product.icon != null else 0)
+					check(product.position.y > previous_y and is_zero_approx(product.position.x), "goods form one vertical column")
+					check(product.size.x >= name_width + chrome, "long resource names fit their compact buttons")
+					previous_y = product.position.y
 			await capture("market_%d" % screen.x)
 	print("MARKET UI checks=%d fail=%d" % [_checks - market_checks_before, _failed - market_failures_before])
 	GameState.ship_state.docked_port_id = ""

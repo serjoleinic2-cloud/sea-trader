@@ -13,6 +13,9 @@ var _modes: HBoxContainer
 var _categories: HFlowContainer
 var _search: LineEdit
 var _products: GridContainer
+var _body: HBoxContainer
+var _product_scroll: ScrollContainer
+var _transaction_panel: PanelContainer
 var _product_name: Label
 var _stock: Label
 var _quantity: SpinBox
@@ -65,40 +68,48 @@ func _ready() -> void:
 	_search = LineEdit.new()
 	_search.placeholder_text = "Найти товар…"
 	_search.custom_minimum_size.y = 30
+	_search.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	_search.set_meta("compact_description", true)
 	_search.set_meta("ui_base_font_size", 12)
 	_search.text_changed.connect(func(_text: String): _refresh_products())
 	add_child(_search)
-	var body := HBoxContainer.new()
-	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	body.add_theme_constant_override("separation", 12)
-	add_child(body)
-	var scroll := ScrollContainer.new()
-	scroll.name = "MarketProducts"
-	scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	scroll.size_flags_stretch_ratio = 1.15
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	body.add_child(scroll)
+	_body = HBoxContainer.new()
+	_body.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_body.add_theme_constant_override("separation", 12)
+	add_child(_body)
+	_body.resized.connect(_update_layout)
+	_product_scroll = ScrollContainer.new()
+	_product_scroll.name = "MarketProducts"
+	_product_scroll.size_flags_horizontal = Control.SIZE_FILL
+	_product_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_body.add_child(_product_scroll)
 	_products = GridContainer.new()
-	_products.columns = 2
+	_products.columns = 1
 	_products.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_products.add_theme_constant_override("h_separation", 6)
 	_products.add_theme_constant_override("v_separation", 6)
-	scroll.add_child(_products)
-	var panel := PanelContainer.new()
-	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	panel.size_flags_stretch_ratio = 1.0
-	panel.custom_minimum_size.x = 240
-	body.add_child(panel)
+	_product_scroll.add_child(_products)
+	_transaction_panel = PanelContainer.new()
+	_transaction_panel.name = "MarketTransactionPanel"
+	_transaction_panel.size_flags_horizontal = Control.SIZE_FILL
+	_transaction_panel.custom_minimum_size.x = 360
+	_body.add_child(_transaction_panel)
+	var art_space := Control.new()
+	art_space.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	art_space.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_body.add_child(art_space)
 	var action := VBoxContainer.new()
 	action.add_theme_constant_override("separation", 4)
-	panel.add_child(action)
+	_transaction_panel.add_child(action)
 	_product_name = _label("Выберите товар", 17)
 	action.add_child(_product_name)
 	_stock = _label("", 12)
 	action.add_child(_stock)
 	_quantity_caption = _label("Количество, ед.", 12)
-	action.add_child(_quantity_caption)
+	var quantity_row := HBoxContainer.new()
+	action.add_child(quantity_row)
+	_quantity_caption.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	quantity_row.add_child(_quantity_caption)
 	_quantity = SpinBox.new()
 	_quantity.name = "MarketQuantity"
 	_quantity.min_value = 1
@@ -109,7 +120,8 @@ func _ready() -> void:
 	_quantity.get_line_edit().set_meta("compact_description", true)
 	_quantity.get_line_edit().set_meta("ui_base_font_size", 12)
 	_quantity.value_changed.connect(_set_quantity)
-	action.add_child(_quantity)
+	_quantity.custom_minimum_size.x = 104
+	quantity_row.add_child(_quantity)
 	_slider = HSlider.new()
 	_slider.min_value = 1
 	_slider.step = 1
@@ -120,7 +132,10 @@ func _ready() -> void:
 	for choice in [["1", 1.0], ["10", 10.0], ["½", -0.5], ["МАКС", -1.0]]:
 		_presets.add_child(_button(str(choice[0]), _preset.bind(float(choice[1]))))
 	_price_caption = _label("Цена продажи за единицу", 12)
-	action.add_child(_price_caption)
+	var price_row := HBoxContainer.new()
+	action.add_child(price_row)
+	_price_caption.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	price_row.add_child(_price_caption)
 	_price = SpinBox.new()
 	_price.step = 1
 	_price.set_meta("compact_description", true)
@@ -128,7 +143,8 @@ func _ready() -> void:
 	_price.get_line_edit().set_meta("compact_description", true)
 	_price.get_line_edit().set_meta("ui_base_font_size", 12)
 	_price.value_changed.connect(func(_value: float): _refresh_details())
-	action.add_child(_price)
+	_price.custom_minimum_size.x = 104
+	price_row.add_child(_price)
 	_total = _label("", 18)
 	action.add_child(_total)
 	_primary = _button("Выберите товар", _transact)
@@ -216,7 +232,7 @@ func _choose(resource: String, clear_notice: bool = true) -> void:
 			child.button_pressed = str(child.get_meta("resource_id", "")) == resource
 
 func _refresh_products() -> void:
-	_products.columns = 1 if mode == "orders" else 2
+	_products.columns = 1
 	for child in _products.get_children():
 		_products.remove_child(child)
 		child.queue_free()
@@ -232,6 +248,7 @@ func _refresh_products() -> void:
 	if mode == "orders":
 		_orders()
 		_refresh_details()
+		_update_layout()
 		return
 	var first := ""
 	var found := false
@@ -247,14 +264,15 @@ func _refresh_products() -> void:
 		var price_text: String = ""
 		if not _home:
 			price_text = " · %.0f мон./ед." % (owner_window._get_purchase_price(str(resource)) if mode == "buy" else owner_window._get_sale_price(str(resource)))
-		var button: Button = _button("%s\n%d ед.%s" % [name_value, available, price_text], _choose.bind(str(resource)))
+		var button: Button = _button("%s\n%d ед." % [name_value, available], _choose.bind(str(resource)))
+		button.tooltip_text = "%s · %d ед.%s" % [name_value, available, price_text]
 		button.name = "Good_" + str(resource)
 		button.toggle_mode = true
 		button.button_pressed = selected_resource == str(resource)
 		button.set_meta("resource_id", str(resource))
 		button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		button.custom_minimum_size.y = 58
+		button.custom_minimum_size.y = 48
 		var path: String = "res://assets/ui/styles/approved_hud/%s.png" % str(resource)
 		if ResourceLoader.exists(path):
 			button.icon = load(path)
@@ -269,7 +287,25 @@ func _refresh_products() -> void:
 	if first == "":
 		_products.add_child(_label("Нет свободных товаров для продажи." if mode == "sell" else "Нет товаров по выбранному фильтру.", 13))
 	_refresh_details()
+	_update_layout()
 	_signature = _state_signature()
+
+func _update_layout() -> void:
+	if _transaction_panel == null:
+		return
+	# Measure the whole catalog so filtering never shifts the purchase panel.
+	var sample: Button = _modes.get_child(0)
+	var font: Font = sample.get_theme_font("font")
+	var font_size: int = sample.get_theme_font_size("font_size")
+	var name_width := 0.0
+	for resource in owner_window._goods:
+		name_width = maxf(name_width, font.get_string_size(owner_window._get_resource_name(str(resource)), HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x)
+	var padding: float = sample.get_theme_stylebox("normal").get_minimum_size().x
+	var list_width: float = ceilf(name_width + padding + 28 + sample.get_theme_constant("h_separation") + _product_scroll.get_v_scroll_bar().get_combined_minimum_size().x)
+	var panel_width: float = clampf(_body.size.x - list_width - 12, 260, 360)
+	_transaction_panel.custom_minimum_size.x = panel_width
+	_product_scroll.custom_minimum_size.x = maxf(list_width, minf(400, _body.size.x - panel_width - 12)) if mode == "orders" else list_width
+	_search.custom_minimum_size.x = list_width
 
 func _resource_stock(resource: String) -> int:
 	if _home:
@@ -290,9 +326,11 @@ func _refresh_details() -> void:
 	var selected: bool = selected_resource != "" and mode != "orders"
 	for control in [_quantity, _quantity_caption, _presets]:
 		control.visible = selected
+	_quantity_caption.get_parent().visible = selected
 	_slider.hide()
 	_price.visible = selected and _home and mode == "sell"
 	_price_caption.visible = _price.visible
+	_price_caption.get_parent().visible = _price.visible
 	_product_name.text = owner_window._get_resource_name(selected_resource) if selected else ("Заявки и доставки" if mode == "orders" else "Выберите товар")
 	_primary.disabled = true
 	_primary.visible = mode != "orders"
@@ -442,6 +480,7 @@ func _process(delta: float) -> void:
 	if _tick < 0.5:
 		return
 	_tick = 0
+	_update_layout()
 	if mode == "orders" or _signature != _state_signature():
 		_refresh_products()
 	else:
