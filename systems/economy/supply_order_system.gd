@@ -106,7 +106,7 @@ func place_order(resource_id: String, quantity: int) -> Dictionary:
 	})
 	_set_active_orders(orders)
 	SaveSystem.save_game()
-	return {"ok": true, "message": "Торговец с грузом отправлен к базе."}
+	return {"ok": true, "message": "Торговец с грузом отправлен к базе.", "cost": total_price, "arrives_at": int(orders[-1].arrives_at)}
 
 func get_active_orders() -> Array:
 	var raw_orders: Variant = GameState.economy_state.get("supply_orders", [])

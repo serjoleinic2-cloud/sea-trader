@@ -23,6 +23,8 @@ var _price_caption: Label
 var _total: Label
 var _reason: Label
 var _notice: Label
+var _receipt: PanelContainer
+var _receipt_style: StyleBoxFlat
 var _primary: Button
 var _presets: HBoxContainer
 var _unit_price := 0.0
@@ -89,7 +91,7 @@ func _ready() -> void:
 	panel.custom_minimum_size.x = 240
 	body.add_child(panel)
 	var action := VBoxContainer.new()
-	action.add_theme_constant_override("separation", 7)
+	action.add_theme_constant_override("separation", 4)
 	panel.add_child(action)
 	_product_name = _label("Выберите товар", 17)
 	action.add_child(_product_name)
@@ -132,12 +134,22 @@ func _ready() -> void:
 	_primary = _button("Выберите товар", _transact)
 	_primary.name = "MarketPrimaryAction"
 	action.add_child(_primary)
+	_receipt = PanelContainer.new()
+	_receipt.name = "MarketTransactionReceipt"
+	_receipt.set_meta("preserve_art_style", true)
+	_receipt_style = StyleBoxFlat.new()
+	_receipt_style.set_border_width_all(1)
+	_receipt_style.set_content_margin_all(8)
+	_receipt_style.set_corner_radius_all(5)
+	_receipt.add_theme_stylebox_override("panel", _receipt_style)
+	action.add_child(_receipt)
+	_notice = _label("", 14)
+	_notice.name = "MarketTransactionMessage"
+	_receipt.add_child(_notice)
+	_receipt.hide()
 	_reason = _label("", 12)
 	_reason.name = "MarketAvailability"
 	action.add_child(_reason)
-	_notice = _label("", 12)
-	_notice.modulate = Color("b9e5c8")
-	action.add_child(_notice)
 	var spacer := Control.new()
 	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	action.add_child(spacer)
@@ -172,22 +184,25 @@ func open_for_port(port_id: String) -> void:
 		mode = "sell" if _home else "buy"
 		selected_resource = ""
 		category = "all"
-		_notice.text = ""
+		_clear_notice()
 	_title.text = "РЫНОК · " + owner_window._port_system.get_port_name(port_id)
 	_refresh_products()
 
 func _set_mode(value: String) -> void:
 	mode = value
 	selected_resource = ""
-	_notice.text = ""
+	_clear_notice()
 	_refresh_products()
 
 func _set_category(value: String) -> void:
 	category = value
 	selected_resource = ""
+	_clear_notice()
 	_refresh_products()
 
-func _choose(resource: String) -> void:
+func _choose(resource: String, clear_notice: bool = true) -> void:
+	if clear_notice:
+		_clear_notice()
 	selected_resource = resource
 	owner_window._selected_market_resource_id = resource
 	_quantity.set_value_no_signal(1)
@@ -250,7 +265,7 @@ func _refresh_products() -> void:
 			first = str(resource)
 		found = found or selected_resource == str(resource)
 	if not found:
-		_choose(first)
+		_choose(first, false)
 	if first == "":
 		_products.add_child(_label("Нет свободных товаров для продажи." if mode == "sell" else "Нет товаров по выбранному фильтру.", 13))
 	_refresh_details()
@@ -334,6 +349,7 @@ func _refresh_details() -> void:
 	_primary.text = ("ЗАКАЗАТЬ НА БАЗУ" if _home else "КУПИТЬ") if mode == "buy" else ("ВЫСТАВИТЬ ЗАЯВКУ" if _home else "ПРОДАТЬ")
 	_primary.disabled = not ready
 	_reason.text = explanation
+	_reason.modulate = Color.WHITE if ready else Color("ffc3b0")
 
 func _set_quantity(value: float) -> void:
 	_quantity.set_value_no_signal(value)
@@ -351,16 +367,47 @@ func _preset(value: float) -> void:
 func _transact() -> void:
 	_refresh_details()
 	if _primary.disabled:
+		_show_notice("ОПЕРАЦИЯ НЕ ВЫПОЛНЕНА\n" + (_reason.text if _reason.text != "" else "Сначала выберите товар."), false)
 		return
 	var quantity: int = int(_quantity.value)
+	var resource: String = selected_resource
+	var resource_name: String = owner_window._get_resource_name(resource)
+	var action: String = mode
 	var result: Dictionary
 	if _home:
 		result = _supply().place_order(selected_resource, quantity) if mode == "buy" else owner_window._get_merchant_system().create_sell_order(selected_resource, quantity, _price.value)
 	else:
 		result = owner_window._transfers.execute(mode, selected_resource, quantity)
-	_notice.text = str(result.get("message", ""))
-	owner_window._notice = _notice.text
 	_refresh_products()
+	var success: bool = bool(result.get("ok", false))
+	var message: String = "ОПЕРАЦИЯ НЕ ВЫПОЛНЕНА\n" + str(result.get("message", "Повторите операцию."))
+	if success:
+		var balance: float = float(GameState.player_state.get("money", 0))
+		if action == "buy":
+			var cost: float = float(result.get("cost", 0))
+			if _home:
+				var seconds: int = maxi(0, int(result.get("arrives_at", 0)) - int(Time.get_unix_time_from_system()))
+				message = "ДОСТАВКА ОПЛАЧЕНА · %s × %d\nСписано: %.0f монет · В казне: %.0f\nНа склад базы «%s» через %d сек." % [resource_name, quantity, cost, balance, owner_window._port_system.get_port_name(_port_id), seconds]
+			else:
+				message = "КУПЛЕНО · %s × %d\nСписано: %.0f монет · В казне: %.0f\nТовар в трюме. Всего: %d ед." % [resource_name, quantity, cost, balance, owner_window._get_sellable_cargo_quantity(resource)]
+		elif _home:
+			message = "ЗАЯВКА РАЗМЕЩЕНА · %s × %d\nТовар зарезервирован на складе.\nМонеты поступят после выкупа торговцем." % [resource_name, quantity]
+		else:
+			message = "ПРОДАНО · %s × %d\nПолучено: %.0f монет · В казне: %.0f\nВ трюме осталось: %d ед." % [resource_name, quantity, float(result.get("revenue", 0)), balance, owner_window._get_sellable_cargo_quantity(resource)]
+	_show_notice(message, success)
+	owner_window._notice = message
+
+func _clear_notice() -> void:
+	_notice.text = ""
+	_receipt.hide()
+
+func _show_notice(message: String, success: bool) -> void:
+	_notice.text = message
+	_notice.modulate = Color("d2f3df") if success else Color("ffccc3")
+	_receipt_style.bg_color = Color("0b3025") if success else Color("381b20")
+	_receipt_style.border_color = Color("63b98a") if success else Color("d97d6d")
+	_receipt.tooltip_text = message
+	_receipt.show()
 
 func _orders() -> void:
 	var count := 0
@@ -382,8 +429,8 @@ func _orders() -> void:
 
 func _cancel_order(id: String) -> void:
 	var result: Dictionary = owner_window._get_merchant_system().cancel_sell_order(id)
-	_notice.text = str(result.message)
 	_refresh_products()
+	_show_notice(str(result.get("message", "")), bool(result.get("ok", false)))
 
 func _state_signature() -> String:
 	return str(hash([GameState.port_state.get(_port_id, {}).get("inventory", {}), GameState.port_state.get(_port_id, {}).get("market_stock", {}), GameState.ship_state.get("cargo", []), GameState.player_state.get("money", 0), GameState.economy_state.get("supply_orders", []), GameState.economy_state.get("merchant", {}).get("sell_orders", [])]))

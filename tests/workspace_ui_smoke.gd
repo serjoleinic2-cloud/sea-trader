@@ -117,6 +117,9 @@ func _ready() -> void:
 		check(upgrade.size.x >= 100 and upgrade.size.x < garage._actions.size.x, "yard upgrade uses a readable compact button")
 		await capture("fleet_%d" % screen.x)
 	fleet._is_open = false
+	get_tree().root.size = Vector2i(1280, 720)
+	var market_checks_before: int = _checks
+	var market_failures_before: int = _failed
 	var port: Node = main.get_node("PortWindow")
 	coordinator._market_button.pressed.emit()
 	await frames()
@@ -133,6 +136,9 @@ func _ready() -> void:
 	var reserved_before: int = merchant.get_reserved_quantity("resource_fish")
 	market._transact()
 	check(merchant.get_reserved_quantity("resource_fish") == reserved_before + 10, "sale order reserves the chosen quantity")
+	check(market._receipt.visible and market._notice.text.contains("ЗАЯВКА РАЗМЕЩЕНА") and market._notice.text.contains("10"), "sale order confirms its quantity and waits for the merchant")
+	await frames()
+	check(market._receipt.get_global_rect().end.y <= 720 and market._notice.size.y >= market._notice.get_minimum_size().y, "sale order receipt fits a small screen without clipping text: %s label=%s minimum=%s" % [market._receipt.get_global_rect(), market._notice.size, market._notice.get_minimum_size()])
 	market._set_mode("orders")
 	check(market._products.get_child_count() > 0 and not market._primary.visible, "orders are accessible in the same market")
 	var orders: Array = merchant.get_sell_orders()
@@ -157,6 +163,10 @@ func _ready() -> void:
 		market._transact()
 		check(supply.get_active_orders().size() == delivery_count + 1, "base purchase schedules delivery")
 		check(is_equal_approx(float(GameState.player_state.money), money_before - float(quote.delivery_price) * 2), "delivery quote matches money charged")
+		check(market._receipt.visible and market._notice.text.contains("ДОСТАВКА ОПЛАЧЕНА") and market._notice.text.contains("× 2"), "base purchase shows a delivery receipt for the selected quantity")
+		check(market._notice.text.contains("Списано: %.0f" % (float(quote.delivery_price) * 2)) and market._notice.text.contains("На склад базы"), "delivery receipt explains the actual charge and destination")
+		await frames()
+		check(market._receipt.get_global_rect().end.y <= 720 and market._notice.size.y >= market._notice.get_minimum_size().y, "long delivery receipt fits a small screen without clipping text")
 		var foreign: String = str(quote.source_port_id)
 		GameState.ship_state.docked_port_id = foreign
 		await frames()
@@ -172,6 +182,13 @@ func _ready() -> void:
 		market._transact()
 		check(port._get_sellable_cargo_quantity(purchasable) == cargo_before + 2, "purchased cargo enters the ship")
 		check(is_equal_approx(float(GameState.player_state.money), money_before - float(purchase.unit_price) * 2), "purchase charges the service quote")
+		check(market._receipt.visible and market._notice.text.contains("КУПЛЕНО") and market._notice.text.contains("× 2"), "foreign purchase visibly confirms what was bought")
+		check(market._notice.text.contains("Списано: %.0f" % (float(purchase.unit_price) * 2)) and market._notice.text.contains("в трюме"), "purchase receipt uses the charged amount and confirms cargo location")
+		await frames()
+		check(market._receipt.get_global_rect().end.y <= 720, "successful purchase receipt fits a small screen")
+		var receipt: String = market._notice.text
+		market._refresh_products()
+		check(market._notice.text == receipt and market._receipt.visible, "automatic refresh preserves the transaction receipt")
 		market._set_mode("sell")
 		market._choose(purchasable)
 		market._set_quantity(2)
@@ -181,19 +198,24 @@ func _ready() -> void:
 		market._transact()
 		check(port._get_sellable_cargo_quantity(purchasable) == cargo_before, "sale removes exactly the selected cargo")
 		check(is_equal_approx(float(GameState.player_state.money), money_before + float(sale.revenue)), "sale pays the service quote")
+		check(market._notice.text.contains("ПРОДАНО") and market._notice.text.contains("Получено: %.0f" % float(sale.revenue)), "sale receipt reports the actual payment")
 		market._set_mode("buy")
 		market._choose(purchasable)
 		GameState.player_state.money = 0
 		market._refresh_details()
 		check(market._primary.disabled and market._reason.text.contains("монет"), "insufficient funds has a visible reason")
+		market._transact()
+		check(market._receipt.visible and market._notice.text.contains("НЕ ВЫПОЛНЕНА") and float(GameState.player_state.money) == 0, "rejected purchase gives an explicit failure receipt")
 		GameState.player_state.money = 100000
 		market._refresh_details()
 		for screen in [Vector2i(1280, 720), Vector2i(1920, 1080)]:
 			get_tree().root.size = screen
 			await frames()
 			check(market._primary.get_global_rect().end.y <= port._sheet.get_global_rect().end.y, "market action fits inside its unclipped panel")
+			check(market._receipt.get_global_rect().end.y <= port._sheet.get_global_rect().end.y, "transaction feedback stays visible without scrolling")
 			check(market._primary.get_global_rect().end.x <= screen.x, "market action stays inside the right edge")
 			await capture("market_%d" % screen.x)
+	print("MARKET UI checks=%d fail=%d" % [_checks - market_checks_before, _failed - market_failures_before])
 	GameState.ship_state.docked_port_id = ""
 	fleet._is_open = false
 	coordinator._open_fleet_hub()

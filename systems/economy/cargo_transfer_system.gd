@@ -119,7 +119,7 @@ func execute(action: String, resource_id: String, quantity: int) -> Dictionary:
 	var message: String = "%s: %s × %d." % [str(verbs[action]), str(good.get("display_name", resource_id)), quantity]
 	if action == "sell":
 		message += " Получено %.0f." % revenue
-	return {"ok": true, "message": message, "revenue": revenue}
+	return {"ok": true, "message": message, "revenue": revenue, "cost": price}
 
 func _change_cargo(resource_id: String, delta: int) -> void:
 	var cargo: Array = GameState.ship_state.get("cargo", [])
