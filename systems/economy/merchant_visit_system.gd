@@ -28,6 +28,23 @@ func get_active_offer() -> Dictionary:
 	var raw_offer: Variant = merchant.get("active_offer", {})
 	return raw_offer if raw_offer is Dictionary else {}
 
+func get_next_offer_at() -> int:
+	return int(_merchant_state().get("next_offer_at", _now()))
+
+func decline_offer() -> Dictionary:
+	var offer: Dictionary = get_active_offer()
+	if offer.is_empty() or _now() >= int(offer.get("expires_at", 0)) or int(offer.get("quantity_available", 0)) <= 0:
+		return {"ok": false, "message": "Это предложение уже недоступно."}
+	var previous: Dictionary = _merchant_state().duplicate(true)
+	var merchant: Dictionary = previous.duplicate(true)
+	merchant["active_offer"] = {}
+	merchant["next_offer_at"] = _now() + _next_offer_delay_seconds
+	GameState.economy_state["merchant"] = merchant
+	if not SaveSystem.save_game():
+		GameState.economy_state["merchant"] = previous
+		return {"ok": false, "message": "Не удалось сохранить отказ. Предложение остаётся доступным."}
+	return {"ok": true, "message": "Предложение отклонено. Деньги и заявки на продажу сохранены."}
+
 func get_sell_orders() -> Array:
 	var merchant: Dictionary = GameState.economy_state.get("merchant", {})
 	var raw_orders: Variant = merchant.get("sell_orders", [])

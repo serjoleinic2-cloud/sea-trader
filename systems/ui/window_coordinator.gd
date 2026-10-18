@@ -50,6 +50,8 @@ func initialize(main: Node) -> void:
 	layer = 130
 	process_priority = 1000
 	for window in main.get_children():
+		if str(window.name) == "MerchantOfferHUD":
+			continue # Persistent notification with its own compact offer panel.
 		_enable_vertical_scrolling(window)
 		if not window.has_meta("workspace_flag"):
 			continue
@@ -102,9 +104,7 @@ func initialize(main: Node) -> void:
 	_style_primary_button(_market_button, "")
 	_market_button.pressed.connect(_open_market)
 	_toolbar.add_child(_market_button)
-	_merchant_button = Button.new()
-	_merchant_button.text = "ТОРГОВЕЦ"
-	_merchant_button.pressed.connect(func(): _details = "" if _details == "MerchantOfferHUD" else "MerchantOfferHUD"; _main.get_node("MerchantOfferHUD")._is_open = _details == "MerchantOfferHUD"; _port_expanded = false; _close_all_workspaces())
+	_merchant_button = main.get_node("MerchantOfferHUD").get("_button")
 	var fleet_hub := Button.new()
 	fleet_hub.text = "ФЛОТ И ВЕРФЬ"
 	fleet_hub.name = "Menu_FleetShipyard"
@@ -153,7 +153,6 @@ func initialize(main: Node) -> void:
 	encyclopedia_button.text = "Энциклопедия"
 	encyclopedia_button.pressed.connect(func(): _more_panel.hide(); _encyclopedia.open())
 	_add_more_button(encyclopedia_button)
-	_add_more_button(_merchant_button)
 	for item in [["Корабль", "ShipStatusHUD"], ["Первый рейс", "FirstVoyageGuide"]]:
 		if str(item[1]) == "ShipStatusHUD":
 			continue
@@ -765,17 +764,17 @@ func _process(_delta: float) -> void:
 		guide.visible = not has_modal and _details == "FirstVoyageGuide"
 	var at_home: bool = docked and docked_port_id == home_port_id
 	_refresh_more_availability(docked)
-	for node_name in ["ShipStatusHUD", "MapStatusHUD", "WorldEventHUD", "MerchantOfferHUD"]:
+	for node_name in ["ShipStatusHUD", "MapStatusHUD", "WorldEventHUD"]:
 		var hud: CanvasLayer = _main.get_node_or_null(node_name)
 		if hud != null:
 			hud.visible = not has_modal and _details == node_name and node_name != "ShipStatusHUD"
-	_merchant_button.visible = bool(_main.get_node("MerchantOfferHUD").get("_button").visible)
+	var merchant_hud: Node = _main.get_node("MerchantOfferHUD")
+	merchant_hud.layer = 120 if _more_panel.visible or _extra_resources_panel.visible else 145
+	merchant_hud.call("layout_for_viewport", viewport, _top_height)
 	_main.get_node("PortWindow").visible = not has_modal and docked and _port_expanded
 	if has_modal:
 		_extra_resources_panel.hide()
-		_main.get_node("MerchantOfferHUD").get("_button").hide()
 	_main.get_node("FleetWindow").get("_button").hide()
-	_main.get_node("MerchantOfferHUD").get("_button").hide()
 	_main.get_node("CrewWindow").get("_button").hide()
 	_main.get_node("NavigationHUD").get("_toggle_button").hide()
 	_main.get_node("NavigationHUD").get("_course_label").hide()
@@ -869,6 +868,11 @@ func _refresh_text_scale_button() -> void:
 
 func _unhandled_key_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
+		var merchant_hud: Node = _main.get_node("MerchantOfferHUD")
+		if bool(merchant_hud.get("_is_open")):
+			merchant_hud.call("close_window")
+			get_viewport().set_input_as_handled()
+			return
 		var had_window: bool = _port_expanded or _more_panel.visible or _extra_resources_panel.visible or _details != ""
 		for entry in _entries:
 			had_window = had_window or bool(entry["window"].get(str(entry["flag"])))
