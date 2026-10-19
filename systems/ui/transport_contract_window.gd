@@ -83,28 +83,39 @@ func _process(_delta: float) -> void:
 		return
 	_offer_scroll.visible = false
 	_action.visible = true
-	_label.text = "АКТИВНЫЙ ЗАКАЗ\n\n%s → %s\nГруз: %s × %d\nНаграда: %.0f\n\n%s" % [
-		str(active.origin_name), str(active.destination_name), str(active.resource_name), int(active.quantity), float(active.reward), _notice
+	_label.text = "АКТИВНЫЙ ЗАКАЗ\n\nЗАБРАТЬ: %s\nРАЗГРУЗИТЬ: %s\nГруз: %s × %d\nНаграда: %.0f\n\n%s" % [
+		str(active.get("origin_name", "порт отправления")), str(active.get("destination_name", "порт назначения")), str(active.get("resource_name", "груз")), int(active.get("quantity", 0)), float(active.get("reward", 0.0)), _notice
 	]
 	if not bool(active.get("loaded", false)):
+		var origin_id: String = str(active.get("origin_port_id", ""))
+		var at_pickup_port: bool = str(GameState.ship_state.get("docked_port_id", "")) == origin_id
 		var free_space: int = _free_space()
 		var needed: int = int(active.get("quantity", 0))
 		_label.text += "\nСвободно в трюме: %d из %d" % [free_space, int(GameState.ship_state.get("cargo_capacity", 0))]
-		if free_space < needed:
+		if not at_pickup_port:
+			_action.text = "КУРС К ЗАБОРУ ГРУЗА: %s" % str(active.get("origin_name", "порт отправления"))
+			_action.disabled = false
+		elif free_space < needed:
 			_action.text = "ОСВОБОДИТЬ ТРЮМ — НУЖНО %d" % [needed - free_space]
 			_action.disabled = false
 		else:
-			_action.text = "ЗАГРУЗИТЬ ОПЕЧАТАННЫЙ ГРУЗ"
-			_action.disabled = str(GameState.ship_state.get("docked_port_id", "")) != str(active.origin_port_id)
+			_action.text = "ЗАБРАТЬ ГРУЗ · ЗАГРУЗИТЬ В ТРЮМ"
+			_action.disabled = false
 	elif str(GameState.ship_state.get("docked_port_id", "")) == str(active.destination_port_id):
-		_action.text = "СДАТЬ ЗАКАЗ И ПОЛУЧИТЬ НАГРАДУ"
+		_action.text = "РАЗГРУЗИТЬ ГРУЗ · СДАТЬ ЗАКАЗ"
 		_action.disabled = false
 	else:
-		_action.text = "ВЕДИТЕ ВРУЧНУЮ В «%s»" % str(active.destination_name)
-		_action.disabled = true
+		_action.text = "КУРС К РАЗГРУЗКЕ: %s" % str(active.destination_name)
+		_action.disabled = false
 
 func _act() -> void:
 	var active: Dictionary = _system.get_active()
+	if not active.is_empty():
+		var step_port_id: String = str(active.get("destination_port_id", "")) if bool(active.get("loaded", false)) else str(active.get("origin_port_id", ""))
+		if str(GameState.ship_state.get("docked_port_id", "")) != step_port_id:
+			var course_result: Dictionary = _system.set_course_for_active_step()
+			_notice = str(course_result.get("message", ""))
+			return
 	if not active.is_empty() and not bool(active.get("loaded", false)) and _free_space() < int(active.get("quantity", 0)):
 		_open_cargo_clearance()
 		return

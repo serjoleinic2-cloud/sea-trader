@@ -14,6 +14,12 @@ func _ready() -> void:
 
 func initialize(port_system: Node) -> void:
 	_port_system = port_system
+	# Existing saves may still point at the delivery port before pickup.
+	var active: Dictionary = get_active()
+	if not active.is_empty():
+		var step_port_id: String = str(active.get("destination_port_id", "")) if bool(active.get("loaded", false)) else str(active.get("origin_port_id", ""))
+		if step_port_id != "" and str(GameState.world_state.get("destination_port_id", "")) != step_port_id:
+			_port_system.select_destination(step_port_id)
 
 func get_active() -> Dictionary:
 	var raw: Variant = GameState.economy_state.get("transport_contract", {})
@@ -100,8 +106,10 @@ func _accept_offer(contract: Dictionary) -> Dictionary:
 	contract["loaded"] = false
 	contract["accepted_at"] = int(Time.get_unix_time_from_system())
 	GameState.economy_state["transport_contract"] = contract
-	_port_system.select_destination(str(contract.destination_port_id))
 	SaveSystem.save_game()
+	# The first leg ends at the pickup port. The destination becomes the course
+	# only after the sealed cargo is aboard.
+	_port_system.select_destination(str(contract.origin_port_id))
 	EventBus.contract_accepted.emit(str(contract.id))
 	return {"ok": true, "message": "Заказ принят. Загрузите опечатанный груз в этом порту."}
 
@@ -125,6 +133,7 @@ func load() -> Dictionary:
 	contract["loaded"] = true
 	GameState.economy_state["transport_contract"] = contract
 	SaveSystem.save_game()
+	_port_system.select_destination(str(contract.destination_port_id))
 	EventBus.cargo_loaded.emit(str(contract.resource_id), int(contract.quantity))
 	return {"ok": true, "message": "Груз опечатан и загружен. Ведите корабль вручную в «%s»." % str(contract.destination_name)}
 
@@ -156,6 +165,17 @@ func complete() -> Dictionary:
 	EventBus.cargo_delivered.emit(str(contract.resource_id), int(contract.quantity))
 	EventBus.contract_completed.emit(str(contract.id), reward)
 	return {"ok": true, "message": "Заказ сдан: %s × %d. Получено %.0f." % [str(contract.resource_name), int(contract.quantity), reward]}
+
+func set_course_for_active_step() -> Dictionary:
+	var contract: Dictionary = get_active()
+	if contract.is_empty():
+		return {"ok": false, "message": "Нет активного заказа."}
+	var target_id: String = str(contract.get("destination_port_id", "")) if bool(contract.get("loaded", false)) else str(contract.get("origin_port_id", ""))
+	if _port_system == null or not _port_system.select_destination(target_id):
+		return {"ok": false, "message": "Не удалось проложить курс к порту задания."}
+	var action: String = "разгрузки" if bool(contract.get("loaded", false)) else "загрузки"
+	var target_name: String = str(contract.get("destination_name", "")) if bool(contract.get("loaded", false)) else str(contract.get("origin_name", ""))
+	return {"ok": true, "message": "Курс проложен к порту «%s» — %s." % [target_name, action]}
 
 func _offer_unavailable_message() -> String:
 	var origin_id: String = str(GameState.ship_state.get("docked_port_id", ""))

@@ -38,9 +38,11 @@ func test_accept_load_and_complete_manual_order() -> void:
 	var offer: Dictionary = _contracts.offer()
 	assert_true(bool(offer.get("ok", false)))
 	assert_true(_contracts.accept().ok)
+	assert_eq(str(GameState.world_state.destination_port_id), str(_contracts.get_active().origin_port_id))
 	assert_true(_contracts.load().ok)
 	var active: Dictionary = _contracts.get_active()
 	assert_true(bool(active.loaded))
+	assert_eq(str(GameState.world_state.destination_port_id), str(active.destination_port_id))
 	assert_eq(GameState.ship_state.cargo.size(), 1)
 	assert_eq(str(GameState.ship_state.cargo[0].contract_id), str(active.id))
 	GameState.ship_state["docked_port_id"] = str(active.destination_port_id)
@@ -77,3 +79,14 @@ func test_sealed_cargo_cannot_be_sent_by_autopilot() -> void:
 	assert_false(bool(result.ok))
 	assert_true(str(result.message).contains("вручную"))
 	pilot.free()
+
+func test_active_legacy_order_routes_to_pickup_until_loaded() -> void:
+	GameState.economy_state["transport_contract"] = {
+		"origin_port_id": "home", "destination_port_id": "remote", "loaded": false
+	}
+	GameState.world_state["destination_port_id"] = "remote"
+	_contracts.initialize(_ports)
+	assert_eq(str(GameState.world_state.destination_port_id), "home")
+	GameState.economy_state.transport_contract["loaded"] = true
+	_contracts.initialize(_ports)
+	assert_eq(str(GameState.world_state.destination_port_id), "remote")

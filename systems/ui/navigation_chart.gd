@@ -170,6 +170,12 @@ func _draw_known_ports() -> void:
 	var home_id: String = str(GameState.world_state.get("home_port_id", ""))
 	if home_id != "" and not known_ids.has(home_id):
 		known_ids.append(home_id)
+	var contract: Dictionary = GameState.economy_state.get("transport_contract", {})
+	var pickup_id: String = str(contract.get("origin_port_id", "")) if not contract.is_empty() and not bool(contract.get("loaded", false)) else ""
+	var delivery_id: String = str(contract.get("destination_port_id", "")) if not contract.is_empty() else ""
+	for task_port_id in [pickup_id, delivery_id]:
+		if task_port_id != "" and not known_ids.has(task_port_id):
+			known_ids.append(task_port_id)
 	for raw_id in known_ids:
 		var port_id: String = str(raw_id)
 		if port_id == "":
@@ -180,7 +186,8 @@ func _draw_known_ports() -> void:
 		if port_id == home_id:
 			draw_circle(point, 10.0, Color("#f0c45b"))
 			draw_arc(point, 17.0, 0.0, TAU, 32, Color("#ffec9a"), 2.0)
-			_draw_label(point + Vector2(17.0, -10.0), "★ " + _port_system.get_port_name(port_id), Color("#ffe58a"))
+			_draw_contract_action_label(point, port_id, pickup_id, delivery_id, bool(contract.get("loaded", false)))
+			_draw_label(point + Vector2(17.0, 16.0), "★ " + _port_system.get_port_name(port_id), Color("#ffe58a"))
 		else:
 			var state: Dictionary = GameState.port_state.get(port_id, {})
 			var captured: bool = bool(state.get("captured_by_player", false))
@@ -192,7 +199,21 @@ func _draw_known_ports() -> void:
 			if guarded:
 				draw_arc(point, 11.0, 0.0, TAU, 24, Color("#ffd39a"), 1.5)
 			var name_color: Color = Color("#b9f3a8") if tribute else (Color("#a6f0fa") if captured else Color("#d5e5e6"))
-			_draw_label(point + Vector2(11.0, 5.0), _port_system.get_port_name(port_id), name_color)
+			_draw_contract_action_label(point, port_id, pickup_id, delivery_id, bool(contract.get("loaded", false)))
+			_draw_label(point + Vector2(11.0, 16.0), _port_system.get_port_name(port_id), name_color)
+
+func _draw_contract_action_label(point: Vector2, port_id: String, pickup_id: String, delivery_id: String, loaded: bool) -> void:
+	if pickup_id == "" and delivery_id == "":
+		return
+	var action: String = ""
+	var color := Color("#ffd27b")
+	if port_id == pickup_id:
+		action = "(ЗАБРАТЬ)" if not loaded else "(ГРУЗ ЗАБРАН)"
+	elif port_id == delivery_id:
+		action = "(РАЗГРУЗИТЬ)"
+		color = Color("#8fe1cc")
+	if action != "":
+		_draw_label(point + Vector2(11.0, -9.0), action, color)
 
 
 func _draw_route() -> void:

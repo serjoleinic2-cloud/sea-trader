@@ -52,7 +52,7 @@ func get_guide_state() -> Dictionary:
 	if active.is_empty():
 		return {"phase": "accept"}
 	if not bool(active.get("loaded", false)):
-		return {"phase": "load"}
+		return {"phase": "load", "origin_port_id": str(active.get("origin_port_id", ""))}
 	if str(GameState.ship_state.get("docked_port_id", "")) == str(active.get("destination_port_id", "")):
 		return {"phase": "complete_contract"}
 	return {"phase": "deliver", "destination_port_id": str(active.get("destination_port_id", ""))}
@@ -83,14 +83,16 @@ func _process(_delta: float) -> void:
 			_action.text = "ОТКРЫТЬ ЗАКАЗ"
 			_action.disabled = str(GameState.ship_state.get("docked_port_id", "")) == ""
 		"load":
-			var port_name: String = _ports.get_port_name(str(GameState.ship_state.get("docked_port_id", ""))) if _ports != null else ""
-			_text.text = "ЗАКАЗ ПРИНЯТ В ПОРТУ «%s»\nЗагрузите опечатанный груз в трюм." % port_name
-			_action.text = "ОТКРЫТЬ ЗАКАЗ"
+			var pickup_id: String = str(state.get("origin_port_id", ""))
+			var pickup_name: String = _ports.get_port_name(pickup_id) if _ports != null else ""
+			var at_pickup: bool = str(GameState.ship_state.get("docked_port_id", "")) == pickup_id
+			_text.text = "ЗАБРАТЬ ГРУЗ В ПОРТУ «%s»\n%s" % [pickup_name, "У причала откройте заказ и нажмите «ЗАБРАТЬ ГРУЗ»." if at_pickup else "Нажмите курс, затем причальте и заберите опечатанный груз."]
+			_action.text = "ОТКРЫТЬ ЗАКАЗ · ЗАБРАТЬ" if at_pickup else "КУРС К ПОГРУЗКЕ · %s" % pickup_name
 			_action.disabled = false
 		"deliver":
 			var destination_name: String = _ports.get_port_name(str(state.get("destination_port_id", ""))) if _ports != null else ""
-			_text.text = "ГРУЗ В ТРЮМЕ\nВезите его в порт «%s». У причала нажмите E. Автопилот для первого заказа не используется." % destination_name
-			_action.text = "УКАЗАТЬ КУРС"
+			_text.text = "РАЗГРУЗИТЬ В ПОРТУ «%s»\nДоставьте груз к причалу и сдайте заказ. Корабль ведите вручную." % destination_name
+			_action.text = "КУРС К РАЗГРУЗКЕ · %s" % destination_name
 			_action.disabled = false
 		"complete_contract":
 			var destination_name: String = _ports.get_port_name(str(GameState.ship_state.get("docked_port_id", ""))) if _ports != null else ""
@@ -105,10 +107,20 @@ func _perform_action() -> void:
 			_ports.set_exploration_destination(_ports.get_nearest_undiscovered_port_id())
 		"accept":
 			_open_contract_window()
-		"load", "complete_contract":
+		"load":
+			var active: Dictionary = _contracts.get_active() if _contracts != null else {}
+			var origin_id: String = str(active.get("origin_port_id", ""))
+			if str(GameState.ship_state.get("docked_port_id", "")) == origin_id:
+				_open_contract_window()
+			elif _contracts != null and _contracts.has_method("set_course_for_active_step"):
+				_contracts.call("set_course_for_active_step")
+		"complete_contract":
 			_open_contract_window()
 		"deliver":
-			_ports.select_destination(str(state.get("destination_port_id", "")))
+			if _contracts != null and _contracts.has_method("set_course_for_active_step"):
+				_contracts.call("set_course_for_active_step")
+			else:
+				_ports.select_destination(str(state.get("destination_port_id", "")))
 
 func _open_contract_window() -> void:
 	var windows: Array[Node] = get_tree().get_nodes_in_group("transport_contract_window")
