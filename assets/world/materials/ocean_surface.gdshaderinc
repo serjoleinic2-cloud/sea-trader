@@ -100,15 +100,13 @@ void fragment() {
 
 	#endif
 	float foam = 0.0;
-	if (depth < 0.65 || swell_height > 0.1944) {
+	// Foam belongs to the shoreline only. Open-sea crest speckles produced
+	// periodic blurry white patches, especially with the high/refraction shader.
+	if (depth < 0.65) {
 		float noise = foam_noise(ocean_world.xz * 1.2 + vec2(t * 0.12, -t * 0.09));
 		float shore = 1.0 - smoothstep(0.06, 0.65, depth);
 		float wash = smoothstep(0.32, 0.68, noise + sin(depth * 11.0 - t * 2.2) * 0.16);
-		float crest = 0.0;
-		#ifdef WATER_REFRACTION
-		crest = smoothstep(0.72, 0.95, swell_height / 0.27) * smoothstep(0.57, 0.78, noise) * 0.22;
-		#endif
-		foam = clamp(shore * wash * 0.78 + crest, 0.0, 0.85);
+		foam = clamp(shore * wash * 0.78, 0.0, 0.85);
 	}
 	ALBEDO = mix(water_color, vec3(0.88, 0.96, 0.93), foam);
 	#ifdef WATER_REFRACTION
