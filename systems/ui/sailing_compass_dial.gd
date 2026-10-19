@@ -17,8 +17,11 @@ func _draw() -> void:
 		var radial: Vector2 = Vector2.from_angle(angle)
 		var color: Color = Color("#f0d779") if index == 0 else Color("#aebeb9")
 		draw_line(center + radial * (radius - 11.0), center + radial * (radius - 5.0), color, 1.0, true)
-		var text_size: Vector2 = font.get_string_size(directions[index], HORIZONTAL_ALIGNMENT_LEFT, -1, 10)
-		draw_string(font, center + radial * (radius - 21.0) - text_size * 0.5 + Vector2(0, 4), directions[index], HORIZONTAL_ALIGNMENT_LEFT, -1, 10, color)
+		# The dial is only 82 px wide; keep two-letter diagonals short and
+		# spread them around the rim so neighbouring labels stay legible.
+		const LABEL_SIZE: int = 8
+		var text_size: Vector2 = font.get_string_size(directions[index], HORIZONTAL_ALIGNMENT_LEFT, -1, LABEL_SIZE)
+		draw_string(font, center + radial * (radius - 14.0) - text_size * 0.5 + Vector2(0, 3), directions[index], HORIZONTAL_ALIGNMENT_LEFT, -1, LABEL_SIZE, color)
 	var bow := PackedVector2Array([center + Vector2(0, -radius + 24), center + Vector2(-6, 2), center + Vector2(0, -2), center + Vector2(6, 2)])
 	draw_colored_polygon(bow, Color("#f2cf70"))
 	if has_target:
