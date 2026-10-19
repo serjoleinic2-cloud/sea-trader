@@ -55,6 +55,9 @@ func _ready() -> void:
 	# Old unread combat reports are separate modals, outside the fleet audit.
 	main.get_node("CombatNotificationHUD")._story_root.hide()
 	var home: String = str(GameState.world_state.home_port_id)
+	if home.is_empty():
+		home = str(main.get_node("PortSystem").get_all_port_ids()[0])
+		GameState.world_state.home_port_id = home
 	GameState.ship_state.docked_port_id = home
 	GameState.player_state.money = 200000.0
 	var fixture: Dictionary = {"instance_id": "slot_audit_trade", "ship_type_id": "ship_freighter", "name": "Проверка торгового экипажа", "current_port_id": home, "crew": [], "autopilot": {}, "cargo": []}
@@ -98,6 +101,14 @@ func _ready() -> void:
 			await click(view._right.find_child("BoostSlot_%d" % index, true, false))
 			await frames()
 			check(view._picker.visible, "trade boost picker stays open")
+			var tiles: GridContainer = view._choices.find_child("ShipBoostTiles", true, false)
+			check(tiles != null and tiles.get_child_count() == 2, "trade ship shows only its two compatible illustrated boosts")
+			for tile in tiles.get_children():
+				check(tile._image.texture != null and tile._image.texture.resource_path.contains("painted_v1"), "ship boost has its painted artwork")
+			if index == 0 and ship_id == "active_ship" and OS.get_environment("SEA_TRADER_UI_CAPTURE") == "1":
+				await RenderingServer.frame_post_draw
+				DirAccess.make_dir_recursive_absolute("res://work/ui-checks")
+				get_viewport().get_texture().get_image().save_png("res://work/ui-checks/ship_boost_tiles.png")
 			await close_picker(view)
 		check(fleet._is_open, "slot selection keeps the fleet window open")
 		check(view._right.find_child("GunSlot_0", true, false) == null, "trade ship has no combat gun slots")

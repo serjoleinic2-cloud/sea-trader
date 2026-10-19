@@ -41,10 +41,7 @@ const ItemArt = preload("res://systems/ui/resource_item_art.gd")
 
 func initialize(main: Node) -> void:
 	_main = main
-	var hud_system_font := SystemFont.new()
-	hud_system_font.font_names = PackedStringArray(["Segoe UI", "Arial", "sans-serif"])
-	hud_system_font.font_weight = 600
-	_hud_font = hud_system_font
+	_hud_font = preload("res://systems/ui/game_ui_theme.gd").button_font()
 	add_to_group("window_coordinator")
 	# Keep the shared HUD and its dropdowns above every in-game window, including
 	# the ship inspection overlay (layer 110).
@@ -606,7 +603,7 @@ func _wrap_panel(window: Node, panel: PanelContainer, flag: String) -> void:
 	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	column.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	if str(window.name) in ["NavigationHUD", "BuildingProjectWindow", "ShipyardWindow"] or _contains_scroll_container(content):
+	if str(window.name) in ["NavigationHUD", "BuildingProjectWindow", "ShipyardWindow"] or bool(window.get_meta("owns_workspace_scroll", false)) or _contains_scroll_container(content):
 		content.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		column.add_child(content)
 	else:

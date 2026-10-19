@@ -13,8 +13,11 @@ var _selected_player: String = ""
 var _search: String = ""
 var _dialog: FileDialog
 var _confirmation: CanvasLayer
+var _shop_category: String = "all"
+var _shop_product: String = ""
 
 func _ready() -> void:
+	set_meta("owns_workspace_scroll", true)
 	layer = 60
 	_panel = PanelContainer.new()
 	_panel.name = "SocialWorkspace"
@@ -237,14 +240,19 @@ func _boosts(entry: Dictionary) -> void:
 	var box: VBoxContainer = _scroll()
 	_label(box, "Клановые бусты · до двух одновременно", true)
 	_label(box, "Каждый действует 24 реальных часа для всех участников. Раз в неделю активный участник добавляет 0,02–0,05 процентного пункта в одно случайное направление. Есть предел силы; смена клана не даёт повторного вклада за неделю.")
+	var grid := preload("res://systems/ui/boost_tile_grid.gd").new()
+	grid.name = "ClanBoostTiles"
+	box.add_child(grid)
 	for stat in _clans.rules.boosts:
 		var spec: Dictionary = _clans.rules.boosts[stat]
-		var row := HBoxContainer.new()
-		box.add_child(row)
 		var percent: float = minf(float(spec.cap_percent), float(spec.base_percent) + float(entry.boost_progress.get(stat, 0)))
-		_label(row, "%s · +%.2f%% / предел %.0f%%\n%s" % [str(spec.name), percent, float(spec.cap_percent), str(spec.description)])
-		var remaining: int = maxi(0, int(entry.active_boosts.get(stat, 0)) - _clans.now())
-		_button(row, "Действует %d ч %02d мин" % [remaining / 3600, remaining % 3600 / 60] if remaining > 0 else "Активировать · 24 ч", _act.bind("boost", {"stat": str(stat)}), remaining > 0 or _clans.role() != "leader")
+		percent *= -1.0 if str(stat) in ["fuel", "repair"] else 1.0
+		var tile := preload("res://systems/ui/boost_tile.gd").new()
+		tile.set_meta("boost_id", str(stat))
+		grid.add_child(tile)
+		tile.configure(str(spec.name), "%+.2f%%" % percent, "%s. Предел %.0f%%." % [str(spec.description), float(spec.cap_percent)], str(stat), _act.bind("boost", {"stat": str(stat)}), func() -> Dictionary:
+			var remaining: int = maxi(0, int(entry.active_boosts.get(stat, 0)) - _clans.now())
+			return {"status": "%02d:%02d:%02d" % [floori(remaining / 3600.0), floori(remaining % 3600 / 60.0), remaining % 60] if remaining > 0 else "24 часа · весь клан", "action": "Действует" if remaining > 0 else "Активировать", "disabled": remaining > 0 or _clans.role() != "leader", "tooltip": "Активирует глава клана; одновременно до двух направлений."})
 
 func _management(entry: Dictionary) -> void:
 	var box: VBoxContainer = _scroll()
@@ -288,18 +296,11 @@ func _message_input(parent: Node, callback: Callable) -> void:
 	edit.text_submitted.connect(callback)
 
 func _shop_page() -> void:
-	var box: VBoxContainer = _scroll()
-	_label(box, "Магазин компании · казна %.0f монет" % float(GameState.player_state.get("money", 0)), true)
-	_label(box, "Покупки за игровые монеты, после подтверждения. Бусты лежат в запасе свитков; премиум запускается сразу. Декор не увеличивает боевые характеристики.")
-	for product in _shop.catalog():
-		var row := HBoxContainer.new(); row.add_theme_constant_override("separation", 14); box.add_child(row)
-		var icon := TextureRect.new(); icon.texture = load(str(product.icon)); icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE; icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED; icon.custom_minimum_size = Vector2(64, 64); row.add_child(icon)
-		var details := VBoxContainer.new(); details.size_flags_horizontal = Control.SIZE_EXPAND_FILL; row.add_child(details)
-		_label(details, str(product.name), true)
-		_label(details, str(product.description))
-		var quote: Dictionary = _shop.quote(str(product.id))
-		var buy: Button = _button(row, "Купить · %.0f" % float(product.price) if bool(product.get("available", true)) else "Позже", _buy.bind(str(product.id)), not bool(quote.get("ok", false)))
-		buy.tooltip_text = str(quote.get("message", ""))
+	var shop_view := preload("res://systems/ui/company_shop_view.gd").new()
+	_body.add_child(shop_view)
+	shop_view.purchase_requested.connect(_buy)
+	shop_view.selection_changed.connect(func(category: String, id: String) -> void: _shop_category = category; _shop_product = id)
+	shop_view.configure(_shop, _shop_category, _shop_product)
 
 func _buy(id: String) -> void:
 	var quote: Dictionary = _shop.quote(id)

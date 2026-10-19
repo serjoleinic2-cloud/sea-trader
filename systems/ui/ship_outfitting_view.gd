@@ -176,8 +176,7 @@ func _refresh() -> void:
 		button.custom_minimum_size=Vector2(68,64)
 		if float(active.get("seconds_remaining",0))>0:
 			button.text=""
-			var path: String=str(definition_boost.get("icon",""))
-			if ResourceLoader.exists(path): _slot_image(button,load(path))
+			_slot_image(button,preload("res://systems/ui/boost_item_art.gd").texture(str(definition_boost.get("stat","speed"))))
 			button.tooltip_text=str(definition_boost.get("name","Свиток"))
 		var timer: Label=_label("",9)
 		timer.horizontal_alignment=HORIZONTAL_ALIGNMENT_CENTER
@@ -465,6 +464,7 @@ func _set_detail_action(text: String, action: Callable) -> void:
 
 func _open_boost(slot: int) -> void:
 	_show_picker("ВРЕМЕННЫЙ СВИТОК · ЯЧЕЙКА %d" % (slot+1))
+	_detail_heading.get_parent().get_parent().hide()
 	var ship: Dictionary = Loadout.vessel(_ship_id)
 	if ship.is_empty() or slot < 0 or slot >= 4:
 		_choices.add_child(_label("Корабль или ячейка свитка недоступны. Выберите судно заново."))
@@ -474,19 +474,19 @@ func _open_boost(slot: int) -> void:
 	var active:Dictionary=Loadout.boost_slots(ship)[slot]
 	if float(active.get("seconds_remaining",0))>0:
 		_choices.add_child(_label("Свиток уже действует. Его нельзя снять для сброса таймера; дождитесь окончания."));return
+	var grid := preload("res://systems/ui/boost_tile_grid.gd").new()
+	grid.name = "ShipBoostTiles"
+	_choices.add_child(grid)
 	for id in Loadout.boost_catalog():
 		var spec:Dictionary=Loadout.boost_catalog()[id]
 		if str(spec.stat) in ["damage","reload","accuracy"] and not bool(Loadout.definition(ship).get("warship",false)): continue
-		var row:=HBoxContainer.new();row.add_theme_constant_override("separation",12);_choices.add_child(row)
-		var icon:=TextureRect.new();icon.custom_minimum_size=Vector2(68,76);icon.expand_mode=TextureRect.EXPAND_IGNORE_SIZE;icon.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		if ResourceLoader.exists(str(spec.get("icon",""))):icon.texture=load(str(spec.icon))
-		row.add_child(icon)
 		var effect:String={"speed":"Скорость","fuel":"Расход топлива","damage":"Урон","reload":"Перезарядка","accuracy":"Точность"}.get(str(spec.stat),str(spec.stat))
 		var percent:float=float(spec.percent)*(-1.0 if str(spec.stat) in ["fuel","reload"] else 1.0)
-		var text:Label=_label("%s\n%s %+.0f%% · %d мин" % [str(spec.name),effect,percent,int(float(spec.duration_seconds)/60.0)],11);text.size_flags_horizontal=Control.SIZE_EXPAND_FILL;row.add_child(text)
 		var count:int=int(rewards.get_state().get("boosts",{}).get(id,0))
-		if count>0:_button(row,"Из запаса · %d"%count,func():_begin_change();_done(rewards.equip_ship_boost(_ship_id,slot,str(id))))
-		else:_button(row,"Купить · %d"%int(spec.get("price",0)),func():_begin_change();_done(rewards.equip_ship_boost(_ship_id,slot,str(id),true)))
+		var tile := preload("res://systems/ui/boost_tile.gd").new()
+		grid.add_child(tile)
+		tile.configure(str(spec.name), "%+.0f%%" % percent, effect + ". " + str(spec.get("description", "")), str(spec.stat), func(): _begin_change(); _done(rewards.equip_ship_boost(_ship_id,slot,str(id),count <= 0)), func() -> Dictionary:
+			return {"status": "%d мин · в запасе %d" % [int(float(spec.duration_seconds)/60.0), count], "action": "Из запаса · %d" % count if count > 0 else "Купить · %d" % int(spec.get("price",0)), "disabled": false})
 
 func _open_gun(slot: int) -> void:
 	var navy: Node = _navy()

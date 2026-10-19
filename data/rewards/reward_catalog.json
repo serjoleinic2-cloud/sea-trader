@@ -24,7 +24,7 @@
       "price": 280,
       "icon": "res://assets/ui/training_scrolls/scroll_efficiency.svg",
       "class": "timed_ship_scroll",
-      "description": "+8% · 20 мин игрового времени"
+      "description": "−8% к расходу топлива на 20 минут игрового времени"
     },
     "powder_rune": {
       "name": "Свиток мощного залпа",
@@ -44,7 +44,7 @@
       "price": 340,
       "icon": "res://assets/ui/training_scrolls/scroll_logistics.svg",
       "class": "timed_ship_scroll",
-      "description": "+8% · 15 мин игрового времени"
+      "description": "−8% ко времени перезарядки на 15 минут игрового времени"
     },
     "aim_rune": {
       "name": "Свиток точного огня",

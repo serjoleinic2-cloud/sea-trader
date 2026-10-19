@@ -2,6 +2,15 @@ extends RefCounted
 
 var _theme: Theme
 var _faction_id: String = ""
+static var _button_font: Font
+
+static func button_font() -> Font:
+	if _button_font == null:
+		var font := SystemFont.new()
+		font.font_names = PackedStringArray(["Segoe UI", "Arial", "sans-serif"])
+		font.font_weight = 600
+		_button_font = font
+	return _button_font
 
 func get_theme() -> Theme:
 	var faction_id: String = str(GameState.player_state.get("origin_race_id", "humans"))
@@ -30,11 +39,8 @@ func get_theme() -> Theme:
 	panel.content_margin_bottom = 12
 	_theme.set_stylebox("panel", "PanelContainer", panel)
 	_theme.set_stylebox("panel", "Panel", panel)
-	var title_font := SystemFont.new()
-	title_font.font_names = PackedStringArray(["Georgia", "Noto Serif", "serif"])
-	title_font.font_weight = 700
-	for type in ["Button", "OptionButton", "CheckButton"]:
-		_theme.set_font("font", type, title_font)
+	for type in ["Button", "OptionButton", "CheckButton", "CheckBox", "MenuButton"]:
+		_theme.set_font("font", type, button_font())
 		var normal_button := _button_style(Color.WHITE)
 		var hover_button: StyleBoxTexture = normal_button.duplicate() as StyleBoxTexture
 		hover_button.modulate_color = Color(1.12, 1.08, 0.98, 1.0)
@@ -66,6 +72,7 @@ func get_theme() -> Theme:
 	_theme.set_constant("separation", "VBoxContainer", 10)
 	_theme.set_constant("separation", "HBoxContainer", 10)
 	_theme.set_stylebox("panel", "PopupMenu", panel)
+	_theme.set_font("font", "PopupMenu", button_font())
 	_theme.set_color("font_color", "PopupMenu", Color("f0e9d8"))
 	_theme.set_stylebox("hover", "PopupMenu", _box(Color("204653"), brass, 6, 1))
 	return _theme
@@ -74,6 +81,10 @@ func apply_control(control: Control) -> void:
 	var theme: Theme = get_theme()
 	if control.theme != theme:
 		control.theme = theme
+	if control is Button:
+		if not control.has_theme_font_override("font") or control.get_theme_font("font") != button_font():
+			control.add_theme_font_override("font", button_font())
+		preload("res://systems/ui/button_item_art.gd").apply(control)
 	if control is Button and (control.has_meta("brass_close") or str(control.name) == "CloseButton" or str(control.text).begins_with("Закрыть")):
 		preload("res://systems/ui/brass_close_button.gd").apply(control)
 		return

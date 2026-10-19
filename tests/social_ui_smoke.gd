@@ -81,12 +81,38 @@ func _ready() -> void:
 	for tab in ["Обзор", "Участники", "Бусты", "Чат клана", "Управление"]:
 		ui._clan_tab = tab; ui._refresh(); await frames()
 		check(ui._body.get_child_count() >= 2, "clan page renders " + tab)
+		if tab == "Бусты":
+			var grid: GridContainer = ui._body.find_child("ClanBoostTiles", true, false)
+			check(grid != null and grid.get_child_count() == 5, "five clan boosts use illustrated tiles")
+			for tile in grid.get_children():
+				check(tile._image.texture != null and tile._image.texture.resource_path.contains("painted_v1"), "tile has transparent painted artwork")
+				check(tile._action.size.x < tile.size.x and tile._action.get_theme_font("font") == preload("res://systems/ui/game_ui_theme.gd").button_font(), "tile action is compact and uses the HUD font")
+			var fuel: Node = grid.get_children().filter(func(tile): return str(tile.get_meta("boost_id")) == "fuel")[0]
+			check(fuel._effect.text.begins_with("-"), "reduced fuel consumption is displayed with a minus sign")
+			if OS.get_environment("SEA_TRADER_UI_CAPTURE") == "1":
+				await RenderingServer.frame_post_draw
+				get_viewport().get_texture().get_image().save_png("res://work/ui-checks/clan_boost_tiles.png")
 	for screen in [Vector2i(1280, 720), Vector2i(1920, 1080)]:
 		get_tree().root.size = screen
 		for page in ["clans", "shop", "chat"]:
 			ui.show_page(page); await frames()
 			check(Rect2(Vector2.ZERO, Vector2(screen)).encloses(ui._panel.get_global_rect()), page + " fits " + str(screen))
 			check(ui._panel.position.y > 0 and ui._panel.size.y > float(screen.y) * 0.7, page + " fills screen below HUD")
+			if page == "shop":
+				var view: Node = ui._body.find_child("CompanyShopView", true, false)
+				var balance: float = float(GameState.player_state.money)
+				check(view != null and view._cards.size() == 7 and view._filters.size() == 6, "shop separates categories, catalog and preview")
+				check(ui._panel.find_child("WorkspaceScroll", true, false) == null, "shop has no outer nested workspace scroll")
+				check(view._buy.get_global_rect().end.y <= float(screen.y) - 8, "purchase action stays visible at " + str(screen))
+				view._filters.boost_pack.pressed.emit(); await frames()
+				check(view._cards.size() == 2 and view._cards.has("voyage_scrolls") and view._cards.has("artillery_scrolls"), "boost category filters the real catalog")
+				view._cards.artillery_scrolls.pressed.emit(); await frames()
+				check(view._detail_title.text == "Набор артиллериста" and view._detail_image.texture.resource_path.ends_with("damage.png"), "selection updates the matching large artwork")
+				check(float(GameState.player_state.money) == balance, "category and product selection never spend money")
+				view._filters.local_model.pressed.emit(); await frames()
+				check(view._cards.size() == 2 and view._buy.disabled and view._detail_reason.visible, "uninstalled local models cannot be purchased")
+				view._filters.all.pressed.emit(); await frames()
+				view._cards.voyage_scrolls.pressed.emit(); await frames()
 			if OS.get_environment("SEA_TRADER_UI_CAPTURE") == "1" and page == "shop" and screen.x == 1280:
 				await RenderingServer.frame_post_draw
 				get_viewport().get_texture().get_image().save_png("res://work/ui-checks/company_shop.png")
@@ -103,6 +129,33 @@ func _ready() -> void:
 				var action: Button = row.get_child(0).get_child(4).get_child(0)
 				check(action.disabled, "active order cannot be overwritten by another choice")
 		GameState.economy_state.transport_contract = {}; orders._open = false
+	ui.show_page("shop"); await frames()
+	var shop_view: Node = ui._body.find_child("CompanyShopView", true, false)
+	shop_view._cards.voyage_scrolls.pressed.emit(); await frames()
+	var before_buy: float = float(GameState.player_state.money)
+	var before_scrolls: int = int(GameState.economy_state.get("rewards", {}).get("boosts", {}).get("fair_wind", 0))
+	shop_view._buy.pressed.emit(); await frames()
+	check(is_instance_valid(ui._confirmation) and float(GameState.player_state.money) == before_buy, "shop opens a confirmation before charging")
+	ui._confirmation._cancel_button.pressed.emit(); await frames()
+	check(float(GameState.player_state.money) == before_buy, "cancelled shop purchase preserves money")
+	shop_view._buy.pressed.emit(); await frames()
+	ui._confirmation._confirm_button.pressed.emit(); await frames()
+	check(float(GameState.player_state.money) == before_buy - 1040.0, "confirmed purchase charges the displayed price once")
+	check(int(GameState.economy_state.rewards.boosts.fair_wind) == before_scrolls + 2, "confirmed pack grants the catalog contents")
+	check(ui._body.find_child("CompanyShopView", true, false)._selected == "voyage_scrolls", "purchase refresh preserves the selected product")
+	var font_ok: bool = true
+	for button in main.find_children("*", "Button", true, false):
+		font_ok = font_ok and button.get_theme_font("font") == preload("res://systems/ui/game_ui_theme.gd").button_font()
+	check(font_ok, "all existing buttons share the upper-menu sans font, including portrait cards")
+	var styling := preload("res://systems/ui/game_ui_theme.gd").new()
+	for control in [Button.new(), OptionButton.new(), CheckButton.new(), CheckBox.new(), MenuButton.new()]:
+		control.text = "Проверка"
+		control.set_meta("preserve_art_style", true)
+		control.add_theme_font_override("font", SystemFont.new())
+		styling.apply_control(control)
+		check(control.get_theme_font("font") == styling.button_font(), "button variants share the HUD font even with preserved artwork")
+		control.free()
+	check(styling.get_theme().get_font("font", "PopupMenu") == styling.button_font(), "dropdown entries use the shared font")
 	ui._open = false; GameState.ship_state.docked_port_id = ""; await frames()
 	check(sidebar._menu.visible, "sidebar returns while sailing")
 	check(bool(clans.perform("boost", {"stat": "speed"}).ok), "leader can activate a boost")
@@ -114,5 +167,20 @@ func _ready() -> void:
 		await RenderingServer.frame_post_draw
 		DirAccess.make_dir_recursive_absolute("res://work/ui-checks")
 		get_viewport().get_texture().get_image().save_png("res://work/ui-checks/clan_overview.png")
+	ui._open = false
+	var challenges: Node = main.get_node("ChallengeWindow")
+	challenges.open(); await frames()
+	var reward_grid: GridContainer = challenges._content.find_child("RewardBoostTiles", true, false)
+	check(reward_grid != null and reward_grid.get_child_count() == 5, "reward inventory uses five illustrated boost tiles")
+	var wind: Node = reward_grid.get_child(0)
+	check(wind._action.disabled == false, "purchased wind scroll is available for activation")
+	wind._action.pressed.emit(); await frames()
+	check(float(GameState.economy_state.rewards.active_boost.seconds_remaining) > 0, "reward tile activates the real timed effect")
+	reward_grid = challenges._content.find_child("RewardBoostTiles", true, false)
+	var grid_id: int = reward_grid.get_instance_id()
+	GameState.economy_state.rewards.active_boost.seconds_remaining -= 3.0
+	challenges._process(1.1); await frames()
+	check(challenges._content.find_child("RewardBoostTiles", true, false).get_instance_id() == grid_id, "countdown updates keep the existing tiles and scroll position")
+	check(reward_grid.get_child(0)._action.disabled and reward_grid.get_child(0)._action.text == "Действует", "active scroll shows its running state and blocks repeat activation")
 	print("SOCIAL UI checks=%d fail=%d" % [checks, failures])
 	get_tree().quit(0 if failures == 0 else 1)

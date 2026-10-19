@@ -1,0 +1,40 @@
+{
+  "tool": "Built-in imagegen",
+  "style": "Sea Trader maritime technological fantasy. Transparent painted inventory mini-art.",
+  "originals": "work/art/boosts/painted_v1 (local, ignored)",
+  "size": 256,
+  "assets": [
+    {
+      "id": "speed",
+      "prompt": "Use case: stylized-concept. Asset type: one square inventory mini-art for Sea Trader, a maritime technological fantasy strategy game. Premium hand-painted game inventory illustration, realistic crafted materials with clear stylized shapes, antique brass, rich turquoise energy, warm highlights, deep navy accents. Single centered coherent object cluster, large readable silhouette at 64 px, 15% empty padding. Genuine transparent background. No words, numbers, text, frame, border, label, flat UI glyph or human face. An elegant ship's miniature swept sail attached to a short brass mast, curved luminous turquoise wind curling behind it. Logical connected nautical construction, filled cream canvas and dark teak base."
+    },
+    {
+      "id": "fuel",
+      "prompt": "Use case: stylized-concept. Asset type: one square inventory mini-art for Sea Trader, a maritime technological fantasy strategy game. Premium hand-painted game inventory illustration, realistic crafted materials with clear stylized shapes, antique brass, rich turquoise energy, warm highlights, deep navy accents. Single centered coherent object cluster, large readable silhouette at 64 px, 15% empty padding. Genuine transparent background. No words, numbers, text, frame, border, label, flat UI glyph or human face. A sturdy brass oil reservoir and glass turquoise fuel gauge with a small magical teal fuel droplet. Closed container, linked fittings, compact nautical engine supply vessel."
+    },
+    {
+      "id": "repair",
+      "prompt": "Use case: stylized-concept. Asset type: one square inventory mini-art for Sea Trader, a maritime technological fantasy strategy game. Premium hand-painted game inventory illustration, realistic crafted materials with clear stylized shapes, antique brass, rich turquoise energy, warm highlights, deep navy accents. Single centered coherent object cluster, large readable silhouette at 64 px, 15% empty padding. Genuine transparent background. No words, numbers, text, frame, border, label, flat UI glyph or human face. A small dark-steel shipwright's hammer crossed with a brass wrench above a riveted repair plate and a subtle cyan rune glow. Tools visibly solid and complete."
+    },
+    {
+      "id": "crew_xp",
+      "prompt": "Use case: stylized-concept. Asset type: one square inventory mini-art for Sea Trader, a maritime technological fantasy strategy game. Premium hand-painted game inventory illustration, realistic crafted materials with clear stylized shapes, antique brass, rich turquoise energy, warm highlights, deep navy accents. Single centered coherent object cluster, large readable silhouette at 64 px, 15% empty padding. Genuine transparent background. No words, numbers, text, frame, border, label, flat UI glyph or human face. A rolled nautical chart partly unrolled beside a brass navigation compass and a blue crystal-tipped stylus. An academy's practical seafaring learning kit, no readable marks."
+    },
+    {
+      "id": "sale",
+      "prompt": "Use case: stylized-concept. Asset type: one square inventory mini-art for Sea Trader, a maritime technological fantasy strategy game. Premium hand-painted game inventory illustration, realistic crafted materials with clear stylized shapes, antique brass, rich turquoise energy, warm highlights, deep navy accents. Single centered coherent object cluster, large readable silhouette at 64 px, 15% empty padding. Genuine transparent background. No words, numbers, text, frame, border, label, flat UI glyph or human face. An open small brass-bound dark wooden merchant chest containing several gold coins and a turquoise gem, with a folded trade parchment partly tucked under its base. Elegant, compact and readable."
+    },
+    {
+      "id": "damage",
+      "prompt": "Use case: stylized-concept. Asset type: one square inventory mini-art for Sea Trader, a maritime technological fantasy strategy game. Premium hand-painted game inventory illustration, realistic crafted materials with clear stylized shapes, antique brass, rich turquoise energy, warm highlights, deep navy accents. Single centered coherent object cluster, large readable silhouette at 64 px, 15% empty padding. Genuine transparent background. No words, numbers, text, frame, border, label, flat UI glyph or human face. A short ship cannon in brass-and-dark-steel technological fantasy style, securely mounted on a dark wooden gun carriage, one concentrated orange-turquoise muzzle flare. Compact isolated artillery item."
+    },
+    {
+      "id": "reload",
+      "prompt": "Use case: stylized-concept. Asset type: one square inventory mini-art for Sea Trader, a maritime technological fantasy strategy game. Premium hand-painted game inventory illustration, realistic crafted materials with clear stylized shapes, antique brass, rich turquoise energy, warm highlights, deep navy accents. Single centered coherent object cluster, large readable silhouette at 64 px, 15% empty padding. Genuine transparent background. No words, numbers, text, frame, border, label, flat UI glyph or human face. A compact brass mechanical ammunition-loading mechanism holding two dark cannonballs with a rotating curved cyan energy arc around its rear gear. The mechanism and ammunition are visibly attached."
+    },
+    {
+      "id": "accuracy",
+      "prompt": "Use case: stylized-concept. Asset type: one square inventory mini-art for Sea Trader, a maritime technological fantasy strategy game. Premium hand-painted game inventory illustration, realistic crafted materials with clear stylized shapes, antique brass, rich turquoise energy, warm highlights, deep navy accents. Single centered coherent object cluster, large readable silhouette at 64 px, 15% empty padding. Genuine transparent background. No words, numbers, text, frame, border, label, flat UI glyph or human face. A finely crafted brass optical naval gunsight with a small clear turquoise lens and a dark-steel aiming reticle, mounted on a short stable bracket. Clear precise targeting silhouette."
+    }
+  ]
+}
