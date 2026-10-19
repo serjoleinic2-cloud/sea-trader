@@ -49,6 +49,7 @@ func get_theme() -> Theme:
 		_theme.set_stylebox("normal", type, normal_button)
 		_theme.set_stylebox("hover", type, hover_button)
 		_theme.set_stylebox("pressed", type, pressed_button)
+		_theme.set_stylebox("hover_pressed", type, hover_button)
 		_theme.set_stylebox("focus", type, _box(Color(0, 0, 0, 0), brass, int(frame_shape["radius"]), 2))
 		var disabled_button: StyleBoxTexture = normal_button.duplicate() as StyleBoxTexture
 		disabled_button.modulate_color = Color(0.52, 0.56, 0.59, 1.0)
@@ -93,7 +94,7 @@ func apply_control(control: Control) -> void:
 	if control.has_meta("sea_game_theme"):
 		return
 	if control is Button:
-		for style in ["normal", "hover", "pressed", "focus", "disabled"]:
+		for style in ["normal", "hover", "pressed", "hover_pressed", "focus", "disabled"]:
 			control.remove_theme_stylebox_override(style)
 		for color in ["font_color", "font_hover_color", "font_pressed_color", "font_disabled_color"]:
 			control.remove_theme_color_override(color)

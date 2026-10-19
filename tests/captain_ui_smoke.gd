@@ -19,7 +19,8 @@ func _capture(name: String) -> void:
 		return
 	await get_tree().create_timer(0.8, true).timeout
 	await RenderingServer.frame_post_draw
-	get_viewport().get_texture().get_image().save_png("res://" + name + ".png")
+	DirAccess.make_dir_recursive_absolute("res://work/ui-checks")
+	get_viewport().get_texture().get_image().save_png("res://work/ui-checks/" + name + ".png")
 
 func _ready() -> void:
 	if OS.get_environment("SEA_TRADER_ISOLATED_TESTS") != "1":
@@ -79,15 +80,49 @@ func _ready() -> void:
 	await _frames()
 	var surface := cabinet._rewards_overlay.get_theme_stylebox("panel") as StyleBoxFlat
 	_check(surface != null and surface.bg_color.a == 1.0, "rewards window has an opaque background")
-	_check(cabinet._medal_case_grid.get_child_count() == 50, "universal medal case has a cushion for every career rank")
-	_check(cabinet._medal_case_view.get_node("UniversalBrassMedalCaseArt").texture != null, "all factions share the same brass-and-velvet medal case art")
+	_check(cabinet._medal_case_grid.get_child_count() == 5, "hall shows five large medals with ten degrees each")
+	_check(cabinet._medal_case_art.texture != null, "all factions share the same brass-and-velvet medal case art")
 	var fame_close := cabinet._panel.find_child("CloseHallOfFameButton", true, false) as Button
 	var close_center: float = fame_close.get_global_rect().get_center().x
 	_check(absf(close_center - cabinet._rewards_overlay.get_global_rect().get_center().x) < 1.0, "hall-of-fame close button stays centered")
 	cabinet._set_rewards_view(true)
 	await _frames()
 	_check(cabinet._medal_case_view.visible and not cabinet._rewards_rows.visible, "hall-of-fame toggle switches from the list to the medal case")
+	for screen in [Vector2i(1280, 720), Vector2i(1920, 1080)]:
+		get_tree().root.size = screen
+		await _frames()
+		_check(not cabinet._rewards_scroll.visible and not cabinet._rewards_summary.visible, "hall hides the list scroll and places its summary on the artwork")
+		var ancestor: Node = cabinet._medal_case_view.get_parent()
+		var nested_scroll: bool = false
+		while ancestor != null:
+			nested_scroll = nested_scroll or ancestor is ScrollContainer
+			ancestor = ancestor.get_parent()
+		_check(not nested_scroll, "case is outside every scroll container")
+		var body: Rect2 = cabinet._medal_case_view.get_global_rect()
+		_check(body.encloses(cabinet._medal_case_info.get_global_rect()), "framed transparent summary fits the hall")
+		_check(cabinet._medal_case_info.get_theme_stylebox("panel").bg_color.a < 1.0, "summary uses translucent ink over the case")
+		for family in cabinet._medal_case_grid.get_children():
+			var medal: TextureRect = family.get_node("EarnedMedal")
+			_check(medal.visible and medal.size.y >= 80 and medal.size.x >= 100, "medal remains large and visible at " + str(screen))
+			_check(body.encloses(family.get_global_rect()), "medal and all captions fit without scrolling")
+			_check(family.find_child("Degrees", true, false).get_child_count() == 10, "all career degrees are displayed")
+			_check(family.find_child("EmptyVelvetPillow", true, false) == null, "medal uses no individual cushion")
+		for button in [cabinet._rewards_list_toggle, cabinet._rewards_case_toggle]:
+			var original: Rect2 = button.get_global_rect()
+			var motion := InputEventMouseMotion.new()
+			motion.position = original.get_center()
+			get_viewport().push_input(motion, true)
+			await _frames()
+			_check(button.get_global_rect() == original, "hover does not move or resize rewards tabs")
+			var normal: StyleBoxTexture = button.get_theme_stylebox("normal")
+			var hovered: StyleBoxTexture = button.get_theme_stylebox("hover_pressed")
+			_check(normal.texture == hovered.texture and normal.get_minimum_size() == hovered.get_minimum_size() and normal.texture_margin_left == hovered.texture_margin_left, "pressed hover keeps exactly the same brass geometry")
+		await _capture("captain_hall_%dx%d" % [screen.x, screen.y])
+	var first_family: Node = cabinet._medal_case_grid.get_child(0)
+	_check(bool(first_family.find_child("Degrees", true, false).get_child(1).get_meta("earned")), "received rank two is shown in its correct degree")
+	_check(not bool(cabinet._medal_case_grid.get_child(4).find_child("Degrees", true, false).get_child(9).get_meta("earned")), "unearned final degree is never presented as received")
 	cabinet._set_rewards_view(false)
+	_check(cabinet._rewards_scroll.visible and not cabinet._medal_case_art.visible, "list restores its own scroll and opaque background")
 	await _capture("captain_rewards")
 	var money: float = GameState.player_state.money
 	var rank: int = career.get_command_rank()
