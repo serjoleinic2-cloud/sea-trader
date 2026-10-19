@@ -12,6 +12,7 @@ var _selected_clan: String = ""
 var _selected_player: String = ""
 var _search: String = ""
 var _dialog: FileDialog
+var _confirmation: CanvasLayer
 
 func _ready() -> void:
 	layer = 60
@@ -112,16 +113,12 @@ func _act(action: String, args: Dictionary = {}) -> void:
 	_refresh()
 
 func _confirm(text: String, callback: Callable) -> void:
-	var dialog := ConfirmationDialog.new()
-	dialog.dialog_text = text
-	dialog.title = "Подтверждение"
-	dialog.ok_button_text = "Подтвердить"
-	dialog.cancel_button_text = "Отмена"
-	dialog.theme = _panel.theme
-	dialog.confirmed.connect(func() -> void: callback.call(); dialog.queue_free())
-	dialog.canceled.connect(dialog.queue_free)
+	if is_instance_valid(_confirmation): return
+	var dialog := preload("res://systems/ui/social_confirmation.gd").new()
+	_confirmation = dialog
 	add_child(dialog)
-	dialog.popup_centered(Vector2i(520, 200))
+	dialog.set_message(text)
+	dialog.confirmed.connect(callback)
 
 func _clan_page() -> void:
 	var entry: Dictionary = _clans.clan(_selected_clan)
