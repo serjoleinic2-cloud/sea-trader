@@ -164,6 +164,8 @@ func _ready() -> void:
 	action.add_child(_receipt)
 	_notice = _label("", 14)
 	_notice.name = "MarketTransactionMessage"
+	_notice.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_notice.custom_minimum_size.x = 220
 	_receipt.add_child(_notice)
 	_receipt.hide()
 	_reason = _label("", 12)
@@ -177,6 +179,7 @@ func _label(text_value: String, font_size: int) -> Label:
 	var label := Label.new()
 	label.text = text_value
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	label.add_theme_font_size_override("font_size", font_size)
 	label.set_meta("compact_description", true)
 	label.set_meta("ui_base_font_size", font_size)
@@ -185,6 +188,8 @@ func _label(text_value: String, font_size: int) -> Label:
 func _button(text_value: String, callback: Callable) -> Button:
 	var button := Button.new()
 	button.text = text_value
+	button.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	button.custom_minimum_size.y = 32
 	button.add_theme_font_size_override("font_size", 12)
 	button.set_meta("compact_description", true)
