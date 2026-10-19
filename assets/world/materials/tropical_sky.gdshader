@@ -135,6 +135,14 @@ void sky() {
 	float solar_disc = smoothstep(cos(0.010), cos(0.007), sun_alignment) * smoothstep(-0.01, 0.012, direction.y);
 	float glow = pow(max(0.0, sun_alignment), 190.0) * twilight_amount;
 	background += vec3(1.0, 0.48, 0.13) * glow * 0.6;
+	// A restrained camera glare appears only when the view faces the sun.
+	// Keep it out of the radiance cubemap so it cannot create moving patches
+	// on the ocean or brighten reflections when the sun is behind the camera.
+	if (!AT_CUBEMAP_PASS) {
+		float daylight = (1.0 - night_amount) * smoothstep(-0.015, 0.03, direction.y);
+		float sun_beam = pow(max(0.0, sun_alignment), 42.0) * daylight;
+		background += vec3(1.0, 0.86, 0.65) * sun_beam * 0.12;
+	}
 	background = mix(background, vec3(1.0, 0.91, 0.65) * 2.0, solar_disc);
 	// Celestial artwork is a sky background, not blobs in the radiance cubemap.
 	if (AT_CUBEMAP_PASS) {
