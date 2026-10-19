@@ -10,6 +10,27 @@
       "script": "res://systems/rewards/reward_system.gd"
     },
     {
+      "id": "ClanSystem",
+      "script": "res://systems/social/clan_system.gd"
+    },
+    {
+      "id": "CompanyShop",
+      "script": "res://systems/social/company_shop.gd"
+    },
+    {
+      "id": "SocialWindow",
+      "script": "res://systems/ui/social_window.gd",
+      "initialize": "initialize",
+      "args": ["ClanSystem", "CompanyShop"],
+      "workspace_flag": "_open"
+    },
+    {
+      "id": "SocialSidebar",
+      "script": "res://systems/ui/social_sidebar.gd",
+      "initialize": "initialize",
+      "args": ["$main", "SocialWindow", "ClanSystem"]
+    },
+    {
       "id": "PortSystem",
       "script": "res://systems/ports/port_system.gd",
       "bind": "_port_system",

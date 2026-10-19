@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "currency": "money",
+  "products": [
+    {"id": "voyage_scrolls", "name": "Набор морехода", "kind": "boost_pack", "price": 1040, "description": "2 свитка ветра и 2 экономного хода. Ставятся в ячейки судна; одинаковые действия не складываются.", "items": {"fair_wind": 2, "economy_rune": 2}, "icon": "res://assets/ui/training_scrolls/scroll_seafaring.svg"},
+    {"id": "artillery_scrolls", "name": "Набор артиллериста", "kind": "boost_pack", "price": 1140, "description": "По одному свитку залпа, расчёта и точного огня. Это временное оснащение, а не постоянная прибавка.", "items": {"powder_rune": 1, "reload_rune": 1, "aim_rune": 1}, "icon": "res://assets/ui/training_scrolls/scroll_engineering.svg"},
+    {"id": "premium_day", "name": "День премиума", "kind": "premium", "price": 2500, "days": 1, "description": "24 часа по реальному времени: +5% к выручке от продажи. Не даёт урона или неуязвимости. Активируется после подтверждения покупки.", "icon": "res://assets/ui/training_scrolls/scroll_efficiency.svg"},
+    {"id": "port_wing", "name": "Боковое крыло базы клана", "kind": "port_module", "price": 1800, "maximum": 4, "description": "Дополнительный причал и декоративный павильон. Меняет только внешний вид базы клана.", "icon": "res://assets/ui/training_scrolls/scroll_logistics.svg"},
+    {"id": "officer", "name": "Именной мастер-механик", "kind": "unique_crew", "price": 1600, "description": "Постоянный специалист вашей расы. +3 к ремонту и +1 к экономии, расход еды и содержание как у обычного механика. Один на компанию.", "icon": "res://assets/ui/training_scrolls/scroll_engineering.svg"},
+    {"id": "port_skin", "name": "Сменные модели порта", "kind": "local_model", "price": 0, "description": "Каталог готов для локальных моделей. Утверждённый комплект пока не установлен — покупка недоступна.", "available": false, "icon": "res://assets/ui/training_scrolls/scroll_logistics.svg"},
+    {"id": "ship_skin", "name": "Облик главного корабля", "kind": "local_model", "price": 0, "description": "Здесь появятся утверждённые локальные 3D-модели. Корпус, слоты и боевые характеристики от облика не меняются.", "available": false, "icon": "res://assets/ui/training_scrolls/scroll_navigation.svg"}
+  ]
+}

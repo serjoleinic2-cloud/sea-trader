@@ -31,12 +31,13 @@ func offer() -> Dictionary:
 		return offers[0]
 	return {"ok": false, "message": _offer_unavailable_message()}
 
-func get_offers() -> Array[Dictionary]:
+func get_offers(preview_active: bool = false) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	var origin_id: String = str(GameState.ship_state.get("docked_port_id", ""))
+	if preview_active and origin_id == "": origin_id = str(get_active().get("origin_port_id", ""))
 	if origin_id == "" or _port_system == null:
 		return result
-	if not get_active().is_empty():
+	if not preview_active and not get_active().is_empty():
 		return result
 	if _completed_today() >= int(_rules.get("daily_limit", 3)):
 		return result
@@ -44,8 +45,8 @@ func get_offers() -> Array[Dictionary]:
 	if destinations.is_empty() or _goods.is_empty():
 		return result
 	var seen: Dictionary = {}
-	for raw_destination in destinations:
-		for variant in range(10):
+	for variant in range(_goods.size()):
+		for raw_destination in destinations:
 			var destination_id: String = str(raw_destination)
 			var good: Dictionary = _choose_good(origin_id, destination_id, variant)
 			var unique_key: String = destination_id + ":" + str(good.get("id", ""))
@@ -55,7 +56,7 @@ func get_offers() -> Array[Dictionary]:
 			var candidate: Dictionary = _build_offer(origin_id, destination_id, good, result.size())
 			if bool(candidate.get("ok", false)):
 				result.append(candidate)
-			if result.size() >= int(_rules.get("offers_per_port", 5)):
+			if result.size() >= int(_rules.get("offers_per_port", 10)):
 				return result
 	return result
 
@@ -201,7 +202,7 @@ func _choose_destinations(origin_id: String) -> Array[String]:
 func _choose_good(origin_id: String, destination_id: String, variant: int = 0) -> Dictionary:
 	if _goods.is_empty():
 		return {}
-	return _goods[posmod(abs(hash(origin_id + destination_id + _day_key() + str(variant))), _goods.size())]
+	return _goods[posmod(abs(hash(origin_id + destination_id + _day_key())) + variant, _goods.size())]
 
 func _remove_sealed_cargo(contract_id: String, quantity: int) -> bool:
 	var cargo: Array = GameState.ship_state.get("cargo", [])

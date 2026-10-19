@@ -263,6 +263,7 @@ func nearby_enemies() -> Array[Dictionary]:
 	if not ready_for_battle() or active(): return result
 	var player: Vector2 = vector(GameState.ship_state.get("position", Vector2.ZERO))
 	for enemy in GameState.combat_state.get("naval_enemies",{}).values():
+		if preload("res://systems/social/clan_bonuses.gd").peace(preload("res://systems/social/clan_bonuses.gd").own_clan_id(), str(enemy.get("clan_id", ""))): continue
 		if not _patrol_anchor_pending(enemy) and _enemy_alive(enemy) and vector(enemy.position).distance_to(player)<=alert_radius(): result.append(enemy)
 	return result
 
@@ -457,12 +458,12 @@ func repair_quote(id: String) -> Dictionary:
 	if ship.is_empty(): return {"ok": false, "cost": 0, "message": "Корабль не найден."}
 	if float(ship.get("hull", 0.0)) <= 0.0: return {"ok": false, "cost": 0, "message": "Корабль потоплен."}
 	var missing: float = maxf(0.0, hull_max(ship) - float(ship.get("hull", 0.0)))
-	var cost: int = ceili(missing * float(_rules.repair_per_hull))
+	var cost: int = ceili(missing * float(_rules.repair_per_hull) * (1.0 - preload("res://systems/social/clan_bonuses.gd").percent("repair") / 100.0))
 	return {"ok": missing > 0.0, "cost": cost, "missing": missing, "message": "Корпус цел." if missing <= 0.0 else ""}
 
 func _repair_ship_transaction(ship: Dictionary) -> Dictionary:
 	var missing: float = maxf(0,hull_max(ship)-float(ship.get("hull",0)))
-	var cost: float = ceil(missing*float(_rules.repair_per_hull))
+	var cost: float = ceil(missing*float(_rules.repair_per_hull)*(1.0-preload("res://systems/social/clan_bonuses.gd").percent("repair")/100.0))
 	if float(GameState.player_state.money)<cost: return _result(false,"Ремонт стоит %d монет." % int(cost))
 	return _transaction(func(): ship.hull=hull_max(ship); ship.erase("sinking"); ship.erase("sink_elapsed"); GameState.player_state.money-=cost,"Корабль отремонтирован.")
 
@@ -473,12 +474,14 @@ func begin_battle(enemy_ids: Array = [], enemy_initiated: bool = false) -> Dicti
 	var near: Array[Dictionary] = nearby_enemies()
 	var ids: Array = []
 	for enemy in near:
+		if preload("res://systems/social/clan_bonuses.gd").peace(preload("res://systems/social/clan_bonuses.gd").own_clan_id(), str(enemy.get("clan_id", ""))): continue
 		if enemy_ids.is_empty() or enemy_ids.has(str(enemy.id)): ids.append(str(enemy.id))
 	var groups: Array[String] = []
 	for id in ids:
 		var group: String=str(GameState.combat_state.naval_enemies.get(id,{}).get("encounter_group",""))
 		if group!="" and not groups.has(group): groups.append(group)
 	for enemy in GameState.combat_state.naval_enemies.values():
+		if preload("res://systems/social/clan_bonuses.gd").peace(preload("res://systems/social/clan_bonuses.gd").own_clan_id(), str(enemy.get("clan_id", ""))): continue
 		if groups.has(str(enemy.get("encounter_group",""))) and _enemy_alive(enemy) and vector(enemy.position).distance_to(vector(GameState.ship_state.position))<alert_radius()*2.0 and not ids.has(str(enemy.id)):
 			ids.append(str(enemy.id))
 	if ids.is_empty(): return _result(false,"Противник вышел из радиуса обнаружения.")
@@ -651,6 +654,12 @@ func _process(delta: float) -> void:
 	var step: float = clampf(delta,0,.25)
 	_clock+=step; _patrol_clock+=step; _save_clock+=step
 	GameState.combat_state.naval_time=_clock
+	if active():
+		var enemies: Array = GameState.combat_state.naval_battle.get("enemy_ids", [])
+		var all_at_peace: bool = not enemies.is_empty()
+		for id in enemies:
+			if not preload("res://systems/social/clan_bonuses.gd").peace(preload("res://systems/social/clan_bonuses.gd").own_clan_id(), str(GameState.combat_state.naval_enemies.get(str(id), {}).get("clan_id", ""))): all_at_peace = false; break
+		if all_at_peace: _finish("Мир между кланами", {})
 	if not active(): _step_world_patrols(step)
 	if _patrol_clock>=1:
 		_patrol_clock=0; _sync_guard_revolts(); _ensure_patrols(); _ensure_pirates(); _detect_hostile()

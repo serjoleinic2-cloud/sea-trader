@@ -48,45 +48,9 @@ func _rebuild() -> void:
 	if _main == null or _scene_root == null:
 		return
 	var world: Dictionary = _main.get("_world_data")
-	var world_size := Vector2(world.get("world_size", Vector2i(4096, 4096)))
-	var rng := RandomNumberGenerator.new()
-	rng.seed = hash("%d:drift-foundations:v1" % int(GameState.world_state.get("seed", 0)))
-	var islands: Array = world.get("islands", [])
-	var ports: Dictionary = world.get("ports", {})
-	for index in range(22):
-		var debris := _random_debris(index, rng, world_size, islands, ports)
-		if not debris.is_empty():
-			_debris.append(debris)
-	var home_id := str(GameState.world_state.get("home_port_id", ""))
-	var home: Dictionary = ports.get(home_id, {})
-	if not home.is_empty():
-		_debris.append({"id": "drift_home_00", "position": Vector2(home.get("position", Vector2.ZERO)) + Vector2(260.0, 0.0), "kind": "Ящик"})
+	_debris = preload("res://systems/world/drift_debris_catalog.gd").generate(world, int(GameState.world_state.get("seed", 0)), str(GameState.world_state.get("home_port_id", "")))
 	for debris in _debris:
 		_add_marker(debris)
-
-func _random_debris(index: int, rng: RandomNumberGenerator, world_size: Vector2, islands: Array, ports: Dictionary) -> Dictionary:
-	var position := Vector2.ZERO
-	for attempt in range(40):
-		position = Vector2(rng.randf_range(180.0, maxf(181.0, world_size.x - 180.0)), rng.randf_range(180.0, maxf(181.0, world_size.y - 180.0)))
-		var valid := true
-		for raw_island in islands:
-			var island: Dictionary = raw_island
-			if position.distance_to(Vector2(island.get("position", Vector2.ZERO))) < float(island.get("radius", 0)) + 150.0:
-				valid = false
-				break
-		if not valid:
-			continue
-		for raw_port_id in ports:
-			var port: Dictionary = ports[raw_port_id]
-			if position.distance_to(Vector2(port.get("position", Vector2.ZERO))) < 180.0:
-				valid = false
-				break
-		if valid:
-			break
-	if position == Vector2.ZERO:
-		return {}
-	var kinds: Array[String] = ["Ящик", "Бочка", "Обломки"]
-	return {"id": "drift_%03d" % index, "position": position, "kind": kinds[rng.randi_range(0, kinds.size() - 1)]}
 
 func _add_marker(debris: Dictionary) -> void:
 	var marker := Node3D.new()

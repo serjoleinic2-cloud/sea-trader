@@ -50,11 +50,24 @@ func _ready() -> void:
 	merchant.set_process(false)
 	var hud: Node = main.get_node("MerchantOfferHUD")
 	var coordinator: Node = main.get_node("WindowCoordinator")
+	var navigation: Node = main.get_node("NavigationHUD")
 	var home: String = str(main.get_node("PortSystem").get_all_port_ids()[0])
 	GameState.world_state.home_port_id = home
 	GameState.ship_state.docked_port_id = home
 	GameState.player_state.money = 1000.0
-	GameState.port_state[home] = {"inventory": {"resource_parts": 10, "resource_timber": 20}, "buildings": {}}
+	GameState.port_state[home] = {"inventory": {"resource_parts": 10, "resource_timber": 20, "resource_fabric": 10, "resource_glass": 7}, "buildings": {}}
+	GameState.ship_state.docked_port_id = ""
+	GameState.ship_state.heading = 0.0
+	await frames()
+	check(navigation._compass_panel.visible and navigation._compass_panel.position.x < 24.0 and navigation._compass_panel.position.y > 500.0, "sailing compass stays in the lower-left corner")
+	navigation._update_course(str(GameState.world_state.get("destination_port_id", "")))
+	var expected_heading: float = float(posmod(roundi(rad_to_deg(float(GameState.ship_state.heading)) + 90.0), 360))
+	check(is_equal_approx(navigation._compass_dial.heading_degrees, expected_heading), "compass dial follows the ship's current heading")
+	GameState.ship_state.heading = -PI / 2.0
+	navigation._update_course(str(GameState.world_state.get("destination_port_id", "")))
+	check(is_equal_approx(navigation._compass_dial.heading_degrees, 0.0), "compass dial rotates to north when the ship turns north")
+	GameState.ship_state.docked_port_id = home
+	await frames()
 	var now: int = int(Time.get_unix_time_from_system())
 	GameState.economy_state.merchant = {"active_offer": {}, "next_offer_at": now + 1200, "offer_index": 0, "sell_orders": []}
 	await frames()
@@ -72,6 +85,8 @@ func _ready() -> void:
 	check(not hud._panel.visible, "new merchant leaves the sea view unobstructed")
 	coordinator._toggle_extra_resources()
 	await frames()
+	var measured_width: float = coordinator._measure_extra_resources_width()
+	check(is_equal_approx(coordinator._extra_resources_panel.size.x, measured_width) and coordinator._extra_resources_panel.size.x < 280.0, "extra-resources dropdown fits its longest item: panel=%.1f measured=%.1f" % [coordinator._extra_resources_panel.size.x, measured_width])
 	check(hud.layer < coordinator.layer, "resource dropdown opens above the merchant badge")
 	coordinator._toggle_extra_resources()
 	await frames()
@@ -131,7 +146,7 @@ func _ready() -> void:
 		await frames()
 		var bounds := Rect2(Vector2.ZERO, Vector2(screen))
 		check(bounds.encloses(hud._panel.get_global_rect()), "offer fits viewport " + str(screen))
-		check(hud._button.position.y >= coordinator._top_height, "badge stays below the main menu")
+		check(hud._button.position.x > float(screen.x) * 0.75 and hud._button.position.y > float(screen.y) * 0.75, "badge stays in the lower-right corner")
 		check(hud._panel.get_global_rect().encloses(hud._decline_button.get_global_rect()) and hud._panel.get_global_rect().encloses(hud._buy_button.get_global_rect()), "both actions fit inside the offer")
 		if OS.get_environment("SEA_TRADER_UI_CAPTURE") == "1" and screen.x == 1280:
 			await RenderingServer.frame_post_draw

@@ -396,18 +396,18 @@ func _create_extra_resources_menu() -> void:
 	_resource_bar.add_child(_extra_resources_button)
 	_extra_resources_panel = PanelContainer.new()
 	_extra_resources_panel.name = "MoreResourcesPanel"
-	_extra_resources_panel.custom_minimum_size = Vector2(280, 0)
+	_extra_resources_panel.custom_minimum_size = Vector2(0, 0)
 	add_child(_extra_resources_panel)
 	var margin := MarginContainer.new()
 	for side in ["left", "right"]:
-		margin.add_theme_constant_override("margin_" + side, 10)
+		margin.add_theme_constant_override("margin_" + side, 6)
 	for side in ["top", "bottom"]:
 		margin.add_theme_constant_override("margin_" + side, 8)
 	_extra_resources_panel.add_child(margin)
 	_extra_resources_list = GridContainer.new()
 	_extra_resources_list.name = "ResourceList"
 	_extra_resources_list.columns = 2
-	_extra_resources_list.add_theme_constant_override("h_separation", 18)
+	_extra_resources_list.add_theme_constant_override("h_separation", 8)
 	_extra_resources_list.add_theme_constant_override("v_separation", 3)
 	_extra_resources_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	margin.add_child(_extra_resources_list)
@@ -589,6 +589,7 @@ func _wrap_panel(window: Node, panel: PanelContainer, flag: String) -> void:
 	if title.text == str(window.name):
 		title.text = {"ShipyardWindow": "Верфь", "BuildingProjectWindow": "Строительство", "GarrisonWindow": "Гарнизон", "MageGuildWindow": "Гильдия магов", "PortServiceWindow": "Обслуживание корабля", "HiringWindow": "Персонал", "CrewWindow": "Экипаж и обучение", "SupplyOrderWindow": "Доставки", "MerchantOfferHUD": "Прибывший торговец", "TransportContractWindow": "Задания", "WorkHireWindow": "Работа", "TradeLineWindow": "Торговые линии"}.get(str(window.name), "Sea Trader")
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	if str(window.name) == "SocialWindow": title.text = "Сообщество и магазин"
 	title.add_theme_font_size_override("font_size", 18)
 	title.set_meta("compact_description", true)
 	title.set_meta("ui_base_font_size", 18)
@@ -747,6 +748,7 @@ func _process(_delta: float) -> void:
 			else:
 				preload("res://systems/ui/workspace_layout.gd").fill_screen(panel, viewport, _top_height)
 	var docked_port_id: String = str(GameState.ship_state.get("docked_port_id", ""))
+	_main.get_node("NavigationHUD").get("_compass_panel").visible = not has_modal and docked_port_id == ""
 	var home_port_id: String = str(GameState.world_state.get("home_port_id", ""))
 	var docked: bool = docked_port_id != ""
 	if docked_port_id != _last_docked:
@@ -767,7 +769,9 @@ func _process(_delta: float) -> void:
 	_readouts.size = Vector2(viewport.x - 24, 24)
 	_readouts.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	var resource_table_height: float = _extra_resources_list.get_combined_minimum_size().y + 28.0
-	_extra_resources_panel.size = Vector2(300.0, minf(resource_table_height, viewport.y - 100.0))
+	var resource_table_width: float = _measure_extra_resources_width()
+	_extra_resources_panel.custom_minimum_size.x = resource_table_width
+	_extra_resources_panel.size = Vector2(resource_table_width, minf(resource_table_height, viewport.y - 100.0))
 	_extra_resources_panel.position = Vector2(
 		viewport.x - _extra_resources_panel.size.x - 12.0,
 		_top_height + 4.0
@@ -813,6 +817,12 @@ func _process(_delta: float) -> void:
 		preload("res://systems/ui/workspace_layout.gd").fill_screen(port_panel, viewport, _top_height)
 		var port_scroll: Control = _main.get_node("PortWindow").get("_port_scroll")
 		port_scroll.offset_bottom = -bottom_menu.size.y - 20.0 if bottom_menu.visible else 0.0
+
+func _measure_extra_resources_width() -> float:
+	if _extra_resources_list == null:
+		return 240.0
+	# Measure actual themed controls, including font scaling, icons, padding and frame.
+	return ceilf(_extra_resources_panel.get_child(0).get_combined_minimum_size().x + _extra_resources_panel.get_theme_stylebox("panel").get_minimum_size().x)
 
 func _layout_top_bar(viewport: Vector2) -> void:
 	var full_width: float = viewport.x

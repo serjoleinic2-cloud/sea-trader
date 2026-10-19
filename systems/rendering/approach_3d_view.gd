@@ -536,14 +536,17 @@ func _sync_generated_world(world_data: Dictionary) -> void:
 		visible_islands[island_id] = island
 		var island_port: Dictionary = _find_port_for_island(island_id)
 		var is_home: bool = not island_port.is_empty() and str(island_port.get("id", "")) == str(GameState.world_state.get("home_port_id", ""))
+		var clan_base: Dictionary = preload("res://systems/social/clan_bonuses.gd").own_clan()
+		var clan_signature: String = str([clan_base.get("id", ""), clan_base.get("base", {}), clan_base.get("logo_revision", 0)]) if is_home and str(clan_base.get("base", {}).get("owner_id", "")) == str(GameState.player_state.get("social_id", "")) else ""
 		if _island_nodes.has(island_id):
 			var existing: Node3D = _island_nodes[island_id]
-			if bool(existing.get_meta("home_base", false)) == is_home:
+			if bool(existing.get_meta("home_base", false)) == is_home and str(existing.get_meta("clan_base", "")) == clan_signature:
 				continue
 			existing.queue_free()
 			_island_nodes.erase(island_id)
 		var island_root := Node3D.new()
 		island_root.set_meta("home_base", is_home)
+		island_root.set_meta("clan_base", clan_signature)
 		island_root.name = island_id
 		island_root.position = Vector3(map_position.x * MAP_TO_METERS, 0.0, map_position.y * MAP_TO_METERS)
 		_scene_root.add_child(island_root)
@@ -607,6 +610,13 @@ func _build_island(island_root: Node3D, island: Dictionary) -> void:
 	var radius: float = map_radius * MAP_TO_METERS
 	var landform: String = str(island.get("landform", "small_island"))
 	var port: Dictionary = _find_port_for_island(current_id)
+	var clan: Dictionary = preload("res://systems/social/clan_bonuses.gd").own_clan()
+	if not port.is_empty() and str(port.get("id", "")) == str(GameState.world_state.get("home_port_id", "")) and str(clan.get("base", {}).get("owner_id", "")) == str(GameState.player_state.get("social_id", "")) and not clan.is_empty():
+		var harbor := preload("res://systems/rendering/clan_harbor_3d.gd").new()
+		harbor.name = "ClanHarbor3D"
+		island_root.add_child(harbor)
+		harbor.setup(float(island.get("visual_radius", map_radius)) * MAP_TO_METERS, Vector2(port.get("position", island_position)) - island_position, str(clan.get("race_id", "humans")), int(clan.get("base", {}).get("wings", 0)), str(clan.get("logo_png", "")))
+		return
 	var harbor_key: String = str(island.get("harbor_variant", ""))
 	if harbor_key != "":
 		var spec: Dictionary = GameData.read("res://data/world/faction_harbors.json").variants[harbor_key]

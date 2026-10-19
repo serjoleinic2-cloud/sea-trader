@@ -384,8 +384,12 @@ func _award_action_progress(stat_id: String, points: int) -> void:
 		var employee: Dictionary = GameState.employee_state[index]
 		if not crew.has(str(employee.get("employee_instance_id", ""))) or _employment_type(employee) != "permanent":
 			continue
+		if not TrainingScrolls.is_living(employee): continue
+		var bonus_fraction: float = float(employee.get("clan_practice_fraction", 0.0)) + float(points) * preload("res://systems/social/clan_bonuses.gd").percent("crew_xp") / 100.0
+		var awarded_points: int = points + floori(bonus_fraction)
+		employee["clan_practice_fraction"] = fposmod(bonus_fraction, 1.0)
 		var action_points: Dictionary = employee.get("action_points", {})
-		action_points[stat_id] = int(action_points.get(stat_id, 0)) + points
+		action_points[stat_id] = int(action_points.get(stat_id, 0)) + awarded_points
 		employee["action_points"] = action_points
 		GameState.employee_state[index] = employee
 		var skill_id: String = str(employee.get("active_skill_id", ""))
@@ -398,7 +402,7 @@ func _award_action_progress(stat_id: String, points: int) -> void:
 		for entry in learned:
 			if str(entry.get("id", "")) != skill_id:
 				continue
-			entry["progress"] = mini(100, int(entry.get("progress", 0)) + points)
+			entry["progress"] = mini(100, int(entry.get("progress", 0)) + awarded_points)
 			if int(entry.get("progress", 0)) >= 100:
 				employee["active_skill_id"] = ""
 			break

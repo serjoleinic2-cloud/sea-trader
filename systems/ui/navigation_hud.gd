@@ -1,12 +1,17 @@
 extends CanvasLayer
 
 ## Карта известных портов и постоянный компас до выбранной цели или домашней базы.
+const CompassDial = preload("res://systems/ui/sailing_compass_dial.gd")
+
 var _port_system: Node
 var _toggle_button: Button
 var _panel: PanelContainer
 var _destination_list: VBoxContainer
 var _course_label: Label
 var _chart: Control
+var _compass_panel: PanelContainer
+var _compass_dial: CompassDial
+var _compass_text: Label
 var _is_open: bool = false
 var _last_destination_id: String = ""
 var _last_chart_second: int = -1
@@ -26,6 +31,37 @@ func _ready() -> void:
 	_course_label.custom_minimum_size = Vector2(440, 80)
 	_course_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	add_child(_course_label)
+	_compass_panel = PanelContainer.new()
+	_compass_panel.name = "SailingCompass"
+	_compass_panel.set_meta("preserve_art_style", true)
+	_compass_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var compass_style := StyleBoxFlat.new()
+	compass_style.bg_color = Color(0.025, 0.055, 0.07, 0.92)
+	compass_style.border_color = Color("#b99a55")
+	compass_style.set_border_width_all(1)
+	compass_style.set_corner_radius_all(6)
+	compass_style.set_content_margin_all(7)
+	_compass_panel.add_theme_stylebox_override("panel", compass_style)
+	add_child(_compass_panel)
+	var compass_row := HBoxContainer.new()
+	compass_row.add_theme_constant_override("separation", 8)
+	_compass_panel.add_child(compass_row)
+	_compass_dial = CompassDial.new()
+	_compass_dial.custom_minimum_size = Vector2(82, 82)
+	_compass_dial.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	compass_row.add_child(_compass_dial)
+	_compass_text = Label.new()
+	_compass_text.custom_minimum_size.x = 122
+	_compass_text.add_theme_font_size_override("font_size", 12)
+	_compass_text.set_meta("fixed_font_size", 12)
+	_compass_text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_compass_text.add_theme_color_override("font_color", Color("#e9dfc6"))
+	_compass_text.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_compass_text.autowrap_mode = TextServer.AUTOWRAP_OFF
+	_compass_text.clip_text = true
+	_compass_text.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	_compass_text.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	compass_row.add_child(_compass_text)
 
 	_panel = PanelContainer.new()
 	_panel.size = Vector2(680, 760)
@@ -117,7 +153,10 @@ func _process(_delta: float) -> void:
 	var viewport: Rect2 = get_viewport().get_visible_rect()
 	_chart.custom_minimum_size = Vector2(clampf(viewport.size.x * 0.48, 240, 600), clampf(viewport.size.y * 0.30, 180, 320))
 	_toggle_button.position = Vector2(12.0, 205.0)
-	_course_label.position = Vector2(viewport.size.x - 455.0, 18.0) if viewport.size.x >= 960 else Vector2(12.0, 420.0)
+	_course_label.hide()
+	_compass_panel.size = Vector2(236, 100)
+	_compass_panel.position = Vector2(12.0, maxf(12.0, viewport.size.y - _compass_panel.size.y - 14.0))
+	_compass_panel.visible = str(GameState.ship_state.get("docked_port_id", "")) == "" and not _is_open
 	_panel.position = viewport.position
 	_panel.size = viewport.size
 	_panel.visible = _is_open
@@ -191,8 +230,12 @@ func _update_course(destination_id: String) -> void:
 	var cardinal_points: Array[String] = ["С", "СВ", "В", "ЮВ", "Ю", "ЮЗ", "З", "СЗ"]
 	var cardinal_index: int = posmod(roundi(float(compass_degrees) / 45.0), 8)
 	var compass_text: String = "КОМПАС %s  %03d°" % [cardinal_points[cardinal_index], compass_degrees]
+	_compass_dial.heading_degrees = float(compass_degrees)
+	_compass_dial.has_target = false
 	if _port_system == null:
 		_course_label.text = compass_text + "\nНет данных о портах."
+		_compass_text.text = "КУРС %03d° %s\nНЕТ ДАННЫХ О ЦЕЛИ" % [compass_degrees, cardinal_points[cardinal_index]]
+		_compass_dial.queue_redraw()
 		return
 
 	var home_port_id: String = str(GameState.world_state.get("home_port_id", ""))
@@ -207,6 +250,8 @@ func _update_course(destination_id: String) -> void:
 		is_home_target = true
 	if active_destination == "":
 		_course_label.text = compass_text + "\nДомашняя база не назначена."
+		_compass_text.text = "КУРС %03d° %s\nЦЕЛЬ НЕ НАЗНАЧЕНА" % [compass_degrees, cardinal_points[cardinal_index]]
+		_compass_dial.queue_redraw()
 		return
 
 	var target: Vector2 = _port_system.get_port_position(active_destination)
@@ -214,11 +259,15 @@ func _update_course(destination_id: String) -> void:
 	var direction: Vector2 = target - ship_position
 	var distance: int = int(direction.length())
 	var relative_bearing: float = wrapf(direction.angle() - heading, -PI, PI)
+	_compass_dial.target_relative_radians = relative_bearing
+	_compass_dial.has_target = direction.length_squared() > 1.0
 	var relative_arrows: Array[String] = ["↑", "↗", "→", "↘", "↓", "↙", "←", "↖"]
 	var arrow_index: int = posmod(roundi(relative_bearing / (PI / 4.0)), 8)
 	var target_name: String = _port_system.get_port_name(active_destination)
 	var target_text: String = "ДОМОЙ" if is_home_target else "ЦЕЛЬ: " + target_name
 	_course_label.text = compass_text + "\n%s %s  ·  %s  ·  %d м" % [target_text, relative_arrows[arrow_index], target_name, distance]
+	_compass_text.text = "КУРС %03d° %s\nЦЕЛЬ %s %s\n%d м ДО ПОРТА" % [compass_degrees, cardinal_points[cardinal_index], relative_arrows[arrow_index], target_name, distance]
+	_compass_dial.queue_redraw()
 
 func _unhandled_key_input(event: InputEvent) -> void:
 	if not event is InputEventKey or not event.pressed or event.echo:

@@ -112,42 +112,8 @@ func _process(delta: float) -> void:
 		_claim_nearest()
 
 func _rebuild_debris() -> void:
-	_debris.clear()
 	var world: Dictionary = _main.get("_world_data") if _main != null else {}
-	var world_size := Vector2(world.get("world_size", Vector2i(4096, 4096)))
-	var rng := RandomNumberGenerator.new()
-	rng.seed = hash("%d:drift-foundations:v1" % int(GameState.world_state.get("seed", 0)))
-	var islands: Array = world.get("islands", [])
-	var ports: Dictionary = world.get("ports", {})
-	for index in range(22):
-		var position := Vector2.ZERO
-		var valid := false
-		for attempt in range(40):
-			position = Vector2(rng.randf_range(180.0, maxf(181.0, world_size.x - 180.0)), rng.randf_range(180.0, maxf(181.0, world_size.y - 180.0)))
-			valid = true
-			for raw_island in islands:
-				var island: Dictionary = raw_island
-				if position.distance_to(Vector2(island.get("position", Vector2.ZERO))) < float(island.get("radius", 0)) + 150.0:
-					valid = false
-					break
-			if not valid:
-				continue
-			for raw_port_id in ports:
-				var port: Dictionary = ports[raw_port_id]
-				if position.distance_to(Vector2(port.get("position", Vector2.ZERO))) < 180.0:
-					valid = false
-					break
-			if valid:
-				break
-		if not valid:
-			continue
-		var kinds: Array[String] = ["Ящик", "Бочка", "Обломки"]
-		_debris.append({"id": "drift_%03d" % index, "position": position, "kind": kinds[rng.randi_range(0, kinds.size() - 1)]})
-	var home_id := str(GameState.world_state.get("home_port_id", ""))
-	var home: Dictionary = ports.get(home_id, {})
-	if not home.is_empty():
-		var home_position := Vector2(home.get("position", Vector2.ZERO))
-		_debris.append({"id": "drift_home_00", "position": home_position + Vector2(260.0, 0.0), "kind": "Ящик"})
+	_debris = preload("res://systems/world/drift_debris_catalog.gd").generate(world, int(GameState.world_state.get("seed", 0)), str(GameState.world_state.get("home_port_id", "")))
 
 func _find_nearest(ship_position: Vector2) -> Dictionary:
 	var collected: Array = GameState.world_state.get("collected_debris_ids", [])

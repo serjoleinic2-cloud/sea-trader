@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "offers_per_port": 5,
+  "offers_per_port": 10,
   "daily_limit": 3,
   "min_quantity": 3,
   "max_quantity": 8,

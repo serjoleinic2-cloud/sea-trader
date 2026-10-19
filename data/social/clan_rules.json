@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "creation_price": 5000,
+  "maximum_members": 30,
+  "join_cooldown_seconds": 86400,
+  "boost_duration_seconds": 86400,
+  "maximum_active_boosts": 2,
+  "weekly_seconds": 604800,
+  "weekly_min_percent": 0.02,
+  "weekly_max_percent": 0.05,
+  "maximum_messages": 100,
+  "boosts": {
+    "speed": {"name": "Попутный ветер", "description": "Скорость всех кораблей участника", "base_percent": 1, "cap_percent": 3},
+    "fuel": {"name": "Общие запасы", "description": "Меньше расход топлива в рейсе", "base_percent": 1, "cap_percent": 4},
+    "repair": {"name": "Мастера гавани", "description": "Дешевле денежный ремонт корпуса в порту", "base_percent": 1, "cap_percent": 4},
+    "crew_xp": {"name": "Морская школа", "description": "Больше очков практики живого постоянного экипажа", "base_percent": 1, "cap_percent": 3},
+    "sale": {"name": "Торговая хартия", "description": "Больше выручка от продажи товаров; общий предел с премиумом и артефактами 10%", "base_percent": 1, "cap_percent": 3}
+  },
+  "roles": {
+    "leader": "Глава",
+    "assistant": "Помощник",
+    "recruiter": "Рекрутер",
+    "member": "Участник"
+  },
+  "blocked_patterns": ["^(?:за|вы|пере|на|от|по|под)?[её]б[ауоыи]", "ху[йеяёию]", "пизд", "бля[дт]", "сука", "суч[ао]", "fuck", "shit", "bitch", "cunt"]
+}

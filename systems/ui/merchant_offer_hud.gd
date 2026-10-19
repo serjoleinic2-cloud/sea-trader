@@ -114,12 +114,10 @@ func has_active_offer() -> bool:
 func layout_for_viewport(viewport_size: Vector2, top_height: float) -> void:
 	_top_height = top_height
 	_button.size = Vector2(164, 46)
-	# Leave the far-right corner free for the current workspace's close button.
-	_button.position = Vector2(maxf(8, viewport_size.x - _button.size.x - 96), _top_height + 8)
-	var panel_y: float = _button.position.y + _button.size.y + 8
+	_button.position = Vector2(maxf(8, viewport_size.x - _button.size.x - 16), maxf(8, viewport_size.y - _button.size.y - 16))
 	var desired_height: float = 420 if has_active_offer() else 280
-	_panel.size = Vector2(minf(400, viewport_size.x - 16), minf(desired_height, viewport_size.y - panel_y - 8))
-	_panel.position = Vector2(maxf(8, viewport_size.x - _panel.size.x - 12), panel_y)
+	_panel.size = Vector2(minf(400, viewport_size.x - 16), minf(desired_height, viewport_size.y - 96))
+	_panel.position = Vector2(maxf(8, viewport_size.x - _panel.size.x - 16), maxf(8, _button.position.y - _panel.size.y - 8))
 
 func _process(_delta: float) -> void:
 	if _merchant_system == null:

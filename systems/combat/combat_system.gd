@@ -778,6 +778,8 @@ func start_port_raid(port_id: String, target_name: String, enemy_power: int, dur
     if port_id == get_home_port_id():
         return _result(false, "Этот вызов доступен только в чужом порту.")
     var port_state: Dictionary = GameState.port_state.get(port_id, {})
+    if preload("res://systems/social/clan_bonuses.gd").tribute_suspended(port_state):
+        return _result(false, "Между вашими кланами заключён мир.")
     if bool(port_state.get("captured_by_player", false)):
         return _result(false, "Этот порт уже захвачен.")
     if int(port_state.get("base_immunity_until", 0)) > _now():
@@ -997,6 +999,9 @@ func _process_tribute_income() -> void:
     for raw_id in GameState.port_state.keys():
         var port: Dictionary = GameState.port_state[raw_id]
         if not bool(port.get("tribute_active", false)):
+            continue
+        if preload("res://systems/social/clan_bonuses.gd").tribute_suspended(port):
+            port["tribute_last_tick"] = now
             continue
         var last := int(port.get("tribute_last_tick", now))
         var days := maxi(0, (now - last) / 86400)

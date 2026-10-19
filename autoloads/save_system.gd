@@ -12,6 +12,17 @@ const CURRENT_SAVE_VERSION := "0.3.0"
 # The released generator before versioned saves used config version 1.
 const LEGACY_WORLD_GEN_VERSION := "1"
 
+func import_clan_logo(path: String) -> Dictionary:
+	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
+	if file == null or file.get_length() > 2 * 1024 * 1024:
+		return {"ok": false, "message": "Выберите изображение до 2 МБ, ровно 200×200 пикселей."}
+	file.close()
+	var image := Image.new()
+	if image.load(path) != OK or image.get_size() != Vector2i(200, 200):
+		return {"ok": false, "message": "Размер логотипа должен быть ровно 200×200 пикселей."}
+	var png: PackedByteArray = image.save_png_to_buffer()
+	return {"ok": true, "png": Marshalls.raw_to_base64(png)}
+
 # ============================================================================
 # Public API
 # ============================================================================

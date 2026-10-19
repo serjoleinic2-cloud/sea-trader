@@ -76,7 +76,7 @@ func repair(amount: float) -> Dictionary:
 			EventBus.ship_repaired.emit("hull", float(parts_needed) * float(_rules.get("hull_per_parts", 10.0)))
 			SaveSystem.save_game()
 			return {"ok": true, "message": "Корпус отремонтирован за запчасти со склада: %d ед." % parts_needed}
-	var price_per_hull: float = float(_rules.get("price_per_hull", 6.0)) * _ship_service_multiplier() * _service_discount(port_id)
+	var price_per_hull: float = float(_rules.get("price_per_hull", 6.0)) * _ship_service_multiplier() * _service_discount(port_id) * (1.0 - preload("res://systems/social/clan_bonuses.gd").percent("repair") / 100.0)
 	var price: float = ceil(target * price_per_hull)
 	if float(GameState.player_state.get("money", 0.0)) < price:
 		return {"ok": false, "message": "Недостаточно денег на ремонт."}

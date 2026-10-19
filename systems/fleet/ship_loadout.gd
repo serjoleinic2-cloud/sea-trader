@@ -31,7 +31,7 @@ static func boost_slots(ship: Dictionary) -> Array:
 	return slots.slice(0, 4)
 
 static func boost_bonus(ship: Dictionary, stat: String) -> float:
-	return slots_bonus(boost_slots(ship),stat)
+	return minf(15.0, slots_bonus(boost_slots(ship),stat) + preload("res://systems/social/clan_bonuses.gd").percent(stat))
 
 static func slots_bonus(slots: Array, stat: String, duration: float = 0.0) -> float:
 	var value: float = 0.0
