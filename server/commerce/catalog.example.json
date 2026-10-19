@@ -1,0 +1,5 @@
+{
+  "night_sails": {"enabled": false, "amount_minor": null, "currency": null, "cosmetics": ["sail_night"]},
+  "copper_hull": {"enabled": false, "amount_minor": null, "currency": null, "cosmetics": ["hull_copper"]},
+  "voyager_style_set": {"enabled": false, "amount_minor": null, "currency": null, "cosmetics": ["sail_night", "hull_copper"]}
+}

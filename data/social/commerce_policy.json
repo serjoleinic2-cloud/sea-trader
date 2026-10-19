@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "mode": "offline_coins",
+  "real_payments_enabled": false,
+  "paid_currency": "doubloons",
+  "paid_entitlements": ["cosmetic", "cosmetic_bundle", "season_cosmetics", "premium"],
+  "excluded": ["weapon_power", "instant_rank", "rare_shards", "unlimited_clan_bonus"],
+  "maximum_premium_sale_percent": 5,
+  "maximum_combined_sale_percent": 10,
+  "restore_requires_server": true,
+  "server_contract": "rules/COMMERCE_SERVER_CONTRACT.md"
+}

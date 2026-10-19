@@ -7,6 +7,8 @@ var _menu: VBoxContainer
 var _boosts: Label
 var _toast_until: int = 0
 var _seen_boosts: Dictionary = {}
+var _activity_toast: Label
+var _activity_until: int = 0
 
 func _ready() -> void:
 	layer = 129
@@ -37,6 +39,16 @@ func _ready() -> void:
 	_boosts.add_theme_constant_override("shadow_offset_x", 2)
 	_boosts.add_theme_constant_override("shadow_offset_y", 2)
 	add_child(_boosts)
+	_activity_toast = Label.new()
+	_activity_toast.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_activity_toast.set_meta("fixed_font_size", 13)
+	_activity_toast.add_theme_font_size_override("font_size", 13)
+	_activity_toast.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var surface := StyleBoxFlat.new()
+	surface.bg_color = Color(0.02, 0.06, 0.09, 0.9)
+	surface.border_color = Color("bc995a"); surface.set_border_width_all(1); surface.set_content_margin_all(10)
+	_activity_toast.add_theme_stylebox_override("normal", surface)
+	_activity_toast.hide(); add_child(_activity_toast)
 
 func initialize(main: Node, window: Node, clans: Node) -> void:
 	_main = main
@@ -45,6 +57,11 @@ func initialize(main: Node, window: Node, clans: Node) -> void:
 	_clans.boost_activated.connect(func(_stat: String, _expires: int) -> void: _toast_until = int(Time.get_unix_time_from_system()) + 5)
 	_clans.changed.connect(_refresh_base)
 	_main.get_node("CompanyShop").changed.connect(_refresh_base)
+	var progression: Node = _main.get_node_or_null("CompanyProgression")
+	if progression != null:
+		progression.activity_ready.connect(func(message: String) -> void:
+			_activity_toast.text = message
+			_activity_until = int(Time.get_unix_time_from_system()) + 5)
 
 func _refresh_base() -> void:
 	var view: Node = _main.get_node_or_null("Approach3DView")
@@ -75,3 +92,6 @@ func _process(_delta: float) -> void:
 	_boosts.text = ("КЛАН АКТИВИРОВАЛ БУСТ\n" if now < _toast_until else "") + "\n".join(lines)
 	_boosts.position = Vector2(78, top + 24)
 	_boosts.visible = not lines.is_empty() and not workspace_open
+	_activity_toast.position = Vector2(78, maxf(top + 24, viewport.y - 195))
+	_activity_toast.size = Vector2(minf(520, viewport.x - 100), 0)
+	_activity_toast.visible = now < _activity_until and not workspace_open

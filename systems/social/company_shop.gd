@@ -2,6 +2,9 @@ extends Node
 
 signal changed
 
+func progression() -> Node:
+	return get_tree().get_first_node_in_group("company_progression")
+
 func catalog() -> Array:
 	return GameData.read("res://data/social/shop_catalog.json").get("products", [])
 
@@ -18,11 +21,36 @@ func quote(id: String) -> Dictionary:
 			product.ok = false; product.message = "Крылья базы приобретает глава клана."
 		elif int(own.get("base", {}).get("wings", 0)) >= int(product.maximum):
 			product.ok = false; product.message = "Установлены все четыре крыла."
+		product["preview"] = "harbor"
+		product["preview_base"] = own.get("base", {}).duplicate(true)
+		product.preview_base["wings"] = mini(4, int(product.preview_base.get("wings", 0)) + 1)
 	if str(product.kind) == "unique_crew":
 		if GameData.get_faction(str(GameState.player_state.get("origin_race_id", ""))).is_empty():
 			product.ok = false; product.message = "Сначала выберите расу."
 		if GameState.company_state.get("shop_owned", {}).has(id):
 			product.ok = false; product.message = "Именной специалист уже приобретён."
+	if str(product.kind) == "premium":
+		var now: int = int(Time.get_unix_time_from_system())
+		var until: int = maxi(now, int(GameState.economy_state.get("rewards", {}).get("premium_until", 0))) + int(product.days) * 86400
+		if until - now > 30 * 86400: product.ok = false; product.message = "В запас можно активировать не более 30 дней премиума."
+	if str(product.kind) in ["cosmetic", "cosmetic_bundle", "season_cosmetics"]:
+		var meta: Node = progression()
+		if meta == null:
+			product.ok = false; product.message = "Коллекция пока недоступна."
+		else:
+			var personal: Dictionary = meta.personal()
+			if str(product.kind) == "season_cosmetics":
+				if bool(personal.season_premium): product.ok = false; product.message = "Дополнительная дорожка уже открыта."
+			else:
+				var missing: int = 0
+				for id_style in product.styles:
+					if not personal.owned_styles.has(str(id_style)): missing += 1
+				product["owned"] = missing == 0
+				product["missing_styles"] = missing
+				product.price = ceilf(float(product.price) * missing / maxi(1, product.styles.size()))
+				if missing == 0: product.ok = false; product.message = "Уже в коллекции. Можно установить без оплаты."
+			product["contents"] = []
+			for style_id in product.get("styles", []): product.contents.append(str(meta.rules.styles.get(str(style_id), {}).get("name", style_id)))
 	product["balance"] = float(GameState.player_state.get("money", 0))
 	if float(product.balance) < float(product.price):
 		product.ok = false; product.message = "Не хватает монет."
@@ -52,9 +80,17 @@ func purchase(id: String) -> Dictionary:
 			var owned: Dictionary = GameState.company_state.get("shop_owned", {})
 			owned[id] = true
 			GameState.company_state["shop_owned"] = owned
+		"cosmetic", "cosmetic_bundle":
+			for style_id in product.styles: progression().grant_style(str(style_id), "shop:" + id)
+		"season_cosmetics":
+			progression().personal()["season_premium"] = true
 		_: return {"ok": false, "message": "Этот товар пока недоступен."}
 	GameState.economy_state["rewards"] = rewards
 	GameState.player_state["money"] = float(GameState.player_state.money) - float(product.price)
+	var receipts: Array = GameState.company_state.get("purchase_receipts", [])
+	receipts.append({"id": Crypto.new().generate_random_bytes(12).hex_encode(), "product": id, "currency": "money", "amount": float(product.price), "balance": float(GameState.player_state.money), "contents": product.get("contents", product.get("items", {})), "at": int(Time.get_unix_time_from_system()), "authority": "offline_coins"})
+	while receipts.size() > 200: receipts.pop_front()
+	GameState.company_state["purchase_receipts"] = receipts
 	if not SaveSystem.save_game():
 		GameState.company_state = before.company
 		GameState.player_state = before.player
@@ -63,3 +99,12 @@ func purchase(id: String) -> Dictionary:
 		return {"ok": false, "message": "Покупка не сохранена; деньги возвращены."}
 	changed.emit()
 	return {"ok": true, "message": "Приобретено: %s. Списано %.0f монет. Остаток: %.0f." % [str(product.name), float(product.price), float(GameState.player_state.money)]}
+
+func apply_product(id: String) -> Dictionary:
+	var product: Dictionary = quote(id)
+	if not bool(product.get("owned", false)) or progression() == null: return {"ok": false, "message": "Сначала получите оформление."}
+	return progression().perform("equip_bundle", {"ids": product.get("styles", [])})
+
+func payment_status() -> Dictionary:
+	# A local save cannot create a verified payment or restore paid ownership.
+	return {"enabled": false, "message": "Сейчас покупки только за игровые монеты. Реальная оплата и восстановление покупок будут доступны после подключения платформы и серверного учёта."}

@@ -14,6 +14,11 @@
       "script": "res://systems/social/clan_system.gd"
     },
     {
+      "id": "CompanyProgression",
+      "script": "res://systems/social/company_progression.gd",
+      "after": ["ClanSystem"]
+    },
+    {
       "id": "CompanyShop",
       "script": "res://systems/social/company_shop.gd"
     },

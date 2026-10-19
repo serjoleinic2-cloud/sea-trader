@@ -1,0 +1,235 @@
+{
+  "version": 1,
+  "week_seconds": 604800,
+  "season": {
+    "id": "sunken_empire_01",
+    "name": "Затонувшая империя",
+    "duration_days": 42,
+    "description": "Карты древней империи ведут через торговые маршруты и пиратские воды. Выполняйте привычные дела и собирайте морскую коллекцию.",
+    "points_per_week": 120,
+    "milestones": [
+      {
+        "points": 10,
+        "free": {
+          "coins": 250
+        },
+        "premium": {
+          "style": "sail_abyss"
+        }
+      },
+      {
+        "points": 25,
+        "free": {
+          "boosts": {
+            "fair_wind": 2
+          }
+        },
+        "premium": {
+          "style": "hull_abyss"
+        }
+      },
+      {
+        "points": 50,
+        "free": {
+          "style": "sail_cartographer"
+        },
+        "premium": {
+          "style": "engine_aurora"
+        }
+      },
+      {
+        "points": 90,
+        "free": {
+          "coins": 900
+        },
+        "premium": {
+          "style": "harbor_abyss"
+        }
+      },
+      {
+        "points": 140,
+        "free": {
+          "style": "hull_explorer"
+        },
+        "premium": {
+          "style": "sail_imperial"
+        }
+      }
+    ]
+  },
+  "activities": [
+    {
+      "id": "caravan",
+      "name": "Караван снабжения",
+      "description": "Завершайте задания перевозки. Груз должен быть доставлен получателю.",
+      "stat": "total_deliveries",
+      "target": 3,
+      "points": 25,
+      "clan_resource": 90,
+      "personal_coins": 180,
+      "art": "crew_xp"
+    },
+    {
+      "id": "trade",
+      "name": "Торговый союз",
+      "description": "Продавайте товары в портах. Учитываются продажи после вступления в клан.",
+      "stat": "total_sales",
+      "target": 12,
+      "points": 20,
+      "clan_resource": 75,
+      "personal_coins": 150,
+      "art": "sale"
+    },
+    {
+      "id": "explore",
+      "name": "За горизонт",
+      "description": "Пройдите 12 000 единиц морского пути; вклад нескольких капитанов суммируется.",
+      "stat": "total_distance",
+      "target": 12000,
+      "points": 20,
+      "clan_resource": 75,
+      "personal_coins": 150,
+      "art": "speed"
+    },
+    {
+      "id": "patrol",
+      "name": "Безопасные воды",
+      "description": "Побеждайте в настоящих морских боях. Перемирия, сдача и учебные бои не засчитываются.",
+      "stat": "naval_victories",
+      "target": 2,
+      "points": 30,
+      "clan_resource": 100,
+      "personal_coins": 220,
+      "art": "damage"
+    },
+    {
+      "id": "pirates",
+      "name": "Охота на чёрные паруса",
+      "description": "Одержите победу над пиратами. Одна победа — один вклад, независимо от числа потопленных судов.",
+      "stat": "pirate_victories",
+      "target": 1,
+      "points": 25,
+      "clan_resource": 90,
+      "personal_coins": 180,
+      "art": "accuracy"
+    }
+  ],
+  "harbor_modules": [
+    {
+      "id": "beacon",
+      "name": "Маяк союза",
+      "description": "Высокая башня с огнём и цветами вашей расы.",
+      "costs": [
+        90,
+        160,
+        260
+      ],
+      "art": "speed"
+    },
+    {
+      "id": "trophy",
+      "name": "Зал трофеев",
+      "description": "Арки и знаки завершённых экспедиций. Только внешний вид.",
+      "costs": [
+        100,
+        180,
+        300
+      ],
+      "art": "sale"
+    },
+    {
+      "id": "dock",
+      "name": "Караванный причал",
+      "description": "Дополнительные декоративные мостки и грузовые стойки.",
+      "costs": [
+        80,
+        150,
+        240
+      ],
+      "art": "repair"
+    },
+    {
+      "id": "garden",
+      "name": "Сад гавани",
+      "description": "Зелень, освещённые павильоны и места отдыха.",
+      "costs": [
+        75,
+        140,
+        230
+      ],
+      "art": "crew_xp"
+    }
+  ],
+  "styles": {
+    "sail_cartographer": {
+      "name": "Паруса картографа",
+      "slot": "sail",
+      "tint": "#e7d39f",
+      "accent": "#469baf",
+      "source": "season_free"
+    },
+    "hull_explorer": {
+      "name": "Корпус исследователя",
+      "slot": "hull",
+      "tint": "#275665",
+      "accent": "#d5b572",
+      "source": "season_free"
+    },
+    "sail_abyss": {
+      "name": "Паруса глубин",
+      "slot": "sail",
+      "tint": "#227688",
+      "accent": "#60ebdc",
+      "source": "season_premium"
+    },
+    "hull_abyss": {
+      "name": "Корпус затонувшей империи",
+      "slot": "hull",
+      "tint": "#163a56",
+      "accent": "#c4a35f",
+      "source": "season_premium"
+    },
+    "engine_aurora": {
+      "name": "Полярное сияние",
+      "slot": "engine",
+      "tint": "#50c7c6",
+      "accent": "#88e9dc",
+      "source": "season_premium"
+    },
+    "harbor_abyss": {
+      "name": "Имперская гавань",
+      "slot": "harbor",
+      "tint": "#183c52",
+      "accent": "#68d7cc",
+      "source": "season_premium"
+    },
+    "sail_imperial": {
+      "name": "Имперские паруса",
+      "slot": "sail",
+      "tint": "#a09bd6",
+      "accent": "#e7cb80",
+      "source": "season_premium"
+    },
+    "sail_night": {
+      "name": "Ночные паруса",
+      "slot": "sail",
+      "tint": "#354466",
+      "accent": "#d5b572",
+      "source": "shop"
+    },
+    "hull_copper": {
+      "name": "Медный странник",
+      "slot": "hull",
+      "tint": "#805337",
+      "accent": "#e2bc6f",
+      "source": "shop"
+    },
+    "harbor_lanterns": {
+      "name": "Гавань тысячи огней",
+      "slot": "harbor",
+      "tint": "#233d4e",
+      "accent": "#f0b45b",
+      "source": "shop"
+    }
+  }
+}

@@ -15,6 +15,8 @@ var _dialog: FileDialog
 var _confirmation: CanvasLayer
 var _shop_category: String = "all"
 var _shop_product: String = ""
+var _progression: Node
+var _fitting: CanvasLayer
 
 func _ready() -> void:
 	set_meta("owns_workspace_scroll", true)
@@ -31,7 +33,7 @@ func _ready() -> void:
 	margin.add_child(root)
 	var tabs := HFlowContainer.new()
 	root.add_child(tabs)
-	for entry in [["clan", "Мой клан"], ["clans", "Кланы"], ["shop", "Магазин"], ["chat", "Друзья и чат"]]:
+	for entry in [["clan", "Мой клан"], ["clans", "Кланы"], ["shop", "Магазин"], ["season", "Экспедиция сезона"], ["collection", "Коллекция"], ["chat", "Друзья и чат"]]:
 		_button(tabs, entry[1], show_page.bind(entry[0]))
 	_notice = _label(root, "Локальный режим. Каталог игроков и кланов хранится в этом сохранении; общий сервер ещё не подключён.")
 	_notice.name = "SocialNotice"
@@ -52,6 +54,8 @@ func initialize(clans: Node, shop: Node) -> void:
 	_shop = shop
 	_clans.changed.connect(_refresh)
 	_shop.changed.connect(_refresh)
+	_progression = get_tree().get_first_node_in_group("company_progression")
+	if _progression != null: _progression.changed.connect(_refresh)
 
 func show_page(page: String = "clan") -> void:
 	_page = page
@@ -75,6 +79,7 @@ func _refresh() -> void:
 		"clans": _directory_page()
 		"shop": _shop_page()
 		"chat": _chat_page()
+		"season", "collection": _activity_page(_page)
 
 func _scroll(parent: Node = null) -> VBoxContainer:
 	var scroll := ScrollContainer.new()
@@ -131,13 +136,15 @@ func _clan_page() -> void:
 	var own: bool = str(entry.id) == str(_clans.profile().get("clan_id", ""))
 	var tabs := HFlowContainer.new()
 	_body.add_child(tabs)
-	for title in (["Обзор", "Участники", "Бусты", "Чат клана", "Управление"] if own else ["Обзор", "Участники"]):
+	for title in (["Обзор", "Экспедиции", "Гавань", "Участники", "Бусты", "Чат клана", "Управление"] if own else ["Обзор", "Участники"]):
 		_button(tabs, str(title), func() -> void: _clan_tab = str(title); _refresh())
 	match _clan_tab:
 		"Участники": _members(entry, own)
 		"Бусты": _boosts(entry)
 		"Чат клана": _clan_chat(entry)
 		"Управление": _management(entry)
+		"Экспедиции": _activity_page("expeditions")
+		"Гавань": _activity_page("harbor")
 		_:
 			var box: VBoxContainer = _scroll()
 			var header := HBoxContainer.new()
@@ -217,12 +224,21 @@ func _directory_page() -> void:
 func _members(entry: Dictionary, own: bool) -> void:
 	var box: VBoxContainer = _scroll()
 	_label(box, "Участники · ранг капитана · должность", true)
+	if own and _clans.role() == "leader" and _clans.local_test_count() > 0:
+		_button(box, "Добавить тестовый состав · 5 капитанов", _act.bind("test_members"))
 	for id in entry.members:
 		var row := HBoxContainer.new()
 		box.add_child(row)
 		var person: Dictionary = _clans.profile(str(id))
 		var member: Dictionary = entry.members[id]
+		var portrait := TextureRect.new()
+		portrait.custom_minimum_size = Vector2(52, 60)
+		portrait.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		portrait.texture = preload("res://systems/characters/character_art_catalog.gd").ship_officer_portrait(str(person.get("race_id", "humans")), "captain", int(person.get("portrait_id", 0)), load("res://assets/characters/crew/crew_portrait_atlas.png"))
+		row.add_child(portrait)
 		_label(row, "%s  ·  ранг %d  ·  %s" % [str(person.get("name", "Капитан")), int(person.get("rank", 1)), str(_clans.rules.roles.get(str(member.role), "Участник"))])
+		if bool(person.get("is_test_profile", false)): _label(row, "Локальный псевдоигрок")
 		if not own or str(id) == _clans.local_id(): continue
 		if _clans.role() == "leader":
 			var roles := OptionButton.new()
@@ -299,8 +315,40 @@ func _shop_page() -> void:
 	var shop_view := preload("res://systems/ui/company_shop_view.gd").new()
 	_body.add_child(shop_view)
 	shop_view.purchase_requested.connect(_buy)
+	shop_view.preview_requested.connect(_open_fitting)
+	shop_view.outfit_requested.connect(func(id: String) -> void:
+		var result: Dictionary = _shop.apply_product(id)
+		_notice.text = str(result.get("message", "")); _refresh())
 	shop_view.selection_changed.connect(func(category: String, id: String) -> void: _shop_category = category; _shop_product = id)
 	shop_view.configure(_shop, _shop_category, _shop_product)
+
+func _activity_page(mode: String) -> void:
+	if _progression == null:
+		_label(_body, "Система развития пока недоступна.")
+		return
+	var view := preload("res://systems/ui/company_activity_view.gd").new()
+	view.name = "CompanyActivity_" + mode
+	_body.add_child(view)
+	view.configure(_progression, mode)
+	view.preview_requested.connect(_open_fitting)
+	view.action_requested.connect(func(action: String, args: Dictionary) -> void:
+		var callback: Callable = func() -> void:
+			var result: Dictionary = _progression.perform(action, args)
+			_notice.text = str(result.get("message", "")); _refresh()
+		if action == "harbor":
+			for spec in _progression.harbor():
+				if str(spec.id) == str(args.id): _confirm("%s: уровень %d → %d. Цена: %d знаков экспедиции. Остаток: %d. Улучшение декоративное." % [str(spec.name), int(spec.level), int(spec.level) + 1, int(spec.price), int(spec.resource) - int(spec.price)], callback)
+		else: callback.call())
+
+func _open_fitting(product: Dictionary) -> void:
+	if _progression == null or is_instance_valid(_fitting): return
+	_fitting = preload("res://systems/ui/company_fitting_room.gd").new()
+	add_child(_fitting)
+	_fitting.configure(product, _progression)
+	_fitting.purchase_requested.connect(_buy)
+	_fitting.outfit_requested.connect(func(ids: Array) -> void:
+		var result: Dictionary = _progression.perform("equip_bundle", {"ids": ids})
+		_notice.text = str(result.get("message", "")); _refresh())
 
 func _buy(id: String) -> void:
 	var quote: Dictionary = _shop.quote(id)

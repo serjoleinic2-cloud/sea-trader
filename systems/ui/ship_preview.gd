@@ -12,6 +12,8 @@ var _zoom := 1.0
 var _radius := 4.0
 var _center := Vector3.ZERO
 var _bounds := AABB()
+var _environment: Environment
+var _sun: DirectionalLight3D
 
 func _ready() -> void:
 	stretch = true
@@ -21,6 +23,7 @@ func _ready() -> void:
 	gui_input.connect(_on_input)
 	_viewport = SubViewport.new()
 	_viewport.own_world_3d = true
+	_viewport.msaa_3d = Viewport.MSAA_2X
 	_viewport.handle_input_locally = false
 	add_child(_viewport)
 	_world = Node3D.new()
@@ -31,6 +34,7 @@ func _ready() -> void:
 	_world.add_child(_camera)
 	var environment := WorldEnvironment.new()
 	environment.environment = Environment.new()
+	_environment = environment.environment
 	environment.environment.background_mode = Environment.BG_COLOR
 	environment.environment.background_color = Color("0a202d")
 	environment.environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
@@ -38,6 +42,7 @@ func _ready() -> void:
 	environment.environment.ambient_light_energy = 0.65
 	_world.add_child(environment)
 	var light := DirectionalLight3D.new()
+	_sun = light
 	light.rotation_degrees = Vector3(-42, -35, 0)
 	light.light_energy = 0.9
 	_world.add_child(light)
@@ -51,6 +56,7 @@ func show_ship(id: String) -> void:
 		_model.queue_free()
 	var definition: Dictionary = GameData.get_ship(id)
 	var race: String = str(definition.get("faction_id", GameState.player_state.get("origin_race_id", "humans")))
+	if id == str(GameState.ship_state.get("ship_id", "")): race = str(GameState.player_state.get("origin_race_id", race))
 	var visual: Dictionary = GameData.read("res://data/world/ship_visuals.json").get("ships", {}).get(id, {})
 	var renderer = preload("res://systems/rendering/approach_3d_view.gd").new()
 	renderer._asset_catalog = GameData.read("res://data/world/world_asset_catalog.json")
@@ -70,6 +76,31 @@ func show_ship(id: String) -> void:
 	_yaw = 0.65
 	_pitch = 0.30
 	_zoom = 1.0
+
+func show_harbor(base: Dictionary, race: String, logo: String, style_id: String = "") -> void:
+	_ship_id = "harbor"
+	if is_instance_valid(_model):
+		_world.remove_child(_model)
+		_model.queue_free()
+	_model = preload("res://systems/rendering/clan_harbor_3d.gd").new()
+	_world.add_child(_model)
+	_model.setup(12.0, Vector2.UP, race, int(base.get("wings", 0)), logo, base.get("modules", {}), style_id)
+	refit()
+
+func refit() -> void:
+	if not is_instance_valid(_model): return
+	var boxes: Array[AABB] = []
+	_collect_bounds(_model, boxes)
+	_bounds = AABB()
+	for index in boxes.size(): _bounds = boxes[index] if index == 0 else _bounds.merge(boxes[index])
+	_center = _bounds.get_center()
+	_radius = maxf(0.5, _bounds.size.length() * 0.5)
+	_yaw = 0.65; _pitch = 0.3; _zoom = 1.0
+
+func set_night(night: bool) -> void:
+	_environment.background_color = Color("050d22") if night else Color("0a202d")
+	_environment.ambient_light_energy = 0.3 if night else 0.65
+	_sun.light_energy = 0.25 if night else 0.9
 
 func _collect_bounds(node: Node, result: Array[AABB]) -> void:
 	if node is MeshInstance3D and node.mesh != null:

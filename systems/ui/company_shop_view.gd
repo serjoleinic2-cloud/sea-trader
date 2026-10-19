@@ -2,6 +2,8 @@ extends HBoxContainer
 
 signal purchase_requested(id: String)
 signal selection_changed(category: String, id: String)
+signal preview_requested(product: Dictionary)
+signal outfit_requested(id: String)
 
 var _shop: Node
 var _category: String = "all"
@@ -13,6 +15,7 @@ var _detail_text: Label
 var _detail_price: Label
 var _detail_reason: Label
 var _buy: Button
+var _preview_button: Button
 var _cards: Dictionary = {}
 var _filters: Dictionary = {}
 
@@ -34,7 +37,7 @@ func configure(shop: Node, category: String = "all", selected: String = "") -> v
 	categories.name = "ShopCategories"
 	categories.custom_minimum_size.x = 148
 	add_child(categories)
-	for entry in [["all", "Все товары", "shop"], ["boost_pack", "Бусты", "boost"], ["premium", "Премиум", "money"], ["unique_crew", "Персонал", "crew"], ["port_module", "База клана", "port"], ["local_model", "Облики", "fleet"]]:
+	for entry in [["all", "Все товары", "shop"], ["boost_pack", "Бусты", "boost"], ["premium", "Премиум", "money"], ["unique_crew", "Персонал", "crew"], ["port_module", "База клана", "port"], ["cosmetic", "Оформление", "fleet"], ["season_cosmetics", "Коллекция сезона", "fleet"], ["local_model", "3D-модели", "fleet"]]:
 		var button := Button.new()
 		button.text = str(entry[1])
 		button.name = "Category_" + str(entry[0])
@@ -53,7 +56,7 @@ func configure(shop: Node, category: String = "all", selected: String = "") -> v
 	center.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	add_child(center)
 	_label(center, "МАГАЗИН КОМПАНИИ", 18)
-	_label(center, "Выберите товар. Покупка за игровые монеты, после подтверждения.", 12)
+	_label(center, "Покупки за игровые монеты. Примерка бесплатна. Реальные платежи ещё не подключены.", 12)
 	var scroll := ScrollContainer.new()
 	scroll.name = "ShopCatalogScroll"
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
@@ -88,12 +91,19 @@ func configure(shop: Node, category: String = "all", selected: String = "") -> v
 	_detail_text = _label(details_scroll, "", 13)
 	_detail_price = _label(stack, "", 16)
 	_detail_reason = _label(stack, "", 12)
+	_preview_button = Button.new()
+	_preview_button.text = "Примерить · 3D"
+	_preview_button.set_meta("fixed_font_size", 13)
+	_preview_button.pressed.connect(func() -> void: preview_requested.emit(_shop.quote(_selected)))
+	stack.add_child(_preview_button)
 	_buy = Button.new()
 	_buy.name = "ShopBuySelected"
 	_buy.set_meta("fixed_font_size", 14)
 	_buy.custom_minimum_size.y = 36
 	_buy.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-	_buy.pressed.connect(func() -> void: purchase_requested.emit(_selected))
+	_buy.pressed.connect(func() -> void:
+		if bool(_shop.quote(_selected).get("owned", false)): outfit_requested.emit(_selected)
+		else: purchase_requested.emit(_selected))
 	stack.add_child(_buy)
 	_choose_category(_category)
 
@@ -114,7 +124,7 @@ func _choose_category(category: String) -> void:
 	_cards.clear()
 	var visible_products: Array = []
 	for item in _shop.catalog():
-		if category == "all" or str(item.kind) == category: visible_products.append(item)
+		if category == "all" or str(item.kind) == category or (category == "cosmetic" and str(item.kind) == "cosmetic_bundle"): visible_products.append(item)
 	var selection_visible: bool = false
 	for item in visible_products:
 		if str(item.id) == _selected: selection_visible = true
@@ -165,11 +175,17 @@ func _select(id: String) -> void:
 	_detail_title.text = str(quote.get("name", "Выберите товар"))
 	_detail_image.texture = product_art(quote)
 	_detail_text.text = str(quote.get("description", ""))
+	if not quote.get("contents", []).is_empty(): _detail_text.text += "\n\nСостав: " + ", ".join(quote.contents)
 	_detail_price.text = "Цена: %.0f монет" % float(quote.get("price", 0))
 	_detail_reason.text = str(quote.get("message", ""))
 	_detail_reason.visible = _detail_reason.text != ""
 	_buy.text = "Купить · %.0f" % float(quote.get("price", 0)) if str(quote.get("kind", "")) != "local_model" else "Модель ещё не установлена"
 	_buy.disabled = not bool(quote.get("ok", false))
+	if bool(quote.get("owned", false)):
+		_buy.text = "Установить"
+		_detail_price.text = "В коллекции · навсегда"
+		_buy.disabled = false
+	_preview_button.visible = str(quote.get("kind", "")) in ["cosmetic", "cosmetic_bundle", "season_cosmetics", "port_module"]
 	selection_changed.emit(_category, id)
 
 func _category_icon(id: String) -> Texture2D:
@@ -185,4 +201,8 @@ func product_art(item: Dictionary) -> Texture2D:
 		"unique_crew": return preload("res://systems/characters/character_art_catalog.gd").ship_officer_portrait(str(GameState.player_state.get("origin_race_id", "humans")), "mechanic", 2, load("res://assets/characters/crew/crew_portrait_atlas.png"))
 		"port_module": return load("res://assets/ui/styles/approved_hud/port.png")
 		"local_model": return load("res://assets/ui/styles/approved_hud/%s.png" % ("fleet" if str(item.get("id", "")) == "ship_skin" else "port"))
+		"cosmetic", "cosmetic_bundle", "season_cosmetics":
+			var ids: Array = item.get("styles", [])
+			var slot: String = str(_shop.progression().rules.styles.get(str(ids[0]), {}).get("slot", "sail")) if not ids.is_empty() and _shop.progression() != null else "sail"
+			return preload("res://systems/ui/boost_item_art.gd").texture(str({"sail": "speed", "hull": "repair", "engine": "fuel", "harbor": "sale"}.get(slot, "speed")))
 	return null

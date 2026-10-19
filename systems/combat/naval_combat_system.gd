@@ -287,10 +287,10 @@ func management_status(id: String) -> Dictionary:
 func _transaction(action: Callable, message: String) -> Dictionary:
 	var before_fleet: Array = GameState.fleet_state.duplicate(true)
 	var before_combat: Dictionary = GameState.combat_state.duplicate(true)
-	var before_money: float = float(GameState.player_state.money)
+	var before_player: Dictionary = GameState.player_state.duplicate(true)
 	action.call()
 	if not SaveSystem.save_game():
-		GameState.fleet_state = before_fleet; GameState.combat_state = before_combat; GameState.player_state.money = before_money
+		GameState.fleet_state = before_fleet; GameState.combat_state = before_combat; GameState.player_state = before_player
 		return _result(false,"Не удалось сохранить изменения.")
 	EventBus.naval_battle_changed.emit()
 	return _result(true,message)
@@ -612,6 +612,13 @@ func _finish(outcome: String, losses: Dictionary) -> Dictionary:
 		_apply_losses(losses)
 		var cleared_port_id: String = ""
 		if outcome=="Победа":
+			var training: bool = bool(battle.get("training", false))
+			for opponent in battle.enemy_ids: training = training or str(opponent).begins_with("debug_training")
+			if not training:
+				var statistics: Dictionary = GameState.player_state.get("stats", {})
+				statistics["naval_victories"] = int(statistics.get("naval_victories", 0)) + 1
+				if _battle_has_pirates(battle): statistics["pirate_victories"] = int(statistics.get("pirate_victories", 0)) + 1
+				GameState.player_state["stats"] = statistics
 			for enemy_id in battle.enemy_ids:
 				var defeated_enemy: Dictionary = GameState.combat_state.naval_enemies.get(str(enemy_id),{})
 				var tier: int = clampi(int(GameData.get_ship(str(defeated_enemy.get("ship_type_id",""))).get("tier",1)),1,5)

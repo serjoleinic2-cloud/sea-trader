@@ -5,6 +5,11 @@ const SEA_LEVEL: float = -0.18
 const TIME_SCALE: float = 0.42
 const WAVES: Array[Vector4] = [Vector4(1.0, 0.32, 0.060, 18.0), Vector4(-0.48, 1.0, 0.045, 10.0), Vector4(0.64, 1.0, 0.025, 5.5)]
 
+static func outward_heel(turn_velocity: float) -> float:
+	# Bow points along local -Z. Positive 2D yaw turns right; positive local
+	# Z rotation raises starboard and lowers port, to the outside of that turn.
+	return clampf(turn_velocity * 0.09, -0.08, 0.08)
+
 static func configure_material(material: ShaderMaterial) -> void:
 	for index in WAVES.size():
 		material.set_shader_parameter(["wave_a", "wave_b", "wave_c"][index], WAVES[index])

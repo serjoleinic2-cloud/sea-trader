@@ -12,6 +12,9 @@ func _ready() -> void:
 	var metal := _material(Color(str(palette[2])),false)
 	var rune := _material(Color(str(palette[1])),true)
 	var sail := _material(Color(str(palette[1])).lightened(.55),false)
+	hull.resource_name = "Company Hull"
+	sail.resource_name = "Company Sail Canvas"
+	rune.resource_name = "Company Engine Rune"
 	sail.cull_mode = BaseMaterial3D.CULL_DISABLED
 	var rope := _material(Color("897a59"),false)
 	var length: float = 4.0+tier*1.1

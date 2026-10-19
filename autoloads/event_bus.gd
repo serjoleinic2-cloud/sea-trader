@@ -47,6 +47,7 @@ signal employee_hired(employee_id: String, role_id: String)
 signal employee_fired(employee_id: String)
 signal fleet_ship_added(ship_instance_id: String)
 signal active_ship_changed(ship_type_id: String)
+signal company_appearance_changed
 
 # ============================================================================
 # Save / Load / Offline

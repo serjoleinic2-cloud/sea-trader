@@ -74,11 +74,18 @@ func _ready() -> void:
 	check(hud._truce.get_theme_stylebox("normal") is StyleBoxTexture,"tactical actions use the approved brass art button")
 	var approach: Node=main.get_node("Approach3DView")
 	approach._animation_clock=1.0; GameState.ship_state.visual_roll=0.0
+	GameState.ship_state.turn_velocity=0.0; approach._ship.set_meta("turn_bank", 0.0)
+	if approach._ship.has_meta("ocean_motion"): approach._ship.remove_meta("ocean_motion")
 	approach._update_camera(water,1.0,.1,false)
 	check(absf(approach._ship.position.y+.14)>.005 and absf(approach._ship.rotation.x)>.005,"player ship bobs and pitches on the swell")
 	var wave_roll: float=approach._ship.rotation.z
-	GameState.ship_state.visual_roll=8.0; approach._update_camera(water,1.0,.1,false)
-	check(approach._ship.rotation.z<wave_roll-.03,"player ship banks into a right turn")
+	approach._ship.set_meta("turn_bank", 0.0)
+	GameState.ship_state.turn_velocity=1.0; approach._update_camera(water,1.0,.2,false)
+	check(approach._ship.rotation.z>wave_roll+.03,"right turn lowers port: the player ship heels outwards %s" % str([wave_roll, approach._ship.rotation.z, approach._ship.get_meta("turn_bank")]))
+	approach._ship.set_meta("turn_bank", 0.0)
+	GameState.ship_state.turn_velocity=-1.0; approach._update_camera(water,1.0,.2,false)
+	check(approach._ship.rotation.z<wave_roll-.03,"left turn lowers starboard: the player ship heels outwards")
+	GameState.ship_state.turn_velocity=0.0
 	GameState.ship_state.visual_roll=0.0
 	check(hud.tactical_view_open() and approach._battle_camera_requested(),"opening battle enables tactical camera framing")
 	hud._collapse_panel(); hud._process(.3); approach._process(.1)

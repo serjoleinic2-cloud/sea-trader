@@ -1,5 +1,6 @@
 {
   "version": 1,
+  "local_test_players": 5,
   "creation_price": 5000,
   "maximum_members": 30,
   "join_cooldown_seconds": 86400,

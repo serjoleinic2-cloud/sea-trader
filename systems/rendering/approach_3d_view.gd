@@ -64,6 +64,15 @@ func _ready() -> void:
 	_build_scene()
 	if not EventBus.active_ship_changed.is_connected(_on_active_ship_changed):
 		EventBus.active_ship_changed.connect(_on_active_ship_changed)
+	EventBus.company_appearance_changed.connect(_refresh_company_appearance)
+
+func _refresh_company_appearance() -> void:
+	if is_instance_valid(_ship): preload("res://systems/rendering/company_appearance.gd").apply(_ship, preload("res://systems/rendering/company_appearance.gd").equipped().values())
+	for key in _traffic_models:
+		if str(key).begins_with("fleet:") and is_instance_valid(_traffic_models[key]):
+			preload("res://systems/rendering/company_appearance.gd").apply(_traffic_models[key], preload("res://systems/rendering/company_appearance.gd").equipped().values())
+	# Base signatures include its modules and style; reuse the existing world sync.
+	_sync_generated_world(_world_data)
 
 
 func _on_active_ship_changed(_ship_type_id: String) -> void:
@@ -485,12 +494,15 @@ func _make_ship() -> Node3D:
 		_add_ship_lanterns(registered_ship, visual.get("lamps", []))
 		var heraldry = load("res://systems/rendering/faction_base_style.gd").new()
 		heraldry.apply_ship(registered_ship, faction_id)
+		preload("res://systems/rendering/company_appearance.gd").apply(registered_ship, preload("res://systems/rendering/company_appearance.gd").equipped().values())
 		return registered_ship
 	var ship := Node3D.new()
 	ship.name = "CloseViewShip"
 	var hull_material := _material(Color("503629"), 0.72)
 	var deck_material := _material(Color("b58955"), 0.82)
 	var sail_material := _material(Color("eee3c8"), 0.9)
+	hull_material.resource_name = "Company Hull"
+	sail_material.resource_name = "Company Sail"
 
 	# The map hull is 87 world units long; at MAP_TO_METERS this hull is the
 	# same apparent size when the camera crosses from the map into 3D.
@@ -500,6 +512,7 @@ func _make_ship() -> Node3D:
 	_add_cylinder(ship, 0.09, 0.09, 4.0, Vector3(0.0, 2.3, -0.25), Color("594434"))
 	_add_sail(ship, Vector2(1.55, 2.65), Vector3(0.0, 2.1, -0.2), sail_material)
 	_add_sail(ship, Vector2(0.9, 1.65), Vector3(0.0, 1.55, -1.45), _material(Color("d9c9aa"), 0.94))
+	preload("res://systems/rendering/company_appearance.gd").apply(ship, preload("res://systems/rendering/company_appearance.gd").equipped().values())
 	return ship
 
 
@@ -615,7 +628,7 @@ func _build_island(island_root: Node3D, island: Dictionary) -> void:
 		var harbor := preload("res://systems/rendering/clan_harbor_3d.gd").new()
 		harbor.name = "ClanHarbor3D"
 		island_root.add_child(harbor)
-		harbor.setup(float(island.get("visual_radius", map_radius)) * MAP_TO_METERS, Vector2(port.get("position", island_position)) - island_position, str(clan.get("race_id", "humans")), int(clan.get("base", {}).get("wings", 0)), str(clan.get("logo_png", "")))
+		harbor.setup(float(island.get("visual_radius", map_radius)) * MAP_TO_METERS, Vector2(port.get("position", island_position)) - island_position, str(clan.get("race_id", "humans")), int(clan.get("base", {}).get("wings", 0)), str(clan.get("logo_png", "")), clan.get("base", {}).get("modules", {}), str(clan.get("base", {}).get("style", "")))
 		return
 	var harbor_key: String = str(island.get("harbor_variant", ""))
 	if harbor_key != "":
@@ -1010,6 +1023,7 @@ func _sync_traffic(traffic_renderer: Node, traffic_group: String, delta: float =
 			model.name = "Traffic_" + model_key.replace(":", "_").replace("/", "_")
 			_traffic_models[model_key] = model
 			model.set_meta("ship_identity", wanted_identity)
+			if traffic_group == "fleet": preload("res://systems/rendering/company_appearance.gd").apply(model, preload("res://systems/rendering/company_appearance.gd").equipped().values())
 		if model.has_meta("reference_length"):
 			model.scale = Vector3.ONE * maxf(3.48, float(vessel.get("length", 87.0)) * MAP_TO_METERS) / float(model.get_meta("reference_length"))
 		var position: Vector2 = Vector2(vessel.get("position", Vector2.ZERO))
@@ -1027,7 +1041,7 @@ func _sync_traffic(traffic_renderer: Node, traffic_group: String, delta: float =
 		var visible_length: float=maxf(3.48,float(vessel.get("length",87.0))*MAP_TO_METERS)
 		var sink_roll: float=-1.0 if posmod(hash(vessel_id),2)==0 else 1.0
 		# Local +Z roll raises starboard: a right turn heels outwards to port.
-		var target_turn_bank: float = clampf(float(vessel.get("turn_velocity",0))*.09,-.08,.08)
+		var target_turn_bank: float = OceanSurface.outward_heel(float(vessel.get("turn_velocity",0)))
 		var turn_bank: float = lerpf(float(model.get_meta("turn_bank",0.0)),target_turn_bank,1.0-exp(-delta*4.0))
 		model.set_meta("turn_bank",turn_bank)
 		OceanSurface.float_ship(model, position * MAP_TO_METERS, heading.angle(), visible_length, motion_time, delta)
@@ -1077,10 +1091,12 @@ func _update_camera(ship_position: Vector2, close_factor: float, delta: float, m
 		_sailing_gulls.position = ship_world_position
 	_ship.position = ship_world_position
 	var motion_time: float = _animation_clock
-	var turn_bank: float = clampf(deg_to_rad(float(GameState.ship_state.get("visual_roll",0.0)))*.45,-.095,.095)
+	var target_bank: float = OceanSurface.outward_heel(float(GameState.ship_state.get("turn_velocity", 0.0)))
+	var turn_bank: float = lerpf(float(_ship.get_meta("turn_bank", 0.0)), target_bank, 1.0 - exp(-delta * 4.0))
+	_ship.set_meta("turn_bank", turn_bank)
 	OceanSurface.float_ship(_ship, ship_position * MAP_TO_METERS, heading, _ship_display_length, motion_time, delta)
 	# A right turn heels outward to port, opposite the turn direction.
-	_ship.rotation.z -= turn_bank
+	_ship.rotation.z += turn_bank
 	if _wake!=null:
 		_wake.track("player",ship_position*MAP_TO_METERS,heading,_ship_display_length,delta)
 

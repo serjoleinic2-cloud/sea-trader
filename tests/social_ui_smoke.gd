@@ -101,7 +101,7 @@ func _ready() -> void:
 			if page == "shop":
 				var view: Node = ui._body.find_child("CompanyShopView", true, false)
 				var balance: float = float(GameState.player_state.money)
-				check(view != null and view._cards.size() == 7 and view._filters.size() == 6, "shop separates categories, catalog and preview")
+				check(view != null and view._cards.size() == main.get_node("CompanyShop").catalog().size() and view._filters.size() == 8, "shop separates categories, catalog and preview")
 				check(ui._panel.find_child("WorkspaceScroll", true, false) == null, "shop has no outer nested workspace scroll")
 				check(view._buy.get_global_rect().end.y <= float(screen.y) - 8, "purchase action stays visible at " + str(screen))
 				view._filters.boost_pack.pressed.emit(); await frames()

@@ -25,6 +25,29 @@ func after_each() -> void:
 func _sea() -> void:
 	GameState.ship_state.docked_port_id=""
 
+func test_real_pirate_victory_counts_once_for_company_expeditions() -> void:
+	_sea()
+	GameState.combat_state.naval_enemies.enemy1.kind = "pirate"
+	assert_true(navy.begin_battle().ok)
+	assert_true(navy._finish("Победа", {}).ok)
+	assert_eq(int(GameState.player_state.stats.get("naval_victories", 0)), 1)
+	assert_eq(int(GameState.player_state.stats.get("pirate_victories", 0)), 1)
+	assert_false(navy._finish("Победа", {}).ok)
+	assert_eq(int(GameState.player_state.stats.get("pirate_victories", 0)), 1)
+
+func test_training_does_not_count_as_expedition_victory() -> void:
+	_sea()
+	assert_true(navy.begin_battle().ok)
+	GameState.combat_state.naval_battle.training = true
+	assert_true(navy._finish("Победа", {}).ok)
+	assert_eq(int(GameState.player_state.stats.get("naval_victories", 0)), 0)
+
+func test_truce_does_not_count_as_expedition_victory() -> void:
+	_sea()
+	assert_true(navy.begin_battle().ok)
+	assert_true(navy._finish("Перемирие", {}).ok)
+	assert_eq(int(GameState.player_state.stats.get("naval_victories", 0)), 0)
+
 func test_legacy_training_squadron_is_retired_to_one_player_warship() -> void:
 	GameState.fleet_state = [
 		{"instance_id":"debug_training_warship","ship_type_id":"war_humans_1","name":"Старый учебный страж","hull":0.0},

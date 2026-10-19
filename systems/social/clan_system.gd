@@ -15,6 +15,34 @@ func _ready() -> void:
 	add_to_group("clan_system")
 	rules = GameData.read("res://data/social/clan_rules.json")
 	ensure_state()
+	if OS.get_environment("SEA_TRADER_ISOLATED_TESTS") != "1" and local_test_count() > 0 and not clan().is_empty(): seed_test_members(local_test_count())
+
+func local_test_count() -> int:
+	if not FileAccess.file_exists("res://work/local_clan_test.json"): return 0
+	return clampi(int(rules.get("local_test_players", 5)), 0, 10)
+
+func seed_test_members(count: int = 5) -> int:
+	var entry: Dictionary = clan()
+	if entry.is_empty() or role() != "leader": return 0
+	var names: Dictionary = {
+		"humans": ["Марк Север", "Лея Штиль", "Дан Ветров", "Алина Риф", "Тимур Маяк"],
+		"nerids": ["Наэр Таласс", "Лиара Вей", "Сейрин Мора", "Таэль Прилив", "Нэрис Лун"],
+		"surr": ["Караш Вулкан", "Вера Кальд", "Рук Тарн", "Аша Искра", "Кэрн Шлак"],
+		"meridians": ["Элиан Восс", "Мира Келл", "Савен Рей", "Лира Сол", "Кай Аур"],
+		"aery": ["Ириэль Тар", "Фенна Крыл", "Орэн Вейл", "Айра Ветер", "Энн Скай"],
+		"crystari": ["Тарен Гранит", "Шаара Кварц", "Рем Крист", "Лина Грань", "Кэр Сланец"]}
+	var race: String = str(entry.race_id)
+	var choices: Array = names.get(race, names.humans)
+	var added: int = 0
+	for index in clampi(count, 0, 10):
+		var id: String = "local_test_%s_%d" % [str(entry.id), index]
+		if entry.members.has(id): continue
+		if entry.members.size() >= int(rules.maximum_members): break
+		state().profiles[id] = {"id": id, "name": str(choices[index % choices.size()]), "race_id": race, "clan_id": str(entry.id), "rank": 2 + index * 3, "join_after": 0, "last_week": -1, "last_active_at": now(), "is_test_profile": true, "portrait_id": index, "test_coins": 0}
+		entry.members[id] = {"role": "assistant" if index == 0 else ("recruiter" if index == 1 else "member"), "joined_at": now()}
+		_contribute(state().profiles[id], entry)
+		added += 1
+	return added
 
 func now() -> int:
 	return test_now if test_now >= 0 else int(Time.get_unix_time_from_system())
@@ -51,6 +79,7 @@ func directory() -> Array[Dictionary]:
 		var row: Dictionary = entry.duplicate(true)
 		var score: int = 0
 		for id in entry.get("members", {}): score += int(profile(str(id)).get("rank", 1)) * 100
+		for level in entry.get("base", {}).get("modules", {}).values(): score += clampi(int(level), 0, 3) * 25
 		row["points"] = score
 		result.append(row)
 	result.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return int(a.points) > int(b.points) if int(a.points) != int(b.points) else str(a.name) < str(b.name))
@@ -103,6 +132,9 @@ func _command(action: String, args: Dictionary) -> Dictionary:
 		"friend_request", "friend_accept", "unfriend", "block", "message": return _social_action(action, args)
 	if own.is_empty(): return _result(false, "Сначала вступите в клан.")
 	match action:
+		"test_members":
+			if role() != "leader" or local_test_count() <= 0: return _denied()
+			return _result(true, "Добавлено локальных псевдоигроков: %d. Они не являются сетевыми аккаунтами." % seed_test_members(local_test_count()))
 		"rules":
 			if role() != "leader": return _denied()
 			var text: String = str(args.get("text", "")).strip_edges()
@@ -193,6 +225,7 @@ func _create(args: Dictionary) -> Dictionary:
 	profile()["clan_id"] = id
 	GameState.player_state["money"] = float(GameState.player_state.get("money", 0)) - float(rules.creation_price)
 	_contribute(profile(), created)
+	if OS.get_environment("SEA_TRADER_ISOLATED_TESTS") != "1" and local_test_count() > 0: seed_test_members(local_test_count())
 	return _result(true, "Клан создан. База компании получила статус базы клана; постройки и ресурсы сохранены.")
 
 func _apply(id: String) -> Dictionary:

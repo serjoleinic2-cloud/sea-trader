@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "base": "res://work/bases/{race}/base.glb",
+  "module": "res://work/bases/{race}/{module}/level_{level}.glb",
+  "reference_radius": 12,
+  "anchors": {"beacon": "Module_Beacon", "trophy": "Module_Trophy", "dock": "Module_Dock", "garden": "Module_Garden"},
+  "flag_mesh": "ClanFlag"
+}
