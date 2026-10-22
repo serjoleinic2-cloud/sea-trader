@@ -47,6 +47,30 @@ func quote(id: String) -> Dictionary:
 			product.contents.append("%s × %d" % [str(definition.get("name", boost_id)), amount])
 		if not contents_valid:
 			product.ok = false; product.message = "Состав свитков в этом наборе настроен неверно."
+	if str(product.kind) in ["training_scroll", "training_scroll_pack"]:
+		var scroll_catalog: Dictionary = GameData.read("res://data/employees/training_scrolls.json").get("types", {})
+		var scroll_items: Dictionary = {str(product.get("scroll_id", "")): 1} if str(product.kind) == "training_scroll" else product.get("items", {})
+		product["contents"] = []
+		for scroll_id in scroll_items:
+			var amount: int = int(scroll_items[scroll_id])
+			var definition: Dictionary = scroll_catalog.get(str(scroll_id), {})
+			if definition.is_empty() or amount <= 0:
+				product.ok = false; product.message = "Состав учебных брошюр настроен неверно."
+			product.contents.append("%s × %d" % [str(definition.get("name", scroll_id)), amount])
+		if scroll_items.is_empty(): product.ok = false
+	if str(product.kind) == "resource_pack":
+		var goods: Dictionary = {}
+		for raw_good in GameData.read("res://data/resources/goods_catalog.json").get("resources", []):
+			goods[str(raw_good.get("id", ""))] = raw_good
+		product["contents"] = []
+		var resources: Dictionary = product.get("items", {})
+		for resource_id in resources:
+			var amount: int = int(resources[resource_id])
+			var definition: Dictionary = goods.get(str(resource_id), {})
+			if definition.is_empty() or amount <= 0:
+				product.ok = false; product.message = "Состав ресурсного ящика настроен неверно."
+			product.contents.append("%s × %d" % [str(definition.get("display_name", resource_id)), amount])
+		if resources.is_empty(): product.ok = false
 	if str(product.kind) in ["cosmetic", "cosmetic_bundle", "season_cosmetics"]:
 		var meta: Node = progression()
 		if meta == null:
@@ -64,7 +88,13 @@ func quote(id: String) -> Dictionary:
 				product.price = ceilf(float(product.price) * missing / maxi(1, product.styles.size()))
 				if missing == 0: product.ok = false; product.message = "Уже в коллекции. Можно установить без оплаты."
 			product["contents"] = []
-			for style_id in product.get("styles", []): product.contents.append(str(meta.rules.styles.get(str(style_id), {}).get("name", style_id)))
+			for style_id in product.get("styles", []):
+				var style: Dictionary = meta.rules.styles.get(str(style_id), {})
+				product.contents.append(str(style.get("name", style_id)))
+				if str(product.kind) != "season_cosmetics" and str(style.get("slot", "")) == "harbor":
+					var own_clan: Dictionary = preload("res://systems/social/clan_bonuses.gd").own_clan()
+					if own_clan.is_empty() or str(own_clan.get("leader_id", "")) != str(GameState.player_state.get("social_id", "")):
+						product.ok = false; product.message = "Оформление клановой гавани приобретает и устанавливает глава клана."
 	product["balance"] = float(GameState.player_state.get("money", 0))
 	if float(product.balance) < float(product.price):
 		product.ok = false; product.message = "Не хватает монет."
@@ -73,13 +103,28 @@ func quote(id: String) -> Dictionary:
 func purchase(id: String) -> Dictionary:
 	var product: Dictionary = quote(id)
 	if not bool(product.get("ok", false)): return product
-	var before: Dictionary = {"company": GameState.company_state.duplicate(true), "player": GameState.player_state.duplicate(true), "economy": GameState.economy_state.duplicate(true), "employees": GameState.employee_state.duplicate(true)}
+	var before: Dictionary = {"company": GameState.company_state.duplicate(true), "player": GameState.player_state.duplicate(true), "economy": GameState.economy_state.duplicate(true), "employees": GameState.employee_state.duplicate(true), "progression": GameState.progression_state.duplicate(true), "ports": GameState.port_state.duplicate(true)}
 	var rewards: Dictionary = GameState.economy_state.get("rewards", {})
 	match str(product.kind):
 		"boost_pack":
 			var inventory: Dictionary = rewards.get("boosts", {})
 			for key in product.items: inventory[key] = int(inventory.get(key, 0)) + int(product.items[key])
 			rewards["boosts"] = inventory
+		"training_scroll", "training_scroll_pack":
+			var inventory: Dictionary = GameState.progression_state.get("training_scroll_inventory", {}).duplicate(true)
+			var items: Dictionary = {str(product.get("scroll_id", "")): 1} if str(product.kind) == "training_scroll" else product.get("items", {})
+			for key in items: inventory[str(key)] = int(inventory.get(str(key), 0)) + int(items[key])
+			GameState.progression_state["training_scroll_inventory"] = inventory
+		"repair_kit":
+			rewards["repair_kits"] = int(rewards.get("repair_kits", 0)) + int(product.get("amount", 1))
+		"resource_pack":
+			var home_id: String = str(GameState.world_state.get("home_port_id", ""))
+			if home_id == "" or not GameState.port_state.has(home_id): return {"ok": false, "message": "Домашний склад недоступен."}
+			var port: Dictionary = GameState.port_state[home_id]
+			var inventory: Dictionary = port.get("inventory", {})
+			for key in product.items: inventory[str(key)] = int(inventory.get(str(key), 0)) + int(product.items[key])
+			port["inventory"] = inventory
+			GameState.port_state[home_id] = port
 		"premium":
 			rewards["premium_days"] = int(rewards.get("premium_days", 0)) + int(product.days)
 			GameState.economy_state["rewards"] = rewards
@@ -108,6 +153,8 @@ func purchase(id: String) -> Dictionary:
 		GameState.player_state = before.player
 		GameState.economy_state = before.economy
 		GameState.employee_state = before.employees
+		GameState.progression_state = before.progression
+		GameState.port_state = before.ports
 		return {"ok": false, "message": "Покупка не сохранена; деньги возвращены."}
 	changed.emit()
 	return {"ok": true, "message": "Приобретено: %s. Списано %.0f монет. Остаток: %.0f." % [str(product.name), float(product.price), float(GameState.player_state.money)]}

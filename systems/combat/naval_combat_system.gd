@@ -288,9 +288,10 @@ func _transaction(action: Callable, message: String) -> Dictionary:
 	var before_fleet: Array = GameState.fleet_state.duplicate(true)
 	var before_combat: Dictionary = GameState.combat_state.duplicate(true)
 	var before_player: Dictionary = GameState.player_state.duplicate(true)
+	var before_economy: Dictionary = GameState.economy_state.duplicate(true)
 	action.call()
 	if not SaveSystem.save_game():
-		GameState.fleet_state = before_fleet; GameState.combat_state = before_combat; GameState.player_state = before_player
+		GameState.fleet_state = before_fleet; GameState.combat_state = before_combat; GameState.player_state = before_player; GameState.economy_state = before_economy
 		return _result(false,"Не удалось сохранить изменения.")
 	EventBus.naval_battle_changed.emit()
 	return _result(true,message)
@@ -458,12 +459,45 @@ func repair_quote(id: String) -> Dictionary:
 	if ship.is_empty(): return {"ok": false, "cost": 0, "message": "Корабль не найден."}
 	if float(ship.get("hull", 0.0)) <= 0.0: return {"ok": false, "cost": 0, "message": "Корабль потоплен."}
 	var missing: float = maxf(0.0, hull_max(ship) - float(ship.get("hull", 0.0)))
-	var cost: int = ceili(missing * float(_rules.repair_per_hull) * (1.0 - preload("res://systems/social/clan_bonuses.gd").percent("repair") / 100.0))
-	return {"ok": missing > 0.0, "cost": cost, "missing": missing, "message": "Корпус цел." if missing <= 0.0 else ""}
+	var cost: int = _repair_cost(missing)
+	return {"ok": missing > 0.0, "cost": cost, "missing": missing, "workshop_discount_percent": workshop_repair_discount_percent(), "message": "Корпус цел." if missing <= 0.0 else ""}
+
+func workshop_repair_discount_percent() -> float:
+	var home_id: String = str(GameState.world_state.get("home_port_id", ""))
+	if home_id == "" or str(GameState.ship_state.get("docked_port_id", "")) != home_id: return 0.0
+	var buildings: Dictionary = GameState.port_state.get(home_id, {}).get("buildings", {})
+	var workshop: Dictionary = buildings.get("workshop", {})
+	if str(workshop.get("status", "active")) != "active": return 0.0
+	return minf(15.0, float(workshop.get("level", 0)) * 0.5)
+
+func _repair_cost(missing: float) -> int:
+	var clan_discount: float = clampf(preload("res://systems/social/clan_bonuses.gd").percent("repair"), 0.0, 10.0) / 100.0
+	var workshop_discount: float = workshop_repair_discount_percent() / 100.0
+	return ceili(maxf(0.0, missing) * float(_rules.repair_per_hull) * (1.0 - clan_discount) * (1.0 - workshop_discount))
+
+func use_repair_kit(id: String) -> Dictionary:
+	if active(): return _result(false, "Ремкомплект нельзя использовать во время боя.")
+	var ship: Dictionary = ship_by_id(id)
+	if ship.is_empty(): return _result(false, "Боевой корабль не найден.")
+	var maximum: float = hull_max(ship)
+	var current: float = float(ship.get("hull", 0.0))
+	if current <= 0.0: return _result(false, "Потопленный корабль нельзя восстановить ремкомплектом.")
+	var missing: float = maxf(0.0, maximum - current)
+	if missing <= 0.0: return _result(false, "Корпус корабля уже цел.")
+	var rewards: Dictionary = GameState.economy_state.get("rewards", {})
+	var count: int = int(rewards.get("repair_kits", 0))
+	if count <= 0: return _result(false, "В запасе нет полевых ремкомплектов.")
+	var repaired: float = minf(missing, maximum * 0.30)
+	return _transaction(func():
+		var updated_rewards: Dictionary = GameState.economy_state.get("rewards", {})
+		updated_rewards["repair_kits"] = int(updated_rewards.get("repair_kits", 0)) - 1
+		GameState.economy_state["rewards"] = updated_rewards
+		ship["hull"] = minf(maximum, current + repaired)
+	, "Ремкомплект восстановил %.0f единиц корпуса (%.0f%%)." % [repaired, repaired / maximum * 100.0])
 
 func _repair_ship_transaction(ship: Dictionary) -> Dictionary:
 	var missing: float = maxf(0,hull_max(ship)-float(ship.get("hull",0)))
-	var cost: float = ceil(missing*float(_rules.repair_per_hull)*(1.0-preload("res://systems/social/clan_bonuses.gd").percent("repair")/100.0))
+	var cost: float = float(_repair_cost(missing))
 	if float(GameState.player_state.money)<cost: return _result(false,"Ремонт стоит %d монет." % int(cost))
 	return _transaction(func(): ship.hull=hull_max(ship); ship.erase("sinking"); ship.erase("sink_elapsed"); GameState.player_state.money-=cost,"Корабль отремонтирован.")
 

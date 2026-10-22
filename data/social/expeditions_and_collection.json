@@ -230,6 +230,41 @@
       "tint": "#233d4e",
       "accent": "#f0b45b",
       "source": "shop"
+    },
+    "sail_stormglass": {
+      "name": "Паруса штормового стекла",
+      "slot": "sail",
+      "tint": "#275c73",
+      "accent": "#b9edf1",
+      "source": "shop"
+    },
+    "hull_moonstone": {
+      "name": "Лунный камень",
+      "slot": "hull",
+      "tint": "#536477",
+      "accent": "#a5d8e3",
+      "source": "shop"
+    },
+    "engine_solarflare": {
+      "name": "Солнечный след",
+      "slot": "engine",
+      "tint": "#bb643e",
+      "accent": "#ffd06e",
+      "source": "shop"
+    },
+    "harbor_garden": {
+      "name": "Зелёный бастион",
+      "slot": "harbor",
+      "tint": "#34664e",
+      "accent": "#a3cf7d",
+      "source": "shop"
+    },
+    "harbor_tideglass": {
+      "name": "Гавань приливного стекла",
+      "slot": "harbor",
+      "tint": "#24536b",
+      "accent": "#70e2db",
+      "source": "shop"
     }
   }
 }

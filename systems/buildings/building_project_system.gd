@@ -223,7 +223,7 @@ func get_effect_text(building_id: String, level: int) -> String:
 		"dock":
 			return "Причал: подготовка к %d местам для кораблей." % (1 + int(level / 5))
 		"workshop":
-			return "Мастерская: откроет ремонт и улучшения, уровень %d." % level
+			return "Ремонт и улучшения кораблей. На домашней базе скидка на ремонт: %.1f%% (до 15%%)." % [minf(15.0, float(level) * 0.5)]
 		"shipyard":
 			return "Верфь: строительство кораблей, уровень %d." % level
 		"mage_guild":

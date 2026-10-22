@@ -37,7 +37,7 @@ func configure(shop: Node, category: String = "all", selected: String = "") -> v
 	categories.name = "ShopCategories"
 	categories.custom_minimum_size.x = 148
 	add_child(categories)
-	for entry in [["all", "Все товары", "shop"], ["boost_pack", "Бусты", "boost"], ["premium", "Премиум", "money"], ["unique_crew", "Персонал", "crew"], ["port_module", "База клана", "port"], ["cosmetic", "Оформление", "fleet"], ["season_cosmetics", "Коллекция сезона", "fleet"], ["local_model", "3D-модели", "fleet"]]:
+	for entry in [["all", "Все товары", "shop"], ["boost_pack", "Корабельные бусты", "boost"], ["training", "Обучение экипажа", "crew"], ["supplies", "Снабжение и ремонт", "port"], ["premium", "Премиум", "money"], ["unique_crew", "Персонал", "crew"], ["port_module", "База клана", "port"], ["cosmetic", "Оформление", "fleet"], ["season_cosmetics", "Коллекция сезона", "fleet"], ["local_model", "3D-модели", "fleet"]]:
 		var button := Button.new()
 		button.text = str(entry[1])
 		button.name = "Category_" + str(entry[0])
@@ -124,7 +124,9 @@ func _choose_category(category: String) -> void:
 	_cards.clear()
 	var visible_products: Array = []
 	for item in _shop.catalog():
-		if category == "all" or str(item.kind) == category or (category == "cosmetic" and str(item.kind) == "cosmetic_bundle"): visible_products.append(item)
+		var kind: String = str(item.kind)
+		var in_category: bool = kind == category or (category == "cosmetic" and kind == "cosmetic_bundle") or (category == "training" and kind in ["training_scroll", "training_scroll_pack"]) or (category == "supplies" and kind in ["repair_kit", "resource_pack"])
+		if category == "all" or in_category: visible_products.append(item)
 	var selection_visible: bool = false
 	for item in visible_products:
 		if str(item.id) == _selected: selection_visible = true
@@ -195,6 +197,8 @@ func _category_icon(id: String) -> Texture2D:
 	return load("res://assets/ui/styles/approved_hud/%s.png" % ("captain" if id == "crew" else id))
 
 func product_art(item: Dictionary) -> Texture2D:
+	var product_icon: String = str(item.get("icon", ""))
+	if product_icon != "" and ResourceLoader.exists(product_icon): return load(product_icon) as Texture2D
 	match str(item.get("kind", "")):
 		"boost_pack":
 			var items: Dictionary = item.get("items", {})

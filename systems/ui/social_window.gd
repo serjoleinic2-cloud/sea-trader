@@ -368,6 +368,43 @@ func _inventory_page() -> void:
 		_label(details, "%s · в запасе: %d" % [str(definition.get("name", id)), count], true)
 		_label(details, "%s · %d мин игрового времени" % [str(definition.get("description", "")), int(float(definition.get("duration_seconds", 0)) / 60.0)])
 		_button(row, "Установить на корабль", _open_boost_loadout.bind(id), count <= 0)
+	_label(inventory, "ОБУЧЕНИЕ ЭКИПАЖА", true)
+	_label(inventory, "Брошюры дают 2 пункта практики подходящего навыка. Применяются только к живым сотрудникам в окне персонала.")
+	var training_scrolls: Dictionary = preload("res://systems/employees/training_scrolls.gd").inventory()
+	var training_catalog: Dictionary = preload("res://systems/employees/training_scrolls.gd").definitions()
+	for scroll_id in preload("res://systems/employees/training_scrolls.gd").ordered_ids():
+		var id: String = str(scroll_id)
+		var definition: Dictionary = training_catalog.get(id, {})
+		var row := HBoxContainer.new()
+		inventory.add_child(row)
+		var icon := TextureRect.new()
+		icon.custom_minimum_size = Vector2(48, 48)
+		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		var icon_path: String = str(definition.get("icon", ""))
+		if icon_path != "" and ResourceLoader.exists(icon_path): icon.texture = load(icon_path)
+		row.add_child(icon)
+		_label(row, "%s · в запасе: %d" % [str(definition.get("name", id)), int(training_scrolls.get(id, 0))], true)
+	var hiring_windows: Array[Node] = get_tree().get_nodes_in_group("hiring_window")
+	if not hiring_windows.is_empty():
+		_button(inventory, "Открыть персонал и применить брошюру", Callable(hiring_windows[0], "open"))
+	_label(inventory, "ПОЛЕВОЙ РЕМОНТ", true)
+	var repair_kits: int = int(state.get("repair_kits", 0))
+	_label(inventory, "Ремкомплектов: %d · каждый восстанавливает до 30%% корпуса боевого корабля вне боя." % repair_kits)
+	var navy: Node = get_tree().get_first_node_in_group("naval_combat_system")
+	if navy != null:
+		for ship in navy.warships():
+			var ship_id: String = str(ship.get("instance_id", ""))
+			var maximum: float = float(navy.hull_max(ship))
+			var hull: float = float(ship.get("hull", 0.0))
+			var row := HBoxContainer.new()
+			inventory.add_child(row)
+			_label(row, "%s · корпус %.0f / %.0f" % [str(ship.get("name", "Боевой корабль")), hull, maximum])
+			_button(row, "Применить комплект", _use_repair_kit.bind(ship_id), repair_kits <= 0 or hull <= 0.0 or hull >= maximum or navy.active())
+	var home_id: String = str(GameState.world_state.get("home_port_id", ""))
+	var workshop_level: int = int(GameState.port_state.get(home_id, {}).get("buildings", {}).get("workshop", {}).get("level", 0))
+	var workshop_discount: float = float(navy.workshop_repair_discount_percent()) if navy != null else minf(15.0, float(workshop_level) * 0.5)
+	_label(inventory, "БОНУС БАЗЫ · Мастерская ур. %d: скидка на денежный ремонт %.1f%% (максимум 15%%)." % [workshop_level, workshop_discount])
 	var premium_days: int = int(state.get("premium_days", 0))
 	var premium_until: int = int(state.get("premium_until", 0))
 	var premium_row := HBoxContainer.new()
@@ -382,6 +419,15 @@ func _inventory_page() -> void:
 			var result: Dictionary = rewards.activate_premium(1)
 			_notice.text = str(result.get("message", ""))
 			_refresh()), premium_days <= 0)
+
+func _use_repair_kit(ship_id: String) -> void:
+	var navy: Node = get_tree().get_first_node_in_group("naval_combat_system")
+	if navy == null:
+		_notice.text = "Система флота недоступна."
+		return
+	var result: Dictionary = navy.use_repair_kit(ship_id)
+	_notice.text = str(result.get("message", ""))
+	_refresh()
 
 func _activity_page(mode: String) -> void:
 	if _progression == null:
