@@ -19,6 +19,7 @@ var _progression: Node
 var _fitting: CanvasLayer
 
 func _ready() -> void:
+	add_to_group("social_window")
 	set_meta("owns_workspace_scroll", true)
 	layer = 60
 	_panel = PanelContainer.new()
@@ -33,7 +34,7 @@ func _ready() -> void:
 	margin.add_child(root)
 	var tabs := HFlowContainer.new()
 	root.add_child(tabs)
-	for entry in [["clan", "Мой клан"], ["clans", "Кланы"], ["shop", "Магазин"], ["season", "Экспедиция сезона"], ["collection", "Коллекция"], ["chat", "Друзья и чат"]]:
+	for entry in [["clan", "Мой клан"], ["clans", "Кланы"], ["shop", "Магазин"], ["inventory", "Склад"], ["season", "Экспедиция сезона"], ["collection", "Коллекция"], ["chat", "Друзья и чат"]]:
 		_button(tabs, entry[1], show_page.bind(entry[0]))
 	_notice = _label(root, "Локальный режим. Каталог игроков и кланов хранится в этом сохранении; общий сервер ещё не подключён.")
 	_notice.name = "SocialNotice"
@@ -64,6 +65,19 @@ func show_page(page: String = "clan") -> void:
 	_clans.ensure_state()
 	_refresh()
 
+func open_boost_shop(product_id: String) -> void:
+	_shop_category = "boost_pack"
+	_shop_product = product_id
+	show_page("shop")
+
+func _open_boost_loadout(boost_id: String) -> void:
+	var fleet: Node = get_tree().get_first_node_in_group("fleet_window")
+	if fleet == null:
+		_notice.text = "Окно флота пока недоступно."
+		return
+	_open = false
+	fleet.call("open_boost_loadout", boost_id)
+
 func _process(_delta: float) -> void:
 	_panel.visible = _open
 	if _open:
@@ -78,6 +92,7 @@ func _refresh() -> void:
 		"clan": _clan_page()
 		"clans": _directory_page()
 		"shop": _shop_page()
+		"inventory": _inventory_page()
 		"chat": _chat_page()
 		"season", "collection": _activity_page(_page)
 
@@ -321,6 +336,52 @@ func _shop_page() -> void:
 		_notice.text = str(result.get("message", "")); _refresh())
 	shop_view.selection_changed.connect(func(category: String, id: String) -> void: _shop_category = category; _shop_product = id)
 	shop_view.configure(_shop, _shop_category, _shop_product)
+
+func _inventory_page() -> void:
+	var rewards: Node = get_tree().get_first_node_in_group("reward_system")
+	if rewards == null:
+		_label(_body, "Склад временно недоступен.")
+		return
+	var state: Dictionary = rewards.get_state()
+	var inventory: VBoxContainer = _scroll()
+	_label(inventory, "СКЛАД РАСХОДНИКОВ", true)
+	_label(inventory, "Купленные и полученные предметы хранятся здесь. Свиток расходуется при установке на корабль; его таймер идёт только во время игры.")
+	var catalog: Dictionary = rewards.get_catalog()
+	var boosts: Dictionary = catalog.get("boosts", {})
+	for boost_id in boosts:
+		var id: String = str(boost_id)
+		var definition: Dictionary = boosts[id]
+		var count: int = int(state.get("boosts", {}).get(id, 0))
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 10)
+		inventory.add_child(row)
+		var icon := TextureRect.new()
+		icon.custom_minimum_size = Vector2(56, 56)
+		icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		var icon_path: String = str(definition.get("icon", ""))
+		if icon_path != "" and ResourceLoader.exists(icon_path): icon.texture = load(icon_path)
+		row.add_child(icon)
+		var details := VBoxContainer.new()
+		details.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(details)
+		_label(details, "%s · в запасе: %d" % [str(definition.get("name", id)), count], true)
+		_label(details, "%s · %d мин игрового времени" % [str(definition.get("description", "")), int(float(definition.get("duration_seconds", 0)) / 60.0)])
+		_button(row, "Установить на корабль", _open_boost_loadout.bind(id), count <= 0)
+	var premium_days: int = int(state.get("premium_days", 0))
+	var premium_until: int = int(state.get("premium_until", 0))
+	var premium_row := HBoxContainer.new()
+	inventory.add_child(premium_row)
+	var premium_details := VBoxContainer.new()
+	premium_details.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	premium_row.add_child(premium_details)
+	_label(premium_details, "День премиума · в запасе: %d" % premium_days, true)
+	_label(premium_details, "Даёт +5%% к выручке от продажи на 24 часа после активации. Сейчас действует: %s." % ("да" if premium_until > int(Time.get_unix_time_from_system()) else "нет"))
+	_button(premium_row, "Активировать 1 день", func() -> void:
+		_confirm("Активировать день премиума? В запасе останется %d дн." % maxi(0, premium_days - 1), func() -> void:
+			var result: Dictionary = rewards.activate_premium(1)
+			_notice.text = str(result.get("message", ""))
+			_refresh()), premium_days <= 0)
 
 func _activity_page(mode: String) -> void:
 	if _progression == null:

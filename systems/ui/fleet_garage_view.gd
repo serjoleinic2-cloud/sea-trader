@@ -141,6 +141,12 @@ func open_construction() -> void:
 	mode = "build"
 	owner_window._refresh()
 
+func open_boost_from_inventory(boost_id: String) -> void:
+	if mode != "owned" or owner_window._selected_ship_id == "":
+		owner_window._notice = "Сначала выберите корабль."
+		return
+	_outfitting.open_boost_from_inventory(boost_id)
+
 func _set_category(value: String) -> void:
 	category = value
 	owner_window._refresh()

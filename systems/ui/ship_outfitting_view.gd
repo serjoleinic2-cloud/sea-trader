@@ -462,7 +462,16 @@ func _set_detail_action(text: String, action: Callable) -> void:
 	if text!="" and action.is_valid():
 		_button(_detail_actions,text,action)
 
-func _open_boost(slot: int) -> void:
+func open_boost_from_inventory(boost_id: String = "") -> void:
+	var ship: Dictionary = Loadout.vessel(_ship_id)
+	var slots: Array = Loadout.boost_slots(ship)
+	for index in slots.size():
+		if float(slots[index].get("seconds_remaining", 0.0)) <= 0.0:
+			_open_boost(index, boost_id)
+			return
+	_notice.text = "На этом корабле нет свободной ячейки свитка. Дождитесь окончания одного из действующих бустов."
+
+func _open_boost(slot: int, preferred_id: String = "") -> void:
 	_show_picker("ВРЕМЕННЫЙ СВИТОК · ЯЧЕЙКА %d" % (slot+1))
 	_detail_heading.get_parent().get_parent().hide()
 	var ship: Dictionary = Loadout.vessel(_ship_id)
@@ -478,6 +487,7 @@ func _open_boost(slot: int) -> void:
 	grid.name = "ShipBoostTiles"
 	_choices.add_child(grid)
 	for id in Loadout.boost_catalog():
+		if preferred_id != "" and str(id) != preferred_id: continue
 		var spec:Dictionary=Loadout.boost_catalog()[id]
 		if str(spec.stat) in ["damage","reload","accuracy"] and not bool(Loadout.definition(ship).get("warship",false)): continue
 		var effect:String={"speed":"Скорость","fuel":"Расход топлива","damage":"Урон","reload":"Перезарядка","accuracy":"Точность"}.get(str(spec.stat),str(spec.stat))
@@ -485,8 +495,14 @@ func _open_boost(slot: int) -> void:
 		var count:int=int(rewards.get_state().get("boosts",{}).get(id,0))
 		var tile := preload("res://systems/ui/boost_tile.gd").new()
 		grid.add_child(tile)
-		tile.configure(str(spec.name), "%+.0f%%" % percent, effect + ". " + str(spec.get("description", "")), str(spec.stat), func(): _begin_change(); _done(rewards.equip_ship_boost(_ship_id,slot,str(id),count <= 0)), func() -> Dictionary:
-			return {"status": "%d мин · в запасе %d" % [int(float(spec.duration_seconds)/60.0), count], "action": "Из запаса · %d" % count if count > 0 else "Купить · %d" % int(spec.get("price",0)), "disabled": false})
+		tile.configure(str(spec.name), "%+.0f%%" % percent, effect + ". " + str(spec.get("description", "")), str(spec.stat), func():
+			if count > 0:
+				_begin_change(); _done(rewards.equip_ship_boost(_ship_id,slot,str(id),false))
+			else:
+				var social: Node = get_tree().get_first_node_in_group("social_window")
+				if social != null: social.call("open_boost_shop", "boost_" + str(id))
+		, func() -> Dictionary:
+			return {"status": "%d мин · на складе %d" % [int(float(spec.duration_seconds)/60.0), count], "action": "Установить · %d" % count if count > 0 else "В магазин · %d" % int(spec.get("price",0)), "disabled": false})
 
 func _open_gun(slot: int) -> void:
 	var navy: Node = _navy()

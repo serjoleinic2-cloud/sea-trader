@@ -20,6 +20,7 @@ const CREW_ATLAS := "res://assets/characters/crew/crew_portrait_atlas.png"
 const CharacterArtCatalog = preload("res://systems/characters/character_art_catalog.gd")
 
 func _ready() -> void:
+	add_to_group("fleet_window")
 	layer = 31
 	_button = Button.new()
 	_button.text = "ФЛОТ И ВЕРФЬ [F]"
@@ -128,6 +129,33 @@ func _refresh() -> void:
 
 func open_shipyard() -> void:
 	_garage.open_construction()
+
+func open_boost_loadout(boost_id: String = "") -> void:
+	_is_open = true
+	_notice = "Выберите нужный свиток и установите его из запаса в свободную ячейку."
+	_selected_ship_id = "active_ship"
+	var boost: Dictionary = _loadout_boost_catalog().get(boost_id, {})
+	if str(boost.get("stat", "")) in ["damage", "reload", "accuracy"]:
+		var found_warship: bool = false
+		for raw_ship in GameState.fleet_state:
+			var type_id: String = str(raw_ship.get("ship_type_id", ""))
+			if bool(GameData.get_ship(type_id).get("warship", false)):
+				_selected_ship_id = str(raw_ship.get("instance_id", "active_ship"))
+				found_warship = true
+				break
+		if not found_warship:
+			_notice = "Этот свиток устанавливается только на боевой корабль. Сначала постройте или выберите боевой корабль."
+			_garage.mode = "owned"
+			_garage.category = "all"
+			_refresh()
+			return
+	_garage.mode = "owned"
+	_garage.category = "all"
+	_refresh()
+	_garage.open_boost_from_inventory(boost_id)
+
+func _loadout_boost_catalog() -> Dictionary:
+	return GameData.read("res://data/rewards/reward_catalog.json").get("boosts", {})
 
 func _compact_buttons(node: Node) -> void:
 	for child in node.get_children():

@@ -196,7 +196,11 @@ func _category_icon(id: String) -> Texture2D:
 
 func product_art(item: Dictionary) -> Texture2D:
 	match str(item.get("kind", "")):
-		"boost_pack": return preload("res://systems/ui/boost_item_art.gd").texture("damage" if str(item.get("id", "")) == "artillery_scrolls" else "speed")
+		"boost_pack":
+			var items: Dictionary = item.get("items", {})
+			var boost_id: String = str(items.keys()[0]) if not items.is_empty() else "fair_wind"
+			var boost: Dictionary = GameData.read("res://data/rewards/reward_catalog.json").get("boosts", {}).get(boost_id, {})
+			return preload("res://systems/ui/boost_item_art.gd").texture(str(boost.get("stat", "speed")))
 		"premium": return preload("res://systems/ui/boost_item_art.gd").texture("sale")
 		"unique_crew": return preload("res://systems/characters/character_art_catalog.gd").ship_officer_portrait(str(GameState.player_state.get("origin_race_id", "humans")), "mechanic", 2, load("res://assets/characters/crew/crew_portrait_atlas.png"))
 		"port_module": return load("res://assets/ui/styles/approved_hud/port.png")

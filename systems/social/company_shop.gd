@@ -31,8 +31,22 @@ func quote(id: String) -> Dictionary:
 			product.ok = false; product.message = "Именной специалист уже приобретён."
 	if str(product.kind) == "premium":
 		var now: int = int(Time.get_unix_time_from_system())
-		var until: int = maxi(now, int(GameState.economy_state.get("rewards", {}).get("premium_until", 0))) + int(product.days) * 86400
-		if until - now > 30 * 86400: product.ok = false; product.message = "В запас можно активировать не более 30 дней премиума."
+		var rewards: Dictionary = GameState.economy_state.get("rewards", {})
+		var active_seconds: int = maxi(0, int(rewards.get("premium_until", 0)) - now)
+		var stored_seconds: int = int(rewards.get("premium_days", 0)) * 86400
+		if active_seconds + stored_seconds + int(product.days) * 86400 > 30 * 86400:
+			product.ok = false; product.message = "В запасе и активным сроком может быть не более 30 дней премиума."
+	if str(product.kind) == "boost_pack":
+		var boost_catalog: Dictionary = GameData.read("res://data/rewards/reward_catalog.json").get("boosts", {})
+		product["contents"] = []
+		var contents_valid: bool = not product.get("items", {}).is_empty()
+		for boost_id in product.get("items", {}):
+			var amount: int = int(product.items[boost_id])
+			var definition: Dictionary = boost_catalog.get(str(boost_id), {})
+			if definition.is_empty() or amount <= 0: contents_valid = false
+			product.contents.append("%s × %d" % [str(definition.get("name", boost_id)), amount])
+		if not contents_valid:
+			product.ok = false; product.message = "Состав свитков в этом наборе настроен неверно."
 	if str(product.kind) in ["cosmetic", "cosmetic_bundle", "season_cosmetics"]:
 		var meta: Node = progression()
 		if meta == null:
@@ -67,10 +81,8 @@ func purchase(id: String) -> Dictionary:
 			for key in product.items: inventory[key] = int(inventory.get(key, 0)) + int(product.items[key])
 			rewards["boosts"] = inventory
 		"premium":
-			var now: int = int(Time.get_unix_time_from_system())
-			var end: int = maxi(now, int(rewards.get("premium_until", 0))) + int(product.days) * 86400
-			if end - now > 30 * 86400: return {"ok": false, "message": "В запас можно активировать не более 30 дней премиума."}
-			rewards["premium_until"] = end
+			rewards["premium_days"] = int(rewards.get("premium_days", 0)) + int(product.days)
+			GameState.economy_state["rewards"] = rewards
 		"port_module":
 			var base: Dictionary = preload("res://systems/social/clan_bonuses.gd").own_clan().base
 			base["wings"] = int(base.get("wings", 0)) + 1
