@@ -54,6 +54,15 @@ func test_creation_cost_validation_and_persistence() -> void:
 	assert_eq(str(clans.clan().name), "Морская хартия")
 	assert_eq(str(GameState.player_state.social_id), founder)
 
+func test_clan_chat_rejects_profanity_and_mixed_alphabet_obfuscation() -> void:
+	assert_true(create().ok)
+	assert_true(clans.perform("clan_message", {"text": "Добро пожаловать в команду."}).ok)
+	clans.test_now += 3
+	assert_false(clans.perform("clan_message", {"text": "сука"}).ok)
+	assert_false(clans.perform("clan_message", {"text": "c-y-k-a"}).ok)
+	assert_false(clans.perform("clan_message", {"text": "х у й"}).ok)
+	assert_eq(clans.clan_messages().size(), 1, "blocked messages must never enter clan history")
+
 func test_membership_permissions_blacklist_and_cooldown() -> void:
 	assert_true(create().ok)
 	var id: String = str(clans.clan().id)
@@ -150,6 +159,14 @@ func test_real_tribute_processor_skips_allied_ports_without_backpay() -> void:
 	combat.free()
 
 func test_shop_items_have_receipts_and_do_not_stack_premium_strength() -> void:
+	var shop_view: Node = load("res://systems/ui/company_shop_view.gd").new()
+	add_child(shop_view)
+	for item_id in ["boost_fair_wind", "boost_economy_rune", "boost_powder_rune", "boost_reload_rune", "boost_aim_rune"]:
+		var art: Texture2D = shop_view.product_art(shop.quote(item_id))
+		assert_true(art != null and art.resource_path.contains("painted_v1"), "shop boost has its dedicated painted art: " + item_id)
+	for item_id in ["voyage_scrolls", "artillery_scrolls"]:
+		assert_true(shop_view.product_art(shop.quote(item_id)) != null, "boost bundle has its own product illustration: " + item_id)
+	shop_view.free()
 	assert_true(shop.purchase("voyage_scrolls").ok)
 	assert_eq(int(GameState.economy_state.rewards.boosts.fair_wind), 2)
 	assert_eq(float(GameState.player_state.money), 98960.0)
@@ -164,10 +181,11 @@ func test_shop_items_have_receipts_and_do_not_stack_premium_strength() -> void:
 	assert_eq(int(clans.clan().base.wings), 1)
 	clans.clan().base.wings = 4
 	assert_false(shop.purchase("port_wing").ok)
+	var stored_premium_before: int = int(GameState.economy_state.get("rewards", {}).get("premium_days", 0))
 	assert_true(shop.purchase("premium_day").ok)
-	var end: int = int(GameState.economy_state.rewards.premium_until)
+	assert_eq(int(GameState.economy_state.get("rewards", {}).get("premium_days", 0)), stored_premium_before + 1)
 	assert_true(shop.purchase("premium_day").ok)
-	assert_eq(int(GameState.economy_state.rewards.premium_until), end + 86400)
+	assert_eq(int(GameState.economy_state.get("rewards", {}).get("premium_days", 0)), stored_premium_before + 2)
 
 func test_debris_positions_are_shared_sparse_and_never_inside_land() -> void:
 	var catalog = load("res://systems/world/drift_debris_catalog.gd")

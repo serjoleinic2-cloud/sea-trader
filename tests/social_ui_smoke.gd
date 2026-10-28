@@ -107,7 +107,15 @@ func _ready() -> void:
 				view._filters.boost_pack.pressed.emit(); await frames()
 				check(view._cards.size() == 2 and view._cards.has("voyage_scrolls") and view._cards.has("artillery_scrolls"), "boost category filters the real catalog")
 				view._cards.artillery_scrolls.pressed.emit(); await frames()
-				check(view._detail_title.text == "Набор артиллериста" and view._detail_image.texture.resource_path.ends_with("damage.png"), "selection updates the matching large artwork")
+				check(view._detail_title.text == "Набор артиллериста" and view._detail_image.texture.resource_path.ends_with("pack_artillery.svg"), "artillery pack shows its own large illustration")
+				view._filters.all.pressed.emit(); await frames()
+				for product_id in ["boost_fair_wind", "boost_economy_rune", "boost_powder_rune", "boost_reload_rune", "boost_aim_rune"]:
+					var product_card: Button = view._cards[product_id]
+					var art: TextureRect = product_card.find_child("ProductArt", true, false)
+					check(art != null and art.texture != null and art.texture.resource_path.contains("painted_v1"), "single boost uses its dedicated painted artwork: " + product_id)
+				for product_card in view._cards.values():
+					var art: TextureRect = product_card.find_child("ProductArt", true, false)
+					check(art != null and art.texture != null, "every shop card has visible artwork")
 				check(float(GameState.player_state.money) == balance, "category and product selection never spend money")
 				view._filters.local_model.pressed.emit(); await frames()
 				check(view._cards.size() == 2 and view._buy.disabled and view._detail_reason.visible, "uninstalled local models cannot be purchased")

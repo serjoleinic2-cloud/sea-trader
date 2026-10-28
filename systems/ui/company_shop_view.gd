@@ -154,6 +154,7 @@ func _card(item: Dictionary) -> void:
 	column.add_theme_constant_override("separation", 4)
 	margin.add_child(column)
 	var image := TextureRect.new()
+	image.name = "ProductArt"
 	image.texture = product_art(item)
 	image.custom_minimum_size.y = 116
 	image.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -197,14 +198,22 @@ func _category_icon(id: String) -> Texture2D:
 	return load("res://assets/ui/styles/approved_hud/%s.png" % ("captain" if id == "crew" else id))
 
 func product_art(item: Dictionary) -> Texture2D:
+	if str(item.get("kind", "")) == "boost_pack":
+		var items: Dictionary = item.get("items", {})
+		if items.size() == 1:
+			var boost_catalog: Dictionary = GameData.read("res://data/rewards/reward_catalog.json").get("boosts", {})
+			var boost: Dictionary = boost_catalog.get(str(items.keys()[0]), {})
+			var painted: Texture2D = preload("res://systems/ui/boost_item_art.gd").texture(str(boost.get("stat", "speed")))
+			if painted != null: return painted
+			# Fall through to the product's own pack illustration if a painted asset is missing.
 	var product_icon: String = str(item.get("icon", ""))
-	if product_icon != "" and ResourceLoader.exists(product_icon): return load(product_icon) as Texture2D
+	if product_icon != "" and ResourceLoader.exists(product_icon):
+		var icon_texture: Texture2D = load(product_icon) as Texture2D
+		if icon_texture != null: return icon_texture
 	match str(item.get("kind", "")):
 		"boost_pack":
 			var items: Dictionary = item.get("items", {})
-			var boost_id: String = str(items.keys()[0]) if not items.is_empty() else "fair_wind"
-			var boost: Dictionary = GameData.read("res://data/rewards/reward_catalog.json").get("boosts", {}).get(boost_id, {})
-			return preload("res://systems/ui/boost_item_art.gd").texture(str(boost.get("stat", "speed")))
+			return load("res://assets/ui/store/products/pack_voyage.svg") as Texture2D if items.has("fair_wind") else load("res://assets/ui/store/products/pack_artillery.svg") as Texture2D
 		"premium": return preload("res://systems/ui/boost_item_art.gd").texture("sale")
 		"unique_crew": return preload("res://systems/characters/character_art_catalog.gd").ship_officer_portrait(str(GameState.player_state.get("origin_race_id", "humans")), "mechanic", 2, load("res://assets/characters/crew/crew_portrait_atlas.png"))
 		"port_module": return load("res://assets/ui/styles/approved_hud/port.png")
