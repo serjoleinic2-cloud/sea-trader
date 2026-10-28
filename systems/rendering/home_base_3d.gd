@@ -110,11 +110,86 @@ func _load_model(path: String) -> Node3D:
 	var scene: PackedScene = load(path) as PackedScene
 	return scene.instantiate() as Node3D if scene != null else null
 
+func _make_procedural_building(building_id: String, level: int) -> Node3D:
+	var root := Node3D.new()
+	root.name = "Procedural_%s" % building_id
+	var palette: Array = GameData.read("res://data/world/faction_architecture.json").get("profiles", {}).get(_showcase_faction, {}).get("palette", [])
+	var wall_color: Color = Color("536b72")
+	var roof_color: Color = Color("c2944f")
+	if palette.size() >= 2:
+		wall_color = Color(str(palette[0]))
+		roof_color = Color(str(palette[1]))
+	var footprint := Vector3(3.6, 2.1, 3.0)
+	if building_id in ["dock", "fishing_wharf"]: footprint = Vector3(7.2, 0.55, 2.0)
+	elif building_id in ["mage_guild", "captain_house"]: footprint = Vector3(3.2, 3.4, 3.2)
+	footprint.y += minf(1.4, float(maxi(1, level) - 1) * 0.045)
+	_add_fallback_mesh(root, BoxMesh.new(), footprint, Vector3(0, footprint.y * 0.5, 0), wall_color)
+	if building_id not in ["dock", "fishing_wharf"]:
+		var roof := CylinderMesh.new()
+		roof.top_radius = 0.0
+		roof.bottom_radius = maxf(footprint.x, footprint.z) * 0.42
+		roof.height = 1.0 + float(mini(10, maxi(1, level))) * 0.08
+		roof.radial_segments = 5 if building_id == "mage_guild" else 4
+		_add_fallback_mesh(root, roof, Vector3.ONE, Vector3(0, footprint.y + roof.height * 0.5, 0), roof_color)
+	return root
+
+func _make_procedural_tower() -> Node3D:
+	var root := Node3D.new()
+	root.name = "ProceduralIslandTower"
+	var body := CylinderMesh.new()
+	body.top_radius = 0.58
+	body.bottom_radius = 0.9
+	body.height = 5.2
+	body.radial_segments = 7
+	_add_fallback_mesh(root, body, Vector3.ONE, Vector3(0, 2.6, 0), Color("62737a"))
+	var cap := CylinderMesh.new()
+	cap.bottom_radius = 1.0
+	cap.height = 1.2
+	cap.radial_segments = 7
+	_add_fallback_mesh(root, cap, Vector3.ONE, Vector3(0, 5.8, 0), Color("bb8c4c"))
+	return root
+
+func _make_procedural_lighthouse() -> Node3D:
+	var root := Node3D.new()
+	root.name = "ProceduralLighthouse"
+	var body := CylinderMesh.new()
+	body.top_radius = 0.55
+	body.bottom_radius = 1.1
+	body.height = 7.0
+	body.radial_segments = 8
+	_add_fallback_mesh(root, body, Vector3.ONE, Vector3(0, 3.5, 0), Color("d8c9a7"))
+	return root
+
+func _make_procedural_lamp_post() -> Node3D:
+	var root := Node3D.new()
+	root.name = "ProceduralLanternPost"
+	var pole := CylinderMesh.new()
+	pole.top_radius = 0.045
+	pole.bottom_radius = 0.075
+	pole.height = 2.4
+	pole.radial_segments = 6
+	_add_fallback_mesh(root, pole, Vector3.ONE, Vector3(0, 1.2, 0), Color("765c32"))
+	return root
+
+func _add_fallback_mesh(parent: Node3D, source: Mesh, size: Vector3, at: Vector3, tint: Color) -> MeshInstance3D:
+	var instance := MeshInstance3D.new()
+	instance.mesh = source
+	instance.scale = size
+	instance.position = at
+	var material := StandardMaterial3D.new()
+	material.albedo_color = tint
+	material.roughness = 0.82
+	instance.material_override = material
+	parent.add_child(instance)
+	return instance
+
 func _setup_lighthouses() -> void:
 	_beam_material = ShaderMaterial.new()
 	_beam_material.shader = load("res://assets/world/props/lighthouse/light_beam.gdshader")
 	for side in [-1.0, 1.0]:
 		var tower: Node3D = _load_model("res://assets/world/props/lighthouse/stylized_lighthouse.glb")
+		if tower == null:
+			tower = _make_procedural_lighthouse()
 		if tower != null:
 			tower.position = Vector3(float(side) * 27.0, 0.0, -49.0)
 			add_child(tower)
@@ -153,7 +228,7 @@ func _setup_street_lights() -> void:
 	for index in range(24):
 		var post: Node3D = _load_model("res://assets/world/props/lamps/kerosene_post.glb")
 		if post == null:
-			continue
+			post = _make_procedural_lamp_post()
 		var side: float = -1.0 if index % 2 == 0 else 1.0
 		post.position = Vector3(side * (23.0 if index < 12 else 34.0), 1.15, -22.0 + float(index / 2) * 5.6)
 		add_child(post)
@@ -203,7 +278,7 @@ func _refresh_buildings() -> void:
 		var entry: Dictionary = entries[clampi(level - 1, 0, entries.size() - 1)]
 		var building: Node3D = _load_model(str(entry.get("scene", "")))
 		if building == null:
-			continue
+			building = _make_procedural_building(str(id), level)
 		building.name = str(id)
 		building.set_meta("building_level", level)
 		var at: Array = placements.get(id, [0, 0, 0])
@@ -217,7 +292,7 @@ func _refresh_buildings() -> void:
 	for index in range(count):
 		var tower: Node3D = _load_model(str(_manifest.get("tower", "")))
 		if tower == null:
-			continue
+			tower = _make_procedural_tower()
 		tower.name = "IslandTower_%d" % index
 		var at: Array = tower_positions[index]
 		tower.position = Vector3(float(at[0]), 1.1, -float(at[1]))

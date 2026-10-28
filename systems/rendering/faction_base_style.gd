@@ -52,6 +52,34 @@ func apply(building: Node3D, building_id: String, faction_id: String, level: int
 		crown.position.y = height
 		crown.scale = Vector3.ONE * (0.65 + float(level) * 0.008)
 		building.add_child(crown)
+	else:
+		var crown := Node3D.new()
+		crown.name = "FactionArchitecture"
+		var body := MeshInstance3D.new()
+		var body_mesh := BoxMesh.new()
+		body_mesh.size = Vector3(2.3, 2.0, 2.0)
+		body.mesh = body_mesh
+		var body_material := StandardMaterial3D.new()
+		body_material.albedo_color = Color(str(palette[0])) if not palette.is_empty() else Color("62747b")
+		body_material.roughness = 0.82
+		body.material_override = body_material
+		body.position.y = 1.0
+		crown.add_child(body)
+		var roof := MeshInstance3D.new()
+		var roof_mesh := CylinderMesh.new()
+		roof_mesh.top_radius = 0.0
+		roof_mesh.bottom_radius = 1.5
+		roof_mesh.height = 1.4
+		roof_mesh.radial_segments = 5
+		roof.mesh = roof_mesh
+		var roof_material := StandardMaterial3D.new()
+		roof_material.albedo_color = Color(str(palette[1])) if palette.size() > 1 else Color("b18a4c")
+		roof.material_override = roof_material
+		roof.position.y = 2.7
+		crown.add_child(roof)
+		crown.position.y = 2.9 + float((level - 1) / 6) * 0.25
+		crown.scale = Vector3.ONE * (0.65 + float(level) * 0.008)
+		building.add_child(crown)
 	var flag: Node3D = make_flag(faction_id)
 	flag.position = Vector3(-2.8, 0.0, 2.0)
 	building.add_child(flag)
@@ -142,7 +170,128 @@ func apply_ship(ship: Node3D, faction_id: String) -> void:
 	var palette: Array = ["#080a0e", "#78151c", "#5c5142"] if faction_id=="pirates" else faction.get("palette", ["#132b43", "#2bbcc1", "#c49a58"])
 	_recolor(ship, palette, faction_id)
 	apply_surface_details(ship)
+	_apply_sail_emblems(ship, faction_id)
 	ship.set_meta("visual_faction", faction_id)
+
+func _apply_sail_emblems(ship: Node3D, faction_id: String) -> void:
+	for old in ship.find_children("SailFactionEmblem", "MeshInstance3D", true, false):
+		old.queue_free()
+	if not _has_sail_mesh(ship):
+		return
+	_hide_embedded_ship_emblems(ship)
+	var emblem: Texture2D = _ship_emblem_texture(faction_id)
+	if emblem == null:
+		return
+	var pending: Array[Node] = [ship]
+	var sail_panel_count: int = 0
+	var sail_centers: Array[Vector3] = []
+	while not pending.is_empty() and sail_panel_count < 3:
+		var current: Node = pending.pop_back()
+		if current is MeshInstance3D:
+			var mesh_instance := current as MeshInstance3D
+			if mesh_instance.mesh != null and _is_sail_mesh(mesh_instance):
+				var local_transform: Transform3D = mesh_instance.transform
+				var ancestor: Node = mesh_instance.get_parent()
+				while ancestor != null and ancestor != ship:
+					if ancestor is Node3D:
+						local_transform = (ancestor as Node3D).transform * local_transform
+					ancestor = ancestor.get_parent()
+				var bounds: AABB = local_transform * mesh_instance.get_aabb()
+				# Sail panels are vertical sheets in the YZ plane. Place one emblem
+				# just outside each face so it remains visible from either side.
+				if bounds.size.y > 0.65 and bounds.size.z > 0.5 and bounds.size.x < minf(bounds.size.y, bounds.size.z) * 0.45:
+					var center: Vector3 = _sail_surface_center(mesh_instance, local_transform, bounds)
+					var overlaps_existing_sail: bool = false
+					for previous_center in sail_centers:
+						if center.distance_to(previous_center) < minf(bounds.size.y, bounds.size.z) * 0.2:
+							overlaps_existing_sail = true
+							break
+					if not overlaps_existing_sail:
+						var emblem_size: float = minf(bounds.size.y, bounds.size.z) * 0.28
+						for side in [-1.0, 1.0]:
+							var decal := MeshInstance3D.new()
+							decal.name = "SailFactionEmblem"
+							var quad := QuadMesh.new()
+							quad.size = Vector2(emblem_size, emblem_size)
+							decal.mesh = quad
+							decal.position = center + Vector3(side * (bounds.size.x * 0.5 + 0.025), 0.0, 0.0)
+							decal.rotation.y = PI * 0.5 * side
+							var material := StandardMaterial3D.new()
+							material.albedo_texture = emblem
+							material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+							material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+							material.cull_mode = BaseMaterial3D.CULL_DISABLED
+							material.no_depth_test = false
+							material.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+							decal.material_override = material
+							decal.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+							ship.add_child(decal)
+						sail_centers.append(center)
+						sail_panel_count += 1
+		for child in current.get_children():
+			pending.append(child)
+
+func _hide_embedded_ship_emblems(root: Node) -> void:
+	for child in root.get_children():
+		if child is MeshInstance3D:
+			var mesh_instance := child as MeshInstance3D
+			if mesh_instance.mesh != null:
+				var tag: String = str(mesh_instance.name).to_lower()
+				for surface in range(mesh_instance.mesh.get_surface_count()):
+					var material: Material = mesh_instance.get_surface_override_material(surface)
+					if material == null:
+						material = mesh_instance.mesh.surface_get_material(surface)
+					if material != null and ("герб" in tag or "emblem" in tag or "герб" in material.resource_name.to_lower() or "emblem" in material.resource_name.to_lower()):
+						mesh_instance.visible = false
+						break
+		_hide_embedded_ship_emblems(child)
+
+func _has_sail_mesh(root: Node) -> bool:
+	if root is MeshInstance3D and (root as MeshInstance3D).mesh != null and _is_sail_mesh(root as MeshInstance3D):
+		return true
+	for child in root.get_children():
+		if _has_sail_mesh(child):
+			return true
+	return false
+
+func _sail_surface_center(mesh_instance: MeshInstance3D, local_transform: Transform3D, bounds: AABB) -> Vector3:
+	var face_vertices: PackedVector3Array = mesh_instance.mesh.get_faces()
+	if face_vertices.is_empty():
+		return bounds.get_center()
+	var center := Vector3.ZERO
+	for vertex in face_vertices:
+		center += local_transform * vertex
+	return center / float(face_vertices.size())
+
+func _is_sail_mesh(mesh_instance: MeshInstance3D) -> bool:
+	var tag: String = str(mesh_instance.name).to_lower()
+	if "sail" in tag or "парус" in tag or "canvas" in tag:
+		return true
+	for surface in range(mesh_instance.mesh.get_surface_count()):
+		var material: Material = mesh_instance.get_surface_override_material(surface)
+		if material == null:
+			material = mesh_instance.mesh.surface_get_material(surface)
+		var material_name: String = material.resource_name.to_lower() if material != null else ""
+		if "кромк" in material_name or "edge" in material_name or "trim" in material_name:
+			continue
+		if "sail" in material_name or "парус" in material_name or "полотно" in material_name or "canvas" in material_name:
+			return true
+	return false
+
+func _ship_emblem_texture(faction_id: String) -> Texture2D:
+	var social: Dictionary = GameState.company_state.get("social", {})
+	var profiles: Dictionary = social.get("profiles", {})
+	var player_id: String = str(GameState.player_state.get("social_id", ""))
+	var profile: Dictionary = profiles.get(player_id, {})
+	var clan_id: String = str(profile.get("clan_id", ""))
+	if clan_id != "":
+		var clan: Dictionary = social.get("clans", {}).get(clan_id, {})
+		var encoded: String = str(clan.get("logo_png", ""))
+		if encoded != "":
+			var image := Image.new()
+			if image.load_png_from_buffer(Marshalls.base64_to_raw(encoded)) == OK:
+				return ImageTexture.create_from_image(image)
+	return GameData.get_faction_emblem(faction_id)
 
 func apply_city_quarter(quarter: Node3D, faction_id: String) -> void:
 	apply_ship(quarter, faction_id)

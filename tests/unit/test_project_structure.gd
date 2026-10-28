@@ -21,23 +21,38 @@ func test_entire_fleet_has_independent_models_and_portraits() -> void:
 
 func test_combat_cutter_has_a_distinct_faction_hull_for_every_race() -> void:
 	var variants: Dictionary = GameData.read("res://data/world/faction_ship_visuals.json").get("factions", {})
+	var view = load("res://systems/rendering/approach_3d_view.gd").new()
+	view._asset_catalog = GameData.read("res://data/world/world_asset_catalog.json")
+	var root := Node3D.new()
+	add_child(root)
 	for faction in GameData.get_factions():
 		var faction_id: String = str(faction.id)
 		var cutter: Dictionary = variants.get(faction_id, {}).get("ship_combat_cutter", {})
 		var path: String = str(cutter.get("scene", ""))
 		assert_true(path != "", "Missing combat cutter faction model for " + faction_id)
-		assert_true(load(path) is PackedScene, "Faction combat cutter must be an importable model for " + faction_id)
+		var model: Node3D = view._attach_catalog_scene(root, "ships", "ship_combat_cutter", 8.5, faction_id)
+		assert_not_null(model, "Combat cutter must have a local-model or procedural fallback for " + faction_id)
+		if model != null:
+			assert_eq(str(model.get_meta("procedural_ship_id", "")), "ship_combat_cutter")
+	root.free()
+	view.free()
 
 func test_starter_sloop_model_and_catalog_routing() -> void:
 	var view = load("res://systems/rendering/approach_3d_view.gd").new()
 	view._asset_catalog = GameData.read("res://data/world/world_asset_catalog.json")
 	var root := Node3D.new()
+	add_child(root)
 	var starter: Node3D = view._attach_catalog_scene(root, "ships", "ship_sloop", 3.48)
 	assert_true(starter != null)
 	if starter != null:
-		assert_eq(starter.get_meta("world_asset_id"), "starter_sloop")
-		assert_gt(starter.get_child(0).get_child_count(), 0)
-		assert_true(is_equal_approx(starter.scale.x, 3.48 / 6.15))
+		if starter.has_meta("procedural_ship_id"):
+			assert_eq(starter.get_meta("procedural_ship_id"), "ship_sloop")
+			assert_gt(starter.find_children("*", "MeshInstance3D", true, false).size(), 0)
+		else:
+			assert_eq(starter.get_meta("world_asset_id"), "starter_sloop")
+			assert_gt(starter.get_child(0).get_child_count(), 0)
+		var reference: float = float(starter.get_meta("reference_length", 6.15))
+		assert_true(is_equal_approx(starter.scale.x * reference, 3.48), "Model scale preserves the requested game size")
 		view._ship = starter
 		view._add_ship_lanterns(starter)
 		view._update_ship_lanterns(0.0)

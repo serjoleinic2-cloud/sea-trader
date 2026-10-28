@@ -27,12 +27,13 @@ func set_faction(faction_id: String) -> void:
 	_district = Node3D.new()
 	_district.name = "SkyPortDistrict"
 	add_child(_district)
-	var quarter_scene: PackedScene = load("res://assets/world/ports/home_base/city_quarter.glb")
+	var quarter_path := "res://assets/world/ports/home_base/city_quarter.glb"
+	var quarter_scene: PackedScene = load(quarter_path) as PackedScene if ResourceLoader.exists(quarter_path) else null
 	var ships: Dictionary = GameData.read("res://data/world/ship_visuals.json").get("ships", {})
 	var ship_ids: Array[String] = ["premium_royal_schooner", "premium_golden_clipper", "premium_imperial_yacht"]
 	var index: int = 0
 	for at in _manifest.get("islands", []):
-		var quarter: Node3D = quarter_scene.instantiate()
+		var quarter: Node3D = quarter_scene.instantiate() as Node3D if quarter_scene != null else _procedural_quarter(faction_id)
 		quarter.position = Vector3(float(at[0]), float(at[2]) + 0.9, -float(at[1]))
 		quarter.scale = Vector3.ONE * 0.65
 		_district.add_child(quarter)
@@ -42,15 +43,44 @@ func set_faction(faction_id: String) -> void:
 		_district.add_child(flag)
 		if index < ship_ids.size():
 			var definition: Dictionary = ships.get(ship_ids[index], {})
-			var variant: Dictionary = GameData.read("res://data/world/faction_ship_visuals.json").get("factions", {}).get(faction_id, {}).get(ship_ids[index], {})
-			var ship_scene: PackedScene = load(str(variant.get("scene", definition.get("scene", ""))))
-			var ship: Node3D = ship_scene.instantiate()
+			var ship: Node3D = preload("res://systems/rendering/naval_ship_factory.gd").new().attach(_district, ship_ids[index], 5.8, true, faction_id)
+			if ship == null:
+				index += 1
+				continue
 			ship.name = "SkyMooredShip_%d" % index
 			ship.position = Vector3(float(at[0]) + 5.0, float(at[2]) + 0.2, -float(at[1]) + float(at[3]) * 0.6)
-			ship.scale = Vector3.ONE * 5.8 / float(definition.get("length", 8.5))
-			_district.add_child(ship)
 			_style.apply_ship(ship, faction_id)
 		index += 1
+
+func _procedural_quarter(faction_id: String) -> Node3D:
+	var quarter := Node3D.new()
+	quarter.name = "ProceduralSkyQuarter"
+	var color: Color = Color("819399")
+	var profile: Dictionary = GameData.read("res://data/world/faction_architecture.json").get("profiles", {}).get(faction_id, {})
+	var palette: Array = profile.get("palette", [])
+	if not palette.is_empty(): color = Color(str(palette[0]))
+	var hull := MeshInstance3D.new()
+	var body := BoxMesh.new()
+	body.size = Vector3(6.0, 2.0, 4.0)
+	hull.mesh = body
+	hull.position.y = 1.0
+	var material := StandardMaterial3D.new()
+	material.albedo_color = color
+	material.roughness = 0.84
+	hull.material_override = material
+	quarter.add_child(hull)
+	var roof := MeshInstance3D.new()
+	var cap := CylinderMesh.new()
+	cap.bottom_radius = 3.0
+	cap.height = 2.0
+	cap.radial_segments = 5
+	roof.mesh = cap
+	roof.position.y = 3.0
+	var roof_material := StandardMaterial3D.new()
+	roof_material.albedo_color = Color("bd9456")
+	roof.material_override = roof_material
+	quarter.add_child(roof)
+	return quarter
 
 func set_night_strength(strength: float) -> void:
 	_style.set_night_strength(strength)

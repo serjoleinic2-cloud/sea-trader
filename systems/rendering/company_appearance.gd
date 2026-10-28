@@ -13,7 +13,7 @@ static func apply(root: Node3D, ids: Array) -> void:
 	root.set_meta("company_appearance", ids.duplicate())
 
 static func _visit(node: Node, styles: Dictionary) -> void:
-	if node is MeshInstance3D and node.mesh != null:
+	if node is MeshInstance3D and node.name != "SailFactionEmblem" and node.mesh != null:
 		if not node.has_meta("appearance_originals"):
 			var originals: Array = []
 			for index in node.mesh.get_surface_count(): originals.append(node.get_surface_override_material(index))

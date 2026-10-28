@@ -55,12 +55,20 @@ func _ready() -> void:
 	water.material_override = material
 	water.position.y = -0.06
 	add_child(water)
-	var ship_scene: PackedScene = load("res://assets/world/ships/starter_sloop.glb")
-	var ship: Node3D = ship_scene.instantiate()
+	var ship_path := "res://assets/world/ships/starter_sloop.glb"
+	var ship: Node3D
+	if ResourceLoader.exists(ship_path):
+		var ship_scene: PackedScene = load(ship_path) as PackedScene
+		ship = ship_scene.instantiate() as Node3D if ship_scene != null else null
+	if ship == null:
+		ship = preload("res://systems/rendering/naval_ship_factory.gd").new().attach(self, "ship_sloop", 6.15, true, "humans")
+	if ship == null:
+		return
 	ship.name = "PlayerArrival"
 	ship.position = Vector3(0, 0, -83)
 	ship.rotation.y = PI
-	add_child(ship)
+	if ship.get_parent() == null:
+		add_child(ship)
 	var renderer = load("res://systems/rendering/approach_3d_view.gd").new()
 	renderer._add_ship_lanterns(ship)
 	renderer.free()

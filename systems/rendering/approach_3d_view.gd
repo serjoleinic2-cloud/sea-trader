@@ -52,6 +52,7 @@ var _manual_close_view: bool = false
 var _battle_camera_was_active: bool = false
 var _camera_orbit_yaw: float = 0.0
 var _camera_orbit_pitch: float = 0.0
+var _close_camera_scale: float = 0.9
 var _touch_points: Dictionary = {}
 var _last_touch_distance: float = 0.0
 
@@ -217,6 +218,15 @@ func _unhandled_input(event: InputEvent) -> void:
 	if str(GameState.ship_state.get("docked_port_id", "")) != "":
 		_orbit_dragging = false
 		return
+	if event is InputEventMouseButton and event.pressed and (_manual_close_view or _transition_factor > 0.7):
+		if event.button_index == MOUSE_BUTTON_WHEEL_UP:
+			_close_camera_scale = maxf(0.58, _close_camera_scale * 0.84)
+			get_viewport().set_input_as_handled()
+			return
+		if event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
+			_close_camera_scale = minf(1.35, _close_camera_scale / 0.84)
+			get_viewport().set_input_as_handled()
+			return
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT:
 		_orbit_dragging = event.pressed
 		if event.pressed:
@@ -430,7 +440,17 @@ func _cyclic_pulse(phase: float, center: float, core: float, fade: float) -> flo
 
 func _add_ship_lanterns(ship: Node3D, positions: Array = [], cast_light: bool = true) -> void:
 	var brass := _material(Color("806132"), 0.5)
-	if positions.is_empty():
+	var artist_glb: bool = bool(ship.get_meta("local_glb_ship", false))
+	if artist_glb:
+		# Coordinates are in the unscaled GLB space because the whole wrapper is
+		# scaled to its in-game length. Read the actual deck top from the GLB so
+		# lamps stay mounted on ships with different hull heights.
+		var reference_length: float = float(ship.get_meta("reference_length", 6.15))
+		var half_span: float = reference_length * 0.075
+		var aft_position: float = reference_length * 0.28
+		var deck_top: float = _local_glb_deck_top(ship)
+		positions = [[-half_span, deck_top + 0.11, aft_position], [half_span, deck_top + 0.11, aft_position]]
+	elif positions.is_empty():
 		positions = [[0.45, 1.38, 2.64], [-0.58, 0.94, -1.9]]
 	for coordinates in positions:
 		var at := Vector3(float(coordinates[0]), float(coordinates[1]), float(coordinates[2]))
@@ -438,26 +458,63 @@ func _add_ship_lanterns(ship: Node3D, positions: Array = [], cast_light: bool = 
 		lantern.name = "KeroseneLantern"
 		lantern.position = at
 		ship.add_child(lantern)
-		_add_box(lantern, Vector3(0.18, 0.035, 0.18), Vector3(0, -0.105, 0), brass)
-		_add_box(lantern, Vector3(0.20, 0.05, 0.20), Vector3(0, 0.12, 0), brass)
-		for x in [-0.075, 0.075]:
-			for z in [-0.075, 0.075]:
-				_add_box(lantern, Vector3(0.015, 0.22, 0.015), Vector3(x, 0, z), brass)
+		var base_size := Vector3(0.18, 0.035, 0.18) if not artist_glb else Vector3(0.105, 0.025, 0.105)
+		var cap_size := Vector3(0.20, 0.05, 0.20) if not artist_glb else Vector3(0.115, 0.022, 0.115)
+		var post_width: float = 0.015 if not artist_glb else 0.008
+		var post_height: float = 0.22 if not artist_glb else 0.075
+		var post_offsets: Array = [-0.075, 0.075] if not artist_glb else [-0.043, 0.043]
+		_add_box(lantern, base_size, Vector3(0, -0.105 if not artist_glb else -0.015, 0), brass)
+		_add_box(lantern, cap_size, Vector3(0, 0.12 if not artist_glb else 0.045, 0), brass)
+		for x in post_offsets:
+			for z in post_offsets:
+				_add_box(lantern, Vector3(post_width, post_height, post_width), Vector3(x, 0, z), brass)
 		var glow := _material(Color("efb765"), 0.45)
 		glow.emission_enabled = true
 		glow.emission = Color("ffad42")
-		var flame := _add_box(lantern, Vector3(0.08, 0.16, 0.08), Vector3.ZERO, glow)
+		var flame_size := Vector3(0.08, 0.16, 0.08) if not artist_glb else Vector3(0.045, 0.075, 0.045)
+		var flame := _add_box(lantern, flame_size, Vector3.ZERO, glow)
 		flame.name = "WarmFlame"
 		var light := OmniLight3D.new()
 		light.name = "WarmLight"
 		light.light_color = Color("ffb65c")
-		light.omni_range = 4.0
+		light.omni_range = 4.0 if not artist_glb else 1.25
 		light.omni_attenuation = 1.5
 		light.shadow_enabled = false
 		if cast_light:
 			lantern.add_child(light)
 		else:
 			light.free()
+
+
+func _local_glb_deck_top(ship: Node3D) -> float:
+	var deck_top: float = -INF
+	var pending: Array[Node] = [ship]
+	while not pending.is_empty():
+		var current: Node = pending.pop_back()
+		if current is MeshInstance3D:
+			var mesh_instance := current as MeshInstance3D
+			if mesh_instance.mesh != null:
+				var is_deck := false
+				for surface in range(mesh_instance.mesh.get_surface_count()):
+					var material: Material = mesh_instance.get_surface_override_material(surface)
+					if material == null:
+						material = mesh_instance.mesh.surface_get_material(surface)
+					var material_name: String = material.resource_name.to_lower() if material != null else ""
+					if "палуб" in material_name or "deck" in material_name:
+						is_deck = true
+						break
+				if is_deck:
+					var local_transform: Transform3D = mesh_instance.transform
+					var ancestor: Node = mesh_instance.get_parent()
+					while ancestor != null and ancestor != ship:
+						if ancestor is Node3D:
+							local_transform = (ancestor as Node3D).transform * local_transform
+						ancestor = ancestor.get_parent()
+					var bounds: AABB = local_transform * mesh_instance.get_aabb()
+					deck_top = maxf(deck_top, bounds.end.y)
+		for child in current.get_children():
+			pending.append(child)
+	return deck_top if is_finite(deck_top) else 0.52
 
 
 func _update_ship_lanterns(night: float) -> void:
@@ -476,7 +533,7 @@ func _update_lanterns_for(ship: Node3D, night: float) -> void:
 			continue
 		var light: OmniLight3D = lantern.get_node_or_null("WarmLight")
 		if light != null:
-			light.light_energy = strength * 1.1 * flicker
+			light.light_energy = strength * (1.1 if not bool(ship.get_meta("local_glb_ship", false)) else 0.55) * flicker
 			light.visible = strength > 0.01
 		var flame: MeshInstance3D = lantern.get_node("WarmFlame")
 		flame.material_override.emission_energy_multiplier = strength * 2.5 * flicker
@@ -749,7 +806,13 @@ func _add_floating_island(parent: Node3D, main_radius: float, seed_value: int) -
 
 func _attach_catalog_scene(parent: Node3D, category: String, identity: String, target_size_m: float, faction_id: String = "") -> Node3D:
 	if category == "ships" and bool(GameData.get_ship(identity).get("warship", false)):
-		return preload("res://systems/rendering/naval_ship_factory.gd").new().attach(parent, identity, target_size_m)
+		return preload("res://systems/rendering/naval_ship_factory.gd").new().attach(parent, identity, target_size_m, true, faction_id)
+	# Crystari civilian workbench models stay in the Git-ignored work/ folder.
+	# Use them locally when present and retain the faction catalog fallback otherwise.
+	if category == "ships" and faction_id == "crystari" and identity in ["ship_sloop", "ship_barque", "ship_schooner", "ship_freighter", "ship_tanker"]:
+		var local_visual: Dictionary = GameData.read("res://data/world/ship_visuals.json").get("ships", {}).get(identity, {})
+		if FileAccess.file_exists(str(local_visual.get("local_glb", ""))):
+			return preload("res://systems/rendering/naval_ship_factory.gd").new().attach(parent, identity, target_size_m, true, faction_id)
 	var categories: Dictionary = _asset_catalog.get("categories", {})
 	var entries: Array = categories.get(category, [])
 	var local_workbench_scene := ""
@@ -1109,8 +1172,8 @@ func _update_camera(ship_position: Vector2, close_factor: float, delta: float, m
 	var map_view_height: float = get_viewport().get_visible_rect().size.y / maxf(map_zoom.y, 0.01) * MAP_TO_METERS
 	var start_fov: float = 18.0
 	var top_down_height: float = map_view_height / (2.0 * tan(deg_to_rad(start_fov * 0.5)))
-	var camera_back: float = lerpf(0.0, 14.0, close_factor)
-	var camera_height: float = lerpf(top_down_height, 5.2, close_factor)
+	var camera_back: float = lerpf(0.0, 14.0 * _close_camera_scale, close_factor)
+	var camera_height: float = lerpf(top_down_height, 5.2 * _close_camera_scale, close_factor)
 	var orbit_forward: Vector3 = forward.rotated(Vector3.UP, _camera_orbit_yaw)
 	var desired_camera_position: Vector3 = ship_world_position - orbit_forward * camera_back + Vector3.UP * camera_height
 	if _camera_initialized:
@@ -1118,7 +1181,7 @@ func _update_camera(ship_position: Vector2, close_factor: float, delta: float, m
 	else:
 		_camera.position = desired_camera_position
 		_camera_initialized = true
-	var look_distance: float = lerpf(0.0, 8.0, close_factor)
+	var look_distance: float = lerpf(0.0, 8.0 * _close_camera_scale, close_factor)
 	var focus: Vector3 = ship_world_position + orbit_forward * look_distance + Vector3.UP * (0.8 * close_factor + tan(_camera_orbit_pitch) * 12.0 * close_factor)
 	var map_up := Vector3(0.0, 0.0, -1.0)
 	_camera.look_at(focus, map_up.lerp(Vector3.UP, close_factor).normalized())
